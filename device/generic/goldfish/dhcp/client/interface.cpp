@@ -16,12 +16,25 @@
 
 #include "interface.h"
 
+#include "netlink.h"
+
 #include <errno.h>
 #include <linux/if.h>
 #include <linux/if_ether.h>
 #include <linux/route.h>
+#include <linux/rtnetlink.h>
 #include <string.h>
 #include <unistd.h>
+
+in_addr_t broadcastFromNetmask(in_addr_t address, in_addr_t netmask) {
+    // The broadcast address is the address with the bits excluded in the
+    // netmask set to 1. For example if address = 10.0.2.15 and netmask is
+    // 255.255.255.0 then the broadcast is 10.0.2.255. If instead netmask was
+    // 255.0.0.0.0 then the broadcast would be 10.255.255.255
+    //
+    // Simply set all the lower bits to 1 and that should do it.
+    return address | (~netmask);
+}
 
 Interface::Interface() : mSocketFd(-1) {
 }
@@ -40,7 +53,7 @@ Result Interface::init(const char* interfaceName) {
         return Result::error("Interface initialized more than once");
     }
 
-    mSocketFd = ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_IP);
+    mSocketFd = ::socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (mSocketFd == -1) {
         return Result::error("Failed to create interface socket for '%s': %s",
                              interfaceName, strerror(errno));
@@ -61,7 +74,7 @@ Result Interface::init(const char* interfaceName) {
         return res;
     }
 
-    res = setAddress(0);
+    res = setAddress(0, 0);
     if (!res) {
         return res;
     }
@@ -93,37 +106,65 @@ Result Interface::setMtu(uint16_t mtu) {
     return Result::success();
 }
 
-Result Interface::setAddress(in_addr_t address) {
-    struct ifreq request = createRequest();
+Result Interface::setAddress(in_addr_t address, in_addr_t subnetMask) {
+    struct Request {
+        struct nlmsghdr hdr;
+        struct ifaddrmsg msg;
+        char buf[256];
+    } request;
 
-    auto requestAddr = reinterpret_cast<struct sockaddr_in*>(&request.ifr_addr);
-    requestAddr->sin_family = AF_INET;
-    requestAddr->sin_port = 0;
-    requestAddr->sin_addr.s_addr = address;
+    memset(&request, 0, sizeof(request));
 
-    int status = ::ioctl(mSocketFd, SIOCSIFADDR, &request);
-    if (status != 0) {
-        return Result::error("Failed to set interface address for '%s': %s",
-                             mInterfaceName.c_str(), strerror(errno));
+    request.hdr.nlmsg_len = NLMSG_LENGTH(sizeof(request.msg));
+    request.hdr.nlmsg_type = RTM_NEWADDR;
+    request.hdr.nlmsg_flags = NLM_F_REQUEST |
+                              NLM_F_ACK |
+                              NLM_F_CREATE |
+                              NLM_F_REPLACE;
+
+    request.msg.ifa_family = AF_INET;
+    // Count the number of bits in the subnet mask, this is the length.
+    request.msg.ifa_prefixlen = __builtin_popcount(subnetMask);
+    request.msg.ifa_index = mIndex;
+
+    addRouterAttribute(request, IFA_ADDRESS, &address, sizeof(address));
+    addRouterAttribute(request, IFA_LOCAL, &address, sizeof(address));
+    in_addr_t broadcast = broadcastFromNetmask(address, subnetMask);
+    addRouterAttribute(request, IFA_BROADCAST, &broadcast, sizeof(broadcast));
+
+    struct sockaddr_nl nlAddr;
+    memset(&nlAddr, 0, sizeof(nlAddr));
+    nlAddr.nl_family = AF_NETLINK;
+
+    int status = ::sendto(mSocketFd, &request, request.hdr.nlmsg_len, 0,
+                          reinterpret_cast<sockaddr*>(&nlAddr),
+                          sizeof(nlAddr));
+    if (status == -1) {
+        return Result::error("Unable to set interface address: %s",
+                             strerror(errno));
     }
-
-    return Result::success();
-}
-
-Result Interface::setSubnetMask(in_addr_t subnetMask) {
-    struct ifreq request = createRequest();
-
-    auto addr = reinterpret_cast<struct sockaddr_in*>(&request.ifr_addr);
-    addr->sin_family = AF_INET;
-    addr->sin_port = 0;
-    addr->sin_addr.s_addr = subnetMask;
-
-    int status = ::ioctl(mSocketFd, SIOCSIFNETMASK, &request);
-    if (status != 0) {
-        return Result::error("Failed to set subnet mask for '%s': %s",
-                             mInterfaceName.c_str(), strerror(errno));
+    char buffer[8192];
+    status = ::recv(mSocketFd, buffer, sizeof(buffer), 0);
+    if (status < 0) {
+        return Result::error("Unable to read netlink response: %s",
+                             strerror(errno));
     }
-
+    size_t responseSize = static_cast<size_t>(status);
+    if (responseSize < sizeof(nlmsghdr)) {
+        return Result::error("Received incomplete response from netlink");
+    }
+    auto response = reinterpret_cast<const nlmsghdr*>(buffer);
+    if (response->nlmsg_type == NLMSG_ERROR) {
+        if (responseSize < NLMSG_HDRLEN + sizeof(nlmsgerr)) {
+            return Result::error("Recieved an error from netlink but the "
+                                 "response was incomplete");
+        }
+        auto err = reinterpret_cast<const nlmsgerr*>(NLMSG_DATA(response));
+        if (err->error) {
+            return Result::error("Could not set interface address: %s",
+                                 strerror(-err->error));
+        }
+    }
     return Result::success();
 }
 

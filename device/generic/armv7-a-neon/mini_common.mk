@@ -16,6 +16,9 @@ PRODUCT_BRAND := mini
 PRODUCT_DEVICE := mini
 PRODUCT_NAME := mini
 
+PRODUCT_SOONG_NAMESPACES += device/generic/goldfish
+PRODUCT_SOONG_NAMESPACES += device/generic/goldfish-opengl
+
 # add all configurations
 PRODUCT_AAPT_CONFIG := normal ldpi mdpi hdpi xhdpi xxhdpi
 PRODUCT_AAPT_PREF_CONFIG := hdpi

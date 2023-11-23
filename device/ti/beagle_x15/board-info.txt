@@ -1,0 +1,1 @@
+require board=beagle_x15|beagle_x15_revb1|beagle_x15_revc|am57xx_evm_reva3|am57xx_evm|am574x_idk|am572x_idk|am571x_idk

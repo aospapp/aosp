@@ -1,0 +1,73 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+allow crash_dump aee_exp_data_file:file rw_file_perms;
+allow crash_dump aee_exp_data_file:dir r_dir_perms;
+
+# Date : WK14.32
+# Operation : AEE UT
+# Purpose : for AEE module
+allow crash_dump aed_device:chr_file rw_file_perms;
+allow crash_dump expdb_device:chr_file rw_file_perms;
+allow crash_dump expdb_block_device:blk_file rw_file_perms;
+allow crash_dump etb_device:chr_file rw_file_perms;
+
+# open/dev/mtd/mtd12 failed(expdb)
+allow crash_dump mtd_device:dir create_dir_perms;
+allow crash_dump mtd_device:chr_file rw_file_perms;
+
+# NE flow: /dev/RT_Monitor
+allow crash_dump RT_Monitor_device:chr_file r_file_perms;
+
+#data/aee_exp
+allow crash_dump aee_exp_data_file:dir create_dir_perms;
+allow crash_dump aee_exp_data_file:file create_file_perms;
+
+#data/dumpsys
+allow crash_dump aee_dumpsys_data_file:dir create_dir_perms;
+allow crash_dump aee_dumpsys_data_file:file create_file_perms;
+
+#/data/core
+allow crash_dump aee_core_data_file:dir create_dir_perms;
+allow crash_dump aee_core_data_file:file create_file_perms;
+
+# /data/data_tmpfs_log
+allow crash_dump data_tmpfs_log_file:dir create_dir_perms;
+allow crash_dump data_tmpfs_log_file:file create_file_perms;
+
+# Purpose: crash_dump set property
+set_prop(crash_dump, persist_mtk_aee_prop);
+set_prop(crash_dump, persist_aee_prop);
+set_prop(crash_dump, debug_mtk_aee_prop);
+
+# /proc/lk_env
+allow crash_dump proc_lk_env:file rw_file_perms;
+
+# Purpose: Allow crash_dump to read /proc/pid/exe
+#allow crash_dump exec_type:file r_file_perms;
+
+# Purpose: Allow crash_dump to read /proc/cpu/alignment
+allow crash_dump proc_cpu_alignment:file { write open };
+
+# Purpose: Allow crash_dump to access /sys/devices/virtual/timed_output/vibrator/enable
+allow crash_dump sysfs_vibrator_setting:dir search;
+allow crash_dump sysfs_vibrator_setting:file w_file_perms;
+allow crash_dump sysfs_vibrator:dir search;
+allow crash_dump sysfs_leds:dir search;
+
+# Purpose: Allow crash_dump to read /proc/kpageflags
+allow crash_dump proc_kpageflags:file r_file_perms;
+
+# temp solution
+get_prop(crash_dump, vendor_default_prop)
+
+hal_client_domain(crash_dump, mtk_hal_aee)
+
+# Purpose: create /data/aee_exp at runtime
+allow crash_dump file_contexts_file:file r_file_perms;
+allow crash_dump aee_exp_data_file:dir relabelto;
+
+allow crash_dump proc_ppm:dir r_dir_perms;
+allow crash_dump proc_ppm:file rw_file_perms;
+allow crash_dump selinuxfs:file r_file_perms;

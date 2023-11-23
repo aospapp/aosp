@@ -1,0 +1,6 @@
+# ======================
+# MTK Policy Rule
+# ======================
+
+# =======drmserver======
+allow drmserver access_sys_file:file { read open };

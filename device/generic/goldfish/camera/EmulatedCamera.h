@@ -27,6 +27,7 @@
  */
 
 #include <CameraParameters.h>
+#include <ui/GraphicBufferMapper.h>
 #include "EmulatedBaseCamera.h"
 #include "EmulatedCameraDevice.h"
 #include "PreviewWindow.h"
@@ -55,7 +56,8 @@ public:
      *  module - Emulated camera HAL module descriptor.
      */
     EmulatedCamera(int cameraId,
-                   struct hw_module_t* module);
+                   struct hw_module_t* module,
+                   GraphicBufferMapper* gbm);
 
     /* Destructs EmulatedCamera instance. */
     virtual ~EmulatedCamera();

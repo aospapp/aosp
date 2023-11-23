@@ -82,10 +82,12 @@ $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hard
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.nfc.xml)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.nfc.hce.xml)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.nfc.hcef.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/com.nxp.mifare.xml)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.vr.headtracking.xml)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.vr.high_performance.xml)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.vulkan.level.xml)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.vulkan.version.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.software.vulkan.deqp.level.xml)
 
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/wifi/wpa_supplicant_overlay.conf)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/wifi/p2p_supplicant_overlay.conf)
@@ -201,3 +203,10 @@ $(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/lib/hw/android.hardware.grap
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/lib64/hw/android.hardware.graphics.mapper@2.0-impl.so)
 # Rename power HAL
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.power@1.2-service.wahoo-libperfmgr.rc)
+
+# Remove obsolete android.hardware.boot@1.0-impl-wrapper.recovery.so
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/system/lib64/hw/android.hardware.boot@1.0-impl-wrapper.recovery.so)
+
+# Vibrator HAL 1.2 renamed from 'wahoo' to 'drv2624'
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.vibrator@1.2-service.wahoo.rc)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.vibrator@1.2-service.wahoo)

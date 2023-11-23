@@ -43,8 +43,7 @@ namespace online_calibration {
 class MagDiverseCal final : public OnlineCalibration<CalibrationDataThreeAxis> {
  public:
   // Empirically estimated upper bounds on offset error.
-  static constexpr float kLowQualityUt = 1000.0f;  // Units of micro Tesla
-  static constexpr float kHighQualityUt = 5.0f;    // Units of micro Tesla
+  static constexpr float kHighQualityUt = 5.0f;  // Units of micro Tesla
 
   MagDiverseCal() = default;
 
@@ -71,6 +70,9 @@ class MagDiverseCal final : public OnlineCalibration<CalibrationDataThreeAxis> {
   SensorType get_sensor_type() const final {
     return SensorType::kMagnetometerUt;
   };
+
+  // Accessor for the runtime calibration object.
+  const MagCal& get_mag_cal() const { return mag_cal_; }
 
  private:
   // MagCal algorithm data structure.

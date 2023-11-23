@@ -22,6 +22,8 @@
 #ifndef LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_UTIL_CAL_LOG_H_
 #define LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_UTIL_CAL_LOG_H_
 
+#include "common/math/macros.h"
+
 // clang-format off
 #ifdef GCC_DEBUG_LOG
 # include <stdio.h>
@@ -55,10 +57,6 @@
 extern "C" {
 #endif
 
-// Floor macro implementation for platforms that do not supply the standard
-// floorf() math function.
-#define CAL_FLOOR(x) ((int)(x) - ((x) < (int)(x)))  // NOLINT
-
 /*
  * On some embedded software platforms numerical string formatting is not fully
  * supported. Defining CAL_NO_FLOAT_FORMAT_STRINGS will enable a workaround that
@@ -71,8 +69,8 @@ extern "C" {
 #ifdef CAL_NO_FLOAT_FORMAT_STRINGS
 // Macro used to print floating point numbers with a specified number of digits.
 # define CAL_ENCODE_FLOAT(x, num_digits)           \
-  ((x < 0) ? "-" : ""), (int)CAL_FLOOR(fabsf(x)),  \
-      (int)((fabsf(x) - CAL_FLOOR(fabsf(x))) *     \
+  ((x < 0) ? "-" : ""), (int)NANO_FLOOR(fabsf(x)),  \
+      (int)((fabsf(x) - NANO_FLOOR(fabsf(x))) *     \
             powf(10, num_digits))  // NOLINT
 
 // Helper definitions for CAL_ENCODE_FLOAT to specify the print format with

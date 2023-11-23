@@ -434,6 +434,8 @@ int gl2_client_context_t::initDispatchByName(void *(*getProc)(const char *, void
 	glDrawElementsNullAEMU = (glDrawElementsNullAEMU_client_proc_t) getProc("glDrawElementsNullAEMU", userData);
 	glDrawElementsOffsetNullAEMU = (glDrawElementsOffsetNullAEMU_client_proc_t) getProc("glDrawElementsOffsetNullAEMU", userData);
 	glDrawElementsDataNullAEMU = (glDrawElementsDataNullAEMU_client_proc_t) getProc("glDrawElementsDataNullAEMU", userData);
+	glUnmapBufferAsyncAEMU = (glUnmapBufferAsyncAEMU_client_proc_t) getProc("glUnmapBufferAsyncAEMU", userData);
+	glFlushMappedBufferRangeAEMU2 = (glFlushMappedBufferRangeAEMU2_client_proc_t) getProc("glFlushMappedBufferRangeAEMU2", userData);
 	return 0;
 }
 

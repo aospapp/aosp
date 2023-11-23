@@ -1,0 +1,10 @@
+cc_library_shared {
+    name: "hwcomposer.drm_imagination",
+    defaults: ["hwcomposer.drm_defaults"],
+    srcs: [":drm_hwcomposer_platformimagination"],
+    whole_static_libs: ["drm_hwcomposer"],
+    shared_libs: ["libion"],
+    include_dirs: [
+        "hardware/ti/am57x/libhwcomposer",
+    ],
+}

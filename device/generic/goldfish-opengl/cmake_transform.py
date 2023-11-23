@@ -88,9 +88,9 @@ def generate_module(module):
         'android_validate_sha256("${GOLDFISH_DEVICE_ROOT}/%s" "%s")' % (mkfile, sha256))
     make.append('set(%s_src %s)' % (name, ' '.join(module['src'])))
     if module['type'] == 'SHARED_LIBRARY':
-        make.append('android_add_shared_library(%s)' % name)
+        make.append('android_add_library(TARGET {} SHARED LICENSE Apache-2.0 SRC {})'.format(name, ' '.join(module['src'])))
     elif module['type'] == 'STATIC_LIBRARY':
-        make.append('android_add_library(%s)' % name)
+        make.append('android_add_library(TARGET {} LICENSE Apache-2.0 SRC {})'.format(name, ' '.join(module['src'])))
     else:
         raise ValueError('Unexpected module type: %s' % module['type'])
 
@@ -106,7 +106,7 @@ def generate_module(module):
     flags = [escape(d) for d in module['cflags'] if not d.startswith('-D')]
 
     # Make sure we remove the lib prefix from all our dependencies.
-    libs = [remove_lib_prefix(l) for l in module['libs']]
+    libs = [remove_lib_prefix(l) for l in module.get('libs', [])]
     staticlibs = [remove_lib_prefix(l) for l in
                       module.get('staticlibs', [])
                       if l != "libandroidemu"]

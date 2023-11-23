@@ -17,11 +17,7 @@
 #define _ERROR_LOG_H_
 
 #if defined(__ANDROID__)
-#    if PLATFORM_SDK_VERSION < 26
-#        include <cutils/log.h>
-#    else
-#        include <log/log.h>
-#    endif
+#    include <log/log.h>
 #    define ERR(...)    ALOGE(__VA_ARGS__)
 #    ifdef EMUGL_DEBUG
 #        define DBG(...)    ALOGD(__VA_ARGS__)
@@ -29,7 +25,7 @@
 #        define DBG(...)    ((void)0)
 #    endif
 #else
-#     include <stdio.h>
+#    include <stdio.h>
 #    define ERR(...)    fprintf(stderr, __VA_ARGS__)
 #    ifdef EMUGL_DEBUG
 #        define DBG(...)    fprintf(stderr, __VA_ARGS__)

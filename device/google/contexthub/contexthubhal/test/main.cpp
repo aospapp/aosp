@@ -142,8 +142,8 @@ private:
         hub_message_t msg = {
             .app_name = app,
             .message_type = typ,
-            .message = data,
             .message_len = len,
+            .message = data,
         };
         return sendMessage(id, msg);
     }

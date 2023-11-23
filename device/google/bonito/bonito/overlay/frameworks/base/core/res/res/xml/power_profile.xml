@@ -67,36 +67,37 @@
         <value>1747200</value> <!-- 1747 MHz CPU speed -->
         <value>1843200</value> <!-- 1843 MHz CPU speed -->
         <value>1996800</value> <!-- 1996 MHz CPU speed -->
-        <value>2016000</value> <!-- 2016 MHz CPU speed -->
     </array>
 
     <!-- Additional power used by a CPU core from cluster 0 when running at
          different speeds, excluding cluster and active cost -->
+    <!-- 6 cores + 6 cpueater & 100 % usage -->
     <array name="cpu.core_power.cluster0">
-        <value>91.48</value> <!-- 300 MHz CPU speed -->
-        <value>109.3</value> <!-- 576 MHz CPU speed -->
-        <value>121.12</value> <!-- 748 MHz CPU speed -->
-        <value>139.74</value> <!-- 998 MHz CPU speed -->
-        <value>150.07</value> <!-- 1209 MHz CPU speed -->
-        <value>170.91</value> <!-- 1324 MHz CPU speed -->
-        <value>190.12</value> <!-- 1516 MHz CPU speed -->
-        <value>214.74</value> <!-- 1708 MHz CPU speed -->
+        <value>42.52</value> <!-- 300 MHz CPU speed -->
+        <value>62.24</value> <!-- 576 MHz CPU speed -->
+        <value>71.48</value> <!-- 748 MHz CPU speed -->
+        <value>95.1</value> <!-- 998 MHz CPU speed -->
+        <value>110.86</value> <!-- 1209 MHz CPU speed -->
+        <value>125.09</value> <!-- 1324 MHz CPU speed -->
+        <value>145.31</value> <!-- 1516 MHz CPU speed -->
+        <value>181.24</value> <!-- 1708 MHz CPU speed -->
     </array>
 
     <!-- Additional power used by a CPU core from cluster 1 when running at
          different speeds, excluding cluster and active cost -->
+    <!-- 2 cores + 6 cpueater & 100 % usage -->
     <array name="cpu.core_power.cluster1">
-        <value>48.12</value> <!-- 300 MHz CPU speed -->
-        <value>55.12</value> <!-- 652 MHz CPU speed -->
-        <value>58</value> <!-- 825 MHz CPU speed -->
-        <value>63.35</value> <!-- 979 MHz CPU speed -->
-        <value>69.06</value> <!-- 1132 MHz CPU speed -->
-        <value>77.77</value> <!-- 1363 MHz CPU speed -->
-        <value>86.15</value> <!-- 1536 MHz CPU speed -->
-        <value>97.41</value> <!-- 1747 MHz CPU speed -->
-        <value>129.14</value> <!-- 1843 MHz CPU speed -->
-        <value>139.61</value> <!-- 1996 MHz CPU speed -->
-        <value>153.09</value> <!-- 2016 MHz CPU speed -->
+        <value>31.4</value> <!-- 300 MHz CPU speed -->
+        <value>38.5</value> <!-- 652 MHz CPU speed -->
+        <value>41.97</value> <!-- 825 MHz CPU speed -->
+        <value>46.25</value> <!-- 979 MHz CPU speed -->
+        <value>51.09</value> <!-- 1132 MHz CPU speed -->
+        <value>63.9</value> <!-- 1363 MHz CPU speed -->
+        <value>74.5</value> <!-- 1536 MHz CPU speed -->
+        <value>86.23</value> <!-- 1747 MHz CPU speed -->
+        <value>117.69</value> <!-- 1843 MHz CPU speed -->
+        <value>135.31</value> <!-- 1996 MHz CPU speed -->
+
     </array>
     <!-- Additional power used when screen is ambient mode -->
     <item name="ambient.on">24</item>
@@ -122,30 +123,30 @@
 
     <!-- Cellular modem related values.-->
     <item name="modem.controller.sleep">0</item>
-    <item name="modem.controller.idle">105</item>
-    <item name="modem.controller.rx">110</item>
+    <item name="modem.controller.idle">104</item>
+    <item name="modem.controller.rx">116</item>
     <array name="modem.controller.tx"> <!-- Strength 0 to 4 -->
-      <value>1</value>
-      <value>5</value>
-      <value>26</value>
-      <value>100</value>
-      <value>249</value>
+        <value>122</value>
+        <value>169</value>
+        <value>234</value>
+        <value>287</value>
+        <value>377</value>
     </array>
     <item name="modem.controller.voltage">3700</item>
 
     <!-- GPS related values.-->
     <array name="gps.signalqualitybased"> <!-- Strength 0 to 1 -->
-      <value>33</value>
-      <value>7</value>
+        <value>34</value>
+        <value>5</value>
     </array>
     <item name="gps.voltage">3700</item>
 
     <!-- Idle Receive current for wifi radio in mA.-->
-    <item name="wifi.controller.idle">1</item>
+    <item name="wifi.controller.idle">71</item>
     <!-- Rx current for wifi radio in mA.-->
-    <item name="wifi.controller.rx">125</item>
+    <item name="wifi.controller.rx">141</item>
     <!-- Tx current for wifi radio in mA-->
-    <item name="wifi.controller.tx">350</item>
+    <item name="wifi.controller.tx">396</item>
     <!-- Operating volatage for wifi radio in mV.-->
     <item name="wifi.controller.voltage">3700</item>
 

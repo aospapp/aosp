@@ -1,0 +1,84 @@
+These instructions will help you flashing the prebuilt bootloader
+and AOSP images(built from sources) on db845c.
+
+First, you wil need to have first built AOSP for the
+db845c-userdebug lunch target.
+
+
+Boot the board into fastboot mode:
+----------------------------------
+The easiest way to boot into fastboot mode is to run something
+like "adb reboot bootloader" from the host, or
+"reboot bootloader" on the device.  However, this
+functionality may depend on the software installed on the board
+to work, so you may need to manually enter fastboot mode as
+follows.
+
+
+To manually enter fastboot mode:
+--------------------------------
+* To manually boot the board into fastboot mode, press DOWN arrow
+  key over serial UART console when restarting the board.
+
+                         OR
+
+* Disconnect the power *and* USB-C cable. Flip the board over, and
+  while holding down the "VOL-" button plug in the power cable.
+  Continue holding down the "VOL-" button and tap the "ON/OFF"
+  button. The board should then boot to fastboot mode. Be sure to
+  then re-connect the USB-C cable so that you can flash the board.
+
+If HDMI is plugged in, you should see a text based
+"FastBoot Mode" prompt on your screen. Or you can check by running
+"fastboot devices" on your host which will print something like:
+
+  $ fastboot devices
+  c4e1189c        fastboot
+
+
+Flash the board:
+----------------
+Once the board is in fastboot mode, you can then flash it by
+running the following from the
+device/linaro/dragonboard/installer/db845c/ directory:
+
+  $ ./flash-all-aosp.sh <optional_kernel_binary>
+
+
+This will flash the bootloader binaries, AOSP images (userdata.img
+and super.img), and will also generate and flash boot.img if kernel
+binary (in Image.gz-dtb format) is passed to the script.
+
+
+Troubleshooting:
+----------------
+* Make sure the USB-C cable is connected. As it has to be
+  removed to fully power the device down, it is easy to forget
+  to reconnect it!
+
+* If you cannot get the board into fastboot mode, or for some
+  reason the flash-all-aosp.sh script does not work, you can do
+  a full recovery flash of the board using the following
+  instructions.
+
+
+Recovery:
+--------
+First boot into recovery mode. After removing the power cable
+and the USB-C cable, connect power while holding the "USB"
+button (next to volume buttons near the USB-A ports). While
+continuing to hold down the "USB" button, tap the "ON/OFF"
+button. Then re-connect USB-C cable. There will be no HDMI
+display output in recovery mode, and initially no serial output.
+
+Then run the recovery script from the
+device/linaro/dragonboard/installer/db845c/ directory:
+
+  $ ./recovery.sh
+
+This will do a recovery flash of the ptable and bootloader
+binaries. After it is finished, the board will reboot.
+
+Depending on the state of the board, it will enter fastboot
+or may boot to a previously installed kernel. At that point
+you may start again from the top of this document.

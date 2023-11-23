@@ -14,7 +14,8 @@
 // limitations under the License.
 #include "AndroidHardwareBuffer.h"
 
-#include "gralloc_cb.h"
+#include "../OpenglSystemCommon/HostConnection.h"
+
 #include "vk_format_info.h"
 #include "vk_util.h"
 
@@ -53,6 +54,7 @@ getAndroidHardwareBufferUsageFromVkUsage(const VkImageCreateFlags vk_create,
 }
 
 VkResult getAndroidHardwareBufferPropertiesANDROID(
+    Gralloc* grallocHelper,
     const HostVisibleMemoryVirtualizationInfo* hostMemVirtInfo,
     VkDevice,
     const AHardwareBuffer* buffer,
@@ -111,10 +113,8 @@ VkResult getAndroidHardwareBufferPropertiesANDROID(
 
     const native_handle_t *handle =
        AHardwareBuffer_getNativeHandle(buffer);
-    const cb_handle_t* cb_handle =
-        reinterpret_cast<const cb_handle_t*>(handle);
-    uint32_t colorBufferHandle = cb_handle->hostHandle;
-
+    uint32_t colorBufferHandle =
+        grallocHelper->getHostHandle(handle);
     if (!colorBufferHandle) {
         return VK_ERROR_INVALID_EXTERNAL_HANDLE;
     }
@@ -130,7 +130,7 @@ VkResult getAndroidHardwareBufferPropertiesANDROID(
 
     pProperties->memoryTypeBits = memoryTypeBits;
     pProperties->allocationSize =
-        cb_handle->ashmemBase ? cb_handle->ashmemSize : 0;
+        grallocHelper->getAllocatedSize(handle);
 
     return VK_SUCCESS;
 }
@@ -157,6 +157,7 @@ VkResult getMemoryAndroidHardwareBufferANDROID(struct AHardwareBuffer **pBuffer)
 }
 
 VkResult importAndroidHardwareBuffer(
+    Gralloc* grallocHelper,
     const VkImportAndroidHardwareBufferInfoANDROID* info,
     struct AHardwareBuffer **importOut) {
 
@@ -164,12 +165,9 @@ VkResult importAndroidHardwareBuffer(
         return VK_ERROR_INVALID_EXTERNAL_HANDLE;
     }
 
-    const native_handle_t *handle =
-       AHardwareBuffer_getNativeHandle(info->buffer);
-    const cb_handle_t* cb_handle =
-        reinterpret_cast<const cb_handle_t*>(handle);
-    uint32_t colorBufferHandle = cb_handle->hostHandle;
-
+    uint32_t colorBufferHandle =
+        grallocHelper->getHostHandle(
+            AHardwareBuffer_getNativeHandle(info->buffer));
     if (!colorBufferHandle) {
         return VK_ERROR_INVALID_EXTERNAL_HANDLE;
     }
@@ -212,12 +210,14 @@ VkResult createAndroidHardwareBuffer(
        w = bufferSize;
        format = AHARDWAREBUFFER_FORMAT_BLOB;
        usage = AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN |
-               AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN;
+               AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN |
+               AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER;
     } else {
        w = allocationInfoAllocSize;
        format = AHARDWAREBUFFER_FORMAT_BLOB;
        usage = AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN |
-               AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN;
+               AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN |
+               AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER;
     }
 
     struct AHardwareBuffer *ahw = NULL;

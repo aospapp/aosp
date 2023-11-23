@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-#include <wifi_hal.h>
-
+#include <memory>
 #include "halstate.h"
 #include "info.h"
 #include "interface.h"
-
-#include <memory>
 
 template<typename>
 struct NotSupportedFunction;
@@ -369,6 +366,35 @@ wifi_get_wake_reason_stats(wifi_interface_handle handle,
 
     return asInterface(handle)->getWakeReasonStats(wifi_wake_reason_cnt);
 }
+wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
+                                               wifi_interface_handle handle,
+                                               u16 ether_type,
+                                               u8 *ip_packet,
+                                               u16 ip_packet_len,
+                                               u8 *src_mac_addr,
+                                               u8 *dst_mac_addr,
+                                               u32 period_msec) {
+    if (handle == nullptr) {
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    return asInterface(handle)->startSendingOffloadedPacket(id,
+                                                            ether_type,
+                                                            ip_packet,
+                                                            ip_packet_len,
+                                                            src_mac_addr,
+                                                            dst_mac_addr,
+                                                            period_msec);
+}
+
+wifi_error wifi_stop_sending_offloaded_packet(wifi_request_id id,
+                                              wifi_interface_handle handle) {
+    if (handle == nullptr) {
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    return asInterface(handle)->stopSendingOffloadedPacket(id);
+}
 
 wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn* fn)
 {
@@ -408,6 +434,10 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn* fn)
         = wifi_get_packet_filter_capabilities;
     fn->wifi_get_wake_reason_stats = wifi_get_wake_reason_stats;
 
+    fn->wifi_start_sending_offloaded_packet
+        = wifi_start_sending_offloaded_packet;
+    fn->wifi_stop_sending_offloaded_packet = wifi_stop_sending_offloaded_packet;
+
     // These function will either return WIFI_ERROR_NOT_SUPPORTED or do nothing
     notSupported(fn->wifi_set_nodfs_flag);
     notSupported(fn->wifi_get_concurrency_matrix);
@@ -431,8 +461,6 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn* fn)
     notSupported(fn->wifi_reset_log_handler);
     notSupported(fn->wifi_start_rssi_monitoring);
     notSupported(fn->wifi_stop_rssi_monitoring);
-    notSupported(fn->wifi_start_sending_offloaded_packet);
-    notSupported(fn->wifi_stop_sending_offloaded_packet);
     notSupported(fn->wifi_set_packet_filter);
 
     return WIFI_SUCCESS;

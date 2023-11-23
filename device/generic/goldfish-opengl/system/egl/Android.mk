@@ -6,7 +6,14 @@ $(call emugl-begin-shared-library,libEGL_emulation)
 $(call emugl-import,libOpenglSystemCommon)
 $(call emugl-set-shared-library-subpath,egl)
 
+ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
+$(call emugl-import,libqemupipe$(GOLDFISH_OPENGL_LIB_SUFFIX))
+else
+$(call emugl-export,STATIC_LIBRARIES,libqemupipe.ranchu)
+endif
+
 LOCAL_CFLAGS += -DLOG_TAG=\"EGL_emulation\" -DEGL_EGLEXT_PROTOTYPES -DWITH_GLES2
+LOCAL_CFLAGS += -Wno-gnu-designator
 
 LOCAL_SRC_FILES := \
     eglDisplay.cpp \
@@ -28,9 +35,6 @@ LOCAL_HEADER_LIBRARIES += libnativebase_headers
 LOCAL_STATIC_LIBRARIES += libarect
 LOCAL_SHARED_LIBRARIES += libnativewindow
 endif
-
-# Used to access the Bionic private OpenGL TLS slot
-LOCAL_C_INCLUDES += bionic/libc/private
 
 endif # !GOLDFISH_OPENGL_BUILD_FOR_HOST
 

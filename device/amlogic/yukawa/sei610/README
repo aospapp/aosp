@@ -1,0 +1,48 @@
+Build Yukawa userdebug image:
+=============================
+
+$ . ./build/envsetup.sh
+$ lunch yukawa-userdebug
+$ make -j24
+
+- For VIM3L: make TARGET_VIM3L=true -j24
+
+Compile Kernel:
+===============
+
+$ git clone https://android.googlesource.com/kernel/hikey-linaro
+$ export PATH=$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/clang-r365631c/bin:$PATH
+
+$ cd hikey-linaro
+$ git checkout -b android-amlogic-bmeson-4.19 origin/android-amlogic-bmeson-4.19
+$ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu- CC=clang meson_defconfig
+$ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu- CC=clang -j24
+$ lz4c -f arch/arm64/boot/Image arch/arm64/boot/Image.lz4
+$ cp arch/arm64/boot/Image.lz4 $ANDROID_BUILD_TOP/device/amlogic/yukawa-kernel
+$ cp arch/arm64/boot/dts/amlogic/meson-g12a-sei510.dtb $ANDROID_BUILD_TOP/device/amlogic/yukawa-kernel
+$ cp arch/arm64/boot/dts/amlogic/meson-sm1-sei610.dtb $ANDROID_BUILD_TOP/device/amlogic/yukawa-kernel
+$ cp arch/arm64/boot/dts/amlogic/meson-sm1-khadas-vim3l.dtb $ANDROID_BUILD_TOP/device/amlogic/yukawa-kernel
+
+$ cd <Path-to-AOSP>; rm out/target/product/yukawa/boot.img out/target/product/yukawa/kernel
+$ make bootimage -j24
+
+$ fastboot flash boot out/target/product/yukawa/boot.img
+
+- For VIM3L: make TARGET_VIM3L=true bootimage -j24
+- If yukawa-userdebug build was not launched, set direct path to aarch64:
+$ export PATH=$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$PATH
+
+Recover Bootloader:
+===================
+- Enter USB recovery mode by pressing USB Boot Button and turning Power ON
+$ update write u-boot_sei610.bin 0xfffa0000 0x10000
+$ update run 0xfffa0000
+$ update bl2_boot u-boot_sei610.bin
+$ fastboot oem format
+$ fastboot flash bootloader u-boot_sei610.bin
+$ fastboot erase bootenv
+$ fastboot reboot-bootloader
+
+- For VIM3L: use u-boot_kvim3l.bin
+
+Link to 'update' utility: https://github.com/khadas/utils/tree/master/aml-flash-tool/tools/linux-x86

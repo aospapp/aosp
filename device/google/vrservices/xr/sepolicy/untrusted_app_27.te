@@ -1,0 +1,2 @@
+allow untrusted_app_27 vr_hwc_service:service_manager find;
+allow untrusted_app_27 virtual_touchpad_service:service_manager find;

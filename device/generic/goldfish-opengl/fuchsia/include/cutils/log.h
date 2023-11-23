@@ -17,18 +17,17 @@ enum {
   ANDROID_LOG_SILENT,
 };
 
-#define android_printLog(prio, tag, ...) \
-  __android_log_print(prio, tag, __VA_ARGS__)
+#define android_printLog(prio, tag, format, ...) \
+  __android_log_print(prio, tag, "[prio %d] " format, prio, ##__VA_ARGS__)
 
 #define LOG_PRI(priority, tag, ...) android_printLog(priority, tag, __VA_ARGS__)
 #define ALOG(priority, tag, ...) LOG_PRI(ANDROID_##priority, tag, __VA_ARGS__)
 
 #define __android_second(dummy, second, ...) second
 #define __android_rest(first, ...) , ##__VA_ARGS__
-#define android_printAssert(condition, tag, ...)                \
-  __android_log_assert(condition, tag,                          \
-                       __android_second(0, ##__VA_ARGS__, NULL) \
-                           __android_rest(__VA_ARGS__))
+
+#define android_printAssert(condition, tag, format, ...)                \
+  __android_log_assert(condition, tag, "assert: condition: %s " format, condition, ##__VA_ARGS__)
 
 #define LOG_ALWAYS_FATAL_IF(condition, ...)                              \
   ((condition)                                                           \

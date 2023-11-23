@@ -55,6 +55,9 @@ int renderControl_client_context_t::initDispatchByName(void *(*getProc)(const ch
 	rcGetColorBufferDisplay = (rcGetColorBufferDisplay_client_proc_t) getProc("rcGetColorBufferDisplay", userData);
 	rcGetDisplayPose = (rcGetDisplayPose_client_proc_t) getProc("rcGetDisplayPose", userData);
 	rcSetDisplayPose = (rcSetDisplayPose_client_proc_t) getProc("rcSetDisplayPose", userData);
+	rcSetColorBufferVulkanMode = (rcSetColorBufferVulkanMode_client_proc_t) getProc("rcSetColorBufferVulkanMode", userData);
+	rcReadColorBufferYUV = (rcReadColorBufferYUV_client_proc_t) getProc("rcReadColorBufferYUV", userData);
+	rcIsSyncSignaled = (rcIsSyncSignaled_client_proc_t) getProc("rcIsSyncSignaled", userData);
 	return 0;
 }
 

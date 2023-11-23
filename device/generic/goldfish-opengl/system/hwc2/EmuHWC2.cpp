@@ -21,11 +21,14 @@
 #define LOG_TAG "EmuHWC2"
 
 #include <errno.h>
+#include <cutils/properties.h>
 #include <log/log.h>
 #include <sync/sync.h>
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <ui/GraphicBuffer.h>
+#include <ui/GraphicBufferAllocator.h>
 
 #include "../egl/goldfish_sync.h"
 
@@ -65,7 +68,6 @@ static HostConnection* createOrGetHostConnection() {
         return Error::NoResources; \
     }
 
-
 using namespace HWC2;
 
 namespace android {
@@ -79,6 +81,21 @@ EmuHWC2::EmuHWC2()
     getCapabilities = getCapabilitiesHook;
     getFunction = getFunctionHook;
     populateCapabilities();
+    initDisplayParameters();
+}
+
+Error EmuHWC2::initDisplayParameters() {
+    DEFINE_AND_VALIDATE_HOST_CONNECTION
+    hostCon->lock();
+
+    mDisplayWidth = rcEnc->rcGetFBParam(rcEnc, FB_WIDTH);
+    mDisplayHeight = rcEnc->rcGetFBParam(rcEnc, FB_HEIGHT);
+    mDisplayDpiX = rcEnc->rcGetFBParam(rcEnc, FB_XDPI);
+    mDisplayDpiY = rcEnc->rcGetFBParam(rcEnc, FB_YDPI);
+
+    hostCon->unlock();
+
+    return HWC2::Error::None;
 }
 
 void EmuHWC2::doGetCapabilities(uint32_t* outCount, int32_t* outCapabilities) {
@@ -218,6 +235,23 @@ hwc2_function_pointer_t EmuHWC2::doGetFunction(
                     displayHook<decltype(&Display::getClientTargetSupport),
                     &Display::getClientTargetSupport, uint32_t, uint32_t,
                                                       int32_t, int32_t>);
+        // 2.3 required functions
+        case FunctionDescriptor::GetDisplayIdentificationData:
+            return asFP<HWC2_PFN_GET_DISPLAY_IDENTIFICATION_DATA>(
+                    displayHook<decltype(&Display::getDisplayIdentificationData),
+                    &Display::getDisplayIdentificationData, uint8_t*, uint32_t*, uint8_t*>);
+        case FunctionDescriptor::GetDisplayCapabilities:
+            return asFP<HWC2_PFN_GET_DISPLAY_CAPABILITIES>(
+                    displayHook<decltype(&Display::getDisplayCapabilities),
+                    &Display::getDisplayCapabilities, uint32_t*, uint32_t*>);
+        case FunctionDescriptor::GetDisplayBrightnessSupport:
+            return asFP<HWC2_PFN_GET_DISPLAY_BRIGHTNESS_SUPPORT>(
+                    displayHook<decltype(&Display::getDisplayBrightnessSupport),
+                    &Display::getDisplayBrightnessSupport, bool*>);
+        case FunctionDescriptor::SetDisplayBrightness:
+            return asFP<HWC2_PFN_SET_DISPLAY_BRIGHTNESS>(
+                    displayHook<decltype(&Display::setDisplayBrightness),
+                    &Display::setDisplayBrightness, float>);
         // Layer functions
         case FunctionDescriptor::SetCursorPosition:
             return asFP<HWC2_PFN_SET_CURSOR_POSITION>(
@@ -349,61 +383,69 @@ Error EmuHWC2::registerCallback(Callback descriptor,
     if (descriptor == Callback::Hotplug) {
         lock.unlock();
         auto hotplug = reinterpret_cast<HWC2_PFN_VSYNC>(pointer);
-        hotplug(callbackData, 0, static_cast<int32_t>(Connection::Connected));
+        for (const auto& iter : mDisplays) {
+            hotplug(callbackData, iter.first, static_cast<int32_t>(Connection::Connected));
+        }
     }
 
     return Error::None;
 }
 
-//Gralloc Functions
-EmuHWC2::GrallocModule::GrallocModule() {
-    int ret;
+const native_handle_t* EmuHWC2::allocateDisplayColorBuffer() {
+    const uint32_t layerCount = 1;
+    const uint64_t graphicBufferId = 0; // not used
 
-    ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &mHw);
-    assert(ret == 0 && "Gralloc moudle not found");
-    mGralloc = reinterpret_cast<const gralloc_module_t*>(mHw);
+    buffer_handle_t h;
+    uint32_t stride;
 
-    ret = framebuffer_open(mHw, &mFbDev);
-    assert(ret == 0 && "Fail to open FrameBuffer device");
-}
-
-EmuHWC2::GrallocModule::~GrallocModule() {
-    if (mHandle != nullptr) {
-        mGralloc->unregisterBuffer(mGralloc, mHandle);
-        mAllocDev->free(mAllocDev, mHandle);
-        ALOGI("free targetCb %d", ((cb_handle_t*)(mHandle))->hostHandle);
+    if (GraphicBufferAllocator::get().allocate(
+        mDisplayWidth, mDisplayHeight,
+        PIXEL_FORMAT_RGBA_8888,
+        layerCount,
+        (GraphicBuffer::USAGE_HW_COMPOSER | GraphicBuffer::USAGE_HW_RENDER),
+        &h, &stride,
+        graphicBufferId, "EmuHWC2") == OK) {
+        return static_cast<const native_handle_t*>(h);
+    } else {
+        return nullptr;
     }
 }
 
-uint32_t EmuHWC2::GrallocModule::getTargetCb() {
-    if (mHandle == nullptr) {
-        int ret, stride;
-        ret = gralloc_open(mHw, &mAllocDev);
-        assert(ret == 0 && "Fail to open GPU device");
-        ret = mAllocDev->alloc(mAllocDev,
-                               mFbDev->width, mFbDev->height, mFbDev->format,
-                               GRALLOC_USAGE_HW_COMPOSER|GRALLOC_USAGE_HW_RENDER,
-                               &mHandle, &stride);
-        assert(ret == 0 && "Fail to allocate target ColorBuffer");
-        mGralloc->registerBuffer(mGralloc, mHandle);
-        ALOGI("targetCb %d", reinterpret_cast<const cb_handle_t*>(mHandle)
-              ->hostHandle);
-    }
-    return reinterpret_cast<const cb_handle_t*>(mHandle)->hostHandle;
+void EmuHWC2::freeDisplayColorBuffer(const native_handle_t* h) {
+    GraphicBufferAllocator::get().free(h);
 }
 
 // Display functions
+
+#define VSYNC_PERIOD_PROP "ro.kernel.qemu.vsync"
+
+static int getVsyncPeriodFromProperty() {
+    char displaysValue[PROPERTY_VALUE_MAX] = "";
+    property_get(VSYNC_PERIOD_PROP, displaysValue, "");
+    bool isValid = displaysValue[0] != '\0';
+
+    if (!isValid) return 60;
+
+    long vsyncPeriodParsed = strtol(displaysValue, 0, 10);
+
+    // On failure, strtol returns 0. Also, there's no reason to have 0
+    // as the vsync period.
+    if (!vsyncPeriodParsed) return 60;
+
+    return static_cast<int>(vsyncPeriodParsed);
+}
 
 std::atomic<hwc2_display_t> EmuHWC2::Display::sNextId(0);
 
 EmuHWC2::Display::Display(EmuHWC2& device, DisplayType type)
   : mDevice(device),
     mId(sNextId++),
+    mHostDisplayId(0),
     mName(),
     mType(type),
     mPowerMode(PowerMode::Off),
     mVsyncEnabled(Vsync::Invalid),
-    mVsyncPeriod(1000*1000*1000/60), // vsync is 60 hz
+    mVsyncPeriod(1000*1000*1000/getVsyncPeriodFromProperty()), // vsync is 60 hz
     mVsyncThread(*this),
     mClientTarget(),
     mChanges(),
@@ -414,10 +456,14 @@ EmuHWC2::Display::Display(EmuHWC2& device, DisplayType type)
     mActiveConfig(nullptr),
     mColorModes(),
     mSetColorTransform(false),
-    mStateMutex()
-    {
-        mVsyncThread.run("", HAL_PRIORITY_URGENT_DISPLAY);
-    }
+    mStateMutex() {
+        mVsyncThread.run("", -19 /* ANDROID_PRIORITY_URGENT_AUDIO */);
+        mTargetCb = device.allocateDisplayColorBuffer();
+}
+
+EmuHWC2::Display::~Display() {
+    mDevice.freeDisplayColorBuffer(mTargetCb);
+}
 
 Error EmuHWC2::Display::acceptChanges() {
     ALOGVV("%s: displayId %u", __FUNCTION__, (uint32_t)mId);
@@ -696,9 +742,15 @@ Error EmuHWC2::Display::present(int32_t* outRetireFence) {
     DEFINE_AND_VALIDATE_HOST_CONNECTION
     hostCon->lock();
     bool hostCompositionV1 = rcEnc->hasHostCompositionV1();
+    bool hostCompositionV2 = rcEnc->hasHostCompositionV2();
     hostCon->unlock();
 
-    if (hostCompositionV1) {
+    // if we supports v2, then discard v1
+    if (hostCompositionV2) {
+        hostCompositionV1 = false;
+    }
+
+    if (hostCompositionV2 || hostCompositionV1) {
         uint32_t numLayer = 0;
         for (auto layer: mLayers) {
             if (layer->getCompositionType() == Composition::Device ||
@@ -714,19 +766,36 @@ Error EmuHWC2::Display::present(int32_t* outRetireFence) {
         mReleaseFences.clear();
 
         if (numLayer == 0) {
-            ALOGVV("No layers, exit");
-            mGralloc->getFb()->post(mGralloc->getFb(), mClientTarget.getBuffer());
-            *outRetireFence = mClientTarget.getFence();
+            ALOGW("No layers, exit, buffer %p", mClientTarget.getBuffer());
+            if (mClientTarget.getBuffer()) {
+                post(hostCon, rcEnc, mClientTarget.getBuffer());
+                *outRetireFence = mClientTarget.getFence();
+            }
             return Error::None;
         }
 
-        if (mComposeMsg == nullptr || mComposeMsg->getLayerCnt() < numLayer) {
-            mComposeMsg.reset(new ComposeMsg(numLayer));
+        if (hostCompositionV1) {
+            if (mComposeMsg == nullptr || mComposeMsg->getLayerCnt() < numLayer) {
+                mComposeMsg.reset(new ComposeMsg(numLayer));
+            }
+        } else {
+            if (mComposeMsg_v2 == nullptr || mComposeMsg_v2->getLayerCnt() < numLayer) {
+                mComposeMsg_v2.reset(new ComposeMsg_v2(numLayer));
+            }
         }
 
         // Handle the composition
-        ComposeDevice* p = mComposeMsg->get();
-        ComposeLayer* l = p->layer;
+        ComposeDevice* p;
+        ComposeDevice_v2* p2;
+        ComposeLayer* l;
+
+        if (hostCompositionV1) {
+            p = mComposeMsg->get();
+            l = p->layer;
+        } else {
+            p2 = mComposeMsg_v2->get();
+            l = p2->layer;
+        }
 
         for (auto layer: mLayers) {
             if (layer->getCompositionType() != Composition::Device &&
@@ -752,10 +821,10 @@ Error EmuHWC2::Display::present(int32_t* outRetireFence) {
                     ALOGV("%s: acquire fence not set for layer %u",
                           __FUNCTION__, (uint32_t)layer->getId());
                 }
-                cb_handle_t *cb =
-                    (cb_handle_t *)layer->getLayerBuffer().getBuffer();
+                const native_handle_t *cb =
+                    layer->getLayerBuffer().getBuffer();
                 if (cb != nullptr) {
-                    l->cbHandle = cb->hostHandle;
+                    l->cbHandle = hostCon->grallocHelper()->getHostHandle(cb);
                 }
                 else {
                     ALOGE("%s null buffer for layer %d", __FUNCTION__,
@@ -781,14 +850,28 @@ Error EmuHWC2::Display::present(int32_t* outRetireFence) {
                   layer->getZ(), l->composeMode, l->transform);
             l++;
         }
-        p->version = 1;
-        p->targetHandle = mGralloc->getTargetCb();
-        p->numLayers = numLayer;
+        if (hostCompositionV1) {
+            p->version = 1;
+            p->targetHandle = hostCon->grallocHelper()->getHostHandle(mTargetCb);
+            p->numLayers = numLayer;
+        } else {
+            p2->version = 2;
+            p2->displayId = mHostDisplayId;
+            p2->targetHandle = hostCon->grallocHelper()->getHostHandle(mTargetCb);
+            p2->numLayers = numLayer;
+        }
 
         hostCon->lock();
-        rcEnc->rcCompose(rcEnc,
-                         sizeof(ComposeDevice) + numLayer * sizeof(ComposeLayer),
-                         (void *)p);
+        if (hostCompositionV1) {
+            rcEnc->rcCompose(rcEnc,
+                             sizeof(ComposeDevice) + numLayer * sizeof(ComposeLayer),
+                             (void *)p);
+        } else {
+            rcEnc->rcCompose(rcEnc,
+                             sizeof(ComposeDevice_v2) + numLayer * sizeof(ComposeLayer),
+                             (void *)p2);
+        }
+
         hostCon->unlock();
 
         // Send a retire fence and use it as the release fence for all layers,
@@ -818,7 +901,7 @@ Error EmuHWC2::Display::present(int32_t* outRetireFence) {
         hostCon->unlock();
     } else {
         // we set all layers Composition::Client, so do nothing.
-        mGralloc->getFb()->post(mGralloc->getFb(), mClientTarget.getBuffer());
+        post(hostCon, rcEnc, mClientTarget.getBuffer());
         *outRetireFence = mClientTarget.getFence();
         ALOGV("%s fallback to post, returns outRetireFence %d",
               __FUNCTION__, *outRetireFence);
@@ -849,10 +932,6 @@ Error EmuHWC2::Display::setClientTarget(buffer_handle_t target,
         int32_t acquireFence, int32_t /*dataspace*/, hwc_region_t /*damage*/) {
     ALOGVV("%s", __FUNCTION__);
 
-    cb_handle_t *cb =
-            (cb_handle_t *)target;
-    ALOGV("%s: display(%u) buffer handle %p cb %d, acquireFence %d", __FUNCTION__,
-          (uint32_t)mId, target, cb->hostHandle, acquireFence);
     std::unique_lock<std::mutex> lock(mStateMutex);
     mClientTarget.setBuffer(target);
     mClientTarget.setFence(acquireFence);
@@ -960,9 +1039,10 @@ Error EmuHWC2::Display::validate(uint32_t* outNumTypes,
         DEFINE_AND_VALIDATE_HOST_CONNECTION
         hostCon->lock();
         bool hostCompositionV1 = rcEnc->hasHostCompositionV1();
+        bool hostCompositionV2 = rcEnc->hasHostCompositionV2();
         hostCon->unlock();
 
-        if (hostCompositionV1) {
+        if (hostCompositionV1 || hostCompositionV2) {
             // Support Device and SolidColor, otherwise, fallback all layers
             // to Client
             bool fallBack = false;
@@ -1073,19 +1153,150 @@ Error EmuHWC2::Display::getClientTargetSupport(uint32_t width, uint32_t height,
     return Error::None;
 }
 
+// thess EDIDs are carefully generated according to the EDID spec version 1.3, more info
+// can be found from the following file:
+//   frameworks/native/services/surfaceflinger/DisplayHardware/DisplayIdentification.cpp
+// approved pnp ids can be found here: https://uefi.org/pnp_id_list
+// pnp id: GGL, name: EMU_display_0, last byte is checksum
+// display id is local:8141603649153536
+static const uint8_t sEDID0[] = {
+    0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x1c, 0xec, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
+    0x1b, 0x10, 0x01, 0x03, 0x80, 0x50, 0x2d, 0x78, 0x0a, 0x0d, 0xc9, 0xa0, 0x57, 0x47, 0x98, 0x27,
+    0x12, 0x48, 0x4c, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x3a, 0x80, 0x18, 0x71, 0x38, 0x2d, 0x40, 0x58, 0x2c,
+    0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc,
+    0x00, 0x45, 0x4d, 0x55, 0x5f, 0x64, 0x69, 0x73, 0x70, 0x6c, 0x61, 0x79, 0x5f, 0x30, 0x00, 0x4b
+};
 
-int EmuHWC2::Display::populatePrimaryConfigs() {
+// pnp id: GGL, name: EMU_display_1
+// display id is local:8140900251843329
+static const uint8_t sEDID1[] = {
+    0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x1c, 0xec, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
+    0x1b, 0x10, 0x01, 0x03, 0x80, 0x50, 0x2d, 0x78, 0x0a, 0x0d, 0xc9, 0xa0, 0x57, 0x47, 0x98, 0x27,
+    0x12, 0x48, 0x4c, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x3a, 0x80, 0x18, 0x71, 0x38, 0x2d, 0x40, 0x58, 0x2c,
+    0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc,
+    0x00, 0x45, 0x4d, 0x55, 0x5f, 0x64, 0x69, 0x73, 0x70, 0x6c, 0x61, 0x79, 0x5f, 0x31, 0x00, 0x3b
+};
+
+// pnp id: GGL, name: EMU_display_2
+// display id is local:8140940453066754
+static const uint8_t sEDID2[] = {
+    0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x1c, 0xec, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
+    0x1b, 0x10, 0x01, 0x03, 0x80, 0x50, 0x2d, 0x78, 0x0a, 0x0d, 0xc9, 0xa0, 0x57, 0x47, 0x98, 0x27,
+    0x12, 0x48, 0x4c, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x3a, 0x80, 0x18, 0x71, 0x38, 0x2d, 0x40, 0x58, 0x2c,
+    0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc,
+    0x00, 0x45, 0x4d, 0x55, 0x5f, 0x64, 0x69, 0x73, 0x70, 0x6c, 0x61, 0x79, 0x5f, 0x32, 0x00, 0x49
+};
+
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+
+Error EmuHWC2::Display::getDisplayIdentificationData(uint8_t* outPort,
+        uint32_t* outDataSize, uint8_t* outData) {
+    ALOGVV("%s DisplayId %u", __FUNCTION__, (uint32_t)mId);
+    if (outPort == nullptr || outDataSize == nullptr)
+        return Error::BadParameter;
+
+    uint32_t len = std::min(*outDataSize, (uint32_t)ARRAY_SIZE(sEDID0));
+    if (outData != nullptr && len < (uint32_t)ARRAY_SIZE(sEDID0)) {
+        ALOGW("%s DisplayId %u, small buffer size: %u is specified",
+                __FUNCTION__, (uint32_t)mId, len);
+    }
+    *outDataSize = ARRAY_SIZE(sEDID0);
+    switch (mId) {
+        case 0:
+            *outPort = 0;
+            if (outData)
+                memcpy(outData, sEDID0, len);
+            break;
+
+        case 1:
+            *outPort = 1;
+            if (outData)
+                memcpy(outData, sEDID1, len);
+            break;
+
+        case 2:
+            *outPort = 2;
+            if (outData)
+                memcpy(outData, sEDID2, len);
+            break;
+
+        default:
+            *outPort = (uint8_t)mId;
+            if (outData) {
+                memcpy(outData, sEDID2, len);
+                uint32_t size = ARRAY_SIZE(sEDID0);
+                // change the name to EMU_display_<mID>
+                // note the 3rd char from back is the number, _0, _1, _2, etc.
+                if (len >= size - 2)
+                    outData[size-3] = '0' + (uint8_t)mId;
+                if (len >= size) {
+                    // update the last byte, which is checksum byte
+                    uint8_t checksum = -(uint8_t)std::accumulate(
+                            outData, outData + size - 1, static_cast<uint8_t>(0));
+                    outData[size - 1] = checksum;
+                }
+            }
+            break;
+    }
+
+    return Error::None;
+}
+
+Error EmuHWC2::Display::getDisplayCapabilities(uint32_t* outNumCapabilities,
+        uint32_t* outCapabilities) {
+    if (outNumCapabilities == nullptr) {
+        return Error::None;
+    }
+
+    bool brightness_support = true;
+    bool doze_support = true;
+
+    uint32_t count = 1  + static_cast<uint32_t>(doze_support) + (brightness_support ? 1 : 0);
+    int index = 0;
+    if (outCapabilities != nullptr && (*outNumCapabilities >= count)) {
+        outCapabilities[index++] = HWC2_DISPLAY_CAPABILITY_SKIP_CLIENT_COLOR_TRANSFORM;
+        if (doze_support) {
+            outCapabilities[index++] = HWC2_DISPLAY_CAPABILITY_DOZE;
+        }
+        if (brightness_support) {
+            outCapabilities[index++] = HWC2_DISPLAY_CAPABILITY_BRIGHTNESS;
+       }
+    }
+
+    *outNumCapabilities = count;
+    return Error::None;
+}
+
+Error EmuHWC2::Display::getDisplayBrightnessSupport(bool *out_support) {
+    *out_support = false;
+    return Error::None;
+}
+
+Error EmuHWC2::Display::setDisplayBrightness(float brightness) {
+    ALOGW("TODO: setDisplayBrightness() is not implemented yet: brightness=%f", brightness);
+    return Error::None;
+}
+
+int EmuHWC2::Display::populatePrimaryConfigs(int width, int height, int dpiX, int dpiY) {
     ALOGVV("%s DisplayId %u", __FUNCTION__, (uint32_t)mId);
     std::unique_lock<std::mutex> lock(mStateMutex);
 
-    mGralloc.reset(new GrallocModule());
     auto newConfig = std::make_shared<Config>(*this);
     // vsync is 60 hz;
     newConfig->setAttribute(Attribute::VsyncPeriod, mVsyncPeriod);
-    newConfig->setAttribute(Attribute::Width, mGralloc->getFb()->width);
-    newConfig->setAttribute(Attribute::Height, mGralloc->getFb()->height);
-    newConfig->setAttribute(Attribute::DpiX, mGralloc->getFb()->xdpi*1000);
-    newConfig->setAttribute(Attribute::DpiY, mGralloc->getFb()->ydpi*1000);
+    newConfig->setAttribute(Attribute::Width, width);
+    newConfig->setAttribute(Attribute::Height, height);
+    newConfig->setAttribute(Attribute::DpiX, dpiX * 1000);
+    newConfig->setAttribute(Attribute::DpiY, dpiY * 1000);
 
     newConfig->setId(static_cast<hwc2_config_t>(mConfigs.size()));
     ALOGV("Found new config %d: %s", (uint32_t)newConfig->getId(),
@@ -1100,6 +1311,60 @@ int EmuHWC2::Display::populatePrimaryConfigs() {
     mSyncDeviceFd = goldfish_sync_open();
 
     return 0;
+}
+
+void EmuHWC2::Display::post(HostConnection *hostCon,
+                            ExtendedRCEncoderContext *rcEnc,
+                            buffer_handle_t h) {
+    assert(cb && "native_handle_t::from(h) failed");
+
+    hostCon->lock();
+    rcEnc->rcFBPost(rcEnc, hostCon->grallocHelper()->getHostHandle(h));
+    hostCon->flush();
+    hostCon->unlock();
+}
+
+HWC2::Error EmuHWC2::Display::populateSecondaryConfigs(uint32_t width, uint32_t height,
+        uint32_t dpi, uint32_t idx) {
+    ALOGVV("%s DisplayId %u, width %u, height %u, dpi %u",
+            __FUNCTION__, (uint32_t)mId, width, height, dpi);
+    std::unique_lock<std::mutex> lock(mStateMutex);
+
+    auto newConfig = std::make_shared<Config>(*this);
+    // vsync is 60 hz;
+    newConfig->setAttribute(Attribute::VsyncPeriod, mVsyncPeriod);
+    newConfig->setAttribute(Attribute::Width, width);
+    newConfig->setAttribute(Attribute::Height, height);
+    newConfig->setAttribute(Attribute::DpiX, dpi*1000);
+    newConfig->setAttribute(Attribute::DpiY, dpi*1000);
+
+    newConfig->setId(static_cast<hwc2_config_t>(mConfigs.size()));
+    ALOGV("Found new secondary config %d: %s", (uint32_t)newConfig->getId(),
+            newConfig->toString().c_str());
+    mConfigs.emplace_back(std::move(newConfig));
+
+    // we need to reset these values after populatePrimaryConfigs()
+    mActiveConfig = mConfigs[0];
+    mActiveColorMode = HAL_COLOR_MODE_NATIVE;
+    mColorModes.emplace((android_color_mode_t)HAL_COLOR_MODE_NATIVE);
+
+    uint32_t displayId = hostDisplayIdStart + idx;
+    DEFINE_AND_VALIDATE_HOST_CONNECTION
+
+    hostCon->lock();
+    rcEnc->rcDestroyDisplay(rcEnc, displayId);
+    rcEnc->rcCreateDisplay(rcEnc, &displayId);
+    rcEnc->rcSetDisplayPose(rcEnc, displayId, -1, -1, width, height);
+    hostCon->unlock();
+
+    if (displayId != hostDisplayIdStart + idx) {
+        ALOGE("Something wrong with host displayId allocation, want %d "
+              "allocated %d", hostDisplayIdStart + idx, displayId);
+    }
+    mHostDisplayId = displayId;
+    ALOGVV("%s: mHostDisplayId=%d", __FUNCTION__, mHostDisplayId);
+
+    return HWC2::Error::None;
 }
 
 
@@ -1147,7 +1412,6 @@ std::string EmuHWC2::Display::Config::toString() const {
     return output;
 }
 
-
 // VsyncThread function
 bool EmuHWC2::Display::VsyncThread::threadLoop() {
     struct timespec rt;
@@ -1161,18 +1425,37 @@ bool EmuHWC2::Display::VsyncThread::threadLoop() {
     int sent = 0;
     int lastSent = 0;
     bool vsyncEnabled = false;
+
     struct timespec wait_time;
     wait_time.tv_sec = 0;
     wait_time.tv_nsec = mDisplay.mVsyncPeriod;
+    const int64_t kOneRefreshNs = mDisplay.mVsyncPeriod;
+    const int64_t kOneSecondNs = 1000ULL * 1000ULL * 1000ULL;
+    int64_t lastTimeNs = -1;
+    int64_t phasedWaitNs = 0;
+    int64_t currentNs = 0;
 
     while (true) {
-        int err = nanosleep(&wait_time, NULL);
-        if (err == -1) {
-            if (errno == EINTR) {
-                break;
-            }
-            ALOGE("%s: error in vsync thread: %s", __FUNCTION__, strerror(errno));
+        clock_gettime(CLOCK_MONOTONIC, &rt);
+        currentNs = rt.tv_nsec + rt.tv_sec * kOneSecondNs;
+
+        if (lastTimeNs < 0) {
+            phasedWaitNs = currentNs + kOneRefreshNs;
+        } else {
+            phasedWaitNs = kOneRefreshNs *
+                (( currentNs - lastTimeNs) / kOneRefreshNs + 1) +
+                lastTimeNs;
         }
+
+        wait_time.tv_sec = phasedWaitNs / kOneSecondNs;
+        wait_time.tv_nsec = phasedWaitNs - wait_time.tv_sec * kOneSecondNs;
+
+        int ret;
+        do {
+            ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &wait_time, NULL);
+        } while (ret == -1 && errno == EINTR);
+
+        lastTimeNs = phasedWaitNs;
 
         std::unique_lock<std::mutex> lock(mDisplay.mStateMutex);
         vsyncEnabled = (mDisplay.mVsyncEnabled == Vsync::Enable);
@@ -1182,20 +1465,13 @@ bool EmuHWC2::Display::VsyncThread::threadLoop() {
             continue;
         }
 
-        if (clock_gettime(CLOCK_MONOTONIC, &rt) == -1) {
-            ALOGE("%s: error in vsync thread clock_gettime: %s",
-                 __FUNCTION__, strerror(errno));
-        }
-
-        int64_t timestamp = int64_t(rt.tv_sec) * 1e9 + rt.tv_nsec;
-
         lock.lock();
         const auto& callbackInfo = mDisplay.mDevice.mCallbacks[Callback::Vsync];
         auto vsync = reinterpret_cast<HWC2_PFN_VSYNC>(callbackInfo.pointer);
         lock.unlock();
 
         if (vsync) {
-            vsync(callbackInfo.data, mDisplay.mId, timestamp);
+            vsync(callbackInfo.data, mDisplay.mId, lastTimeNs);
         }
 
         if (rt.tv_sec - lastLogged >= logInterval) {
@@ -1353,7 +1629,8 @@ void EmuHWC2::populateCapabilities() {
 int EmuHWC2::populatePrimary() {
     int ret = 0;
     auto display = std::make_shared<Display>(*this, HWC2::DisplayType::Physical);
-    ret = display->populatePrimaryConfigs();
+    ret = display->populatePrimaryConfigs(mDisplayWidth, mDisplayHeight,
+                                          mDisplayDpiX, mDisplayDpiY);
     if (ret != 0) {
         return ret;
     }
@@ -1361,9 +1638,75 @@ int EmuHWC2::populatePrimary() {
     return ret;
 }
 
+// Note "hwservicemanager." is used to avoid selinux issue
+#define EXTERANL_DISPLAY_PROP "hwservicemanager.external.displays"
+
+// return 0 for successful, 1 if no external displays are specified
+// return < 0 if failed
+int EmuHWC2::populateSecondaryDisplays() {
+    // this guest property, hwservicemanager.external.displays,
+    // specifies multi-display info, with comma (,) as separator
+    // each display has the following info:
+    //   physicalId,width,height,dpi,flags
+    // serveral displays can be provided, e.g., following has 2 displays:
+    // setprop hwservicemanager.external.displays 1,1200,800,120,0,2,1200,800,120,0
+    std::vector<uint64_t> values;
+    char displaysValue[PROPERTY_VALUE_MAX] = "";
+    property_get(EXTERANL_DISPLAY_PROP, displaysValue, "");
+    bool isValid = displaysValue[0] != '\0';
+    if (isValid) {
+        char *p = displaysValue;
+        while (*p) {
+            if (!isdigit(*p) && *p != ',' && *p != ' ') {
+                isValid = false;
+                break;
+            }
+            p ++;
+        }
+        if (!isValid) {
+            ALOGE("Invalid syntax for the value of system prop: %s", EXTERANL_DISPLAY_PROP);
+        }
+    }
+    if (!isValid) {
+        // no external displays are specified
+        return 1;
+    }
+    // parse all int values to a vector
+    std::istringstream stream(displaysValue);
+    for (uint64_t id; stream >> id;) {
+        values.push_back(id);
+        if (stream.peek() == ',')
+            stream.ignore();
+    }
+    // each display has 5 values
+    if ((values.size() % 5) != 0) {
+        ALOGE("%s: invalid value for system property: %s", __FUNCTION__, EXTERANL_DISPLAY_PROP);
+        return -1;
+    }
+    uint32_t idx = 0;
+    while (!values.empty()) {
+        // uint64_t physicalId = values[0];
+        uint32_t width = values[1];
+        uint32_t height = values[2];
+        uint32_t dpi = values[3];
+        // uint32_t flags = values[4];
+        values.erase(values.begin(), values.begin() + 5);
+
+        Error ret = Error::None;
+        auto display = std::make_shared<Display>(*this, HWC2::DisplayType::Physical);
+        ret = display->populateSecondaryConfigs(width, height, dpi, idx++);
+        if (ret != Error::None) {
+            return -2;
+        }
+        mDisplays.emplace(display->getId(), std::move(display));
+    }
+    return 0;
+}
+
 EmuHWC2::Display* EmuHWC2::getDisplay(hwc2_display_t id) {
     auto display = mDisplays.find(id);
     if (display == mDisplays.end()) {
+        ALOGE("Failed to get display for id=%d", (uint32_t)id);
         return nullptr;
     }
     return display->second.get();
@@ -1408,6 +1751,12 @@ static int hwc2DevOpen(const struct hw_module_t *module, const char *name,
     int ret = ctx->populatePrimary();
     if (ret != 0) {
         ALOGE("Failed to populate primary display");
+        return ret;
+    }
+
+    ret = ctx->populateSecondaryDisplays();
+    if (ret < 0) {
+        ALOGE("Failed to populate secondary displays");
         return ret;
     }
 

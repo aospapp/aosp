@@ -1,0 +1,120 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# AED start: /dev/block/expdb
+allow crash_dump block_device:dir search;
+
+# aee db dir and db files
+allow crash_dump sdcard_type:dir create_dir_perms;
+allow crash_dump sdcard_type:file create_file_perms;
+
+#data/anr
+allow crash_dump anr_data_file:dir create_dir_perms;
+allow crash_dump anr_data_file:file create_file_perms;
+
+allow crash_dump domain:process { getattr getsched };
+allow crash_dump domain:lnk_file getattr;
+
+#core-pattern
+allow crash_dump usermodehelper:file r_file_perms;
+
+#suid_dumpable. this is neverallow
+#allow crash_dump proc_security:file r_file_perms;
+
+#allow crash_dump call binaries labeled "system_file" under /system/bin/
+allow crash_dump system_file:file execute_no_trans;
+
+allow crash_dump init:process getsched;
+allow crash_dump kernel:process getsched;
+
+# Date: W15.34
+# Operation: Migration
+# Purpose: For pagemap & pageflags information in NE DB
+userdebug_or_eng(`allow crash_dump self:capability sys_admin;')
+
+# Purpose: allow crash_dump to access toolbox
+allow crash_dump toolbox_exec:file rx_file_perms;
+
+# Purpose: mnt/user/*
+allow crash_dump mnt_user_file:dir search;
+allow crash_dump mnt_user_file:lnk_file read;
+
+allow crash_dump storage_file:dir search;
+allow crash_dump storage_file:lnk_file read;
+
+# Date : WK17.09
+# Operation : AEE UT for Android O
+# Purpose : for AEE module to dump files
+domain_auto_trans(crash_dump, dumpstate_exec, dumpstate)
+
+# Purpose : crash_dump communicate with aee_core_forwarder
+# allow crash_dump aee_core_forwarder:dir search;
+# allow crash_dump aee_core_forwarder:file { read getattr open };
+
+userdebug_or_eng(`
+  allow crash_dump su:dir {search read open };
+  allow crash_dump su:file { read getattr open };
+')
+
+# /data/tombstone
+allow crash_dump tombstone_data_file:dir w_dir_perms;
+allow crash_dump tombstone_data_file:file create_file_perms;
+
+# /proc/pid/
+allow crash_dump self:capability { fowner chown fsetid sys_nice sys_resource net_admin sys_module setgid setuid kill };
+
+# system(cmd) aee_dumpstate aee_archive
+allow crash_dump shell_exec:file rx_file_perms;
+
+# PROCESS_FILE_STATE
+allow crash_dump dumpstate:unix_stream_socket { read write ioctl };
+allow crash_dump dumpstate:dir search;
+allow crash_dump dumpstate:file r_file_perms;
+
+allow crash_dump logdr_socket:sock_file write;
+allow crash_dump logd:unix_stream_socket connectto;
+#allow crash_dump system_ndebug_socket:sock_file write;
+
+# vibrator
+allow crash_dump sysfs_vibrator:file w_file_perms;
+
+# Data : 2017/03/22
+# Operation : add NE flow rule for Android O
+# Purpose : make crash_dump can get specific process NE info
+allow crash_dump domain:dir r_dir_perms;
+allow crash_dump domain:{ file lnk_file } r_file_perms;
+
+allow crash_dump dalvikcache_data_file:dir r_dir_perms;
+#allow crash_dump zygote_exec:file r_file_perms;
+#allow crash_dump init_exec:file r_file_perms;
+
+# Data : 2017/04/06
+# Operation : add selinux rule for crash_dump notify crash_dump
+# Purpose : make crash_dump can get notify from crash_dump
+allow crash_dump crash_dump:dir search;
+allow crash_dump crash_dump:file r_file_perms;
+
+# Purpose : allow crash_dump to read /proc/version
+allow crash_dump proc_version:file { read open };
+
+# Purpose : allow crash_dump self to sys_nice/chown/kill
+allow crash_dump self:capability { sys_nice chown fowner kill };
+
+# Purpose: Allow crash_dump to write /sys/kernel/debug/tracing/snapshot
+userdebug_or_eng(`allow crash_dump debugfs_tracing_debug:file { write open };')
+
+# Purpose: Allow crash_dump to read/write /sys/kernel/debug/tracing/tracing_on
+#userdebug_or_eng(` allow crash_dump debugfs_tracing:file { r_file_perms write };')
+
+# Purpose: receive dropbox message
+allow crash_dump dropbox_data_file:file {getattr read};
+allow crash_dump dropbox_service:service_manager find;
+allow crash_dump servicemanager:binder call;
+allow crash_dump system_server:binder call;
+
+# Purpose: allow crash_dump to read packages.list
+allow crash_dump packages_list_file:file r_file_perms;
+
+# Purpose: Allow crash_dump to read /proc/*/exe
+allow crash_dump system_file_type:file r_file_perms;

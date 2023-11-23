@@ -1,0 +1,4 @@
+# For VrHeadsetPowerPolicyService.
+persist.sys.pps_enabled    u:object_r:vr_pps_enabled_prop:s0
+sys.pps.state              u:object_r:vr_pps_state_prop:s0
+sys.dvr.performance        u:object_r:vr_performance_prop:s0

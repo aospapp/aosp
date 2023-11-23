@@ -1,0 +1,42 @@
+# ==============================================
+# MTK Bluetooth Policy Rule
+# Add permission only for platform system
+# ==============================================
+
+# Date: 2018/02/02
+# Add permission for different storage types logging
+
+# permission in storage for legacy android M version
+allow bluetooth mnt_user_file:dir search;
+allow bluetooth mnt_user_file:lnk_file read;
+allow bluetooth storage_file:lnk_file read;
+
+# purpose: allow access storage for legacy N version
+allow bluetooth media_rw_data_file:file  { create_file_perms };
+allow bluetooth media_rw_data_file:dir { create_dir_perms };
+
+# permission for storage link access in vzw Project
+allow bluetooth mnt_media_rw_file:dir search;
+
+# for logging sdcard access
+allow bluetooth sdcard_type:dir { create_dir_perms };
+allow bluetooth sdcard_type:file { create_file_perms };
+allow bluetooth sdcardfs:dir { create_dir_perms };
+allow bluetooth sdcardfs:file { create_file_perms };
+allow bluetooth rootfs:lnk_file getattr;
+
+allow bluetooth fuse:dir { create_dir_perms };
+allow bluetooth fuse:file { create_file_perms };
+
+# permission for storage access storage
+allow bluetooth vfat:dir create_dir_perms;
+allow bluetooth vfat:file create_file_perms;
+allow bluetooth storage_file:dir { create_dir_perms };
+allow bluetooth tmpfs:lnk_file read;
+allow bluetooth storage_file:file { create_file_perms };
+
+# Date: 2019/06/20
+# Add dir create perms for bluetooth on /data/debuglogger
+#{ read write create search open getattr };
+allow bluetooth debuglog_data_file:dir {relabelto create_dir_perms};
+allow bluetooth debuglog_data_file:file create_file_perms;

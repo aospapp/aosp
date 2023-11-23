@@ -47,20 +47,34 @@ class ExtendedRCEncoderContext : public renderControl_encoder_context_t {
 public:
     ExtendedRCEncoderContext(IOStream *stream, ChecksumCalculator *checksumCalculator)
         : renderControl_encoder_context_t(stream, checksumCalculator),
-          m_dmaCxt(NULL) { }
+          m_dmaCxt(NULL), m_dmaPtr(NULL), m_dmaPhysAddr(0) { }
     void setSyncImpl(SyncImpl syncImpl) { m_featureInfo.syncImpl = syncImpl; }
     void setDmaImpl(DmaImpl dmaImpl) { m_featureInfo.dmaImpl = dmaImpl; }
     void setHostComposition(HostComposition hostComposition) {
         m_featureInfo.hostComposition = hostComposition; }
     bool hasNativeSync() const { return m_featureInfo.syncImpl >= SYNC_IMPL_NATIVE_SYNC_V2; }
     bool hasNativeSyncV3() const { return m_featureInfo.syncImpl >= SYNC_IMPL_NATIVE_SYNC_V3; }
+    bool hasNativeSyncV4() const { return m_featureInfo.syncImpl >= SYNC_IMPL_NATIVE_SYNC_V4; }
     bool hasHostCompositionV1() const {
         return m_featureInfo.hostComposition == HOST_COMPOSITION_V1; }
+    bool hasHostCompositionV2() const {
+        return m_featureInfo.hostComposition == HOST_COMPOSITION_V2; }
+    bool hasYUVCache() const {
+        return m_featureInfo.hasYUVCache; }
+    bool hasAsyncUnmapBuffer() const {
+        return m_featureInfo.hasAsyncUnmapBuffer; }
     DmaImpl getDmaVersion() const { return m_featureInfo.dmaImpl; }
     void bindDmaContext(struct goldfish_dma_context* cxt) { m_dmaCxt = cxt; }
+    void bindDmaDirectly(void* dmaPtr, uint64_t dmaPhysAddr) {
+        m_dmaPtr = dmaPtr;
+        m_dmaPhysAddr = dmaPhysAddr;
+    }
     virtual uint64_t lockAndWriteDma(void* data, uint32_t size) {
-        if (m_dmaCxt) {
-            return lockAndWriteGoldfishDma(data, size, m_dmaCxt);
+        if (m_dmaPtr && m_dmaPhysAddr) {
+            memcpy(m_dmaPtr, data, size);
+            return m_dmaPhysAddr;
+        } else if (m_dmaCxt) {
+            return writeGoldfishDma(data, size, m_dmaCxt);
         } else {
             ALOGE("%s: ERROR: No DMA context bound!", __func__);
             return 0;
@@ -68,12 +82,20 @@ public:
     }
     void setGLESMaxVersion(GLESMaxVersion ver) { m_featureInfo.glesMaxVersion = ver; }
     GLESMaxVersion getGLESMaxVersion() const { return m_featureInfo.glesMaxVersion; }
+    bool hasDirectMem() const {
+#ifdef HOST_BUILD
+        // unit tests do not support restoring "guest" ram because there is no VM
+        return false;
+#else
+        return m_featureInfo.hasDirectMem;
+#endif
+    }
 
     const EmulatorFeatureInfo* featureInfo_const() const { return &m_featureInfo; }
     EmulatorFeatureInfo* featureInfo() { return &m_featureInfo; }
 private:
-    static uint64_t lockAndWriteGoldfishDma(void* data, uint32_t size,
-                                            struct goldfish_dma_context* dmaCxt) {
+    static uint64_t writeGoldfishDma(void* data, uint32_t size,
+                                     struct goldfish_dma_context* dmaCxt) {
         ALOGV("%s(data=%p, size=%u): call", __func__, data, size);
 
         goldfish_dma_write(dmaCxt, data, size);
@@ -85,24 +107,30 @@ private:
 
     EmulatorFeatureInfo m_featureInfo;
     struct goldfish_dma_context* m_dmaCxt;
+    void* m_dmaPtr;
+    uint64_t m_dmaPhysAddr;
 };
 
 // Abstraction for gralloc handle conversion
 class Gralloc {
 public:
+    virtual uint32_t createColorBuffer(
+        ExtendedRCEncoderContext* rcEnc, int width, int height, uint32_t glformat);
     virtual uint32_t getHostHandle(native_handle_t const* handle) = 0;
     virtual int getFormat(native_handle_t const* handle) = 0;
+    virtual size_t getAllocatedSize(native_handle_t const* handle) = 0;
     virtual ~Gralloc() {}
 };
 
 // Abstraction for process pipe helper
 class ProcessPipe {
 public:
-    virtual bool processPipeInit(renderControl_encoder_context_t *rcEnc) = 0;
+    virtual bool processPipeInit(HostConnectionType connType, renderControl_encoder_context_t *rcEnc) = 0;
     virtual ~ProcessPipe() {}
 };
 
 struct EGLThreadInfo;
+
 
 class HostConnection
 {
@@ -115,6 +143,10 @@ public:
     static void teardownUnique(HostConnection* con);
 
     ~HostConnection();
+
+    HostConnectionType connectionType() const {
+        return m_connectionType;
+    }
 
     GLEncoder *glEncoder();
     GL2Encoder *gl2Encoder();
@@ -166,8 +198,18 @@ private:
     void queryAndSetDirectMemSupport(ExtendedRCEncoderContext *rcEnc);
     void queryAndSetVulkanSupport(ExtendedRCEncoderContext *rcEnc);
     void queryAndSetDeferredVulkanCommandsSupport(ExtendedRCEncoderContext *rcEnc);
+    void queryAndSetVulkanNullOptionalStringsSupport(ExtendedRCEncoderContext *rcEnc);
+    void queryAndSetVulkanCreateResourcesWithRequirementsSupport(ExtendedRCEncoderContext *rcEnc);
+    void queryAndSetVulkanIgnoredHandles(ExtendedRCEncoderContext *rcEnc);
+    void queryAndSetYUVCache(ExtendedRCEncoderContext *mrcEnc);
+    void queryAndSetAsyncUnmapBuffer(ExtendedRCEncoderContext *rcEnc);
+    void queryAndSetVirtioGpuNext(ExtendedRCEncoderContext *rcEnc);
+    void queryHasSharedSlotsHostMemoryAllocator(ExtendedRCEncoderContext *rcEnc);
+    void queryAndSetVulkanFreeMemorySync(ExtendedRCEncoderContext *rcEnc);
 
 private:
+    HostConnectionType m_connectionType;
+    GrallocType m_grallocType;
     IOStream *m_stream;
     GLEncoder   *m_glEnc;
     GL2Encoder  *m_gl2Enc;

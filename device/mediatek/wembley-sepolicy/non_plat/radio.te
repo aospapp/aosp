@@ -1,0 +1,84 @@
+# ==============================================
+# MTK Policy Rule
+# ============
+
+# Purpose : allow to access kpd driver file
+allow radio sysfs_keypad_file:dir { r_dir_perms };
+allow radio sysfs_keypad_file:file { w_file_perms };
+
+# Date : 2014/12/13
+# Operation : IT
+# Purpose : for bluetooth relayer mode
+allow radio block_device:dir search;
+allow radio ttyGS_device:chr_file { open read write ioctl };
+
+# Date : 2016/07/05
+# Purpose :
+#   Write IMEI - presanity item write imei should read the file on storage
+#   Swift APK integration - access TTL scripts and logs on external storage
+#   eng mode camera - save iamges files and log files on external storage
+#   eng mode ygps - save location information on external storage
+allow radio media_rw_data_file:dir { create_dir_perms };
+allow radio media_rw_data_file:file { create_file_perms };
+
+# Date : 2016/08/02
+# Purpose :
+#   Swift APK integration - access ccci dir/file
+allow radio ccci_fsd:dir { r_dir_perms };
+
+
+# Date : WK17.03
+# Operation : O Migration
+# Purpose : HIDL for rilproxy
+binder_call(radio, hal_telephony)
+
+#Dat: 2017/02/14
+#Purpose: allow get telephony Sensitive property
+get_prop(radio, mtk_telephony_sensitive_prop)
+
+# Date : WK17.26
+# Operation : O Migration
+# Purpose : HIDL for imsa
+binder_call(radio, mtk_hal_imsa)
+
+# Date : WK1727 2017/07/04
+# Operation : IT
+# Purpose : Allow to use HAL imsa
+hal_client_domain(radio, hal_imsa)
+
+#Dat: 2017/06/29
+#Purpose: For audio parameter tuning
+#allow radio hal_audio_hwservice:hwservice_manager find;
+binder_call(radio,mtk_hal_audio)
+
+# Date : WK18.16
+# Operation: P migration
+# Purpose: Allow radio to get tel_switch_prop
+get_prop(radio, tel_switch_prop)
+
+# Date : 2018/07/03
+# Purpose : Allow sim system to set prop
+set_prop(radio, vendor_sim_system_prop)
+
+# Date : 2018/07/03
+# Purpose : Allow Mwi to get vendor default properties (ro.vendor.*)
+get_prop(radio, vendor_default_prop)
+
+# Operation : DEBUG
+# Purpose : Allow to use mtk_bgdata_disabled
+set_prop(radio, mtk_bgdata_disabled)
+
+# Date : 2018/07/03
+# Operation : DEBUG
+# Purpose : Allow to use mtk_telecom_vibrate
+set_prop(radio, mtk_telecom_vibrate)
+
+# Date : 2018/07/03
+# Operation : DEBUG
+# Purpose : Allow to use mtk_gprs_attach_type
+set_prop(radio, mtk_gprs_attach_type)
+
+#Date : 2018/11/02
+# Operation : Allow radio persist_xcap_rawurl_prop:property_service set;
+# Purpose : for set telephony xcap use raw url property in IMS SS
+set_prop(radio, persist_xcap_rawurl_prop)

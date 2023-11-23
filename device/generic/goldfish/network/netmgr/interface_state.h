@@ -21,3 +21,4 @@ enum class InterfaceState {
     Down,
 };
 
+const char* interfaceStateToStr(InterfaceState state);

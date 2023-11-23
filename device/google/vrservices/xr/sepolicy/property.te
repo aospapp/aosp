@@ -1,0 +1,10 @@
+# For VrHeadsetPowerPolicyService.
+type vr_performance_prop, property_type, extended_core_property_type;
+type vr_pps_state_prop, property_type, extended_core_property_type;
+type vr_pps_enabled_prop, property_type;
+
+set_prop(platform_app, vr_performance_prop)
+set_prop(platform_app, vr_pps_state_prop)
+get_prop(platform_app, vr_pps_enabled_prop)
+set_prop(surfaceflinger, vr_performance_prop)
+

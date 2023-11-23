@@ -20,6 +20,9 @@ PRODUCT_AAPT_PREBUILT_DPI := xxhdpi xhdpi hdpi
 
 PRODUCT_HARDWARE := walleye
 
+# To build walleye specific modules e.g. librecovery_ui_walleye.
+PRODUCT_SOONG_NAMESPACES += device/google/muskie
+
 # DEVICE_PACKAGE_OVERLAYS for the device should be before
 # including common overlays since the one listed first
 # takes precedence.
@@ -32,10 +35,6 @@ include device/google/muskie/device-common.mk
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.sf.lcd_density=420
-
-# Enable Perfetto traced
-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
-    persist.traced.enable=1
 
 # Thermal HAL
 PRODUCT_COPY_FILES += \

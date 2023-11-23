@@ -1,0 +1,30 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# Grant read access to mtk core property type which represents all
+# mtk properties except those with ctl_xxx prefix.
+# Align Google change: f01453ad453b29dd723838984ea03978167491e5
+get_prop(domain, mtk_core_property_type)
+
+# Allow all processes to search /sys/kernel/debug/binder/ since it's has been
+# labeled with specific debugfs label and many violations to dir search debugfs_binder
+# are observed. Grant domain to suppress the violations as originally "debugfs:dir search"
+# is also allowed to domain as well in Google default domain.te
+allow domain debugfs_binder:dir search;
+
+# Allow all processes to read /sys/bus/platform/drivers/dev_info/dev_info
+# as it is a public interface for all processes to read some OTP data.
+allow {
+  domain
+  -isolated_app
+} sysfs_devinfo:file r_file_perms;
+
+# Date:20170630
+# Purpose: allow trusted process to connect aee daemon
+#allow {
+#  coredomain
+#  -untrusted_app_all
+#} aee_aed:unix_stream_socket connectto;
+allow { domain -coredomain -hal_configstore_server -vendor_init } aee_aedv:unix_stream_socket connectto;
+

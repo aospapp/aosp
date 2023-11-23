@@ -82,7 +82,7 @@ ChecksumCalculator::ChecksumCalculator()
 {
 }
 
-void ChecksumCalculator::addBuffer(const void* buf, size_t packetLen) {
+void ChecksumCalculator::addBuffer(const void*, size_t packetLen) {
     m_isEncodingChecksum = true;
     switch (m_version) {
         case 1:

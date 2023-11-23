@@ -27,18 +27,26 @@ PRODUCT_BUILD_RAMDISK_IMAGE := false
 # default is nosdcard, S/W button enabled in resource
 PRODUCT_CHARACTERISTICS := nosdcard
 
+art_apex := com.android.art.release
+ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
+    art_apex := com.android.art.debug
+endif
+
 # Hand-picked packages.
 PRODUCT_PACKAGES += \
     art-runtime \
-    bouncycastle \
-    conscrypt \
-    core-libart \
-    core-oj \
-    dalvikvm \
-    libart \
-    libjavacore \
-    libopenjdk \
-    okhttp
+    bouncycastle.$(art_apex) \
+    conscrypt.com.android.conscrypt \
+    core-icu4j.$(art_apex) \
+    core-libart.$(art_apex) \
+    core-oj.$(art_apex) \
+    dalvikvm.$(art_apex) \
+    libart.$(art_apex) \
+    libjavacore.$(art_apex) \
+    libopenjdk.$(art_apex) \
+    okhttp.$(art_apex)
+
+art_apex :=
 
 # Fuchsia only has 64-bit support.
 TARGET_SUPPORTS_32_BIT_APPS := false

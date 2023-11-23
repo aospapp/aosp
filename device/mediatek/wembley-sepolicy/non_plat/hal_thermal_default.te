@@ -1,0 +1,16 @@
+
+# Date : WK18.23
+# Operation : P Migration
+# Purpose : add grant permission for Thermal HAL mtktz and proc
+
+allow hal_thermal_default proc_mtktz:dir search;
+allow hal_thermal_default proc_mtktz:file {open read getattr};
+allow hal_thermal_default proc_stat:file {open read getattr };
+
+#for uevent handle
+allow hal_thermal_default self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+
+#for thermal sysfs
+allow hal_thermal_default sysfs_therm:file w_file_perms;
+allow hal_thermal_default sysfs_therm:file r_file_perms;
+allow hal_thermal_default sysfs_therm:dir search;

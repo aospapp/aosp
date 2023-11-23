@@ -48,7 +48,8 @@ namespace android {
 class EmulatedQemuCamera3 : public EmulatedCamera3,
         private QemuSensor::QemuSensorListener {
 public:
-    EmulatedQemuCamera3(int cameraId, struct hw_module_t* module);
+    EmulatedQemuCamera3(int cameraId, struct hw_module_t* module,
+                        GraphicBufferMapper* gbm);
     virtual ~EmulatedQemuCamera3();
 
     /*
@@ -120,6 +121,7 @@ private:
      * Handle interrupt events from the sensor.
      */
     void onQemuSensorEvent(uint32_t frameNumber, Event e, nsecs_t timestamp);
+    using EmulatedCamera3::Initialize;
 
 private:
     /**************************************************************************
@@ -169,6 +171,7 @@ private:
 
     // Shortcut to the input stream.
     camera3_stream_t* mInputStream;
+    GraphicBufferMapper* mGBM;
 
     typedef List<camera3_stream_t*> StreamList;
     typedef List<camera3_stream_t*>::iterator StreamIterator;

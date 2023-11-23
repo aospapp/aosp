@@ -427,7 +427,9 @@
 #define OP_glDrawElementsNullAEMU 					2469
 #define OP_glDrawElementsOffsetNullAEMU 					2470
 #define OP_glDrawElementsDataNullAEMU 					2471
-#define OP_last 					2472
+#define OP_glUnmapBufferAsyncAEMU 					2472
+#define OP_glFlushMappedBufferRangeAEMU2 					2473
+#define OP_last 					2474
 
 
 #endif

@@ -15,7 +15,9 @@
 #
 
 PRODUCT_MAKEFILES := \
-    $(LOCAL_DIR)/beagle_x15.mk \
+    beagle_x15:$(LOCAL_DIR)/beagle_x15.mk \
+    beagle_x15_auto:$(LOCAL_DIR)/auto/beagle_x15.mk \
 
 COMMON_LUNCH_CHOICES := \
     beagle_x15-userdebug \
+    beagle_x15_auto-userdebug \

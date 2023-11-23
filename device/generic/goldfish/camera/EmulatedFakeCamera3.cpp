@@ -30,7 +30,7 @@
 #include "EmulatedFakeCamera3.h"
 #include "EmulatedCameraFactory.h"
 #include <ui/Fence.h>
-#include "GrallocModule.h"
+#include <ui/Rect.h>
 
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
@@ -66,12 +66,12 @@ const int32_t EmulatedFakeCamera3::kAvailableFormats[] = {
         HAL_PIXEL_FORMAT_Y16
 };
 
-const uint32_t EmulatedFakeCamera3::kAvailableRawSizes[4] = {
+const uint32_t EmulatedFakeCamera3::kAvailableRawSizes[6] = {
     640, 480,
-    1280, 720
+    1280, 720,
+    1920, 1080
     //    mSensorWidth, mSensorHeight
 };
-
 
 /**
  * 3A constants
@@ -94,9 +94,9 @@ const float   EmulatedFakeCamera3::kExposureWanderMax        = 1;
  */
 
 EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, bool facingBack,
-        struct hw_module_t* module) :
+        struct hw_module_t* module, GraphicBufferMapper* gbm) :
         EmulatedCamera3(cameraId, module),
-        mFacingBack(facingBack) {
+        mFacingBack(facingBack), mGBM(gbm) {
     ALOGI("Constructing emulated fake camera 3: ID %d, facing %s",
             mCameraID, facingBack ? "back" : "front");
 
@@ -156,7 +156,7 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     if (res != NO_ERROR) return res;
 
     mReadoutThread = new ReadoutThread(this);
-    mJpegCompressor = new JpegCompressor();
+    mJpegCompressor = new JpegCompressor(mGBM);
 
     res = mReadoutThread->run("EmuCam3::readoutThread");
     if (res != NO_ERROR) return res;
@@ -706,7 +706,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
 
         uint8_t afMode = 0;
 
-        if (mFacingBack) {
+        {
             switch (type) {
                 case CAMERA3_TEMPLATE_PREVIEW:
                     afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
@@ -730,9 +730,8 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
                     afMode = ANDROID_CONTROL_AF_MODE_AUTO;
                     break;
             }
-        } else {
-            afMode = ANDROID_CONTROL_AF_MODE_OFF;
         }
+
         settings.update(ANDROID_CONTROL_AF_MODE, &afMode, 1);
 
         settings.update(ANDROID_CONTROL_AF_REGIONS, controlRegions, 5);
@@ -950,11 +949,11 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
             // Lock buffer for writing
             if (srcBuf.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
                 if (destBuf.format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
-                    android_ycbcr ycbcr = android_ycbcr();
-                    res = GrallocModule::getInstance().lock_ycbcr(
+                    android_ycbcr ycbcr = {};
+                    res = mGBM->lockYCbCr(
                         *(destBuf.buffer),
                         GRALLOC_USAGE_HW_CAMERA_WRITE,
-                        0, 0, destBuf.width, destBuf.height,
+                        Rect(0, 0, destBuf.width, destBuf.height),
                         &ycbcr);
                     // This is only valid because we know that emulator's
                     // YCbCr_420_888 is really contiguous NV21 under the hood
@@ -965,10 +964,10 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                     res = INVALID_OPERATION;
                 }
             } else {
-                res = GrallocModule::getInstance().lock(
+                res = mGBM->lock(
                     *(destBuf.buffer),
                     GRALLOC_USAGE_HW_CAMERA_WRITE,
-                    0, 0, destBuf.width, destBuf.height,
+                    Rect(0, 0, destBuf.width, destBuf.height),
                     (void**)&(destBuf.img));
 
             }
@@ -986,8 +985,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
             // Either waiting or locking failed. Unlock locked buffers and bail
             // out.
             for (size_t j = 0; j < i; j++) {
-                GrallocModule::getInstance().unlock(
-                        *(request->output_buffers[i].buffer));
+                mGBM->unlock(*(request->output_buffers[i].buffer));
             }
             delete sensorBuffers;
             delete buffers;
@@ -1251,12 +1249,12 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     if (hasCapability(BACKWARD_COMPATIBLE)) {
         // 5 cm min focus distance for back camera, infinity (fixed focus) for front
-        const float minFocusDistance = mFacingBack ? 1.0/0.05 : 0.0;
+        const float minFocusDistance = 1.0/0.05;
         ADD_STATIC_ENTRY(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
                 &minFocusDistance, 1);
 
         // 5 m hyperfocal distance for back camera, infinity (fixed focus) for front
-        const float hyperFocalDistance = mFacingBack ? 1.0/5.0 : 0.0;
+        const float hyperFocalDistance = 1.0/5.0;
         ADD_STATIC_ENTRY(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
                 &hyperFocalDistance, 1);
 
@@ -1287,8 +1285,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         // 90 degree rotation to align with long edge of a phone device that's by default portrait
         static const float qO[] = { 0.707107f, 0.f, 0.f, 0.707107f};
 
-        // Either a 180-degree rotation for back-facing, or no rotation for front-facing
-        const float qF[] = {0, (mFacingBack ? 1.f : 0.f), 0, (mFacingBack ? 0.f : 1.f)};
+        const float qF[] = {0, 1.f, 0, 0.f};
 
         // Quarternion product, orientation change then facing
         const float lensPoseRotation[] = {qO[0]*qF[0] - qO[1]*qF[1] - qO[2]*qF[2] - qO[3]*qF[3],
@@ -1364,22 +1361,18 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     const std::vector<int32_t> availableStreamConfigurationsBasic = {
         HAL_PIXEL_FORMAT_BLOB, width, height, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_BLOB, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_BLOB, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_BLOB, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 176, 144, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 176, 144, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_BLOB, 176, 144, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
-        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
-        HAL_PIXEL_FORMAT_BLOB, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
-    };
-
-    // Always need to include 640x480 in basic formats
-    const std::vector<int32_t> availableStreamConfigurationsBasic640 = {
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
-        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
-        HAL_PIXEL_FORMAT_BLOB, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT
     };
 
     const std::vector<int32_t> availableStreamConfigurationsRaw = {
@@ -1398,11 +1391,6 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         availableStreamConfigurations.insert(availableStreamConfigurations.end(),
                 availableStreamConfigurationsBasic.begin(),
                 availableStreamConfigurationsBasic.end());
-        if (width > 640) {
-            availableStreamConfigurations.insert(availableStreamConfigurations.end(),
-                    availableStreamConfigurationsBasic640.begin(),
-                    availableStreamConfigurationsBasic640.end());
-        }
     }
     if (hasCapability(RAW)) {
         availableStreamConfigurations.insert(availableStreamConfigurations.end(),
@@ -1423,22 +1411,18 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     const std::vector<int64_t> availableMinFrameDurationsBasic = {
         HAL_PIXEL_FORMAT_BLOB, width, height, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_BLOB, 1280, 720, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_BLOB, 640, 480, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_BLOB, 320, 240, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 176, 144, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_YCbCr_420_888, 176, 144, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_BLOB, 176, 144, Sensor::kFrameDurationRange[0],
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, Sensor::kFrameDurationRange[0],
-        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, Sensor::kFrameDurationRange[0],
-        HAL_PIXEL_FORMAT_BLOB, 1280, 720, Sensor::kFrameDurationRange[0],
-    };
-
-    // Always need to include 640x480 in basic formats
-    const std::vector<int64_t> availableMinFrameDurationsBasic640 = {
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, Sensor::kFrameDurationRange[0],
-        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, Sensor::kFrameDurationRange[0],
-        HAL_PIXEL_FORMAT_BLOB, 640, 480, Sensor::kFrameDurationRange[0]
     };
 
     const std::vector<int64_t> availableMinFrameDurationsRaw = {
@@ -1457,11 +1441,6 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         availableMinFrameDurations.insert(availableMinFrameDurations.end(),
                 availableMinFrameDurationsBasic.begin(),
                 availableMinFrameDurationsBasic.end());
-        if (width > 640) {
-            availableMinFrameDurations.insert(availableMinFrameDurations.end(),
-                    availableMinFrameDurationsBasic640.begin(),
-                    availableMinFrameDurationsBasic640.end());
-        }
     }
     if (hasCapability(RAW)) {
         availableMinFrameDurations.insert(availableMinFrameDurations.end(),
@@ -1482,31 +1461,27 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     const std::vector<int64_t> availableStallDurationsBasic = {
         HAL_PIXEL_FORMAT_BLOB, width, height, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 0,
+        HAL_PIXEL_FORMAT_BLOB, 1280, 720, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, 0,
+        HAL_PIXEL_FORMAT_BLOB, 640, 480, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, 0,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, 0,
         HAL_PIXEL_FORMAT_RGBA_8888, 320, 240, 0,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 176, 144, 0,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 176, 144, 0,
         HAL_PIXEL_FORMAT_RGBA_8888, 176, 144, 0,
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 0,
-        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 0,
-        HAL_PIXEL_FORMAT_RGBA_8888, 1280, 720, 0,
-    };
-
-    // Always need to include 640x480 in basic formats
-    const std::vector<int64_t> availableStallDurationsBasic640 = {
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, 0,
-        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, 0,
-        HAL_PIXEL_FORMAT_BLOB, 640, 480, Sensor::kFrameDurationRange[0]
     };
 
     const std::vector<int64_t> availableStallDurationsRaw = {
-        HAL_PIXEL_FORMAT_RAW16, 640, 480, Sensor::kFrameDurationRange[0]
+        HAL_PIXEL_FORMAT_RAW16, width, height, Sensor::kFrameDurationRange[0]
     };
     const std::vector<int64_t> availableStallDurationsBurst = {
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, 0,
-        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, 0,
-        HAL_PIXEL_FORMAT_RGBA_8888, 640, 480, 0
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, width, height, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, width, height, 0,
+        HAL_PIXEL_FORMAT_RGBA_8888, width, height, 0
     };
 
     std::vector<int64_t> availableStallDurations;
@@ -1515,11 +1490,6 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         availableStallDurations.insert(availableStallDurations.end(),
                 availableStallDurationsBasic.begin(),
                 availableStallDurationsBasic.end());
-        if (width > 640) {
-            availableStallDurations.insert(availableStallDurations.end(),
-                    availableStallDurationsBasic640.begin(),
-                    availableStallDurationsBasic640.end());
-        }
     }
     if (hasCapability(RAW)) {
         availableStallDurations.insert(availableStallDurations.end(),
@@ -1703,7 +1673,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
             ANDROID_CONTROL_AF_MODE_OFF
     };
 
-    if (mFacingBack && hasCapability(BACKWARD_COMPATIBLE)) {
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
         ADD_STATIC_ENTRY(ANDROID_CONTROL_AF_AVAILABLE_MODES,
                 availableAfModesBack, sizeof(availableAfModesBack));
     } else {
@@ -2154,11 +2124,6 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
         case ANDROID_CONTROL_AF_MODE_MACRO:
         case ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO:
         case ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE:
-            if (!mFacingBack) {
-                // Always report INACTIVE for front Emulated Camera
-                mAfState = ANDROID_CONTROL_AF_STATE_INACTIVE;
-                return OK;
-            }
             break;
         default:
             ALOGE("%s: Emulator doesn't support AF mode %d",
@@ -2600,7 +2565,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
                         __FUNCTION__, strerror(-res), res);
             // fallthrough for cleanup
         }
-        GrallocModule::getInstance().unlock(*(buf->buffer));
+        mParent->mGBM->unlock(*(buf->buffer));
 
         buf->status = goodBuffer ? CAMERA3_BUFFER_STATUS_OK :
                 CAMERA3_BUFFER_STATUS_ERROR;
@@ -2702,7 +2667,7 @@ void EmulatedFakeCamera3::ReadoutThread::onJpegDone(
         const StreamBuffer &jpegBuffer, bool success) {
     Mutex::Autolock jl(mJpegLock);
 
-    GrallocModule::getInstance().unlock(*(jpegBuffer.buffer));
+    mParent->mGBM->unlock(*(jpegBuffer.buffer));
 
     mJpegHalBuffer.status = success ?
             CAMERA3_BUFFER_STATUS_OK : CAMERA3_BUFFER_STATUS_ERROR;

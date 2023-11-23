@@ -213,9 +213,6 @@ struct GyroCal {
 void gyroCalInit(struct GyroCal* gyro_cal,
                  const struct GyroCalParameters* parameters);
 
-// Void all pointers in the gyro calibration data structure.
-void gyroCalDestroy(struct GyroCal* gyro_cal);
-
 // Get the most recent bias calibration value.
 void gyroCalGetBias(struct GyroCal* gyro_cal, float* bias_x, float* bias_y,
                     float* bias_z, float* temperature_celsius,

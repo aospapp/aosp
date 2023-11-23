@@ -1,0 +1,6 @@
+# HwBinder IPC from client to server, and callbacks
+binder_call(mtk_hal_md_dbfilter_client, mtk_hal_md_dbfilter_server)
+binder_call(mtk_hal_md_dbfilter_server, mtk_hal_md_dbfilter_client)
+
+add_hwservice(mtk_hal_md_dbfilter_server, mtk_hal_md_dbfilter_hwservice)
+allow mtk_hal_md_dbfilter_client mtk_hal_md_dbfilter_hwservice:hwservice_manager find;

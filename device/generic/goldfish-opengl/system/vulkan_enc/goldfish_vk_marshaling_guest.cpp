@@ -52,9 +52,35 @@ void marshal_VkApplicationInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    vkStream->putString(forMarshaling->pApplicationName);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT)
+    {
+        // WARNING PTR CHECK
+        uint64_t cgen_var_0 = (uint64_t)(uintptr_t)forMarshaling->pApplicationName;
+        vkStream->putBe64(cgen_var_0);
+        if (forMarshaling->pApplicationName)
+        {
+            vkStream->putString(forMarshaling->pApplicationName);
+        }
+    }
+    else
+    {
+        vkStream->putString(forMarshaling->pApplicationName);
+    }
     vkStream->write((uint32_t*)&forMarshaling->applicationVersion, sizeof(uint32_t));
-    vkStream->putString(forMarshaling->pEngineName);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT)
+    {
+        // WARNING PTR CHECK
+        uint64_t cgen_var_1 = (uint64_t)(uintptr_t)forMarshaling->pEngineName;
+        vkStream->putBe64(cgen_var_1);
+        if (forMarshaling->pEngineName)
+        {
+            vkStream->putString(forMarshaling->pEngineName);
+        }
+    }
+    else
+    {
+        vkStream->putString(forMarshaling->pEngineName);
+    }
     vkStream->write((uint32_t*)&forMarshaling->engineVersion, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->apiVersion, sizeof(uint32_t));
 }
@@ -72,9 +98,43 @@ void unmarshal_VkApplicationInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    vkStream->loadStringInPlace((char**)&forUnmarshaling->pApplicationName);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT)
+    {
+        // WARNING PTR CHECK
+        const char* check_pApplicationName;
+        check_pApplicationName = (const char*)(uintptr_t)vkStream->getBe64();
+        if (forUnmarshaling->pApplicationName)
+        {
+            if (!(check_pApplicationName))
+            {
+                fprintf(stderr, "fatal: forUnmarshaling->pApplicationName inconsistent between guest and host\n");
+            }
+            vkStream->loadStringInPlace((char**)&forUnmarshaling->pApplicationName);
+        }
+    }
+    else
+    {
+        vkStream->loadStringInPlace((char**)&forUnmarshaling->pApplicationName);
+    }
     vkStream->read((uint32_t*)&forUnmarshaling->applicationVersion, sizeof(uint32_t));
-    vkStream->loadStringInPlace((char**)&forUnmarshaling->pEngineName);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT)
+    {
+        // WARNING PTR CHECK
+        const char* check_pEngineName;
+        check_pEngineName = (const char*)(uintptr_t)vkStream->getBe64();
+        if (forUnmarshaling->pEngineName)
+        {
+            if (!(check_pEngineName))
+            {
+                fprintf(stderr, "fatal: forUnmarshaling->pEngineName inconsistent between guest and host\n");
+            }
+            vkStream->loadStringInPlace((char**)&forUnmarshaling->pEngineName);
+        }
+    }
+    else
+    {
+        vkStream->loadStringInPlace((char**)&forUnmarshaling->pEngineName);
+    }
     vkStream->read((uint32_t*)&forUnmarshaling->engineVersion, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->apiVersion, sizeof(uint32_t));
 }
@@ -93,8 +153,8 @@ void marshal_VkInstanceCreateInfo(
     }
     vkStream->write((VkInstanceCreateFlags*)&forMarshaling->flags, sizeof(VkInstanceCreateFlags));
     // WARNING PTR CHECK
-    uint64_t cgen_var_0 = (uint64_t)(uintptr_t)forMarshaling->pApplicationInfo;
-    vkStream->putBe64(cgen_var_0);
+    uint64_t cgen_var_4 = (uint64_t)(uintptr_t)forMarshaling->pApplicationInfo;
+    vkStream->putBe64(cgen_var_4);
     if (forMarshaling->pApplicationInfo)
     {
         marshal_VkApplicationInfo(vkStream, (const VkApplicationInfo*)(forMarshaling->pApplicationInfo));
@@ -141,22 +201,22 @@ void marshal_VkAllocationCallbacks(
     const VkAllocationCallbacks* forMarshaling)
 {
     // WARNING PTR CHECK
-    uint64_t cgen_var_2 = (uint64_t)(uintptr_t)forMarshaling->pUserData;
-    vkStream->putBe64(cgen_var_2);
+    uint64_t cgen_var_6 = (uint64_t)(uintptr_t)forMarshaling->pUserData;
+    vkStream->putBe64(cgen_var_6);
     if (forMarshaling->pUserData)
     {
         vkStream->write((void*)forMarshaling->pUserData, sizeof(uint8_t));
     }
-    uint64_t cgen_var_3 = (uint64_t)forMarshaling->pfnAllocation;
-    vkStream->putBe64(cgen_var_3);
-    uint64_t cgen_var_4 = (uint64_t)forMarshaling->pfnReallocation;
-    vkStream->putBe64(cgen_var_4);
-    uint64_t cgen_var_5 = (uint64_t)forMarshaling->pfnFree;
-    vkStream->putBe64(cgen_var_5);
-    uint64_t cgen_var_6 = (uint64_t)forMarshaling->pfnInternalAllocation;
-    vkStream->putBe64(cgen_var_6);
-    uint64_t cgen_var_7 = (uint64_t)forMarshaling->pfnInternalFree;
+    uint64_t cgen_var_7 = (uint64_t)forMarshaling->pfnAllocation;
     vkStream->putBe64(cgen_var_7);
+    uint64_t cgen_var_8 = (uint64_t)forMarshaling->pfnReallocation;
+    vkStream->putBe64(cgen_var_8);
+    uint64_t cgen_var_9 = (uint64_t)forMarshaling->pfnFree;
+    vkStream->putBe64(cgen_var_9);
+    uint64_t cgen_var_10 = (uint64_t)forMarshaling->pfnInternalAllocation;
+    vkStream->putBe64(cgen_var_10);
+    uint64_t cgen_var_11 = (uint64_t)forMarshaling->pfnInternalFree;
+    vkStream->putBe64(cgen_var_11);
 }
 
 void unmarshal_VkAllocationCallbacks(
@@ -431,8 +491,8 @@ void marshal_VkPhysicalDeviceLimits(
     vkStream->write((uint32_t*)forMarshaling->maxViewportDimensions, 2 * sizeof(uint32_t));
     vkStream->write((float*)forMarshaling->viewportBoundsRange, 2 * sizeof(float));
     vkStream->write((uint32_t*)&forMarshaling->viewportSubPixelBits, sizeof(uint32_t));
-    uint64_t cgen_var_14 = (uint64_t)forMarshaling->minMemoryMapAlignment;
-    vkStream->putBe64(cgen_var_14);
+    uint64_t cgen_var_18 = (uint64_t)forMarshaling->minMemoryMapAlignment;
+    vkStream->putBe64(cgen_var_18);
     vkStream->write((VkDeviceSize*)&forMarshaling->minTexelBufferOffsetAlignment, sizeof(VkDeviceSize));
     vkStream->write((VkDeviceSize*)&forMarshaling->minUniformBufferOffsetAlignment, sizeof(VkDeviceSize));
     vkStream->write((VkDeviceSize*)&forMarshaling->minStorageBufferOffsetAlignment, sizeof(VkDeviceSize));
@@ -782,8 +842,8 @@ void marshal_VkDeviceCreateInfo(
     vkStream->write((uint32_t*)&forMarshaling->enabledExtensionCount, sizeof(uint32_t));
     saveStringArray(vkStream, forMarshaling->ppEnabledExtensionNames, forMarshaling->enabledExtensionCount);
     // WARNING PTR CHECK
-    uint64_t cgen_var_16 = (uint64_t)(uintptr_t)forMarshaling->pEnabledFeatures;
-    vkStream->putBe64(cgen_var_16);
+    uint64_t cgen_var_20 = (uint64_t)(uintptr_t)forMarshaling->pEnabledFeatures;
+    vkStream->putBe64(cgen_var_20);
     if (forMarshaling->pEnabledFeatures)
     {
         marshal_VkPhysicalDeviceFeatures(vkStream, (const VkPhysicalDeviceFeatures*)(forMarshaling->pEnabledFeatures));
@@ -877,27 +937,27 @@ void marshal_VkSubmitInfo(
     vkStream->write((uint32_t*)&forMarshaling->waitSemaphoreCount, sizeof(uint32_t));
     if (forMarshaling->waitSemaphoreCount)
     {
-        uint64_t* cgen_var_18;
-        vkStream->alloc((void**)&cgen_var_18, forMarshaling->waitSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pWaitSemaphores, cgen_var_18, forMarshaling->waitSemaphoreCount);
-        vkStream->write((uint64_t*)cgen_var_18, forMarshaling->waitSemaphoreCount * 8);
+        uint64_t* cgen_var_22;
+        vkStream->alloc((void**)&cgen_var_22, forMarshaling->waitSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pWaitSemaphores, cgen_var_22, forMarshaling->waitSemaphoreCount);
+        vkStream->write((uint64_t*)cgen_var_22, forMarshaling->waitSemaphoreCount * 8);
     }
     vkStream->write((const VkPipelineStageFlags*)forMarshaling->pWaitDstStageMask, forMarshaling->waitSemaphoreCount * sizeof(const VkPipelineStageFlags));
     vkStream->write((uint32_t*)&forMarshaling->commandBufferCount, sizeof(uint32_t));
     if (forMarshaling->commandBufferCount)
     {
-        uint64_t* cgen_var_19;
-        vkStream->alloc((void**)&cgen_var_19, forMarshaling->commandBufferCount * 8);
-        vkStream->handleMapping()->mapHandles_VkCommandBuffer_u64(forMarshaling->pCommandBuffers, cgen_var_19, forMarshaling->commandBufferCount);
-        vkStream->write((uint64_t*)cgen_var_19, forMarshaling->commandBufferCount * 8);
+        uint64_t* cgen_var_23;
+        vkStream->alloc((void**)&cgen_var_23, forMarshaling->commandBufferCount * 8);
+        vkStream->handleMapping()->mapHandles_VkCommandBuffer_u64(forMarshaling->pCommandBuffers, cgen_var_23, forMarshaling->commandBufferCount);
+        vkStream->write((uint64_t*)cgen_var_23, forMarshaling->commandBufferCount * 8);
     }
     vkStream->write((uint32_t*)&forMarshaling->signalSemaphoreCount, sizeof(uint32_t));
     if (forMarshaling->signalSemaphoreCount)
     {
-        uint64_t* cgen_var_20;
-        vkStream->alloc((void**)&cgen_var_20, forMarshaling->signalSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pSignalSemaphores, cgen_var_20, forMarshaling->signalSemaphoreCount);
-        vkStream->write((uint64_t*)cgen_var_20, forMarshaling->signalSemaphoreCount * 8);
+        uint64_t* cgen_var_24;
+        vkStream->alloc((void**)&cgen_var_24, forMarshaling->signalSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pSignalSemaphores, cgen_var_24, forMarshaling->signalSemaphoreCount);
+        vkStream->write((uint64_t*)cgen_var_24, forMarshaling->signalSemaphoreCount * 8);
     }
 }
 
@@ -917,27 +977,27 @@ void unmarshal_VkSubmitInfo(
     vkStream->read((uint32_t*)&forUnmarshaling->waitSemaphoreCount, sizeof(uint32_t));
     if (forUnmarshaling->waitSemaphoreCount)
     {
-        uint64_t* cgen_var_21;
-        vkStream->alloc((void**)&cgen_var_21, forUnmarshaling->waitSemaphoreCount * 8);
-        vkStream->read((uint64_t*)cgen_var_21, forUnmarshaling->waitSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_21, (VkSemaphore*)forUnmarshaling->pWaitSemaphores, forUnmarshaling->waitSemaphoreCount);
+        uint64_t* cgen_var_25;
+        vkStream->alloc((void**)&cgen_var_25, forUnmarshaling->waitSemaphoreCount * 8);
+        vkStream->read((uint64_t*)cgen_var_25, forUnmarshaling->waitSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_25, (VkSemaphore*)forUnmarshaling->pWaitSemaphores, forUnmarshaling->waitSemaphoreCount);
     }
     vkStream->read((VkPipelineStageFlags*)forUnmarshaling->pWaitDstStageMask, forUnmarshaling->waitSemaphoreCount * sizeof(const VkPipelineStageFlags));
     vkStream->read((uint32_t*)&forUnmarshaling->commandBufferCount, sizeof(uint32_t));
     if (forUnmarshaling->commandBufferCount)
     {
-        uint64_t* cgen_var_22;
-        vkStream->alloc((void**)&cgen_var_22, forUnmarshaling->commandBufferCount * 8);
-        vkStream->read((uint64_t*)cgen_var_22, forUnmarshaling->commandBufferCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkCommandBuffer(cgen_var_22, (VkCommandBuffer*)forUnmarshaling->pCommandBuffers, forUnmarshaling->commandBufferCount);
+        uint64_t* cgen_var_26;
+        vkStream->alloc((void**)&cgen_var_26, forUnmarshaling->commandBufferCount * 8);
+        vkStream->read((uint64_t*)cgen_var_26, forUnmarshaling->commandBufferCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkCommandBuffer(cgen_var_26, (VkCommandBuffer*)forUnmarshaling->pCommandBuffers, forUnmarshaling->commandBufferCount);
     }
     vkStream->read((uint32_t*)&forUnmarshaling->signalSemaphoreCount, sizeof(uint32_t));
     if (forUnmarshaling->signalSemaphoreCount)
     {
-        uint64_t* cgen_var_23;
-        vkStream->alloc((void**)&cgen_var_23, forUnmarshaling->signalSemaphoreCount * 8);
-        vkStream->read((uint64_t*)cgen_var_23, forUnmarshaling->signalSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_23, (VkSemaphore*)forUnmarshaling->pSignalSemaphores, forUnmarshaling->signalSemaphoreCount);
+        uint64_t* cgen_var_27;
+        vkStream->alloc((void**)&cgen_var_27, forUnmarshaling->signalSemaphoreCount * 8);
+        vkStream->read((uint64_t*)cgen_var_27, forUnmarshaling->signalSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_27, (VkSemaphore*)forUnmarshaling->pSignalSemaphores, forUnmarshaling->signalSemaphoreCount);
     }
 }
 
@@ -986,9 +1046,9 @@ void marshal_VkMappedMemoryRange(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_24;
-    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_24, 1);
-    vkStream->write((uint64_t*)&cgen_var_24, 1 * 8);
+    uint64_t cgen_var_28;
+    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_28, 1);
+    vkStream->write((uint64_t*)&cgen_var_28, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->offset, sizeof(VkDeviceSize));
     vkStream->write((VkDeviceSize*)&forMarshaling->size, sizeof(VkDeviceSize));
 }
@@ -1006,9 +1066,9 @@ void unmarshal_VkMappedMemoryRange(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_25;
-    vkStream->read((uint64_t*)&cgen_var_25, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_25, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
+    uint64_t cgen_var_29;
+    vkStream->read((uint64_t*)&cgen_var_29, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_29, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->offset, sizeof(VkDeviceSize));
     vkStream->read((VkDeviceSize*)&forUnmarshaling->size, sizeof(VkDeviceSize));
 }
@@ -1077,9 +1137,9 @@ void marshal_VkSparseMemoryBind(
 {
     vkStream->write((VkDeviceSize*)&forMarshaling->resourceOffset, sizeof(VkDeviceSize));
     vkStream->write((VkDeviceSize*)&forMarshaling->size, sizeof(VkDeviceSize));
-    uint64_t cgen_var_26;
-    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_26, 1);
-    vkStream->write((uint64_t*)&cgen_var_26, 1 * 8);
+    uint64_t cgen_var_30;
+    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_30, 1);
+    vkStream->write((uint64_t*)&cgen_var_30, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->memoryOffset, sizeof(VkDeviceSize));
     vkStream->write((VkSparseMemoryBindFlags*)&forMarshaling->flags, sizeof(VkSparseMemoryBindFlags));
 }
@@ -1090,9 +1150,9 @@ void unmarshal_VkSparseMemoryBind(
 {
     vkStream->read((VkDeviceSize*)&forUnmarshaling->resourceOffset, sizeof(VkDeviceSize));
     vkStream->read((VkDeviceSize*)&forUnmarshaling->size, sizeof(VkDeviceSize));
-    uint64_t cgen_var_27;
-    vkStream->read((uint64_t*)&cgen_var_27, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_27, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
+    uint64_t cgen_var_31;
+    vkStream->read((uint64_t*)&cgen_var_31, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_31, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->memoryOffset, sizeof(VkDeviceSize));
     vkStream->read((VkSparseMemoryBindFlags*)&forUnmarshaling->flags, sizeof(VkSparseMemoryBindFlags));
 }
@@ -1101,9 +1161,9 @@ void marshal_VkSparseBufferMemoryBindInfo(
     VulkanStreamGuest* vkStream,
     const VkSparseBufferMemoryBindInfo* forMarshaling)
 {
-    uint64_t cgen_var_28;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_28, 1);
-    vkStream->write((uint64_t*)&cgen_var_28, 1 * 8);
+    uint64_t cgen_var_32;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_32, 1);
+    vkStream->write((uint64_t*)&cgen_var_32, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->bindCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forMarshaling->bindCount; ++i)
     {
@@ -1115,9 +1175,9 @@ void unmarshal_VkSparseBufferMemoryBindInfo(
     VulkanStreamGuest* vkStream,
     VkSparseBufferMemoryBindInfo* forUnmarshaling)
 {
-    uint64_t cgen_var_29;
-    vkStream->read((uint64_t*)&cgen_var_29, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_29, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_33;
+    vkStream->read((uint64_t*)&cgen_var_33, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_33, (VkBuffer*)&forUnmarshaling->buffer, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->bindCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->bindCount; ++i)
     {
@@ -1129,9 +1189,9 @@ void marshal_VkSparseImageOpaqueMemoryBindInfo(
     VulkanStreamGuest* vkStream,
     const VkSparseImageOpaqueMemoryBindInfo* forMarshaling)
 {
-    uint64_t cgen_var_30;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_30, 1);
-    vkStream->write((uint64_t*)&cgen_var_30, 1 * 8);
+    uint64_t cgen_var_34;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_34, 1);
+    vkStream->write((uint64_t*)&cgen_var_34, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->bindCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forMarshaling->bindCount; ++i)
     {
@@ -1143,9 +1203,9 @@ void unmarshal_VkSparseImageOpaqueMemoryBindInfo(
     VulkanStreamGuest* vkStream,
     VkSparseImageOpaqueMemoryBindInfo* forUnmarshaling)
 {
-    uint64_t cgen_var_31;
-    vkStream->read((uint64_t*)&cgen_var_31, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_31, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_35;
+    vkStream->read((uint64_t*)&cgen_var_35, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_35, (VkImage*)&forUnmarshaling->image, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->bindCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->bindCount; ++i)
     {
@@ -1196,9 +1256,9 @@ void marshal_VkSparseImageMemoryBind(
     marshal_VkImageSubresource(vkStream, (VkImageSubresource*)(&forMarshaling->subresource));
     marshal_VkOffset3D(vkStream, (VkOffset3D*)(&forMarshaling->offset));
     marshal_VkExtent3D(vkStream, (VkExtent3D*)(&forMarshaling->extent));
-    uint64_t cgen_var_32;
-    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_32, 1);
-    vkStream->write((uint64_t*)&cgen_var_32, 1 * 8);
+    uint64_t cgen_var_36;
+    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_36, 1);
+    vkStream->write((uint64_t*)&cgen_var_36, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->memoryOffset, sizeof(VkDeviceSize));
     vkStream->write((VkSparseMemoryBindFlags*)&forMarshaling->flags, sizeof(VkSparseMemoryBindFlags));
 }
@@ -1210,9 +1270,9 @@ void unmarshal_VkSparseImageMemoryBind(
     unmarshal_VkImageSubresource(vkStream, (VkImageSubresource*)(&forUnmarshaling->subresource));
     unmarshal_VkOffset3D(vkStream, (VkOffset3D*)(&forUnmarshaling->offset));
     unmarshal_VkExtent3D(vkStream, (VkExtent3D*)(&forUnmarshaling->extent));
-    uint64_t cgen_var_33;
-    vkStream->read((uint64_t*)&cgen_var_33, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_33, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
+    uint64_t cgen_var_37;
+    vkStream->read((uint64_t*)&cgen_var_37, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_37, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->memoryOffset, sizeof(VkDeviceSize));
     vkStream->read((VkSparseMemoryBindFlags*)&forUnmarshaling->flags, sizeof(VkSparseMemoryBindFlags));
 }
@@ -1221,9 +1281,9 @@ void marshal_VkSparseImageMemoryBindInfo(
     VulkanStreamGuest* vkStream,
     const VkSparseImageMemoryBindInfo* forMarshaling)
 {
-    uint64_t cgen_var_34;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_34, 1);
-    vkStream->write((uint64_t*)&cgen_var_34, 1 * 8);
+    uint64_t cgen_var_38;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_38, 1);
+    vkStream->write((uint64_t*)&cgen_var_38, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->bindCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forMarshaling->bindCount; ++i)
     {
@@ -1235,9 +1295,9 @@ void unmarshal_VkSparseImageMemoryBindInfo(
     VulkanStreamGuest* vkStream,
     VkSparseImageMemoryBindInfo* forUnmarshaling)
 {
-    uint64_t cgen_var_35;
-    vkStream->read((uint64_t*)&cgen_var_35, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_35, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_39;
+    vkStream->read((uint64_t*)&cgen_var_39, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_39, (VkImage*)&forUnmarshaling->image, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->bindCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->bindCount; ++i)
     {
@@ -1260,10 +1320,10 @@ void marshal_VkBindSparseInfo(
     vkStream->write((uint32_t*)&forMarshaling->waitSemaphoreCount, sizeof(uint32_t));
     if (forMarshaling->waitSemaphoreCount)
     {
-        uint64_t* cgen_var_36;
-        vkStream->alloc((void**)&cgen_var_36, forMarshaling->waitSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pWaitSemaphores, cgen_var_36, forMarshaling->waitSemaphoreCount);
-        vkStream->write((uint64_t*)cgen_var_36, forMarshaling->waitSemaphoreCount * 8);
+        uint64_t* cgen_var_40;
+        vkStream->alloc((void**)&cgen_var_40, forMarshaling->waitSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pWaitSemaphores, cgen_var_40, forMarshaling->waitSemaphoreCount);
+        vkStream->write((uint64_t*)cgen_var_40, forMarshaling->waitSemaphoreCount * 8);
     }
     vkStream->write((uint32_t*)&forMarshaling->bufferBindCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forMarshaling->bufferBindCount; ++i)
@@ -1283,10 +1343,10 @@ void marshal_VkBindSparseInfo(
     vkStream->write((uint32_t*)&forMarshaling->signalSemaphoreCount, sizeof(uint32_t));
     if (forMarshaling->signalSemaphoreCount)
     {
-        uint64_t* cgen_var_37;
-        vkStream->alloc((void**)&cgen_var_37, forMarshaling->signalSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pSignalSemaphores, cgen_var_37, forMarshaling->signalSemaphoreCount);
-        vkStream->write((uint64_t*)cgen_var_37, forMarshaling->signalSemaphoreCount * 8);
+        uint64_t* cgen_var_41;
+        vkStream->alloc((void**)&cgen_var_41, forMarshaling->signalSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pSignalSemaphores, cgen_var_41, forMarshaling->signalSemaphoreCount);
+        vkStream->write((uint64_t*)cgen_var_41, forMarshaling->signalSemaphoreCount * 8);
     }
 }
 
@@ -1306,10 +1366,10 @@ void unmarshal_VkBindSparseInfo(
     vkStream->read((uint32_t*)&forUnmarshaling->waitSemaphoreCount, sizeof(uint32_t));
     if (forUnmarshaling->waitSemaphoreCount)
     {
-        uint64_t* cgen_var_38;
-        vkStream->alloc((void**)&cgen_var_38, forUnmarshaling->waitSemaphoreCount * 8);
-        vkStream->read((uint64_t*)cgen_var_38, forUnmarshaling->waitSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_38, (VkSemaphore*)forUnmarshaling->pWaitSemaphores, forUnmarshaling->waitSemaphoreCount);
+        uint64_t* cgen_var_42;
+        vkStream->alloc((void**)&cgen_var_42, forUnmarshaling->waitSemaphoreCount * 8);
+        vkStream->read((uint64_t*)cgen_var_42, forUnmarshaling->waitSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_42, (VkSemaphore*)forUnmarshaling->pWaitSemaphores, forUnmarshaling->waitSemaphoreCount);
     }
     vkStream->read((uint32_t*)&forUnmarshaling->bufferBindCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->bufferBindCount; ++i)
@@ -1329,10 +1389,10 @@ void unmarshal_VkBindSparseInfo(
     vkStream->read((uint32_t*)&forUnmarshaling->signalSemaphoreCount, sizeof(uint32_t));
     if (forUnmarshaling->signalSemaphoreCount)
     {
-        uint64_t* cgen_var_39;
-        vkStream->alloc((void**)&cgen_var_39, forUnmarshaling->signalSemaphoreCount * 8);
-        vkStream->read((uint64_t*)cgen_var_39, forUnmarshaling->signalSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_39, (VkSemaphore*)forUnmarshaling->pSignalSemaphores, forUnmarshaling->signalSemaphoreCount);
+        uint64_t* cgen_var_43;
+        vkStream->alloc((void**)&cgen_var_43, forUnmarshaling->signalSemaphoreCount * 8);
+        vkStream->read((uint64_t*)cgen_var_43, forUnmarshaling->signalSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_43, (VkSemaphore*)forUnmarshaling->pSignalSemaphores, forUnmarshaling->signalSemaphoreCount);
     }
 }
 
@@ -1484,8 +1544,8 @@ void marshal_VkBufferCreateInfo(
     vkStream->write((VkSharingMode*)&forMarshaling->sharingMode, sizeof(VkSharingMode));
     vkStream->write((uint32_t*)&forMarshaling->queueFamilyIndexCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_40 = (uint64_t)(uintptr_t)forMarshaling->pQueueFamilyIndices;
-    vkStream->putBe64(cgen_var_40);
+    uint64_t cgen_var_44 = (uint64_t)(uintptr_t)forMarshaling->pQueueFamilyIndices;
+    vkStream->putBe64(cgen_var_44);
     if (forMarshaling->pQueueFamilyIndices)
     {
         vkStream->write((const uint32_t*)forMarshaling->pQueueFamilyIndices, forMarshaling->queueFamilyIndexCount * sizeof(const uint32_t));
@@ -1536,9 +1596,9 @@ void marshal_VkBufferViewCreateInfo(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkBufferViewCreateFlags*)&forMarshaling->flags, sizeof(VkBufferViewCreateFlags));
-    uint64_t cgen_var_42;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_42, 1);
-    vkStream->write((uint64_t*)&cgen_var_42, 1 * 8);
+    uint64_t cgen_var_46;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_46, 1);
+    vkStream->write((uint64_t*)&cgen_var_46, 1 * 8);
     vkStream->write((VkFormat*)&forMarshaling->format, sizeof(VkFormat));
     vkStream->write((VkDeviceSize*)&forMarshaling->offset, sizeof(VkDeviceSize));
     vkStream->write((VkDeviceSize*)&forMarshaling->range, sizeof(VkDeviceSize));
@@ -1558,9 +1618,9 @@ void unmarshal_VkBufferViewCreateInfo(
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
     vkStream->read((VkBufferViewCreateFlags*)&forUnmarshaling->flags, sizeof(VkBufferViewCreateFlags));
-    uint64_t cgen_var_43;
-    vkStream->read((uint64_t*)&cgen_var_43, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_43, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_47;
+    vkStream->read((uint64_t*)&cgen_var_47, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_47, (VkBuffer*)&forUnmarshaling->buffer, 1);
     vkStream->read((VkFormat*)&forUnmarshaling->format, sizeof(VkFormat));
     vkStream->read((VkDeviceSize*)&forUnmarshaling->offset, sizeof(VkDeviceSize));
     vkStream->read((VkDeviceSize*)&forUnmarshaling->range, sizeof(VkDeviceSize));
@@ -1590,8 +1650,8 @@ void marshal_VkImageCreateInfo(
     vkStream->write((VkSharingMode*)&forMarshaling->sharingMode, sizeof(VkSharingMode));
     vkStream->write((uint32_t*)&forMarshaling->queueFamilyIndexCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_44 = (uint64_t)(uintptr_t)forMarshaling->pQueueFamilyIndices;
-    vkStream->putBe64(cgen_var_44);
+    uint64_t cgen_var_48 = (uint64_t)(uintptr_t)forMarshaling->pQueueFamilyIndices;
+    vkStream->putBe64(cgen_var_48);
     if (forMarshaling->pQueueFamilyIndices)
     {
         vkStream->write((const uint32_t*)forMarshaling->pQueueFamilyIndices, forMarshaling->queueFamilyIndexCount * sizeof(const uint32_t));
@@ -1714,9 +1774,9 @@ void marshal_VkImageViewCreateInfo(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkImageViewCreateFlags*)&forMarshaling->flags, sizeof(VkImageViewCreateFlags));
-    uint64_t cgen_var_46;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_46, 1);
-    vkStream->write((uint64_t*)&cgen_var_46, 1 * 8);
+    uint64_t cgen_var_50;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_50, 1);
+    vkStream->write((uint64_t*)&cgen_var_50, 1 * 8);
     vkStream->write((VkImageViewType*)&forMarshaling->viewType, sizeof(VkImageViewType));
     vkStream->write((VkFormat*)&forMarshaling->format, sizeof(VkFormat));
     marshal_VkComponentMapping(vkStream, (VkComponentMapping*)(&forMarshaling->components));
@@ -1737,9 +1797,9 @@ void unmarshal_VkImageViewCreateInfo(
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
     vkStream->read((VkImageViewCreateFlags*)&forUnmarshaling->flags, sizeof(VkImageViewCreateFlags));
-    uint64_t cgen_var_47;
-    vkStream->read((uint64_t*)&cgen_var_47, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_47, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_51;
+    vkStream->read((uint64_t*)&cgen_var_51, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_51, (VkImage*)&forUnmarshaling->image, 1);
     vkStream->read((VkImageViewType*)&forUnmarshaling->viewType, sizeof(VkImageViewType));
     vkStream->read((VkFormat*)&forUnmarshaling->format, sizeof(VkFormat));
     unmarshal_VkComponentMapping(vkStream, (VkComponentMapping*)(&forUnmarshaling->components));
@@ -1759,8 +1819,8 @@ void marshal_VkShaderModuleCreateInfo(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkShaderModuleCreateFlags*)&forMarshaling->flags, sizeof(VkShaderModuleCreateFlags));
-    uint64_t cgen_var_48 = (uint64_t)forMarshaling->codeSize;
-    vkStream->putBe64(cgen_var_48);
+    uint64_t cgen_var_52 = (uint64_t)forMarshaling->codeSize;
+    vkStream->putBe64(cgen_var_52);
     vkStream->write((const uint32_t*)forMarshaling->pCode, (forMarshaling->codeSize / 4) * sizeof(const uint32_t));
 }
 
@@ -1795,8 +1855,8 @@ void marshal_VkPipelineCacheCreateInfo(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkPipelineCacheCreateFlags*)&forMarshaling->flags, sizeof(VkPipelineCacheCreateFlags));
-    uint64_t cgen_var_50 = (uint64_t)forMarshaling->initialDataSize;
-    vkStream->putBe64(cgen_var_50);
+    uint64_t cgen_var_54 = (uint64_t)forMarshaling->initialDataSize;
+    vkStream->putBe64(cgen_var_54);
     vkStream->write((const void*)forMarshaling->pInitialData, forMarshaling->initialDataSize * sizeof(const uint8_t));
 }
 
@@ -1824,8 +1884,8 @@ void marshal_VkSpecializationMapEntry(
 {
     vkStream->write((uint32_t*)&forMarshaling->constantID, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->offset, sizeof(uint32_t));
-    uint64_t cgen_var_52 = (uint64_t)forMarshaling->size;
-    vkStream->putBe64(cgen_var_52);
+    uint64_t cgen_var_56 = (uint64_t)forMarshaling->size;
+    vkStream->putBe64(cgen_var_56);
 }
 
 void unmarshal_VkSpecializationMapEntry(
@@ -1846,8 +1906,8 @@ void marshal_VkSpecializationInfo(
     {
         marshal_VkSpecializationMapEntry(vkStream, (const VkSpecializationMapEntry*)(forMarshaling->pMapEntries + i));
     }
-    uint64_t cgen_var_54 = (uint64_t)forMarshaling->dataSize;
-    vkStream->putBe64(cgen_var_54);
+    uint64_t cgen_var_58 = (uint64_t)forMarshaling->dataSize;
+    vkStream->putBe64(cgen_var_58);
     vkStream->write((const void*)forMarshaling->pData, forMarshaling->dataSize * sizeof(const uint8_t));
 }
 
@@ -1878,13 +1938,13 @@ void marshal_VkPipelineShaderStageCreateInfo(
     }
     vkStream->write((VkPipelineShaderStageCreateFlags*)&forMarshaling->flags, sizeof(VkPipelineShaderStageCreateFlags));
     vkStream->write((VkShaderStageFlagBits*)&forMarshaling->stage, sizeof(VkShaderStageFlagBits));
-    uint64_t cgen_var_56;
-    vkStream->handleMapping()->mapHandles_VkShaderModule_u64(&forMarshaling->module, &cgen_var_56, 1);
-    vkStream->write((uint64_t*)&cgen_var_56, 1 * 8);
+    uint64_t cgen_var_60;
+    vkStream->handleMapping()->mapHandles_VkShaderModule_u64(&forMarshaling->module, &cgen_var_60, 1);
+    vkStream->write((uint64_t*)&cgen_var_60, 1 * 8);
     vkStream->putString(forMarshaling->pName);
     // WARNING PTR CHECK
-    uint64_t cgen_var_57 = (uint64_t)(uintptr_t)forMarshaling->pSpecializationInfo;
-    vkStream->putBe64(cgen_var_57);
+    uint64_t cgen_var_61 = (uint64_t)(uintptr_t)forMarshaling->pSpecializationInfo;
+    vkStream->putBe64(cgen_var_61);
     if (forMarshaling->pSpecializationInfo)
     {
         marshal_VkSpecializationInfo(vkStream, (const VkSpecializationInfo*)(forMarshaling->pSpecializationInfo));
@@ -1906,9 +1966,9 @@ void unmarshal_VkPipelineShaderStageCreateInfo(
     }
     vkStream->read((VkPipelineShaderStageCreateFlags*)&forUnmarshaling->flags, sizeof(VkPipelineShaderStageCreateFlags));
     vkStream->read((VkShaderStageFlagBits*)&forUnmarshaling->stage, sizeof(VkShaderStageFlagBits));
-    uint64_t cgen_var_58;
-    vkStream->read((uint64_t*)&cgen_var_58, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkShaderModule(&cgen_var_58, (VkShaderModule*)&forUnmarshaling->module, 1);
+    uint64_t cgen_var_62;
+    vkStream->read((uint64_t*)&cgen_var_62, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkShaderModule(&cgen_var_62, (VkShaderModule*)&forUnmarshaling->module, 1);
     vkStream->loadStringInPlace((char**)&forUnmarshaling->pName);
     // WARNING PTR CHECK
     const VkSpecializationInfo* check_pSpecializationInfo;
@@ -2167,8 +2227,8 @@ void marshal_VkPipelineViewportStateCreateInfo(
     vkStream->write((VkPipelineViewportStateCreateFlags*)&forMarshaling->flags, sizeof(VkPipelineViewportStateCreateFlags));
     vkStream->write((uint32_t*)&forMarshaling->viewportCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_60 = (uint64_t)(uintptr_t)forMarshaling->pViewports;
-    vkStream->putBe64(cgen_var_60);
+    uint64_t cgen_var_64 = (uint64_t)(uintptr_t)forMarshaling->pViewports;
+    vkStream->putBe64(cgen_var_64);
     if (forMarshaling->pViewports)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->viewportCount; ++i)
@@ -2178,8 +2238,8 @@ void marshal_VkPipelineViewportStateCreateInfo(
     }
     vkStream->write((uint32_t*)&forMarshaling->scissorCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_61 = (uint64_t)(uintptr_t)forMarshaling->pScissors;
-    vkStream->putBe64(cgen_var_61);
+    uint64_t cgen_var_65 = (uint64_t)(uintptr_t)forMarshaling->pScissors;
+    vkStream->putBe64(cgen_var_65);
     if (forMarshaling->pScissors)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->scissorCount; ++i)
@@ -2303,8 +2363,8 @@ void marshal_VkPipelineMultisampleStateCreateInfo(
     vkStream->write((VkBool32*)&forMarshaling->sampleShadingEnable, sizeof(VkBool32));
     vkStream->write((float*)&forMarshaling->minSampleShading, sizeof(float));
     // WARNING PTR CHECK
-    uint64_t cgen_var_64 = (uint64_t)(uintptr_t)forMarshaling->pSampleMask;
-    vkStream->putBe64(cgen_var_64);
+    uint64_t cgen_var_68 = (uint64_t)(uintptr_t)forMarshaling->pSampleMask;
+    vkStream->putBe64(cgen_var_68);
     if (forMarshaling->pSampleMask)
     {
         vkStream->write((const VkSampleMask*)forMarshaling->pSampleMask, (((forMarshaling->rasterizationSamples) + 31) / 32) * sizeof(const VkSampleMask));
@@ -2534,6 +2594,20 @@ void marshal_VkGraphicsPipelineCreateInfo(
     VulkanStreamGuest* vkStream,
     const VkGraphicsPipelineCreateInfo* forMarshaling)
 {
+    uint32_t hasRasterization = 1;
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        hasRasterization = (((0 == forMarshaling->pRasterizationState)) ? (0) : (!((*(forMarshaling->pRasterizationState)).rasterizerDiscardEnable)));
+        uint32_t cgen_var_70 = (uint32_t)hasRasterization;
+        vkStream->putBe32(cgen_var_70);
+    }
+    uint32_t hasTessellation = 1;
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        hasTessellation = arrayany(forMarshaling->pStages, 0, forMarshaling->stageCount, [](VkPipelineShaderStageCreateInfo s) { return ((s.stage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT) || (s.stage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)); });
+        uint32_t cgen_var_71 = (uint32_t)hasTessellation;
+        vkStream->putBe32(cgen_var_71);
+    }
     vkStream->write((VkStructureType*)&forMarshaling->sType, sizeof(VkStructureType));
     size_t pNext_size = goldfish_vk_extension_struct_size(forMarshaling->pNext);
     vkStream->putBe32(pNext_size);
@@ -2548,61 +2622,103 @@ void marshal_VkGraphicsPipelineCreateInfo(
     {
         marshal_VkPipelineShaderStageCreateInfo(vkStream, (const VkPipelineShaderStageCreateInfo*)(forMarshaling->pStages + i));
     }
-    marshal_VkPipelineVertexInputStateCreateInfo(vkStream, (const VkPipelineVertexInputStateCreateInfo*)(forMarshaling->pVertexInputState));
-    marshal_VkPipelineInputAssemblyStateCreateInfo(vkStream, (const VkPipelineInputAssemblyStateCreateInfo*)(forMarshaling->pInputAssemblyState));
     // WARNING PTR CHECK
-    uint64_t cgen_var_66 = (uint64_t)(uintptr_t)forMarshaling->pTessellationState;
-    vkStream->putBe64(cgen_var_66);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        uint64_t cgen_var_72 = (uint64_t)(uintptr_t)forMarshaling->pVertexInputState;
+        vkStream->putBe64(cgen_var_72);
+    }
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || forMarshaling->pVertexInputState))
+    {
+        marshal_VkPipelineVertexInputStateCreateInfo(vkStream, (const VkPipelineVertexInputStateCreateInfo*)(forMarshaling->pVertexInputState));
+    }
+    // WARNING PTR CHECK
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        uint64_t cgen_var_73 = (uint64_t)(uintptr_t)forMarshaling->pInputAssemblyState;
+        vkStream->putBe64(cgen_var_73);
+    }
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || forMarshaling->pInputAssemblyState))
+    {
+        marshal_VkPipelineInputAssemblyStateCreateInfo(vkStream, (const VkPipelineInputAssemblyStateCreateInfo*)(forMarshaling->pInputAssemblyState));
+    }
+    // WARNING PTR CHECK
+    uint64_t cgen_var_74 = (uint64_t)(uintptr_t)forMarshaling->pTessellationState;
+    vkStream->putBe64(cgen_var_74);
     if (forMarshaling->pTessellationState)
     {
-        marshal_VkPipelineTessellationStateCreateInfo(vkStream, (const VkPipelineTessellationStateCreateInfo*)(forMarshaling->pTessellationState));
+        if (hasTessellation)
+        {
+            marshal_VkPipelineTessellationStateCreateInfo(vkStream, (const VkPipelineTessellationStateCreateInfo*)(forMarshaling->pTessellationState));
+        }
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_67 = (uint64_t)(uintptr_t)forMarshaling->pViewportState;
-    vkStream->putBe64(cgen_var_67);
+    uint64_t cgen_var_75 = (uint64_t)(uintptr_t)forMarshaling->pViewportState;
+    vkStream->putBe64(cgen_var_75);
     if (forMarshaling->pViewportState)
     {
-        marshal_VkPipelineViewportStateCreateInfo(vkStream, (const VkPipelineViewportStateCreateInfo*)(forMarshaling->pViewportState));
+        if (hasRasterization)
+        {
+            marshal_VkPipelineViewportStateCreateInfo(vkStream, (const VkPipelineViewportStateCreateInfo*)(forMarshaling->pViewportState));
+        }
     }
-    marshal_VkPipelineRasterizationStateCreateInfo(vkStream, (const VkPipelineRasterizationStateCreateInfo*)(forMarshaling->pRasterizationState));
     // WARNING PTR CHECK
-    uint64_t cgen_var_68 = (uint64_t)(uintptr_t)forMarshaling->pMultisampleState;
-    vkStream->putBe64(cgen_var_68);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        uint64_t cgen_var_76 = (uint64_t)(uintptr_t)forMarshaling->pRasterizationState;
+        vkStream->putBe64(cgen_var_76);
+    }
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || forMarshaling->pRasterizationState))
+    {
+        marshal_VkPipelineRasterizationStateCreateInfo(vkStream, (const VkPipelineRasterizationStateCreateInfo*)(forMarshaling->pRasterizationState));
+    }
+    // WARNING PTR CHECK
+    uint64_t cgen_var_77 = (uint64_t)(uintptr_t)forMarshaling->pMultisampleState;
+    vkStream->putBe64(cgen_var_77);
     if (forMarshaling->pMultisampleState)
     {
-        marshal_VkPipelineMultisampleStateCreateInfo(vkStream, (const VkPipelineMultisampleStateCreateInfo*)(forMarshaling->pMultisampleState));
+        if (hasRasterization)
+        {
+            marshal_VkPipelineMultisampleStateCreateInfo(vkStream, (const VkPipelineMultisampleStateCreateInfo*)(forMarshaling->pMultisampleState));
+        }
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_69 = (uint64_t)(uintptr_t)forMarshaling->pDepthStencilState;
-    vkStream->putBe64(cgen_var_69);
+    uint64_t cgen_var_78 = (uint64_t)(uintptr_t)forMarshaling->pDepthStencilState;
+    vkStream->putBe64(cgen_var_78);
     if (forMarshaling->pDepthStencilState)
     {
-        marshal_VkPipelineDepthStencilStateCreateInfo(vkStream, (const VkPipelineDepthStencilStateCreateInfo*)(forMarshaling->pDepthStencilState));
+        if (hasRasterization)
+        {
+            marshal_VkPipelineDepthStencilStateCreateInfo(vkStream, (const VkPipelineDepthStencilStateCreateInfo*)(forMarshaling->pDepthStencilState));
+        }
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_70 = (uint64_t)(uintptr_t)forMarshaling->pColorBlendState;
-    vkStream->putBe64(cgen_var_70);
+    uint64_t cgen_var_79 = (uint64_t)(uintptr_t)forMarshaling->pColorBlendState;
+    vkStream->putBe64(cgen_var_79);
     if (forMarshaling->pColorBlendState)
     {
-        marshal_VkPipelineColorBlendStateCreateInfo(vkStream, (const VkPipelineColorBlendStateCreateInfo*)(forMarshaling->pColorBlendState));
+        if (hasRasterization)
+        {
+            marshal_VkPipelineColorBlendStateCreateInfo(vkStream, (const VkPipelineColorBlendStateCreateInfo*)(forMarshaling->pColorBlendState));
+        }
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_71 = (uint64_t)(uintptr_t)forMarshaling->pDynamicState;
-    vkStream->putBe64(cgen_var_71);
+    uint64_t cgen_var_80 = (uint64_t)(uintptr_t)forMarshaling->pDynamicState;
+    vkStream->putBe64(cgen_var_80);
     if (forMarshaling->pDynamicState)
     {
         marshal_VkPipelineDynamicStateCreateInfo(vkStream, (const VkPipelineDynamicStateCreateInfo*)(forMarshaling->pDynamicState));
     }
-    uint64_t cgen_var_72;
-    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->layout, &cgen_var_72, 1);
-    vkStream->write((uint64_t*)&cgen_var_72, 1 * 8);
-    uint64_t cgen_var_73;
-    vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_73, 1);
-    vkStream->write((uint64_t*)&cgen_var_73, 1 * 8);
+    uint64_t cgen_var_81;
+    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->layout, &cgen_var_81, 1);
+    vkStream->write((uint64_t*)&cgen_var_81, 1 * 8);
+    uint64_t cgen_var_82;
+    vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_82, 1);
+    vkStream->write((uint64_t*)&cgen_var_82, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->subpass, sizeof(uint32_t));
-    uint64_t cgen_var_74;
-    vkStream->handleMapping()->mapHandles_VkPipeline_u64(&forMarshaling->basePipelineHandle, &cgen_var_74, 1);
-    vkStream->write((uint64_t*)&cgen_var_74, 1 * 8);
+    uint64_t cgen_var_83;
+    vkStream->handleMapping()->mapHandles_VkPipeline_u64(&forMarshaling->basePipelineHandle, &cgen_var_83, 1);
+    vkStream->write((uint64_t*)&cgen_var_83, 1 * 8);
     vkStream->write((int32_t*)&forMarshaling->basePipelineIndex, sizeof(int32_t));
 }
 
@@ -2610,6 +2726,16 @@ void unmarshal_VkGraphicsPipelineCreateInfo(
     VulkanStreamGuest* vkStream,
     VkGraphicsPipelineCreateInfo* forUnmarshaling)
 {
+    uint32_t hasRasterization = 1;
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        hasRasterization = (const uint32_t)vkStream->getBe32();
+    }
+    uint32_t hasTessellation = 1;
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        hasTessellation = (const uint32_t)vkStream->getBe32();
+    }
     vkStream->read((VkStructureType*)&forUnmarshaling->sType, sizeof(VkStructureType));
     size_t pNext_size;
     pNext_size = vkStream->getBe32();
@@ -2625,8 +2751,26 @@ void unmarshal_VkGraphicsPipelineCreateInfo(
     {
         unmarshal_VkPipelineShaderStageCreateInfo(vkStream, (VkPipelineShaderStageCreateInfo*)(forUnmarshaling->pStages + i));
     }
-    unmarshal_VkPipelineVertexInputStateCreateInfo(vkStream, (VkPipelineVertexInputStateCreateInfo*)(forUnmarshaling->pVertexInputState));
-    unmarshal_VkPipelineInputAssemblyStateCreateInfo(vkStream, (VkPipelineInputAssemblyStateCreateInfo*)(forUnmarshaling->pInputAssemblyState));
+    // WARNING PTR CHECK
+    const VkPipelineVertexInputStateCreateInfo* check_pVertexInputState;
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        check_pVertexInputState = (const VkPipelineVertexInputStateCreateInfo*)(uintptr_t)vkStream->getBe64();
+    }
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || forUnmarshaling->pVertexInputState))
+    {
+        unmarshal_VkPipelineVertexInputStateCreateInfo(vkStream, (VkPipelineVertexInputStateCreateInfo*)(forUnmarshaling->pVertexInputState));
+    }
+    // WARNING PTR CHECK
+    const VkPipelineInputAssemblyStateCreateInfo* check_pInputAssemblyState;
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        check_pInputAssemblyState = (const VkPipelineInputAssemblyStateCreateInfo*)(uintptr_t)vkStream->getBe64();
+    }
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || forUnmarshaling->pInputAssemblyState))
+    {
+        unmarshal_VkPipelineInputAssemblyStateCreateInfo(vkStream, (VkPipelineInputAssemblyStateCreateInfo*)(forUnmarshaling->pInputAssemblyState));
+    }
     // WARNING PTR CHECK
     const VkPipelineTessellationStateCreateInfo* check_pTessellationState;
     check_pTessellationState = (const VkPipelineTessellationStateCreateInfo*)(uintptr_t)vkStream->getBe64();
@@ -2636,7 +2780,14 @@ void unmarshal_VkGraphicsPipelineCreateInfo(
         {
             fprintf(stderr, "fatal: forUnmarshaling->pTessellationState inconsistent between guest and host\n");
         }
-        unmarshal_VkPipelineTessellationStateCreateInfo(vkStream, (VkPipelineTessellationStateCreateInfo*)(forUnmarshaling->pTessellationState));
+        if (hasTessellation)
+        {
+            unmarshal_VkPipelineTessellationStateCreateInfo(vkStream, (VkPipelineTessellationStateCreateInfo*)(forUnmarshaling->pTessellationState));
+        }
+        else
+        {
+            forUnmarshaling->pTessellationState = 0;
+        }
     }
     // WARNING PTR CHECK
     const VkPipelineViewportStateCreateInfo* check_pViewportState;
@@ -2647,9 +2798,25 @@ void unmarshal_VkGraphicsPipelineCreateInfo(
         {
             fprintf(stderr, "fatal: forUnmarshaling->pViewportState inconsistent between guest and host\n");
         }
-        unmarshal_VkPipelineViewportStateCreateInfo(vkStream, (VkPipelineViewportStateCreateInfo*)(forUnmarshaling->pViewportState));
+        if (hasRasterization)
+        {
+            unmarshal_VkPipelineViewportStateCreateInfo(vkStream, (VkPipelineViewportStateCreateInfo*)(forUnmarshaling->pViewportState));
+        }
+        else
+        {
+            forUnmarshaling->pViewportState = 0;
+        }
     }
-    unmarshal_VkPipelineRasterizationStateCreateInfo(vkStream, (VkPipelineRasterizationStateCreateInfo*)(forUnmarshaling->pRasterizationState));
+    // WARNING PTR CHECK
+    const VkPipelineRasterizationStateCreateInfo* check_pRasterizationState;
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT)
+    {
+        check_pRasterizationState = (const VkPipelineRasterizationStateCreateInfo*)(uintptr_t)vkStream->getBe64();
+    }
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || forUnmarshaling->pRasterizationState))
+    {
+        unmarshal_VkPipelineRasterizationStateCreateInfo(vkStream, (VkPipelineRasterizationStateCreateInfo*)(forUnmarshaling->pRasterizationState));
+    }
     // WARNING PTR CHECK
     const VkPipelineMultisampleStateCreateInfo* check_pMultisampleState;
     check_pMultisampleState = (const VkPipelineMultisampleStateCreateInfo*)(uintptr_t)vkStream->getBe64();
@@ -2659,7 +2826,14 @@ void unmarshal_VkGraphicsPipelineCreateInfo(
         {
             fprintf(stderr, "fatal: forUnmarshaling->pMultisampleState inconsistent between guest and host\n");
         }
-        unmarshal_VkPipelineMultisampleStateCreateInfo(vkStream, (VkPipelineMultisampleStateCreateInfo*)(forUnmarshaling->pMultisampleState));
+        if (hasRasterization)
+        {
+            unmarshal_VkPipelineMultisampleStateCreateInfo(vkStream, (VkPipelineMultisampleStateCreateInfo*)(forUnmarshaling->pMultisampleState));
+        }
+        else
+        {
+            forUnmarshaling->pMultisampleState = 0;
+        }
     }
     // WARNING PTR CHECK
     const VkPipelineDepthStencilStateCreateInfo* check_pDepthStencilState;
@@ -2670,7 +2844,14 @@ void unmarshal_VkGraphicsPipelineCreateInfo(
         {
             fprintf(stderr, "fatal: forUnmarshaling->pDepthStencilState inconsistent between guest and host\n");
         }
-        unmarshal_VkPipelineDepthStencilStateCreateInfo(vkStream, (VkPipelineDepthStencilStateCreateInfo*)(forUnmarshaling->pDepthStencilState));
+        if (hasRasterization)
+        {
+            unmarshal_VkPipelineDepthStencilStateCreateInfo(vkStream, (VkPipelineDepthStencilStateCreateInfo*)(forUnmarshaling->pDepthStencilState));
+        }
+        else
+        {
+            forUnmarshaling->pDepthStencilState = 0;
+        }
     }
     // WARNING PTR CHECK
     const VkPipelineColorBlendStateCreateInfo* check_pColorBlendState;
@@ -2681,7 +2862,14 @@ void unmarshal_VkGraphicsPipelineCreateInfo(
         {
             fprintf(stderr, "fatal: forUnmarshaling->pColorBlendState inconsistent between guest and host\n");
         }
-        unmarshal_VkPipelineColorBlendStateCreateInfo(vkStream, (VkPipelineColorBlendStateCreateInfo*)(forUnmarshaling->pColorBlendState));
+        if (hasRasterization)
+        {
+            unmarshal_VkPipelineColorBlendStateCreateInfo(vkStream, (VkPipelineColorBlendStateCreateInfo*)(forUnmarshaling->pColorBlendState));
+        }
+        else
+        {
+            forUnmarshaling->pColorBlendState = 0;
+        }
     }
     // WARNING PTR CHECK
     const VkPipelineDynamicStateCreateInfo* check_pDynamicState;
@@ -2694,16 +2882,16 @@ void unmarshal_VkGraphicsPipelineCreateInfo(
         }
         unmarshal_VkPipelineDynamicStateCreateInfo(vkStream, (VkPipelineDynamicStateCreateInfo*)(forUnmarshaling->pDynamicState));
     }
-    uint64_t cgen_var_81;
-    vkStream->read((uint64_t*)&cgen_var_81, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_81, (VkPipelineLayout*)&forUnmarshaling->layout, 1);
-    uint64_t cgen_var_82;
-    vkStream->read((uint64_t*)&cgen_var_82, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_82, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
+    uint64_t cgen_var_95;
+    vkStream->read((uint64_t*)&cgen_var_95, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_95, (VkPipelineLayout*)&forUnmarshaling->layout, 1);
+    uint64_t cgen_var_96;
+    vkStream->read((uint64_t*)&cgen_var_96, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_96, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->subpass, sizeof(uint32_t));
-    uint64_t cgen_var_83;
-    vkStream->read((uint64_t*)&cgen_var_83, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkPipeline(&cgen_var_83, (VkPipeline*)&forUnmarshaling->basePipelineHandle, 1);
+    uint64_t cgen_var_97;
+    vkStream->read((uint64_t*)&cgen_var_97, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkPipeline(&cgen_var_97, (VkPipeline*)&forUnmarshaling->basePipelineHandle, 1);
     vkStream->read((int32_t*)&forUnmarshaling->basePipelineIndex, sizeof(int32_t));
 }
 
@@ -2721,12 +2909,12 @@ void marshal_VkComputePipelineCreateInfo(
     }
     vkStream->write((VkPipelineCreateFlags*)&forMarshaling->flags, sizeof(VkPipelineCreateFlags));
     marshal_VkPipelineShaderStageCreateInfo(vkStream, (VkPipelineShaderStageCreateInfo*)(&forMarshaling->stage));
-    uint64_t cgen_var_84;
-    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->layout, &cgen_var_84, 1);
-    vkStream->write((uint64_t*)&cgen_var_84, 1 * 8);
-    uint64_t cgen_var_85;
-    vkStream->handleMapping()->mapHandles_VkPipeline_u64(&forMarshaling->basePipelineHandle, &cgen_var_85, 1);
-    vkStream->write((uint64_t*)&cgen_var_85, 1 * 8);
+    uint64_t cgen_var_98;
+    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->layout, &cgen_var_98, 1);
+    vkStream->write((uint64_t*)&cgen_var_98, 1 * 8);
+    uint64_t cgen_var_99;
+    vkStream->handleMapping()->mapHandles_VkPipeline_u64(&forMarshaling->basePipelineHandle, &cgen_var_99, 1);
+    vkStream->write((uint64_t*)&cgen_var_99, 1 * 8);
     vkStream->write((int32_t*)&forMarshaling->basePipelineIndex, sizeof(int32_t));
 }
 
@@ -2745,12 +2933,12 @@ void unmarshal_VkComputePipelineCreateInfo(
     }
     vkStream->read((VkPipelineCreateFlags*)&forUnmarshaling->flags, sizeof(VkPipelineCreateFlags));
     unmarshal_VkPipelineShaderStageCreateInfo(vkStream, (VkPipelineShaderStageCreateInfo*)(&forUnmarshaling->stage));
-    uint64_t cgen_var_86;
-    vkStream->read((uint64_t*)&cgen_var_86, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_86, (VkPipelineLayout*)&forUnmarshaling->layout, 1);
-    uint64_t cgen_var_87;
-    vkStream->read((uint64_t*)&cgen_var_87, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkPipeline(&cgen_var_87, (VkPipeline*)&forUnmarshaling->basePipelineHandle, 1);
+    uint64_t cgen_var_100;
+    vkStream->read((uint64_t*)&cgen_var_100, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_100, (VkPipelineLayout*)&forUnmarshaling->layout, 1);
+    uint64_t cgen_var_101;
+    vkStream->read((uint64_t*)&cgen_var_101, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkPipeline(&cgen_var_101, (VkPipeline*)&forUnmarshaling->basePipelineHandle, 1);
     vkStream->read((int32_t*)&forUnmarshaling->basePipelineIndex, sizeof(int32_t));
 }
 
@@ -2788,10 +2976,10 @@ void marshal_VkPipelineLayoutCreateInfo(
     vkStream->write((uint32_t*)&forMarshaling->setLayoutCount, sizeof(uint32_t));
     if (forMarshaling->setLayoutCount)
     {
-        uint64_t* cgen_var_88;
-        vkStream->alloc((void**)&cgen_var_88, forMarshaling->setLayoutCount * 8);
-        vkStream->handleMapping()->mapHandles_VkDescriptorSetLayout_u64(forMarshaling->pSetLayouts, cgen_var_88, forMarshaling->setLayoutCount);
-        vkStream->write((uint64_t*)cgen_var_88, forMarshaling->setLayoutCount * 8);
+        uint64_t* cgen_var_102;
+        vkStream->alloc((void**)&cgen_var_102, forMarshaling->setLayoutCount * 8);
+        vkStream->handleMapping()->mapHandles_VkDescriptorSetLayout_u64(forMarshaling->pSetLayouts, cgen_var_102, forMarshaling->setLayoutCount);
+        vkStream->write((uint64_t*)cgen_var_102, forMarshaling->setLayoutCount * 8);
     }
     vkStream->write((uint32_t*)&forMarshaling->pushConstantRangeCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forMarshaling->pushConstantRangeCount; ++i)
@@ -2817,10 +3005,10 @@ void unmarshal_VkPipelineLayoutCreateInfo(
     vkStream->read((uint32_t*)&forUnmarshaling->setLayoutCount, sizeof(uint32_t));
     if (forUnmarshaling->setLayoutCount)
     {
-        uint64_t* cgen_var_89;
-        vkStream->alloc((void**)&cgen_var_89, forUnmarshaling->setLayoutCount * 8);
-        vkStream->read((uint64_t*)cgen_var_89, forUnmarshaling->setLayoutCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkDescriptorSetLayout(cgen_var_89, (VkDescriptorSetLayout*)forUnmarshaling->pSetLayouts, forUnmarshaling->setLayoutCount);
+        uint64_t* cgen_var_103;
+        vkStream->alloc((void**)&cgen_var_103, forUnmarshaling->setLayoutCount * 8);
+        vkStream->read((uint64_t*)cgen_var_103, forUnmarshaling->setLayoutCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkDescriptorSetLayout(cgen_var_103, (VkDescriptorSetLayout*)forUnmarshaling->pSetLayouts, forUnmarshaling->setLayoutCount);
     }
     vkStream->read((uint32_t*)&forUnmarshaling->pushConstantRangeCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->pushConstantRangeCount; ++i)
@@ -2899,16 +3087,16 @@ void marshal_VkDescriptorSetLayoutBinding(
     vkStream->write((uint32_t*)&forMarshaling->descriptorCount, sizeof(uint32_t));
     vkStream->write((VkShaderStageFlags*)&forMarshaling->stageFlags, sizeof(VkShaderStageFlags));
     // WARNING PTR CHECK
-    uint64_t cgen_var_90 = (uint64_t)(uintptr_t)forMarshaling->pImmutableSamplers;
-    vkStream->putBe64(cgen_var_90);
+    uint64_t cgen_var_104 = (uint64_t)(uintptr_t)forMarshaling->pImmutableSamplers;
+    vkStream->putBe64(cgen_var_104);
     if (forMarshaling->pImmutableSamplers)
     {
         if (forMarshaling->descriptorCount)
         {
-            uint64_t* cgen_var_91;
-            vkStream->alloc((void**)&cgen_var_91, forMarshaling->descriptorCount * 8);
-            vkStream->handleMapping()->mapHandles_VkSampler_u64(forMarshaling->pImmutableSamplers, cgen_var_91, forMarshaling->descriptorCount);
-            vkStream->write((uint64_t*)cgen_var_91, forMarshaling->descriptorCount * 8);
+            uint64_t* cgen_var_105;
+            vkStream->alloc((void**)&cgen_var_105, forMarshaling->descriptorCount * 8);
+            vkStream->handleMapping()->mapHandles_VkSampler_u64(forMarshaling->pImmutableSamplers, cgen_var_105, forMarshaling->descriptorCount);
+            vkStream->write((uint64_t*)cgen_var_105, forMarshaling->descriptorCount * 8);
         }
     }
 }
@@ -2932,10 +3120,10 @@ void unmarshal_VkDescriptorSetLayoutBinding(
         }
         if (forUnmarshaling->descriptorCount)
         {
-            uint64_t* cgen_var_93;
-            vkStream->alloc((void**)&cgen_var_93, forUnmarshaling->descriptorCount * 8);
-            vkStream->read((uint64_t*)cgen_var_93, forUnmarshaling->descriptorCount * 8);
-            vkStream->handleMapping()->mapHandles_u64_VkSampler(cgen_var_93, (VkSampler*)forUnmarshaling->pImmutableSamplers, forUnmarshaling->descriptorCount);
+            uint64_t* cgen_var_107;
+            vkStream->alloc((void**)&cgen_var_107, forUnmarshaling->descriptorCount * 8);
+            vkStream->read((uint64_t*)cgen_var_107, forUnmarshaling->descriptorCount * 8);
+            vkStream->handleMapping()->mapHandles_u64_VkSampler(cgen_var_107, (VkSampler*)forUnmarshaling->pImmutableSamplers, forUnmarshaling->descriptorCount);
         }
     }
 }
@@ -3052,16 +3240,16 @@ void marshal_VkDescriptorSetAllocateInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_94;
-    vkStream->handleMapping()->mapHandles_VkDescriptorPool_u64(&forMarshaling->descriptorPool, &cgen_var_94, 1);
-    vkStream->write((uint64_t*)&cgen_var_94, 1 * 8);
+    uint64_t cgen_var_108;
+    vkStream->handleMapping()->mapHandles_VkDescriptorPool_u64(&forMarshaling->descriptorPool, &cgen_var_108, 1);
+    vkStream->write((uint64_t*)&cgen_var_108, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->descriptorSetCount, sizeof(uint32_t));
     if (forMarshaling->descriptorSetCount)
     {
-        uint64_t* cgen_var_95;
-        vkStream->alloc((void**)&cgen_var_95, forMarshaling->descriptorSetCount * 8);
-        vkStream->handleMapping()->mapHandles_VkDescriptorSetLayout_u64(forMarshaling->pSetLayouts, cgen_var_95, forMarshaling->descriptorSetCount);
-        vkStream->write((uint64_t*)cgen_var_95, forMarshaling->descriptorSetCount * 8);
+        uint64_t* cgen_var_109;
+        vkStream->alloc((void**)&cgen_var_109, forMarshaling->descriptorSetCount * 8);
+        vkStream->handleMapping()->mapHandles_VkDescriptorSetLayout_u64(forMarshaling->pSetLayouts, cgen_var_109, forMarshaling->descriptorSetCount);
+        vkStream->write((uint64_t*)cgen_var_109, forMarshaling->descriptorSetCount * 8);
     }
 }
 
@@ -3078,16 +3266,16 @@ void unmarshal_VkDescriptorSetAllocateInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_96;
-    vkStream->read((uint64_t*)&cgen_var_96, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDescriptorPool(&cgen_var_96, (VkDescriptorPool*)&forUnmarshaling->descriptorPool, 1);
+    uint64_t cgen_var_110;
+    vkStream->read((uint64_t*)&cgen_var_110, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDescriptorPool(&cgen_var_110, (VkDescriptorPool*)&forUnmarshaling->descriptorPool, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->descriptorSetCount, sizeof(uint32_t));
     if (forUnmarshaling->descriptorSetCount)
     {
-        uint64_t* cgen_var_97;
-        vkStream->alloc((void**)&cgen_var_97, forUnmarshaling->descriptorSetCount * 8);
-        vkStream->read((uint64_t*)cgen_var_97, forUnmarshaling->descriptorSetCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkDescriptorSetLayout(cgen_var_97, (VkDescriptorSetLayout*)forUnmarshaling->pSetLayouts, forUnmarshaling->descriptorSetCount);
+        uint64_t* cgen_var_111;
+        vkStream->alloc((void**)&cgen_var_111, forUnmarshaling->descriptorSetCount * 8);
+        vkStream->read((uint64_t*)cgen_var_111, forUnmarshaling->descriptorSetCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkDescriptorSetLayout(cgen_var_111, (VkDescriptorSetLayout*)forUnmarshaling->pSetLayouts, forUnmarshaling->descriptorSetCount);
     }
 }
 
@@ -3095,12 +3283,12 @@ void marshal_VkDescriptorImageInfo(
     VulkanStreamGuest* vkStream,
     const VkDescriptorImageInfo* forMarshaling)
 {
-    uint64_t cgen_var_98;
-    vkStream->handleMapping()->mapHandles_VkSampler_u64(&forMarshaling->sampler, &cgen_var_98, 1);
-    vkStream->write((uint64_t*)&cgen_var_98, 1 * 8);
-    uint64_t cgen_var_99;
-    vkStream->handleMapping()->mapHandles_VkImageView_u64(&forMarshaling->imageView, &cgen_var_99, 1);
-    vkStream->write((uint64_t*)&cgen_var_99, 1 * 8);
+    uint64_t cgen_var_112;
+    vkStream->handleMapping()->mapHandles_VkSampler_u64(&forMarshaling->sampler, &cgen_var_112, 1);
+    vkStream->write((uint64_t*)&cgen_var_112, 1 * 8);
+    uint64_t cgen_var_113;
+    vkStream->handleMapping()->mapHandles_VkImageView_u64(&forMarshaling->imageView, &cgen_var_113, 1);
+    vkStream->write((uint64_t*)&cgen_var_113, 1 * 8);
     vkStream->write((VkImageLayout*)&forMarshaling->imageLayout, sizeof(VkImageLayout));
 }
 
@@ -3108,12 +3296,12 @@ void unmarshal_VkDescriptorImageInfo(
     VulkanStreamGuest* vkStream,
     VkDescriptorImageInfo* forUnmarshaling)
 {
-    uint64_t cgen_var_100;
-    vkStream->read((uint64_t*)&cgen_var_100, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSampler(&cgen_var_100, (VkSampler*)&forUnmarshaling->sampler, 1);
-    uint64_t cgen_var_101;
-    vkStream->read((uint64_t*)&cgen_var_101, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImageView(&cgen_var_101, (VkImageView*)&forUnmarshaling->imageView, 1);
+    uint64_t cgen_var_114;
+    vkStream->read((uint64_t*)&cgen_var_114, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSampler(&cgen_var_114, (VkSampler*)&forUnmarshaling->sampler, 1);
+    uint64_t cgen_var_115;
+    vkStream->read((uint64_t*)&cgen_var_115, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImageView(&cgen_var_115, (VkImageView*)&forUnmarshaling->imageView, 1);
     vkStream->read((VkImageLayout*)&forUnmarshaling->imageLayout, sizeof(VkImageLayout));
 }
 
@@ -3121,9 +3309,9 @@ void marshal_VkDescriptorBufferInfo(
     VulkanStreamGuest* vkStream,
     const VkDescriptorBufferInfo* forMarshaling)
 {
-    uint64_t cgen_var_102;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_102, 1);
-    vkStream->write((uint64_t*)&cgen_var_102, 1 * 8);
+    uint64_t cgen_var_116;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_116, 1);
+    vkStream->write((uint64_t*)&cgen_var_116, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->offset, sizeof(VkDeviceSize));
     vkStream->write((VkDeviceSize*)&forMarshaling->range, sizeof(VkDeviceSize));
 }
@@ -3132,9 +3320,9 @@ void unmarshal_VkDescriptorBufferInfo(
     VulkanStreamGuest* vkStream,
     VkDescriptorBufferInfo* forUnmarshaling)
 {
-    uint64_t cgen_var_103;
-    vkStream->read((uint64_t*)&cgen_var_103, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_103, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_117;
+    vkStream->read((uint64_t*)&cgen_var_117, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_117, (VkBuffer*)&forUnmarshaling->buffer, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->offset, sizeof(VkDeviceSize));
     vkStream->read((VkDeviceSize*)&forUnmarshaling->range, sizeof(VkDeviceSize));
 }
@@ -3151,44 +3339,53 @@ void marshal_VkWriteDescriptorSet(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_104;
-    vkStream->handleMapping()->mapHandles_VkDescriptorSet_u64(&forMarshaling->dstSet, &cgen_var_104, 1);
-    vkStream->write((uint64_t*)&cgen_var_104, 1 * 8);
+    uint64_t cgen_var_118;
+    vkStream->handleMapping()->mapHandles_VkDescriptorSet_u64(&forMarshaling->dstSet, &cgen_var_118, 1);
+    vkStream->write((uint64_t*)&cgen_var_118, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->dstBinding, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->dstArrayElement, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->descriptorCount, sizeof(uint32_t));
     vkStream->write((VkDescriptorType*)&forMarshaling->descriptorType, sizeof(VkDescriptorType));
     // WARNING PTR CHECK
-    uint64_t cgen_var_105 = (uint64_t)(uintptr_t)forMarshaling->pImageInfo;
-    vkStream->putBe64(cgen_var_105);
+    uint64_t cgen_var_119 = (uint64_t)(uintptr_t)forMarshaling->pImageInfo;
+    vkStream->putBe64(cgen_var_119);
     if (forMarshaling->pImageInfo)
     {
-        for (uint32_t i = 0; i < (uint32_t)forMarshaling->descriptorCount; ++i)
+        if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || ((VK_DESCRIPTOR_TYPE_SAMPLER == forMarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER == forMarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE == forMarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_STORAGE_IMAGE == forMarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT == forMarshaling->descriptorType))))
         {
-            marshal_VkDescriptorImageInfo(vkStream, (const VkDescriptorImageInfo*)(forMarshaling->pImageInfo + i));
+            for (uint32_t i = 0; i < (uint32_t)forMarshaling->descriptorCount; ++i)
+            {
+                marshal_VkDescriptorImageInfo(vkStream, (const VkDescriptorImageInfo*)(forMarshaling->pImageInfo + i));
+            }
         }
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_106 = (uint64_t)(uintptr_t)forMarshaling->pBufferInfo;
-    vkStream->putBe64(cgen_var_106);
+    uint64_t cgen_var_120 = (uint64_t)(uintptr_t)forMarshaling->pBufferInfo;
+    vkStream->putBe64(cgen_var_120);
     if (forMarshaling->pBufferInfo)
     {
-        for (uint32_t i = 0; i < (uint32_t)forMarshaling->descriptorCount; ++i)
+        if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || ((VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER == forMarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC == forMarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER == forMarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC == forMarshaling->descriptorType))))
         {
-            marshal_VkDescriptorBufferInfo(vkStream, (const VkDescriptorBufferInfo*)(forMarshaling->pBufferInfo + i));
+            for (uint32_t i = 0; i < (uint32_t)forMarshaling->descriptorCount; ++i)
+            {
+                marshal_VkDescriptorBufferInfo(vkStream, (const VkDescriptorBufferInfo*)(forMarshaling->pBufferInfo + i));
+            }
         }
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_107 = (uint64_t)(uintptr_t)forMarshaling->pTexelBufferView;
-    vkStream->putBe64(cgen_var_107);
+    uint64_t cgen_var_121 = (uint64_t)(uintptr_t)forMarshaling->pTexelBufferView;
+    vkStream->putBe64(cgen_var_121);
     if (forMarshaling->pTexelBufferView)
     {
-        if (forMarshaling->descriptorCount)
+        if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || ((VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER == forMarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER == forMarshaling->descriptorType))))
         {
-            uint64_t* cgen_var_108;
-            vkStream->alloc((void**)&cgen_var_108, forMarshaling->descriptorCount * 8);
-            vkStream->handleMapping()->mapHandles_VkBufferView_u64(forMarshaling->pTexelBufferView, cgen_var_108, forMarshaling->descriptorCount);
-            vkStream->write((uint64_t*)cgen_var_108, forMarshaling->descriptorCount * 8);
+            if (forMarshaling->descriptorCount)
+            {
+                uint64_t* cgen_var_122;
+                vkStream->alloc((void**)&cgen_var_122, forMarshaling->descriptorCount * 8);
+                vkStream->handleMapping()->mapHandles_VkBufferView_u64(forMarshaling->pTexelBufferView, cgen_var_122, forMarshaling->descriptorCount);
+                vkStream->write((uint64_t*)cgen_var_122, forMarshaling->descriptorCount * 8);
+            }
         }
     }
 }
@@ -3206,9 +3403,9 @@ void unmarshal_VkWriteDescriptorSet(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_109;
-    vkStream->read((uint64_t*)&cgen_var_109, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSet(&cgen_var_109, (VkDescriptorSet*)&forUnmarshaling->dstSet, 1);
+    uint64_t cgen_var_123;
+    vkStream->read((uint64_t*)&cgen_var_123, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSet(&cgen_var_123, (VkDescriptorSet*)&forUnmarshaling->dstSet, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->dstBinding, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->dstArrayElement, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->descriptorCount, sizeof(uint32_t));
@@ -3222,9 +3419,16 @@ void unmarshal_VkWriteDescriptorSet(
         {
             fprintf(stderr, "fatal: forUnmarshaling->pImageInfo inconsistent between guest and host\n");
         }
-        for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->descriptorCount; ++i)
+        if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || ((VK_DESCRIPTOR_TYPE_SAMPLER == forUnmarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER == forUnmarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE == forUnmarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_STORAGE_IMAGE == forUnmarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT == forUnmarshaling->descriptorType))))
         {
-            unmarshal_VkDescriptorImageInfo(vkStream, (VkDescriptorImageInfo*)(forUnmarshaling->pImageInfo + i));
+            for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->descriptorCount; ++i)
+            {
+                unmarshal_VkDescriptorImageInfo(vkStream, (VkDescriptorImageInfo*)(forUnmarshaling->pImageInfo + i));
+            }
+        }
+        else
+        {
+            forUnmarshaling->pImageInfo = 0;
         }
     }
     // WARNING PTR CHECK
@@ -3236,9 +3440,16 @@ void unmarshal_VkWriteDescriptorSet(
         {
             fprintf(stderr, "fatal: forUnmarshaling->pBufferInfo inconsistent between guest and host\n");
         }
-        for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->descriptorCount; ++i)
+        if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || ((VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER == forUnmarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC == forUnmarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER == forUnmarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC == forUnmarshaling->descriptorType))))
         {
-            unmarshal_VkDescriptorBufferInfo(vkStream, (VkDescriptorBufferInfo*)(forUnmarshaling->pBufferInfo + i));
+            for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->descriptorCount; ++i)
+            {
+                unmarshal_VkDescriptorBufferInfo(vkStream, (VkDescriptorBufferInfo*)(forUnmarshaling->pBufferInfo + i));
+            }
+        }
+        else
+        {
+            forUnmarshaling->pBufferInfo = 0;
         }
     }
     // WARNING PTR CHECK
@@ -3250,12 +3461,19 @@ void unmarshal_VkWriteDescriptorSet(
         {
             fprintf(stderr, "fatal: forUnmarshaling->pTexelBufferView inconsistent between guest and host\n");
         }
-        if (forUnmarshaling->descriptorCount)
+        if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || ((VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER == forUnmarshaling->descriptorType) || (VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER == forUnmarshaling->descriptorType))))
         {
-            uint64_t* cgen_var_113;
-            vkStream->alloc((void**)&cgen_var_113, forUnmarshaling->descriptorCount * 8);
-            vkStream->read((uint64_t*)cgen_var_113, forUnmarshaling->descriptorCount * 8);
-            vkStream->handleMapping()->mapHandles_u64_VkBufferView(cgen_var_113, (VkBufferView*)forUnmarshaling->pTexelBufferView, forUnmarshaling->descriptorCount);
+            if (forUnmarshaling->descriptorCount)
+            {
+                uint64_t* cgen_var_127;
+                vkStream->alloc((void**)&cgen_var_127, forUnmarshaling->descriptorCount * 8);
+                vkStream->read((uint64_t*)cgen_var_127, forUnmarshaling->descriptorCount * 8);
+                vkStream->handleMapping()->mapHandles_u64_VkBufferView(cgen_var_127, (VkBufferView*)forUnmarshaling->pTexelBufferView, forUnmarshaling->descriptorCount);
+            }
+        }
+        else
+        {
+            forUnmarshaling->pTexelBufferView = 0;
         }
     }
 }
@@ -3272,14 +3490,14 @@ void marshal_VkCopyDescriptorSet(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_114;
-    vkStream->handleMapping()->mapHandles_VkDescriptorSet_u64(&forMarshaling->srcSet, &cgen_var_114, 1);
-    vkStream->write((uint64_t*)&cgen_var_114, 1 * 8);
+    uint64_t cgen_var_128;
+    vkStream->handleMapping()->mapHandles_VkDescriptorSet_u64(&forMarshaling->srcSet, &cgen_var_128, 1);
+    vkStream->write((uint64_t*)&cgen_var_128, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->srcBinding, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->srcArrayElement, sizeof(uint32_t));
-    uint64_t cgen_var_115;
-    vkStream->handleMapping()->mapHandles_VkDescriptorSet_u64(&forMarshaling->dstSet, &cgen_var_115, 1);
-    vkStream->write((uint64_t*)&cgen_var_115, 1 * 8);
+    uint64_t cgen_var_129;
+    vkStream->handleMapping()->mapHandles_VkDescriptorSet_u64(&forMarshaling->dstSet, &cgen_var_129, 1);
+    vkStream->write((uint64_t*)&cgen_var_129, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->dstBinding, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->dstArrayElement, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->descriptorCount, sizeof(uint32_t));
@@ -3298,14 +3516,14 @@ void unmarshal_VkCopyDescriptorSet(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_116;
-    vkStream->read((uint64_t*)&cgen_var_116, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSet(&cgen_var_116, (VkDescriptorSet*)&forUnmarshaling->srcSet, 1);
+    uint64_t cgen_var_130;
+    vkStream->read((uint64_t*)&cgen_var_130, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSet(&cgen_var_130, (VkDescriptorSet*)&forUnmarshaling->srcSet, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->srcBinding, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->srcArrayElement, sizeof(uint32_t));
-    uint64_t cgen_var_117;
-    vkStream->read((uint64_t*)&cgen_var_117, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSet(&cgen_var_117, (VkDescriptorSet*)&forUnmarshaling->dstSet, 1);
+    uint64_t cgen_var_131;
+    vkStream->read((uint64_t*)&cgen_var_131, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSet(&cgen_var_131, (VkDescriptorSet*)&forUnmarshaling->dstSet, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->dstBinding, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->dstArrayElement, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->descriptorCount, sizeof(uint32_t));
@@ -3324,16 +3542,16 @@ void marshal_VkFramebufferCreateInfo(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkFramebufferCreateFlags*)&forMarshaling->flags, sizeof(VkFramebufferCreateFlags));
-    uint64_t cgen_var_118;
-    vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_118, 1);
-    vkStream->write((uint64_t*)&cgen_var_118, 1 * 8);
+    uint64_t cgen_var_132;
+    vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_132, 1);
+    vkStream->write((uint64_t*)&cgen_var_132, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->attachmentCount, sizeof(uint32_t));
     if (forMarshaling->attachmentCount)
     {
-        uint64_t* cgen_var_119;
-        vkStream->alloc((void**)&cgen_var_119, forMarshaling->attachmentCount * 8);
-        vkStream->handleMapping()->mapHandles_VkImageView_u64(forMarshaling->pAttachments, cgen_var_119, forMarshaling->attachmentCount);
-        vkStream->write((uint64_t*)cgen_var_119, forMarshaling->attachmentCount * 8);
+        uint64_t* cgen_var_133;
+        vkStream->alloc((void**)&cgen_var_133, forMarshaling->attachmentCount * 8);
+        vkStream->handleMapping()->mapHandles_VkImageView_u64(forMarshaling->pAttachments, cgen_var_133, forMarshaling->attachmentCount);
+        vkStream->write((uint64_t*)cgen_var_133, forMarshaling->attachmentCount * 8);
     }
     vkStream->write((uint32_t*)&forMarshaling->width, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->height, sizeof(uint32_t));
@@ -3354,16 +3572,16 @@ void unmarshal_VkFramebufferCreateInfo(
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
     vkStream->read((VkFramebufferCreateFlags*)&forUnmarshaling->flags, sizeof(VkFramebufferCreateFlags));
-    uint64_t cgen_var_120;
-    vkStream->read((uint64_t*)&cgen_var_120, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_120, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
+    uint64_t cgen_var_134;
+    vkStream->read((uint64_t*)&cgen_var_134, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_134, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->attachmentCount, sizeof(uint32_t));
     if (forUnmarshaling->attachmentCount)
     {
-        uint64_t* cgen_var_121;
-        vkStream->alloc((void**)&cgen_var_121, forUnmarshaling->attachmentCount * 8);
-        vkStream->read((uint64_t*)cgen_var_121, forUnmarshaling->attachmentCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkImageView(cgen_var_121, (VkImageView*)forUnmarshaling->pAttachments, forUnmarshaling->attachmentCount);
+        uint64_t* cgen_var_135;
+        vkStream->alloc((void**)&cgen_var_135, forUnmarshaling->attachmentCount * 8);
+        vkStream->read((uint64_t*)cgen_var_135, forUnmarshaling->attachmentCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkImageView(cgen_var_135, (VkImageView*)forUnmarshaling->pAttachments, forUnmarshaling->attachmentCount);
     }
     vkStream->read((uint32_t*)&forUnmarshaling->width, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->height, sizeof(uint32_t));
@@ -3433,8 +3651,8 @@ void marshal_VkSubpassDescription(
         marshal_VkAttachmentReference(vkStream, (const VkAttachmentReference*)(forMarshaling->pColorAttachments + i));
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_122 = (uint64_t)(uintptr_t)forMarshaling->pResolveAttachments;
-    vkStream->putBe64(cgen_var_122);
+    uint64_t cgen_var_136 = (uint64_t)(uintptr_t)forMarshaling->pResolveAttachments;
+    vkStream->putBe64(cgen_var_136);
     if (forMarshaling->pResolveAttachments)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->colorAttachmentCount; ++i)
@@ -3443,8 +3661,8 @@ void marshal_VkSubpassDescription(
         }
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_123 = (uint64_t)(uintptr_t)forMarshaling->pDepthStencilAttachment;
-    vkStream->putBe64(cgen_var_123);
+    uint64_t cgen_var_137 = (uint64_t)(uintptr_t)forMarshaling->pDepthStencilAttachment;
+    vkStream->putBe64(cgen_var_137);
     if (forMarshaling->pDepthStencilAttachment)
     {
         marshal_VkAttachmentReference(vkStream, (const VkAttachmentReference*)(forMarshaling->pDepthStencilAttachment));
@@ -3630,9 +3848,9 @@ void marshal_VkCommandBufferAllocateInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_126;
-    vkStream->handleMapping()->mapHandles_VkCommandPool_u64(&forMarshaling->commandPool, &cgen_var_126, 1);
-    vkStream->write((uint64_t*)&cgen_var_126, 1 * 8);
+    uint64_t cgen_var_140;
+    vkStream->handleMapping()->mapHandles_VkCommandPool_u64(&forMarshaling->commandPool, &cgen_var_140, 1);
+    vkStream->write((uint64_t*)&cgen_var_140, 1 * 8);
     vkStream->write((VkCommandBufferLevel*)&forMarshaling->level, sizeof(VkCommandBufferLevel));
     vkStream->write((uint32_t*)&forMarshaling->commandBufferCount, sizeof(uint32_t));
 }
@@ -3650,9 +3868,9 @@ void unmarshal_VkCommandBufferAllocateInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_127;
-    vkStream->read((uint64_t*)&cgen_var_127, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkCommandPool(&cgen_var_127, (VkCommandPool*)&forUnmarshaling->commandPool, 1);
+    uint64_t cgen_var_141;
+    vkStream->read((uint64_t*)&cgen_var_141, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkCommandPool(&cgen_var_141, (VkCommandPool*)&forUnmarshaling->commandPool, 1);
     vkStream->read((VkCommandBufferLevel*)&forUnmarshaling->level, sizeof(VkCommandBufferLevel));
     vkStream->read((uint32_t*)&forUnmarshaling->commandBufferCount, sizeof(uint32_t));
 }
@@ -3669,13 +3887,13 @@ void marshal_VkCommandBufferInheritanceInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_128;
-    vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_128, 1);
-    vkStream->write((uint64_t*)&cgen_var_128, 1 * 8);
+    uint64_t cgen_var_142;
+    vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_142, 1);
+    vkStream->write((uint64_t*)&cgen_var_142, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->subpass, sizeof(uint32_t));
-    uint64_t cgen_var_129;
-    vkStream->handleMapping()->mapHandles_VkFramebuffer_u64(&forMarshaling->framebuffer, &cgen_var_129, 1);
-    vkStream->write((uint64_t*)&cgen_var_129, 1 * 8);
+    uint64_t cgen_var_143;
+    vkStream->handleMapping()->mapHandles_VkFramebuffer_u64(&forMarshaling->framebuffer, &cgen_var_143, 1);
+    vkStream->write((uint64_t*)&cgen_var_143, 1 * 8);
     vkStream->write((VkBool32*)&forMarshaling->occlusionQueryEnable, sizeof(VkBool32));
     vkStream->write((VkQueryControlFlags*)&forMarshaling->queryFlags, sizeof(VkQueryControlFlags));
     vkStream->write((VkQueryPipelineStatisticFlags*)&forMarshaling->pipelineStatistics, sizeof(VkQueryPipelineStatisticFlags));
@@ -3694,13 +3912,13 @@ void unmarshal_VkCommandBufferInheritanceInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_130;
-    vkStream->read((uint64_t*)&cgen_var_130, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_130, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
+    uint64_t cgen_var_144;
+    vkStream->read((uint64_t*)&cgen_var_144, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_144, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->subpass, sizeof(uint32_t));
-    uint64_t cgen_var_131;
-    vkStream->read((uint64_t*)&cgen_var_131, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkFramebuffer(&cgen_var_131, (VkFramebuffer*)&forUnmarshaling->framebuffer, 1);
+    uint64_t cgen_var_145;
+    vkStream->read((uint64_t*)&cgen_var_145, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkFramebuffer(&cgen_var_145, (VkFramebuffer*)&forUnmarshaling->framebuffer, 1);
     vkStream->read((VkBool32*)&forUnmarshaling->occlusionQueryEnable, sizeof(VkBool32));
     vkStream->read((VkQueryControlFlags*)&forUnmarshaling->queryFlags, sizeof(VkQueryControlFlags));
     vkStream->read((VkQueryPipelineStatisticFlags*)&forUnmarshaling->pipelineStatistics, sizeof(VkQueryPipelineStatisticFlags));
@@ -3720,8 +3938,8 @@ void marshal_VkCommandBufferBeginInfo(
     }
     vkStream->write((VkCommandBufferUsageFlags*)&forMarshaling->flags, sizeof(VkCommandBufferUsageFlags));
     // WARNING PTR CHECK
-    uint64_t cgen_var_132 = (uint64_t)(uintptr_t)forMarshaling->pInheritanceInfo;
-    vkStream->putBe64(cgen_var_132);
+    uint64_t cgen_var_146 = (uint64_t)(uintptr_t)forMarshaling->pInheritanceInfo;
+    vkStream->putBe64(cgen_var_146);
     if (forMarshaling->pInheritanceInfo)
     {
         marshal_VkCommandBufferInheritanceInfo(vkStream, (const VkCommandBufferInheritanceInfo*)(forMarshaling->pInheritanceInfo));
@@ -4022,9 +4240,9 @@ void marshal_VkBufferMemoryBarrier(
     vkStream->write((VkAccessFlags*)&forMarshaling->dstAccessMask, sizeof(VkAccessFlags));
     vkStream->write((uint32_t*)&forMarshaling->srcQueueFamilyIndex, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->dstQueueFamilyIndex, sizeof(uint32_t));
-    uint64_t cgen_var_134;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_134, 1);
-    vkStream->write((uint64_t*)&cgen_var_134, 1 * 8);
+    uint64_t cgen_var_148;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_148, 1);
+    vkStream->write((uint64_t*)&cgen_var_148, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->offset, sizeof(VkDeviceSize));
     vkStream->write((VkDeviceSize*)&forMarshaling->size, sizeof(VkDeviceSize));
 }
@@ -4046,9 +4264,9 @@ void unmarshal_VkBufferMemoryBarrier(
     vkStream->read((VkAccessFlags*)&forUnmarshaling->dstAccessMask, sizeof(VkAccessFlags));
     vkStream->read((uint32_t*)&forUnmarshaling->srcQueueFamilyIndex, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->dstQueueFamilyIndex, sizeof(uint32_t));
-    uint64_t cgen_var_135;
-    vkStream->read((uint64_t*)&cgen_var_135, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_135, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_149;
+    vkStream->read((uint64_t*)&cgen_var_149, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_149, (VkBuffer*)&forUnmarshaling->buffer, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->offset, sizeof(VkDeviceSize));
     vkStream->read((VkDeviceSize*)&forUnmarshaling->size, sizeof(VkDeviceSize));
 }
@@ -4071,9 +4289,9 @@ void marshal_VkImageMemoryBarrier(
     vkStream->write((VkImageLayout*)&forMarshaling->newLayout, sizeof(VkImageLayout));
     vkStream->write((uint32_t*)&forMarshaling->srcQueueFamilyIndex, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->dstQueueFamilyIndex, sizeof(uint32_t));
-    uint64_t cgen_var_136;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_136, 1);
-    vkStream->write((uint64_t*)&cgen_var_136, 1 * 8);
+    uint64_t cgen_var_150;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_150, 1);
+    vkStream->write((uint64_t*)&cgen_var_150, 1 * 8);
     marshal_VkImageSubresourceRange(vkStream, (VkImageSubresourceRange*)(&forMarshaling->subresourceRange));
 }
 
@@ -4096,9 +4314,9 @@ void unmarshal_VkImageMemoryBarrier(
     vkStream->read((VkImageLayout*)&forUnmarshaling->newLayout, sizeof(VkImageLayout));
     vkStream->read((uint32_t*)&forUnmarshaling->srcQueueFamilyIndex, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->dstQueueFamilyIndex, sizeof(uint32_t));
-    uint64_t cgen_var_137;
-    vkStream->read((uint64_t*)&cgen_var_137, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_137, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_151;
+    vkStream->read((uint64_t*)&cgen_var_151, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_151, (VkImage*)&forUnmarshaling->image, 1);
     unmarshal_VkImageSubresourceRange(vkStream, (VkImageSubresourceRange*)(&forUnmarshaling->subresourceRange));
 }
 
@@ -4114,17 +4332,17 @@ void marshal_VkRenderPassBeginInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_138;
-    vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_138, 1);
-    vkStream->write((uint64_t*)&cgen_var_138, 1 * 8);
-    uint64_t cgen_var_139;
-    vkStream->handleMapping()->mapHandles_VkFramebuffer_u64(&forMarshaling->framebuffer, &cgen_var_139, 1);
-    vkStream->write((uint64_t*)&cgen_var_139, 1 * 8);
+    uint64_t cgen_var_152;
+    vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_152, 1);
+    vkStream->write((uint64_t*)&cgen_var_152, 1 * 8);
+    uint64_t cgen_var_153;
+    vkStream->handleMapping()->mapHandles_VkFramebuffer_u64(&forMarshaling->framebuffer, &cgen_var_153, 1);
+    vkStream->write((uint64_t*)&cgen_var_153, 1 * 8);
     marshal_VkRect2D(vkStream, (VkRect2D*)(&forMarshaling->renderArea));
     vkStream->write((uint32_t*)&forMarshaling->clearValueCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_140 = (uint64_t)(uintptr_t)forMarshaling->pClearValues;
-    vkStream->putBe64(cgen_var_140);
+    uint64_t cgen_var_154 = (uint64_t)(uintptr_t)forMarshaling->pClearValues;
+    vkStream->putBe64(cgen_var_154);
     if (forMarshaling->pClearValues)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->clearValueCount; ++i)
@@ -4147,12 +4365,12 @@ void unmarshal_VkRenderPassBeginInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_141;
-    vkStream->read((uint64_t*)&cgen_var_141, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_141, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
-    uint64_t cgen_var_142;
-    vkStream->read((uint64_t*)&cgen_var_142, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkFramebuffer(&cgen_var_142, (VkFramebuffer*)&forUnmarshaling->framebuffer, 1);
+    uint64_t cgen_var_155;
+    vkStream->read((uint64_t*)&cgen_var_155, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_155, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
+    uint64_t cgen_var_156;
+    vkStream->read((uint64_t*)&cgen_var_156, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkFramebuffer(&cgen_var_156, (VkFramebuffer*)&forUnmarshaling->framebuffer, 1);
     unmarshal_VkRect2D(vkStream, (VkRect2D*)(&forUnmarshaling->renderArea));
     vkStream->read((uint32_t*)&forUnmarshaling->clearValueCount, sizeof(uint32_t));
     // WARNING PTR CHECK
@@ -4340,12 +4558,12 @@ void marshal_VkBindBufferMemoryInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_144;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_144, 1);
-    vkStream->write((uint64_t*)&cgen_var_144, 1 * 8);
-    uint64_t cgen_var_145;
-    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_145, 1);
-    vkStream->write((uint64_t*)&cgen_var_145, 1 * 8);
+    uint64_t cgen_var_158;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_158, 1);
+    vkStream->write((uint64_t*)&cgen_var_158, 1 * 8);
+    uint64_t cgen_var_159;
+    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_159, 1);
+    vkStream->write((uint64_t*)&cgen_var_159, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->memoryOffset, sizeof(VkDeviceSize));
 }
 
@@ -4362,12 +4580,12 @@ void unmarshal_VkBindBufferMemoryInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_146;
-    vkStream->read((uint64_t*)&cgen_var_146, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_146, (VkBuffer*)&forUnmarshaling->buffer, 1);
-    uint64_t cgen_var_147;
-    vkStream->read((uint64_t*)&cgen_var_147, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_147, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
+    uint64_t cgen_var_160;
+    vkStream->read((uint64_t*)&cgen_var_160, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_160, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_161;
+    vkStream->read((uint64_t*)&cgen_var_161, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_161, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->memoryOffset, sizeof(VkDeviceSize));
 }
 
@@ -4383,12 +4601,12 @@ void marshal_VkBindImageMemoryInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_148;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_148, 1);
-    vkStream->write((uint64_t*)&cgen_var_148, 1 * 8);
-    uint64_t cgen_var_149;
-    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_149, 1);
-    vkStream->write((uint64_t*)&cgen_var_149, 1 * 8);
+    uint64_t cgen_var_162;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_162, 1);
+    vkStream->write((uint64_t*)&cgen_var_162, 1 * 8);
+    uint64_t cgen_var_163;
+    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_163, 1);
+    vkStream->write((uint64_t*)&cgen_var_163, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->memoryOffset, sizeof(VkDeviceSize));
 }
 
@@ -4405,12 +4623,12 @@ void unmarshal_VkBindImageMemoryInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_150;
-    vkStream->read((uint64_t*)&cgen_var_150, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_150, (VkImage*)&forUnmarshaling->image, 1);
-    uint64_t cgen_var_151;
-    vkStream->read((uint64_t*)&cgen_var_151, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_151, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
+    uint64_t cgen_var_164;
+    vkStream->read((uint64_t*)&cgen_var_164, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_164, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_165;
+    vkStream->read((uint64_t*)&cgen_var_165, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_165, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->memoryOffset, sizeof(VkDeviceSize));
 }
 
@@ -4496,12 +4714,12 @@ void marshal_VkMemoryDedicatedAllocateInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_152;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_152, 1);
-    vkStream->write((uint64_t*)&cgen_var_152, 1 * 8);
-    uint64_t cgen_var_153;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_153, 1);
-    vkStream->write((uint64_t*)&cgen_var_153, 1 * 8);
+    uint64_t cgen_var_166;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_166, 1);
+    vkStream->write((uint64_t*)&cgen_var_166, 1 * 8);
+    uint64_t cgen_var_167;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_167, 1);
+    vkStream->write((uint64_t*)&cgen_var_167, 1 * 8);
 }
 
 void unmarshal_VkMemoryDedicatedAllocateInfo(
@@ -4517,12 +4735,12 @@ void unmarshal_VkMemoryDedicatedAllocateInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_154;
-    vkStream->read((uint64_t*)&cgen_var_154, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_154, (VkImage*)&forUnmarshaling->image, 1);
-    uint64_t cgen_var_155;
-    vkStream->read((uint64_t*)&cgen_var_155, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_155, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_168;
+    vkStream->read((uint64_t*)&cgen_var_168, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_168, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_169;
+    vkStream->read((uint64_t*)&cgen_var_169, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_169, (VkBuffer*)&forUnmarshaling->buffer, 1);
 }
 
 void marshal_VkMemoryAllocateFlagsInfo(
@@ -4830,10 +5048,10 @@ void marshal_VkDeviceGroupDeviceCreateInfo(
     vkStream->write((uint32_t*)&forMarshaling->physicalDeviceCount, sizeof(uint32_t));
     if (forMarshaling->physicalDeviceCount)
     {
-        uint64_t* cgen_var_156;
-        vkStream->alloc((void**)&cgen_var_156, forMarshaling->physicalDeviceCount * 8);
-        vkStream->handleMapping()->mapHandles_VkPhysicalDevice_u64(forMarshaling->pPhysicalDevices, cgen_var_156, forMarshaling->physicalDeviceCount);
-        vkStream->write((uint64_t*)cgen_var_156, forMarshaling->physicalDeviceCount * 8);
+        uint64_t* cgen_var_170;
+        vkStream->alloc((void**)&cgen_var_170, forMarshaling->physicalDeviceCount * 8);
+        vkStream->handleMapping()->mapHandles_VkPhysicalDevice_u64(forMarshaling->pPhysicalDevices, cgen_var_170, forMarshaling->physicalDeviceCount);
+        vkStream->write((uint64_t*)cgen_var_170, forMarshaling->physicalDeviceCount * 8);
     }
 }
 
@@ -4853,10 +5071,10 @@ void unmarshal_VkDeviceGroupDeviceCreateInfo(
     vkStream->read((uint32_t*)&forUnmarshaling->physicalDeviceCount, sizeof(uint32_t));
     if (forUnmarshaling->physicalDeviceCount)
     {
-        uint64_t* cgen_var_157;
-        vkStream->alloc((void**)&cgen_var_157, forUnmarshaling->physicalDeviceCount * 8);
-        vkStream->read((uint64_t*)cgen_var_157, forUnmarshaling->physicalDeviceCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkPhysicalDevice(cgen_var_157, (VkPhysicalDevice*)forUnmarshaling->pPhysicalDevices, forUnmarshaling->physicalDeviceCount);
+        uint64_t* cgen_var_171;
+        vkStream->alloc((void**)&cgen_var_171, forUnmarshaling->physicalDeviceCount * 8);
+        vkStream->read((uint64_t*)cgen_var_171, forUnmarshaling->physicalDeviceCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkPhysicalDevice(cgen_var_171, (VkPhysicalDevice*)forUnmarshaling->pPhysicalDevices, forUnmarshaling->physicalDeviceCount);
     }
 }
 
@@ -4872,9 +5090,9 @@ void marshal_VkBufferMemoryRequirementsInfo2(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_158;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_158, 1);
-    vkStream->write((uint64_t*)&cgen_var_158, 1 * 8);
+    uint64_t cgen_var_172;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_172, 1);
+    vkStream->write((uint64_t*)&cgen_var_172, 1 * 8);
 }
 
 void unmarshal_VkBufferMemoryRequirementsInfo2(
@@ -4890,9 +5108,9 @@ void unmarshal_VkBufferMemoryRequirementsInfo2(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_159;
-    vkStream->read((uint64_t*)&cgen_var_159, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_159, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_173;
+    vkStream->read((uint64_t*)&cgen_var_173, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_173, (VkBuffer*)&forUnmarshaling->buffer, 1);
 }
 
 void marshal_VkImageMemoryRequirementsInfo2(
@@ -4907,9 +5125,9 @@ void marshal_VkImageMemoryRequirementsInfo2(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_160;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_160, 1);
-    vkStream->write((uint64_t*)&cgen_var_160, 1 * 8);
+    uint64_t cgen_var_174;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_174, 1);
+    vkStream->write((uint64_t*)&cgen_var_174, 1 * 8);
 }
 
 void unmarshal_VkImageMemoryRequirementsInfo2(
@@ -4925,9 +5143,9 @@ void unmarshal_VkImageMemoryRequirementsInfo2(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_161;
-    vkStream->read((uint64_t*)&cgen_var_161, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_161, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_175;
+    vkStream->read((uint64_t*)&cgen_var_175, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_175, (VkImage*)&forUnmarshaling->image, 1);
 }
 
 void marshal_VkImageSparseMemoryRequirementsInfo2(
@@ -4942,9 +5160,9 @@ void marshal_VkImageSparseMemoryRequirementsInfo2(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_162;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_162, 1);
-    vkStream->write((uint64_t*)&cgen_var_162, 1 * 8);
+    uint64_t cgen_var_176;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_176, 1);
+    vkStream->write((uint64_t*)&cgen_var_176, 1 * 8);
 }
 
 void unmarshal_VkImageSparseMemoryRequirementsInfo2(
@@ -4960,9 +5178,9 @@ void unmarshal_VkImageSparseMemoryRequirementsInfo2(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_163;
-    vkStream->read((uint64_t*)&cgen_var_163, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_163, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_177;
+    vkStream->read((uint64_t*)&cgen_var_177, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_177, (VkImage*)&forUnmarshaling->image, 1);
 }
 
 void marshal_VkMemoryRequirements2(
@@ -5799,9 +6017,9 @@ void marshal_VkSamplerYcbcrConversionInfo(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_164;
-    vkStream->handleMapping()->mapHandles_VkSamplerYcbcrConversion_u64(&forMarshaling->conversion, &cgen_var_164, 1);
-    vkStream->write((uint64_t*)&cgen_var_164, 1 * 8);
+    uint64_t cgen_var_178;
+    vkStream->handleMapping()->mapHandles_VkSamplerYcbcrConversion_u64(&forMarshaling->conversion, &cgen_var_178, 1);
+    vkStream->write((uint64_t*)&cgen_var_178, 1 * 8);
 }
 
 void unmarshal_VkSamplerYcbcrConversionInfo(
@@ -5817,9 +6035,9 @@ void unmarshal_VkSamplerYcbcrConversionInfo(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_165;
-    vkStream->read((uint64_t*)&cgen_var_165, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSamplerYcbcrConversion(&cgen_var_165, (VkSamplerYcbcrConversion*)&forUnmarshaling->conversion, 1);
+    uint64_t cgen_var_179;
+    vkStream->read((uint64_t*)&cgen_var_179, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSamplerYcbcrConversion(&cgen_var_179, (VkSamplerYcbcrConversion*)&forUnmarshaling->conversion, 1);
 }
 
 void marshal_VkBindImagePlaneMemoryInfo(
@@ -5954,10 +6172,10 @@ void marshal_VkDescriptorUpdateTemplateEntry(
     vkStream->write((uint32_t*)&forMarshaling->dstArrayElement, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->descriptorCount, sizeof(uint32_t));
     vkStream->write((VkDescriptorType*)&forMarshaling->descriptorType, sizeof(VkDescriptorType));
-    uint64_t cgen_var_166 = (uint64_t)forMarshaling->offset;
-    vkStream->putBe64(cgen_var_166);
-    uint64_t cgen_var_167 = (uint64_t)forMarshaling->stride;
-    vkStream->putBe64(cgen_var_167);
+    uint64_t cgen_var_180 = (uint64_t)forMarshaling->offset;
+    vkStream->putBe64(cgen_var_180);
+    uint64_t cgen_var_181 = (uint64_t)forMarshaling->stride;
+    vkStream->putBe64(cgen_var_181);
 }
 
 void unmarshal_VkDescriptorUpdateTemplateEntry(
@@ -5991,13 +6209,13 @@ void marshal_VkDescriptorUpdateTemplateCreateInfo(
         marshal_VkDescriptorUpdateTemplateEntry(vkStream, (const VkDescriptorUpdateTemplateEntry*)(forMarshaling->pDescriptorUpdateEntries + i));
     }
     vkStream->write((VkDescriptorUpdateTemplateType*)&forMarshaling->templateType, sizeof(VkDescriptorUpdateTemplateType));
-    uint64_t cgen_var_170;
-    vkStream->handleMapping()->mapHandles_VkDescriptorSetLayout_u64(&forMarshaling->descriptorSetLayout, &cgen_var_170, 1);
-    vkStream->write((uint64_t*)&cgen_var_170, 1 * 8);
+    uint64_t cgen_var_184;
+    vkStream->handleMapping()->mapHandles_VkDescriptorSetLayout_u64(&forMarshaling->descriptorSetLayout, &cgen_var_184, 1);
+    vkStream->write((uint64_t*)&cgen_var_184, 1 * 8);
     vkStream->write((VkPipelineBindPoint*)&forMarshaling->pipelineBindPoint, sizeof(VkPipelineBindPoint));
-    uint64_t cgen_var_171;
-    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->pipelineLayout, &cgen_var_171, 1);
-    vkStream->write((uint64_t*)&cgen_var_171, 1 * 8);
+    uint64_t cgen_var_185;
+    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->pipelineLayout, &cgen_var_185, 1);
+    vkStream->write((uint64_t*)&cgen_var_185, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->set, sizeof(uint32_t));
 }
 
@@ -6021,13 +6239,13 @@ void unmarshal_VkDescriptorUpdateTemplateCreateInfo(
         unmarshal_VkDescriptorUpdateTemplateEntry(vkStream, (VkDescriptorUpdateTemplateEntry*)(forUnmarshaling->pDescriptorUpdateEntries + i));
     }
     vkStream->read((VkDescriptorUpdateTemplateType*)&forUnmarshaling->templateType, sizeof(VkDescriptorUpdateTemplateType));
-    uint64_t cgen_var_172;
-    vkStream->read((uint64_t*)&cgen_var_172, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSetLayout(&cgen_var_172, (VkDescriptorSetLayout*)&forUnmarshaling->descriptorSetLayout, 1);
+    uint64_t cgen_var_186;
+    vkStream->read((uint64_t*)&cgen_var_186, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSetLayout(&cgen_var_186, (VkDescriptorSetLayout*)&forUnmarshaling->descriptorSetLayout, 1);
     vkStream->read((VkPipelineBindPoint*)&forUnmarshaling->pipelineBindPoint, sizeof(VkPipelineBindPoint));
-    uint64_t cgen_var_173;
-    vkStream->read((uint64_t*)&cgen_var_173, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_173, (VkPipelineLayout*)&forUnmarshaling->pipelineLayout, 1);
+    uint64_t cgen_var_187;
+    vkStream->read((uint64_t*)&cgen_var_187, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_187, (VkPipelineLayout*)&forUnmarshaling->pipelineLayout, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->set, sizeof(uint32_t));
 }
 
@@ -6663,9 +6881,9 @@ void marshal_VkSwapchainCreateInfoKHR(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkSwapchainCreateFlagsKHR*)&forMarshaling->flags, sizeof(VkSwapchainCreateFlagsKHR));
-    uint64_t cgen_var_174;
-    vkStream->handleMapping()->mapHandles_VkSurfaceKHR_u64(&forMarshaling->surface, &cgen_var_174, 1);
-    vkStream->write((uint64_t*)&cgen_var_174, 1 * 8);
+    uint64_t cgen_var_188;
+    vkStream->handleMapping()->mapHandles_VkSurfaceKHR_u64(&forMarshaling->surface, &cgen_var_188, 1);
+    vkStream->write((uint64_t*)&cgen_var_188, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->minImageCount, sizeof(uint32_t));
     vkStream->write((VkFormat*)&forMarshaling->imageFormat, sizeof(VkFormat));
     vkStream->write((VkColorSpaceKHR*)&forMarshaling->imageColorSpace, sizeof(VkColorSpaceKHR));
@@ -6675,8 +6893,8 @@ void marshal_VkSwapchainCreateInfoKHR(
     vkStream->write((VkSharingMode*)&forMarshaling->imageSharingMode, sizeof(VkSharingMode));
     vkStream->write((uint32_t*)&forMarshaling->queueFamilyIndexCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_175 = (uint64_t)(uintptr_t)forMarshaling->pQueueFamilyIndices;
-    vkStream->putBe64(cgen_var_175);
+    uint64_t cgen_var_189 = (uint64_t)(uintptr_t)forMarshaling->pQueueFamilyIndices;
+    vkStream->putBe64(cgen_var_189);
     if (forMarshaling->pQueueFamilyIndices)
     {
         vkStream->write((const uint32_t*)forMarshaling->pQueueFamilyIndices, forMarshaling->queueFamilyIndexCount * sizeof(const uint32_t));
@@ -6685,9 +6903,9 @@ void marshal_VkSwapchainCreateInfoKHR(
     vkStream->write((VkCompositeAlphaFlagBitsKHR*)&forMarshaling->compositeAlpha, sizeof(VkCompositeAlphaFlagBitsKHR));
     vkStream->write((VkPresentModeKHR*)&forMarshaling->presentMode, sizeof(VkPresentModeKHR));
     vkStream->write((VkBool32*)&forMarshaling->clipped, sizeof(VkBool32));
-    uint64_t cgen_var_176;
-    vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(&forMarshaling->oldSwapchain, &cgen_var_176, 1);
-    vkStream->write((uint64_t*)&cgen_var_176, 1 * 8);
+    uint64_t cgen_var_190;
+    vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(&forMarshaling->oldSwapchain, &cgen_var_190, 1);
+    vkStream->write((uint64_t*)&cgen_var_190, 1 * 8);
 }
 
 void unmarshal_VkSwapchainCreateInfoKHR(
@@ -6704,9 +6922,9 @@ void unmarshal_VkSwapchainCreateInfoKHR(
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
     vkStream->read((VkSwapchainCreateFlagsKHR*)&forUnmarshaling->flags, sizeof(VkSwapchainCreateFlagsKHR));
-    uint64_t cgen_var_177;
-    vkStream->read((uint64_t*)&cgen_var_177, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSurfaceKHR(&cgen_var_177, (VkSurfaceKHR*)&forUnmarshaling->surface, 1);
+    uint64_t cgen_var_191;
+    vkStream->read((uint64_t*)&cgen_var_191, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSurfaceKHR(&cgen_var_191, (VkSurfaceKHR*)&forUnmarshaling->surface, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->minImageCount, sizeof(uint32_t));
     vkStream->read((VkFormat*)&forUnmarshaling->imageFormat, sizeof(VkFormat));
     vkStream->read((VkColorSpaceKHR*)&forUnmarshaling->imageColorSpace, sizeof(VkColorSpaceKHR));
@@ -6730,9 +6948,9 @@ void unmarshal_VkSwapchainCreateInfoKHR(
     vkStream->read((VkCompositeAlphaFlagBitsKHR*)&forUnmarshaling->compositeAlpha, sizeof(VkCompositeAlphaFlagBitsKHR));
     vkStream->read((VkPresentModeKHR*)&forUnmarshaling->presentMode, sizeof(VkPresentModeKHR));
     vkStream->read((VkBool32*)&forUnmarshaling->clipped, sizeof(VkBool32));
-    uint64_t cgen_var_179;
-    vkStream->read((uint64_t*)&cgen_var_179, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(&cgen_var_179, (VkSwapchainKHR*)&forUnmarshaling->oldSwapchain, 1);
+    uint64_t cgen_var_193;
+    vkStream->read((uint64_t*)&cgen_var_193, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(&cgen_var_193, (VkSwapchainKHR*)&forUnmarshaling->oldSwapchain, 1);
 }
 
 void marshal_VkPresentInfoKHR(
@@ -6750,23 +6968,23 @@ void marshal_VkPresentInfoKHR(
     vkStream->write((uint32_t*)&forMarshaling->waitSemaphoreCount, sizeof(uint32_t));
     if (forMarshaling->waitSemaphoreCount)
     {
-        uint64_t* cgen_var_180;
-        vkStream->alloc((void**)&cgen_var_180, forMarshaling->waitSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pWaitSemaphores, cgen_var_180, forMarshaling->waitSemaphoreCount);
-        vkStream->write((uint64_t*)cgen_var_180, forMarshaling->waitSemaphoreCount * 8);
+        uint64_t* cgen_var_194;
+        vkStream->alloc((void**)&cgen_var_194, forMarshaling->waitSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_VkSemaphore_u64(forMarshaling->pWaitSemaphores, cgen_var_194, forMarshaling->waitSemaphoreCount);
+        vkStream->write((uint64_t*)cgen_var_194, forMarshaling->waitSemaphoreCount * 8);
     }
     vkStream->write((uint32_t*)&forMarshaling->swapchainCount, sizeof(uint32_t));
     if (forMarshaling->swapchainCount)
     {
-        uint64_t* cgen_var_181;
-        vkStream->alloc((void**)&cgen_var_181, forMarshaling->swapchainCount * 8);
-        vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(forMarshaling->pSwapchains, cgen_var_181, forMarshaling->swapchainCount);
-        vkStream->write((uint64_t*)cgen_var_181, forMarshaling->swapchainCount * 8);
+        uint64_t* cgen_var_195;
+        vkStream->alloc((void**)&cgen_var_195, forMarshaling->swapchainCount * 8);
+        vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(forMarshaling->pSwapchains, cgen_var_195, forMarshaling->swapchainCount);
+        vkStream->write((uint64_t*)cgen_var_195, forMarshaling->swapchainCount * 8);
     }
     vkStream->write((const uint32_t*)forMarshaling->pImageIndices, forMarshaling->swapchainCount * sizeof(const uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_182 = (uint64_t)(uintptr_t)forMarshaling->pResults;
-    vkStream->putBe64(cgen_var_182);
+    uint64_t cgen_var_196 = (uint64_t)(uintptr_t)forMarshaling->pResults;
+    vkStream->putBe64(cgen_var_196);
     if (forMarshaling->pResults)
     {
         vkStream->write((VkResult*)forMarshaling->pResults, forMarshaling->swapchainCount * sizeof(VkResult));
@@ -6789,18 +7007,18 @@ void unmarshal_VkPresentInfoKHR(
     vkStream->read((uint32_t*)&forUnmarshaling->waitSemaphoreCount, sizeof(uint32_t));
     if (forUnmarshaling->waitSemaphoreCount)
     {
-        uint64_t* cgen_var_183;
-        vkStream->alloc((void**)&cgen_var_183, forUnmarshaling->waitSemaphoreCount * 8);
-        vkStream->read((uint64_t*)cgen_var_183, forUnmarshaling->waitSemaphoreCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_183, (VkSemaphore*)forUnmarshaling->pWaitSemaphores, forUnmarshaling->waitSemaphoreCount);
+        uint64_t* cgen_var_197;
+        vkStream->alloc((void**)&cgen_var_197, forUnmarshaling->waitSemaphoreCount * 8);
+        vkStream->read((uint64_t*)cgen_var_197, forUnmarshaling->waitSemaphoreCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkSemaphore(cgen_var_197, (VkSemaphore*)forUnmarshaling->pWaitSemaphores, forUnmarshaling->waitSemaphoreCount);
     }
     vkStream->read((uint32_t*)&forUnmarshaling->swapchainCount, sizeof(uint32_t));
     if (forUnmarshaling->swapchainCount)
     {
-        uint64_t* cgen_var_184;
-        vkStream->alloc((void**)&cgen_var_184, forUnmarshaling->swapchainCount * 8);
-        vkStream->read((uint64_t*)cgen_var_184, forUnmarshaling->swapchainCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(cgen_var_184, (VkSwapchainKHR*)forUnmarshaling->pSwapchains, forUnmarshaling->swapchainCount);
+        uint64_t* cgen_var_198;
+        vkStream->alloc((void**)&cgen_var_198, forUnmarshaling->swapchainCount * 8);
+        vkStream->read((uint64_t*)cgen_var_198, forUnmarshaling->swapchainCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(cgen_var_198, (VkSwapchainKHR*)forUnmarshaling->pSwapchains, forUnmarshaling->swapchainCount);
     }
     vkStream->read((uint32_t*)forUnmarshaling->pImageIndices, forUnmarshaling->swapchainCount * sizeof(const uint32_t));
     // WARNING PTR CHECK
@@ -6828,9 +7046,9 @@ void marshal_VkImageSwapchainCreateInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_186;
-    vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(&forMarshaling->swapchain, &cgen_var_186, 1);
-    vkStream->write((uint64_t*)&cgen_var_186, 1 * 8);
+    uint64_t cgen_var_200;
+    vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(&forMarshaling->swapchain, &cgen_var_200, 1);
+    vkStream->write((uint64_t*)&cgen_var_200, 1 * 8);
 }
 
 void unmarshal_VkImageSwapchainCreateInfoKHR(
@@ -6846,9 +7064,9 @@ void unmarshal_VkImageSwapchainCreateInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_187;
-    vkStream->read((uint64_t*)&cgen_var_187, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(&cgen_var_187, (VkSwapchainKHR*)&forUnmarshaling->swapchain, 1);
+    uint64_t cgen_var_201;
+    vkStream->read((uint64_t*)&cgen_var_201, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(&cgen_var_201, (VkSwapchainKHR*)&forUnmarshaling->swapchain, 1);
 }
 
 void marshal_VkBindImageMemorySwapchainInfoKHR(
@@ -6863,9 +7081,9 @@ void marshal_VkBindImageMemorySwapchainInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_188;
-    vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(&forMarshaling->swapchain, &cgen_var_188, 1);
-    vkStream->write((uint64_t*)&cgen_var_188, 1 * 8);
+    uint64_t cgen_var_202;
+    vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(&forMarshaling->swapchain, &cgen_var_202, 1);
+    vkStream->write((uint64_t*)&cgen_var_202, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->imageIndex, sizeof(uint32_t));
 }
 
@@ -6882,9 +7100,9 @@ void unmarshal_VkBindImageMemorySwapchainInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_189;
-    vkStream->read((uint64_t*)&cgen_var_189, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(&cgen_var_189, (VkSwapchainKHR*)&forUnmarshaling->swapchain, 1);
+    uint64_t cgen_var_203;
+    vkStream->read((uint64_t*)&cgen_var_203, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(&cgen_var_203, (VkSwapchainKHR*)&forUnmarshaling->swapchain, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->imageIndex, sizeof(uint32_t));
 }
 
@@ -6900,16 +7118,16 @@ void marshal_VkAcquireNextImageInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_190;
-    vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(&forMarshaling->swapchain, &cgen_var_190, 1);
-    vkStream->write((uint64_t*)&cgen_var_190, 1 * 8);
+    uint64_t cgen_var_204;
+    vkStream->handleMapping()->mapHandles_VkSwapchainKHR_u64(&forMarshaling->swapchain, &cgen_var_204, 1);
+    vkStream->write((uint64_t*)&cgen_var_204, 1 * 8);
     vkStream->write((uint64_t*)&forMarshaling->timeout, sizeof(uint64_t));
-    uint64_t cgen_var_191;
-    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_191, 1);
-    vkStream->write((uint64_t*)&cgen_var_191, 1 * 8);
-    uint64_t cgen_var_192;
-    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_192, 1);
-    vkStream->write((uint64_t*)&cgen_var_192, 1 * 8);
+    uint64_t cgen_var_205;
+    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_205, 1);
+    vkStream->write((uint64_t*)&cgen_var_205, 1 * 8);
+    uint64_t cgen_var_206;
+    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_206, 1);
+    vkStream->write((uint64_t*)&cgen_var_206, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->deviceMask, sizeof(uint32_t));
 }
 
@@ -6926,16 +7144,16 @@ void unmarshal_VkAcquireNextImageInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_193;
-    vkStream->read((uint64_t*)&cgen_var_193, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(&cgen_var_193, (VkSwapchainKHR*)&forUnmarshaling->swapchain, 1);
+    uint64_t cgen_var_207;
+    vkStream->read((uint64_t*)&cgen_var_207, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSwapchainKHR(&cgen_var_207, (VkSwapchainKHR*)&forUnmarshaling->swapchain, 1);
     vkStream->read((uint64_t*)&forUnmarshaling->timeout, sizeof(uint64_t));
-    uint64_t cgen_var_194;
-    vkStream->read((uint64_t*)&cgen_var_194, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_194, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
-    uint64_t cgen_var_195;
-    vkStream->read((uint64_t*)&cgen_var_195, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_195, (VkFence*)&forUnmarshaling->fence, 1);
+    uint64_t cgen_var_208;
+    vkStream->read((uint64_t*)&cgen_var_208, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_208, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
+    uint64_t cgen_var_209;
+    vkStream->read((uint64_t*)&cgen_var_209, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_209, (VkFence*)&forUnmarshaling->fence, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->deviceMask, sizeof(uint32_t));
 }
 
@@ -7044,9 +7262,9 @@ void marshal_VkDisplayPropertiesKHR(
     VulkanStreamGuest* vkStream,
     const VkDisplayPropertiesKHR* forMarshaling)
 {
-    uint64_t cgen_var_196;
-    vkStream->handleMapping()->mapHandles_VkDisplayKHR_u64(&forMarshaling->display, &cgen_var_196, 1);
-    vkStream->write((uint64_t*)&cgen_var_196, 1 * 8);
+    uint64_t cgen_var_210;
+    vkStream->handleMapping()->mapHandles_VkDisplayKHR_u64(&forMarshaling->display, &cgen_var_210, 1);
+    vkStream->write((uint64_t*)&cgen_var_210, 1 * 8);
     vkStream->putString(forMarshaling->displayName);
     marshal_VkExtent2D(vkStream, (VkExtent2D*)(&forMarshaling->physicalDimensions));
     marshal_VkExtent2D(vkStream, (VkExtent2D*)(&forMarshaling->physicalResolution));
@@ -7059,9 +7277,9 @@ void unmarshal_VkDisplayPropertiesKHR(
     VulkanStreamGuest* vkStream,
     VkDisplayPropertiesKHR* forUnmarshaling)
 {
-    uint64_t cgen_var_197;
-    vkStream->read((uint64_t*)&cgen_var_197, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDisplayKHR(&cgen_var_197, (VkDisplayKHR*)&forUnmarshaling->display, 1);
+    uint64_t cgen_var_211;
+    vkStream->read((uint64_t*)&cgen_var_211, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDisplayKHR(&cgen_var_211, (VkDisplayKHR*)&forUnmarshaling->display, 1);
     vkStream->loadStringInPlace((char**)&forUnmarshaling->displayName);
     unmarshal_VkExtent2D(vkStream, (VkExtent2D*)(&forUnmarshaling->physicalDimensions));
     unmarshal_VkExtent2D(vkStream, (VkExtent2D*)(&forUnmarshaling->physicalResolution));
@@ -7090,9 +7308,9 @@ void marshal_VkDisplayModePropertiesKHR(
     VulkanStreamGuest* vkStream,
     const VkDisplayModePropertiesKHR* forMarshaling)
 {
-    uint64_t cgen_var_198;
-    vkStream->handleMapping()->mapHandles_VkDisplayModeKHR_u64(&forMarshaling->displayMode, &cgen_var_198, 1);
-    vkStream->write((uint64_t*)&cgen_var_198, 1 * 8);
+    uint64_t cgen_var_212;
+    vkStream->handleMapping()->mapHandles_VkDisplayModeKHR_u64(&forMarshaling->displayMode, &cgen_var_212, 1);
+    vkStream->write((uint64_t*)&cgen_var_212, 1 * 8);
     marshal_VkDisplayModeParametersKHR(vkStream, (VkDisplayModeParametersKHR*)(&forMarshaling->parameters));
 }
 
@@ -7100,9 +7318,9 @@ void unmarshal_VkDisplayModePropertiesKHR(
     VulkanStreamGuest* vkStream,
     VkDisplayModePropertiesKHR* forUnmarshaling)
 {
-    uint64_t cgen_var_199;
-    vkStream->read((uint64_t*)&cgen_var_199, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDisplayModeKHR(&cgen_var_199, (VkDisplayModeKHR*)&forUnmarshaling->displayMode, 1);
+    uint64_t cgen_var_213;
+    vkStream->read((uint64_t*)&cgen_var_213, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDisplayModeKHR(&cgen_var_213, (VkDisplayModeKHR*)&forUnmarshaling->displayMode, 1);
     unmarshal_VkDisplayModeParametersKHR(vkStream, (VkDisplayModeParametersKHR*)(&forUnmarshaling->parameters));
 }
 
@@ -7173,9 +7391,9 @@ void marshal_VkDisplayPlanePropertiesKHR(
     VulkanStreamGuest* vkStream,
     const VkDisplayPlanePropertiesKHR* forMarshaling)
 {
-    uint64_t cgen_var_200;
-    vkStream->handleMapping()->mapHandles_VkDisplayKHR_u64(&forMarshaling->currentDisplay, &cgen_var_200, 1);
-    vkStream->write((uint64_t*)&cgen_var_200, 1 * 8);
+    uint64_t cgen_var_214;
+    vkStream->handleMapping()->mapHandles_VkDisplayKHR_u64(&forMarshaling->currentDisplay, &cgen_var_214, 1);
+    vkStream->write((uint64_t*)&cgen_var_214, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->currentStackIndex, sizeof(uint32_t));
 }
 
@@ -7183,9 +7401,9 @@ void unmarshal_VkDisplayPlanePropertiesKHR(
     VulkanStreamGuest* vkStream,
     VkDisplayPlanePropertiesKHR* forUnmarshaling)
 {
-    uint64_t cgen_var_201;
-    vkStream->read((uint64_t*)&cgen_var_201, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDisplayKHR(&cgen_var_201, (VkDisplayKHR*)&forUnmarshaling->currentDisplay, 1);
+    uint64_t cgen_var_215;
+    vkStream->read((uint64_t*)&cgen_var_215, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDisplayKHR(&cgen_var_215, (VkDisplayKHR*)&forUnmarshaling->currentDisplay, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->currentStackIndex, sizeof(uint32_t));
 }
 
@@ -7202,9 +7420,9 @@ void marshal_VkDisplaySurfaceCreateInfoKHR(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkDisplaySurfaceCreateFlagsKHR*)&forMarshaling->flags, sizeof(VkDisplaySurfaceCreateFlagsKHR));
-    uint64_t cgen_var_202;
-    vkStream->handleMapping()->mapHandles_VkDisplayModeKHR_u64(&forMarshaling->displayMode, &cgen_var_202, 1);
-    vkStream->write((uint64_t*)&cgen_var_202, 1 * 8);
+    uint64_t cgen_var_216;
+    vkStream->handleMapping()->mapHandles_VkDisplayModeKHR_u64(&forMarshaling->displayMode, &cgen_var_216, 1);
+    vkStream->write((uint64_t*)&cgen_var_216, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->planeIndex, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->planeStackIndex, sizeof(uint32_t));
     vkStream->write((VkSurfaceTransformFlagBitsKHR*)&forMarshaling->transform, sizeof(VkSurfaceTransformFlagBitsKHR));
@@ -7227,9 +7445,9 @@ void unmarshal_VkDisplaySurfaceCreateInfoKHR(
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
     vkStream->read((VkDisplaySurfaceCreateFlagsKHR*)&forUnmarshaling->flags, sizeof(VkDisplaySurfaceCreateFlagsKHR));
-    uint64_t cgen_var_203;
-    vkStream->read((uint64_t*)&cgen_var_203, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDisplayModeKHR(&cgen_var_203, (VkDisplayModeKHR*)&forUnmarshaling->displayMode, 1);
+    uint64_t cgen_var_217;
+    vkStream->read((uint64_t*)&cgen_var_217, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDisplayModeKHR(&cgen_var_217, (VkDisplayModeKHR*)&forUnmarshaling->displayMode, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->planeIndex, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->planeStackIndex, sizeof(uint32_t));
     vkStream->read((VkSurfaceTransformFlagBitsKHR*)&forUnmarshaling->transform, sizeof(VkSurfaceTransformFlagBitsKHR));
@@ -7291,8 +7509,8 @@ void marshal_VkXlibSurfaceCreateInfoKHR(
     }
     vkStream->write((VkXlibSurfaceCreateFlagsKHR*)&forMarshaling->flags, sizeof(VkXlibSurfaceCreateFlagsKHR));
     // WARNING PTR CHECK
-    uint64_t cgen_var_204 = (uint64_t)(uintptr_t)forMarshaling->dpy;
-    vkStream->putBe64(cgen_var_204);
+    uint64_t cgen_var_218 = (uint64_t)(uintptr_t)forMarshaling->dpy;
+    vkStream->putBe64(cgen_var_218);
     if (forMarshaling->dpy)
     {
         vkStream->write((Display*)forMarshaling->dpy, sizeof(Display));
@@ -7344,8 +7562,8 @@ void marshal_VkXcbSurfaceCreateInfoKHR(
     }
     vkStream->write((VkXcbSurfaceCreateFlagsKHR*)&forMarshaling->flags, sizeof(VkXcbSurfaceCreateFlagsKHR));
     // WARNING PTR CHECK
-    uint64_t cgen_var_206 = (uint64_t)(uintptr_t)forMarshaling->connection;
-    vkStream->putBe64(cgen_var_206);
+    uint64_t cgen_var_220 = (uint64_t)(uintptr_t)forMarshaling->connection;
+    vkStream->putBe64(cgen_var_220);
     if (forMarshaling->connection)
     {
         vkStream->write((xcb_connection_t*)forMarshaling->connection, sizeof(xcb_connection_t));
@@ -7397,15 +7615,15 @@ void marshal_VkWaylandSurfaceCreateInfoKHR(
     }
     vkStream->write((VkWaylandSurfaceCreateFlagsKHR*)&forMarshaling->flags, sizeof(VkWaylandSurfaceCreateFlagsKHR));
     // WARNING PTR CHECK
-    uint64_t cgen_var_208 = (uint64_t)(uintptr_t)forMarshaling->display;
-    vkStream->putBe64(cgen_var_208);
+    uint64_t cgen_var_222 = (uint64_t)(uintptr_t)forMarshaling->display;
+    vkStream->putBe64(cgen_var_222);
     if (forMarshaling->display)
     {
         vkStream->write((wl_display*)forMarshaling->display, sizeof(wl_display));
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_209 = (uint64_t)(uintptr_t)forMarshaling->surface;
-    vkStream->putBe64(cgen_var_209);
+    uint64_t cgen_var_223 = (uint64_t)(uintptr_t)forMarshaling->surface;
+    vkStream->putBe64(cgen_var_223);
     if (forMarshaling->surface)
     {
         vkStream->write((wl_surface*)forMarshaling->surface, sizeof(wl_surface));
@@ -7466,15 +7684,15 @@ void marshal_VkMirSurfaceCreateInfoKHR(
     }
     vkStream->write((VkMirSurfaceCreateFlagsKHR*)&forMarshaling->flags, sizeof(VkMirSurfaceCreateFlagsKHR));
     // WARNING PTR CHECK
-    uint64_t cgen_var_212 = (uint64_t)(uintptr_t)forMarshaling->connection;
-    vkStream->putBe64(cgen_var_212);
+    uint64_t cgen_var_226 = (uint64_t)(uintptr_t)forMarshaling->connection;
+    vkStream->putBe64(cgen_var_226);
     if (forMarshaling->connection)
     {
         vkStream->write((MirConnection*)forMarshaling->connection, sizeof(MirConnection));
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_213 = (uint64_t)(uintptr_t)forMarshaling->mirSurface;
-    vkStream->putBe64(cgen_var_213);
+    uint64_t cgen_var_227 = (uint64_t)(uintptr_t)forMarshaling->mirSurface;
+    vkStream->putBe64(cgen_var_227);
     if (forMarshaling->mirSurface)
     {
         vkStream->write((MirSurface*)forMarshaling->mirSurface, sizeof(MirSurface));
@@ -7535,8 +7753,8 @@ void marshal_VkAndroidSurfaceCreateInfoKHR(
     }
     vkStream->write((VkAndroidSurfaceCreateFlagsKHR*)&forMarshaling->flags, sizeof(VkAndroidSurfaceCreateFlagsKHR));
     // WARNING PTR CHECK
-    uint64_t cgen_var_216 = (uint64_t)(uintptr_t)forMarshaling->window;
-    vkStream->putBe64(cgen_var_216);
+    uint64_t cgen_var_230 = (uint64_t)(uintptr_t)forMarshaling->window;
+    vkStream->putBe64(cgen_var_230);
     if (forMarshaling->window)
     {
         vkStream->write((ANativeWindow*)forMarshaling->window, sizeof(ANativeWindow));
@@ -7675,8 +7893,8 @@ void marshal_VkExportMemoryWin32HandleInfoKHR(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_218 = (uint64_t)(uintptr_t)forMarshaling->pAttributes;
-    vkStream->putBe64(cgen_var_218);
+    uint64_t cgen_var_232 = (uint64_t)(uintptr_t)forMarshaling->pAttributes;
+    vkStream->putBe64(cgen_var_232);
     if (forMarshaling->pAttributes)
     {
         vkStream->write((const SECURITY_ATTRIBUTES*)forMarshaling->pAttributes, sizeof(const SECURITY_ATTRIBUTES));
@@ -7756,9 +7974,9 @@ void marshal_VkMemoryGetWin32HandleInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_220;
-    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_220, 1);
-    vkStream->write((uint64_t*)&cgen_var_220, 1 * 8);
+    uint64_t cgen_var_234;
+    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_234, 1);
+    vkStream->write((uint64_t*)&cgen_var_234, 1 * 8);
     vkStream->write((VkExternalMemoryHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalMemoryHandleTypeFlagBits));
 }
 
@@ -7775,9 +7993,9 @@ void unmarshal_VkMemoryGetWin32HandleInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_221;
-    vkStream->read((uint64_t*)&cgen_var_221, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_221, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
+    uint64_t cgen_var_235;
+    vkStream->read((uint64_t*)&cgen_var_235, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_235, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
     vkStream->read((VkExternalMemoryHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalMemoryHandleTypeFlagBits));
 }
 
@@ -7859,9 +8077,9 @@ void marshal_VkMemoryGetFdInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_222;
-    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_222, 1);
-    vkStream->write((uint64_t*)&cgen_var_222, 1 * 8);
+    uint64_t cgen_var_236;
+    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_236, 1);
+    vkStream->write((uint64_t*)&cgen_var_236, 1 * 8);
     vkStream->write((VkExternalMemoryHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalMemoryHandleTypeFlagBits));
 }
 
@@ -7878,9 +8096,9 @@ void unmarshal_VkMemoryGetFdInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_223;
-    vkStream->read((uint64_t*)&cgen_var_223, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_223, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
+    uint64_t cgen_var_237;
+    vkStream->read((uint64_t*)&cgen_var_237, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_237, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
     vkStream->read((VkExternalMemoryHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalMemoryHandleTypeFlagBits));
 }
 
@@ -7901,20 +8119,20 @@ void marshal_VkWin32KeyedMutexAcquireReleaseInfoKHR(
     vkStream->write((uint32_t*)&forMarshaling->acquireCount, sizeof(uint32_t));
     if (forMarshaling->acquireCount)
     {
-        uint64_t* cgen_var_224;
-        vkStream->alloc((void**)&cgen_var_224, forMarshaling->acquireCount * 8);
-        vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(forMarshaling->pAcquireSyncs, cgen_var_224, forMarshaling->acquireCount);
-        vkStream->write((uint64_t*)cgen_var_224, forMarshaling->acquireCount * 8);
+        uint64_t* cgen_var_238;
+        vkStream->alloc((void**)&cgen_var_238, forMarshaling->acquireCount * 8);
+        vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(forMarshaling->pAcquireSyncs, cgen_var_238, forMarshaling->acquireCount);
+        vkStream->write((uint64_t*)cgen_var_238, forMarshaling->acquireCount * 8);
     }
     vkStream->write((const uint64_t*)forMarshaling->pAcquireKeys, forMarshaling->acquireCount * sizeof(const uint64_t));
     vkStream->write((const uint32_t*)forMarshaling->pAcquireTimeouts, forMarshaling->acquireCount * sizeof(const uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->releaseCount, sizeof(uint32_t));
     if (forMarshaling->releaseCount)
     {
-        uint64_t* cgen_var_225;
-        vkStream->alloc((void**)&cgen_var_225, forMarshaling->releaseCount * 8);
-        vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(forMarshaling->pReleaseSyncs, cgen_var_225, forMarshaling->releaseCount);
-        vkStream->write((uint64_t*)cgen_var_225, forMarshaling->releaseCount * 8);
+        uint64_t* cgen_var_239;
+        vkStream->alloc((void**)&cgen_var_239, forMarshaling->releaseCount * 8);
+        vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(forMarshaling->pReleaseSyncs, cgen_var_239, forMarshaling->releaseCount);
+        vkStream->write((uint64_t*)cgen_var_239, forMarshaling->releaseCount * 8);
     }
     vkStream->write((const uint64_t*)forMarshaling->pReleaseKeys, forMarshaling->releaseCount * sizeof(const uint64_t));
 }
@@ -7935,20 +8153,20 @@ void unmarshal_VkWin32KeyedMutexAcquireReleaseInfoKHR(
     vkStream->read((uint32_t*)&forUnmarshaling->acquireCount, sizeof(uint32_t));
     if (forUnmarshaling->acquireCount)
     {
-        uint64_t* cgen_var_226;
-        vkStream->alloc((void**)&cgen_var_226, forUnmarshaling->acquireCount * 8);
-        vkStream->read((uint64_t*)cgen_var_226, forUnmarshaling->acquireCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(cgen_var_226, (VkDeviceMemory*)forUnmarshaling->pAcquireSyncs, forUnmarshaling->acquireCount);
+        uint64_t* cgen_var_240;
+        vkStream->alloc((void**)&cgen_var_240, forUnmarshaling->acquireCount * 8);
+        vkStream->read((uint64_t*)cgen_var_240, forUnmarshaling->acquireCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(cgen_var_240, (VkDeviceMemory*)forUnmarshaling->pAcquireSyncs, forUnmarshaling->acquireCount);
     }
     vkStream->read((uint64_t*)forUnmarshaling->pAcquireKeys, forUnmarshaling->acquireCount * sizeof(const uint64_t));
     vkStream->read((uint32_t*)forUnmarshaling->pAcquireTimeouts, forUnmarshaling->acquireCount * sizeof(const uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->releaseCount, sizeof(uint32_t));
     if (forUnmarshaling->releaseCount)
     {
-        uint64_t* cgen_var_227;
-        vkStream->alloc((void**)&cgen_var_227, forUnmarshaling->releaseCount * 8);
-        vkStream->read((uint64_t*)cgen_var_227, forUnmarshaling->releaseCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(cgen_var_227, (VkDeviceMemory*)forUnmarshaling->pReleaseSyncs, forUnmarshaling->releaseCount);
+        uint64_t* cgen_var_241;
+        vkStream->alloc((void**)&cgen_var_241, forUnmarshaling->releaseCount * 8);
+        vkStream->read((uint64_t*)cgen_var_241, forUnmarshaling->releaseCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(cgen_var_241, (VkDeviceMemory*)forUnmarshaling->pReleaseSyncs, forUnmarshaling->releaseCount);
     }
     vkStream->read((uint64_t*)forUnmarshaling->pReleaseKeys, forUnmarshaling->releaseCount * sizeof(const uint64_t));
 }
@@ -7971,9 +8189,9 @@ void marshal_VkImportSemaphoreWin32HandleInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_228;
-    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_228, 1);
-    vkStream->write((uint64_t*)&cgen_var_228, 1 * 8);
+    uint64_t cgen_var_242;
+    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_242, 1);
+    vkStream->write((uint64_t*)&cgen_var_242, 1 * 8);
     vkStream->write((VkSemaphoreImportFlags*)&forMarshaling->flags, sizeof(VkSemaphoreImportFlags));
     vkStream->write((VkExternalSemaphoreHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalSemaphoreHandleTypeFlagBits));
     vkStream->write((HANDLE*)&forMarshaling->handle, sizeof(HANDLE));
@@ -7993,9 +8211,9 @@ void unmarshal_VkImportSemaphoreWin32HandleInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_229;
-    vkStream->read((uint64_t*)&cgen_var_229, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_229, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
+    uint64_t cgen_var_243;
+    vkStream->read((uint64_t*)&cgen_var_243, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_243, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
     vkStream->read((VkSemaphoreImportFlags*)&forUnmarshaling->flags, sizeof(VkSemaphoreImportFlags));
     vkStream->read((VkExternalSemaphoreHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalSemaphoreHandleTypeFlagBits));
     vkStream->read((HANDLE*)&forUnmarshaling->handle, sizeof(HANDLE));
@@ -8015,8 +8233,8 @@ void marshal_VkExportSemaphoreWin32HandleInfoKHR(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_230 = (uint64_t)(uintptr_t)forMarshaling->pAttributes;
-    vkStream->putBe64(cgen_var_230);
+    uint64_t cgen_var_244 = (uint64_t)(uintptr_t)forMarshaling->pAttributes;
+    vkStream->putBe64(cgen_var_244);
     if (forMarshaling->pAttributes)
     {
         vkStream->write((const SECURITY_ATTRIBUTES*)forMarshaling->pAttributes, sizeof(const SECURITY_ATTRIBUTES));
@@ -8067,16 +8285,16 @@ void marshal_VkD3D12FenceSubmitInfoKHR(
     }
     vkStream->write((uint32_t*)&forMarshaling->waitSemaphoreValuesCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_232 = (uint64_t)(uintptr_t)forMarshaling->pWaitSemaphoreValues;
-    vkStream->putBe64(cgen_var_232);
+    uint64_t cgen_var_246 = (uint64_t)(uintptr_t)forMarshaling->pWaitSemaphoreValues;
+    vkStream->putBe64(cgen_var_246);
     if (forMarshaling->pWaitSemaphoreValues)
     {
         vkStream->write((const uint64_t*)forMarshaling->pWaitSemaphoreValues, forMarshaling->waitSemaphoreValuesCount * sizeof(const uint64_t));
     }
     vkStream->write((uint32_t*)&forMarshaling->signalSemaphoreValuesCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_233 = (uint64_t)(uintptr_t)forMarshaling->pSignalSemaphoreValues;
-    vkStream->putBe64(cgen_var_233);
+    uint64_t cgen_var_247 = (uint64_t)(uintptr_t)forMarshaling->pSignalSemaphoreValues;
+    vkStream->putBe64(cgen_var_247);
     if (forMarshaling->pSignalSemaphoreValues)
     {
         vkStream->write((const uint64_t*)forMarshaling->pSignalSemaphoreValues, forMarshaling->signalSemaphoreValuesCount * sizeof(const uint64_t));
@@ -8134,9 +8352,9 @@ void marshal_VkSemaphoreGetWin32HandleInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_236;
-    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_236, 1);
-    vkStream->write((uint64_t*)&cgen_var_236, 1 * 8);
+    uint64_t cgen_var_250;
+    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_250, 1);
+    vkStream->write((uint64_t*)&cgen_var_250, 1 * 8);
     vkStream->write((VkExternalSemaphoreHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalSemaphoreHandleTypeFlagBits));
 }
 
@@ -8153,9 +8371,9 @@ void unmarshal_VkSemaphoreGetWin32HandleInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_237;
-    vkStream->read((uint64_t*)&cgen_var_237, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_237, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
+    uint64_t cgen_var_251;
+    vkStream->read((uint64_t*)&cgen_var_251, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_251, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
     vkStream->read((VkExternalSemaphoreHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalSemaphoreHandleTypeFlagBits));
 }
 
@@ -8173,9 +8391,9 @@ void marshal_VkImportSemaphoreFdInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_238;
-    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_238, 1);
-    vkStream->write((uint64_t*)&cgen_var_238, 1 * 8);
+    uint64_t cgen_var_252;
+    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_252, 1);
+    vkStream->write((uint64_t*)&cgen_var_252, 1 * 8);
     vkStream->write((VkSemaphoreImportFlags*)&forMarshaling->flags, sizeof(VkSemaphoreImportFlags));
     vkStream->write((VkExternalSemaphoreHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalSemaphoreHandleTypeFlagBits));
     vkStream->write((int*)&forMarshaling->fd, sizeof(int));
@@ -8194,9 +8412,9 @@ void unmarshal_VkImportSemaphoreFdInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_239;
-    vkStream->read((uint64_t*)&cgen_var_239, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_239, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
+    uint64_t cgen_var_253;
+    vkStream->read((uint64_t*)&cgen_var_253, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_253, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
     vkStream->read((VkSemaphoreImportFlags*)&forUnmarshaling->flags, sizeof(VkSemaphoreImportFlags));
     vkStream->read((VkExternalSemaphoreHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalSemaphoreHandleTypeFlagBits));
     vkStream->read((int*)&forUnmarshaling->fd, sizeof(int));
@@ -8214,9 +8432,9 @@ void marshal_VkSemaphoreGetFdInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_240;
-    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_240, 1);
-    vkStream->write((uint64_t*)&cgen_var_240, 1 * 8);
+    uint64_t cgen_var_254;
+    vkStream->handleMapping()->mapHandles_VkSemaphore_u64(&forMarshaling->semaphore, &cgen_var_254, 1);
+    vkStream->write((uint64_t*)&cgen_var_254, 1 * 8);
     vkStream->write((VkExternalSemaphoreHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalSemaphoreHandleTypeFlagBits));
 }
 
@@ -8233,9 +8451,9 @@ void unmarshal_VkSemaphoreGetFdInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_241;
-    vkStream->read((uint64_t*)&cgen_var_241, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_241, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
+    uint64_t cgen_var_255;
+    vkStream->read((uint64_t*)&cgen_var_255, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSemaphore(&cgen_var_255, (VkSemaphore*)&forUnmarshaling->semaphore, 1);
     vkStream->read((VkExternalSemaphoreHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalSemaphoreHandleTypeFlagBits));
 }
 
@@ -8300,8 +8518,8 @@ void marshal_VkPresentRegionKHR(
 {
     vkStream->write((uint32_t*)&forMarshaling->rectangleCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_242 = (uint64_t)(uintptr_t)forMarshaling->pRectangles;
-    vkStream->putBe64(cgen_var_242);
+    uint64_t cgen_var_256 = (uint64_t)(uintptr_t)forMarshaling->pRectangles;
+    vkStream->putBe64(cgen_var_256);
     if (forMarshaling->pRectangles)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->rectangleCount; ++i)
@@ -8346,8 +8564,8 @@ void marshal_VkPresentRegionsKHR(
     }
     vkStream->write((uint32_t*)&forMarshaling->swapchainCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_244 = (uint64_t)(uintptr_t)forMarshaling->pRegions;
-    vkStream->putBe64(cgen_var_244);
+    uint64_t cgen_var_258 = (uint64_t)(uintptr_t)forMarshaling->pRegions;
+    vkStream->putBe64(cgen_var_258);
     if (forMarshaling->pRegions)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->swapchainCount; ++i)
@@ -8499,8 +8717,8 @@ void marshal_VkSubpassDescription2KHR(
         marshal_VkAttachmentReference2KHR(vkStream, (const VkAttachmentReference2KHR*)(forMarshaling->pColorAttachments + i));
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_246 = (uint64_t)(uintptr_t)forMarshaling->pResolveAttachments;
-    vkStream->putBe64(cgen_var_246);
+    uint64_t cgen_var_260 = (uint64_t)(uintptr_t)forMarshaling->pResolveAttachments;
+    vkStream->putBe64(cgen_var_260);
     if (forMarshaling->pResolveAttachments)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->colorAttachmentCount; ++i)
@@ -8509,8 +8727,8 @@ void marshal_VkSubpassDescription2KHR(
         }
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_247 = (uint64_t)(uintptr_t)forMarshaling->pDepthStencilAttachment;
-    vkStream->putBe64(cgen_var_247);
+    uint64_t cgen_var_261 = (uint64_t)(uintptr_t)forMarshaling->pDepthStencilAttachment;
+    vkStream->putBe64(cgen_var_261);
     if (forMarshaling->pDepthStencilAttachment)
     {
         marshal_VkAttachmentReference2KHR(vkStream, (const VkAttachmentReference2KHR*)(forMarshaling->pDepthStencilAttachment));
@@ -8795,9 +9013,9 @@ void marshal_VkImportFenceWin32HandleInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_250;
-    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_250, 1);
-    vkStream->write((uint64_t*)&cgen_var_250, 1 * 8);
+    uint64_t cgen_var_264;
+    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_264, 1);
+    vkStream->write((uint64_t*)&cgen_var_264, 1 * 8);
     vkStream->write((VkFenceImportFlags*)&forMarshaling->flags, sizeof(VkFenceImportFlags));
     vkStream->write((VkExternalFenceHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalFenceHandleTypeFlagBits));
     vkStream->write((HANDLE*)&forMarshaling->handle, sizeof(HANDLE));
@@ -8817,9 +9035,9 @@ void unmarshal_VkImportFenceWin32HandleInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_251;
-    vkStream->read((uint64_t*)&cgen_var_251, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_251, (VkFence*)&forUnmarshaling->fence, 1);
+    uint64_t cgen_var_265;
+    vkStream->read((uint64_t*)&cgen_var_265, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_265, (VkFence*)&forUnmarshaling->fence, 1);
     vkStream->read((VkFenceImportFlags*)&forUnmarshaling->flags, sizeof(VkFenceImportFlags));
     vkStream->read((VkExternalFenceHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalFenceHandleTypeFlagBits));
     vkStream->read((HANDLE*)&forUnmarshaling->handle, sizeof(HANDLE));
@@ -8839,8 +9057,8 @@ void marshal_VkExportFenceWin32HandleInfoKHR(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_252 = (uint64_t)(uintptr_t)forMarshaling->pAttributes;
-    vkStream->putBe64(cgen_var_252);
+    uint64_t cgen_var_266 = (uint64_t)(uintptr_t)forMarshaling->pAttributes;
+    vkStream->putBe64(cgen_var_266);
     if (forMarshaling->pAttributes)
     {
         vkStream->write((const SECURITY_ATTRIBUTES*)forMarshaling->pAttributes, sizeof(const SECURITY_ATTRIBUTES));
@@ -8889,9 +9107,9 @@ void marshal_VkFenceGetWin32HandleInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_254;
-    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_254, 1);
-    vkStream->write((uint64_t*)&cgen_var_254, 1 * 8);
+    uint64_t cgen_var_268;
+    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_268, 1);
+    vkStream->write((uint64_t*)&cgen_var_268, 1 * 8);
     vkStream->write((VkExternalFenceHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalFenceHandleTypeFlagBits));
 }
 
@@ -8908,9 +9126,9 @@ void unmarshal_VkFenceGetWin32HandleInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_255;
-    vkStream->read((uint64_t*)&cgen_var_255, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_255, (VkFence*)&forUnmarshaling->fence, 1);
+    uint64_t cgen_var_269;
+    vkStream->read((uint64_t*)&cgen_var_269, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_269, (VkFence*)&forUnmarshaling->fence, 1);
     vkStream->read((VkExternalFenceHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalFenceHandleTypeFlagBits));
 }
 
@@ -8928,9 +9146,9 @@ void marshal_VkImportFenceFdInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_256;
-    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_256, 1);
-    vkStream->write((uint64_t*)&cgen_var_256, 1 * 8);
+    uint64_t cgen_var_270;
+    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_270, 1);
+    vkStream->write((uint64_t*)&cgen_var_270, 1 * 8);
     vkStream->write((VkFenceImportFlags*)&forMarshaling->flags, sizeof(VkFenceImportFlags));
     vkStream->write((VkExternalFenceHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalFenceHandleTypeFlagBits));
     vkStream->write((int*)&forMarshaling->fd, sizeof(int));
@@ -8949,9 +9167,9 @@ void unmarshal_VkImportFenceFdInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_257;
-    vkStream->read((uint64_t*)&cgen_var_257, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_257, (VkFence*)&forUnmarshaling->fence, 1);
+    uint64_t cgen_var_271;
+    vkStream->read((uint64_t*)&cgen_var_271, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_271, (VkFence*)&forUnmarshaling->fence, 1);
     vkStream->read((VkFenceImportFlags*)&forUnmarshaling->flags, sizeof(VkFenceImportFlags));
     vkStream->read((VkExternalFenceHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalFenceHandleTypeFlagBits));
     vkStream->read((int*)&forUnmarshaling->fd, sizeof(int));
@@ -8969,9 +9187,9 @@ void marshal_VkFenceGetFdInfoKHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_258;
-    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_258, 1);
-    vkStream->write((uint64_t*)&cgen_var_258, 1 * 8);
+    uint64_t cgen_var_272;
+    vkStream->handleMapping()->mapHandles_VkFence_u64(&forMarshaling->fence, &cgen_var_272, 1);
+    vkStream->write((uint64_t*)&cgen_var_272, 1 * 8);
     vkStream->write((VkExternalFenceHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalFenceHandleTypeFlagBits));
 }
 
@@ -8988,9 +9206,9 @@ void unmarshal_VkFenceGetFdInfoKHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_259;
-    vkStream->read((uint64_t*)&cgen_var_259, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_259, (VkFence*)&forUnmarshaling->fence, 1);
+    uint64_t cgen_var_273;
+    vkStream->read((uint64_t*)&cgen_var_273, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkFence(&cgen_var_273, (VkFence*)&forUnmarshaling->fence, 1);
     vkStream->read((VkExternalFenceHandleTypeFlagBits*)&forUnmarshaling->handleType, sizeof(VkExternalFenceHandleTypeFlagBits));
 }
 
@@ -9010,9 +9228,9 @@ void marshal_VkPhysicalDeviceSurfaceInfo2KHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_260;
-    vkStream->handleMapping()->mapHandles_VkSurfaceKHR_u64(&forMarshaling->surface, &cgen_var_260, 1);
-    vkStream->write((uint64_t*)&cgen_var_260, 1 * 8);
+    uint64_t cgen_var_274;
+    vkStream->handleMapping()->mapHandles_VkSurfaceKHR_u64(&forMarshaling->surface, &cgen_var_274, 1);
+    vkStream->write((uint64_t*)&cgen_var_274, 1 * 8);
 }
 
 void unmarshal_VkPhysicalDeviceSurfaceInfo2KHR(
@@ -9028,9 +9246,9 @@ void unmarshal_VkPhysicalDeviceSurfaceInfo2KHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_261;
-    vkStream->read((uint64_t*)&cgen_var_261, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkSurfaceKHR(&cgen_var_261, (VkSurfaceKHR*)&forUnmarshaling->surface, 1);
+    uint64_t cgen_var_275;
+    vkStream->read((uint64_t*)&cgen_var_275, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkSurfaceKHR(&cgen_var_275, (VkSurfaceKHR*)&forUnmarshaling->surface, 1);
 }
 
 void marshal_VkSurfaceCapabilities2KHR(
@@ -9204,9 +9422,9 @@ void marshal_VkDisplayPlaneInfo2KHR(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_262;
-    vkStream->handleMapping()->mapHandles_VkDisplayModeKHR_u64(&forMarshaling->mode, &cgen_var_262, 1);
-    vkStream->write((uint64_t*)&cgen_var_262, 1 * 8);
+    uint64_t cgen_var_276;
+    vkStream->handleMapping()->mapHandles_VkDisplayModeKHR_u64(&forMarshaling->mode, &cgen_var_276, 1);
+    vkStream->write((uint64_t*)&cgen_var_276, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->planeIndex, sizeof(uint32_t));
 }
 
@@ -9223,9 +9441,9 @@ void unmarshal_VkDisplayPlaneInfo2KHR(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_263;
-    vkStream->read((uint64_t*)&cgen_var_263, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDisplayModeKHR(&cgen_var_263, (VkDisplayModeKHR*)&forUnmarshaling->mode, 1);
+    uint64_t cgen_var_277;
+    vkStream->read((uint64_t*)&cgen_var_277, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDisplayModeKHR(&cgen_var_277, (VkDisplayModeKHR*)&forUnmarshaling->mode, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->planeIndex, sizeof(uint32_t));
 }
 
@@ -9363,8 +9581,8 @@ void marshal_VkNativeBufferANDROID(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_264 = (uint64_t)(uintptr_t)forMarshaling->handle;
-    vkStream->putBe64(cgen_var_264);
+    uint64_t cgen_var_278 = (uint64_t)(uintptr_t)forMarshaling->handle;
+    vkStream->putBe64(cgen_var_278);
     if (forMarshaling->handle)
     {
         vkStream->write((const uint32_t*)forMarshaling->handle, sizeof(const uint32_t));
@@ -9422,11 +9640,11 @@ void marshal_VkDebugReportCallbackCreateInfoEXT(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkDebugReportFlagsEXT*)&forMarshaling->flags, sizeof(VkDebugReportFlagsEXT));
-    uint64_t cgen_var_266 = (uint64_t)forMarshaling->pfnCallback;
-    vkStream->putBe64(cgen_var_266);
+    uint64_t cgen_var_280 = (uint64_t)forMarshaling->pfnCallback;
+    vkStream->putBe64(cgen_var_280);
     // WARNING PTR CHECK
-    uint64_t cgen_var_267 = (uint64_t)(uintptr_t)forMarshaling->pUserData;
-    vkStream->putBe64(cgen_var_267);
+    uint64_t cgen_var_281 = (uint64_t)(uintptr_t)forMarshaling->pUserData;
+    vkStream->putBe64(cgen_var_281);
     if (forMarshaling->pUserData)
     {
         vkStream->write((void*)forMarshaling->pUserData, sizeof(uint8_t));
@@ -9556,8 +9774,8 @@ void marshal_VkDebugMarkerObjectTagInfoEXT(
     vkStream->write((VkDebugReportObjectTypeEXT*)&forMarshaling->objectType, sizeof(VkDebugReportObjectTypeEXT));
     vkStream->write((uint64_t*)&forMarshaling->object, sizeof(uint64_t));
     vkStream->write((uint64_t*)&forMarshaling->tagName, sizeof(uint64_t));
-    uint64_t cgen_var_270 = (uint64_t)forMarshaling->tagSize;
-    vkStream->putBe64(cgen_var_270);
+    uint64_t cgen_var_284 = (uint64_t)forMarshaling->tagSize;
+    vkStream->putBe64(cgen_var_284);
     vkStream->write((const void*)forMarshaling->pTag, forMarshaling->tagSize * sizeof(const uint8_t));
 }
 
@@ -9692,12 +9910,12 @@ void marshal_VkDedicatedAllocationMemoryAllocateInfoNV(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_272;
-    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_272, 1);
-    vkStream->write((uint64_t*)&cgen_var_272, 1 * 8);
-    uint64_t cgen_var_273;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_273, 1);
-    vkStream->write((uint64_t*)&cgen_var_273, 1 * 8);
+    uint64_t cgen_var_286;
+    vkStream->handleMapping()->mapHandles_VkImage_u64(&forMarshaling->image, &cgen_var_286, 1);
+    vkStream->write((uint64_t*)&cgen_var_286, 1 * 8);
+    uint64_t cgen_var_287;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_287, 1);
+    vkStream->write((uint64_t*)&cgen_var_287, 1 * 8);
 }
 
 void unmarshal_VkDedicatedAllocationMemoryAllocateInfoNV(
@@ -9713,12 +9931,12 @@ void unmarshal_VkDedicatedAllocationMemoryAllocateInfoNV(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_274;
-    vkStream->read((uint64_t*)&cgen_var_274, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_274, (VkImage*)&forUnmarshaling->image, 1);
-    uint64_t cgen_var_275;
-    vkStream->read((uint64_t*)&cgen_var_275, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_275, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_288;
+    vkStream->read((uint64_t*)&cgen_var_288, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkImage(&cgen_var_288, (VkImage*)&forUnmarshaling->image, 1);
+    uint64_t cgen_var_289;
+    vkStream->read((uint64_t*)&cgen_var_289, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_289, (VkBuffer*)&forUnmarshaling->buffer, 1);
 }
 
 #endif
@@ -9771,10 +9989,10 @@ void marshal_VkShaderResourceUsageAMD(
     vkStream->write((uint32_t*)&forMarshaling->numUsedVgprs, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->numUsedSgprs, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->ldsSizePerLocalWorkGroup, sizeof(uint32_t));
-    uint64_t cgen_var_276 = (uint64_t)forMarshaling->ldsUsageSizeInBytes;
-    vkStream->putBe64(cgen_var_276);
-    uint64_t cgen_var_277 = (uint64_t)forMarshaling->scratchMemUsageInBytes;
-    vkStream->putBe64(cgen_var_277);
+    uint64_t cgen_var_290 = (uint64_t)forMarshaling->ldsUsageSizeInBytes;
+    vkStream->putBe64(cgen_var_290);
+    uint64_t cgen_var_291 = (uint64_t)forMarshaling->scratchMemUsageInBytes;
+    vkStream->putBe64(cgen_var_291);
 }
 
 void unmarshal_VkShaderResourceUsageAMD(
@@ -9952,8 +10170,8 @@ void marshal_VkExportMemoryWin32HandleInfoNV(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     // WARNING PTR CHECK
-    uint64_t cgen_var_280 = (uint64_t)(uintptr_t)forMarshaling->pAttributes;
-    vkStream->putBe64(cgen_var_280);
+    uint64_t cgen_var_294 = (uint64_t)(uintptr_t)forMarshaling->pAttributes;
+    vkStream->putBe64(cgen_var_294);
     if (forMarshaling->pAttributes)
     {
         vkStream->write((const SECURITY_ATTRIBUTES*)forMarshaling->pAttributes, sizeof(const SECURITY_ATTRIBUTES));
@@ -10005,20 +10223,20 @@ void marshal_VkWin32KeyedMutexAcquireReleaseInfoNV(
     vkStream->write((uint32_t*)&forMarshaling->acquireCount, sizeof(uint32_t));
     if (forMarshaling->acquireCount)
     {
-        uint64_t* cgen_var_282;
-        vkStream->alloc((void**)&cgen_var_282, forMarshaling->acquireCount * 8);
-        vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(forMarshaling->pAcquireSyncs, cgen_var_282, forMarshaling->acquireCount);
-        vkStream->write((uint64_t*)cgen_var_282, forMarshaling->acquireCount * 8);
+        uint64_t* cgen_var_296;
+        vkStream->alloc((void**)&cgen_var_296, forMarshaling->acquireCount * 8);
+        vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(forMarshaling->pAcquireSyncs, cgen_var_296, forMarshaling->acquireCount);
+        vkStream->write((uint64_t*)cgen_var_296, forMarshaling->acquireCount * 8);
     }
     vkStream->write((const uint64_t*)forMarshaling->pAcquireKeys, forMarshaling->acquireCount * sizeof(const uint64_t));
     vkStream->write((const uint32_t*)forMarshaling->pAcquireTimeoutMilliseconds, forMarshaling->acquireCount * sizeof(const uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->releaseCount, sizeof(uint32_t));
     if (forMarshaling->releaseCount)
     {
-        uint64_t* cgen_var_283;
-        vkStream->alloc((void**)&cgen_var_283, forMarshaling->releaseCount * 8);
-        vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(forMarshaling->pReleaseSyncs, cgen_var_283, forMarshaling->releaseCount);
-        vkStream->write((uint64_t*)cgen_var_283, forMarshaling->releaseCount * 8);
+        uint64_t* cgen_var_297;
+        vkStream->alloc((void**)&cgen_var_297, forMarshaling->releaseCount * 8);
+        vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(forMarshaling->pReleaseSyncs, cgen_var_297, forMarshaling->releaseCount);
+        vkStream->write((uint64_t*)cgen_var_297, forMarshaling->releaseCount * 8);
     }
     vkStream->write((const uint64_t*)forMarshaling->pReleaseKeys, forMarshaling->releaseCount * sizeof(const uint64_t));
 }
@@ -10039,20 +10257,20 @@ void unmarshal_VkWin32KeyedMutexAcquireReleaseInfoNV(
     vkStream->read((uint32_t*)&forUnmarshaling->acquireCount, sizeof(uint32_t));
     if (forUnmarshaling->acquireCount)
     {
-        uint64_t* cgen_var_284;
-        vkStream->alloc((void**)&cgen_var_284, forUnmarshaling->acquireCount * 8);
-        vkStream->read((uint64_t*)cgen_var_284, forUnmarshaling->acquireCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(cgen_var_284, (VkDeviceMemory*)forUnmarshaling->pAcquireSyncs, forUnmarshaling->acquireCount);
+        uint64_t* cgen_var_298;
+        vkStream->alloc((void**)&cgen_var_298, forUnmarshaling->acquireCount * 8);
+        vkStream->read((uint64_t*)cgen_var_298, forUnmarshaling->acquireCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(cgen_var_298, (VkDeviceMemory*)forUnmarshaling->pAcquireSyncs, forUnmarshaling->acquireCount);
     }
     vkStream->read((uint64_t*)forUnmarshaling->pAcquireKeys, forUnmarshaling->acquireCount * sizeof(const uint64_t));
     vkStream->read((uint32_t*)forUnmarshaling->pAcquireTimeoutMilliseconds, forUnmarshaling->acquireCount * sizeof(const uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->releaseCount, sizeof(uint32_t));
     if (forUnmarshaling->releaseCount)
     {
-        uint64_t* cgen_var_285;
-        vkStream->alloc((void**)&cgen_var_285, forUnmarshaling->releaseCount * 8);
-        vkStream->read((uint64_t*)cgen_var_285, forUnmarshaling->releaseCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(cgen_var_285, (VkDeviceMemory*)forUnmarshaling->pReleaseSyncs, forUnmarshaling->releaseCount);
+        uint64_t* cgen_var_299;
+        vkStream->alloc((void**)&cgen_var_299, forUnmarshaling->releaseCount * 8);
+        vkStream->read((uint64_t*)cgen_var_299, forUnmarshaling->releaseCount * 8);
+        vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(cgen_var_299, (VkDeviceMemory*)forUnmarshaling->pReleaseSyncs, forUnmarshaling->releaseCount);
     }
     vkStream->read((uint64_t*)forUnmarshaling->pReleaseKeys, forUnmarshaling->releaseCount * sizeof(const uint64_t));
 }
@@ -10108,8 +10326,8 @@ void marshal_VkViSurfaceCreateInfoNN(
     }
     vkStream->write((VkViSurfaceCreateFlagsNN*)&forMarshaling->flags, sizeof(VkViSurfaceCreateFlagsNN));
     // WARNING PTR CHECK
-    uint64_t cgen_var_286 = (uint64_t)(uintptr_t)forMarshaling->window;
-    vkStream->putBe64(cgen_var_286);
+    uint64_t cgen_var_300 = (uint64_t)(uintptr_t)forMarshaling->window;
+    vkStream->putBe64(cgen_var_300);
     if (forMarshaling->window)
     {
         vkStream->write((void*)forMarshaling->window, sizeof(uint8_t));
@@ -10161,9 +10379,9 @@ void marshal_VkConditionalRenderingBeginInfoEXT(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_288;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_288, 1);
-    vkStream->write((uint64_t*)&cgen_var_288, 1 * 8);
+    uint64_t cgen_var_302;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_302, 1);
+    vkStream->write((uint64_t*)&cgen_var_302, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->offset, sizeof(VkDeviceSize));
     vkStream->write((VkConditionalRenderingFlagsEXT*)&forMarshaling->flags, sizeof(VkConditionalRenderingFlagsEXT));
 }
@@ -10181,9 +10399,9 @@ void unmarshal_VkConditionalRenderingBeginInfoEXT(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_289;
-    vkStream->read((uint64_t*)&cgen_var_289, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_289, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_303;
+    vkStream->read((uint64_t*)&cgen_var_303, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_303, (VkBuffer*)&forUnmarshaling->buffer, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->offset, sizeof(VkDeviceSize));
     vkStream->read((VkConditionalRenderingFlagsEXT*)&forUnmarshaling->flags, sizeof(VkConditionalRenderingFlagsEXT));
 }
@@ -10329,9 +10547,9 @@ void marshal_VkIndirectCommandsTokenNVX(
     const VkIndirectCommandsTokenNVX* forMarshaling)
 {
     vkStream->write((VkIndirectCommandsTokenTypeNVX*)&forMarshaling->tokenType, sizeof(VkIndirectCommandsTokenTypeNVX));
-    uint64_t cgen_var_290;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_290, 1);
-    vkStream->write((uint64_t*)&cgen_var_290, 1 * 8);
+    uint64_t cgen_var_304;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_304, 1);
+    vkStream->write((uint64_t*)&cgen_var_304, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->offset, sizeof(VkDeviceSize));
 }
 
@@ -10340,9 +10558,9 @@ void unmarshal_VkIndirectCommandsTokenNVX(
     VkIndirectCommandsTokenNVX* forUnmarshaling)
 {
     vkStream->read((VkIndirectCommandsTokenTypeNVX*)&forUnmarshaling->tokenType, sizeof(VkIndirectCommandsTokenTypeNVX));
-    uint64_t cgen_var_291;
-    vkStream->read((uint64_t*)&cgen_var_291, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_291, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_305;
+    vkStream->read((uint64_t*)&cgen_var_305, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_305, (VkBuffer*)&forUnmarshaling->buffer, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->offset, sizeof(VkDeviceSize));
 }
 
@@ -10421,28 +10639,28 @@ void marshal_VkCmdProcessCommandsInfoNVX(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_292;
-    vkStream->handleMapping()->mapHandles_VkObjectTableNVX_u64(&forMarshaling->objectTable, &cgen_var_292, 1);
-    vkStream->write((uint64_t*)&cgen_var_292, 1 * 8);
-    uint64_t cgen_var_293;
-    vkStream->handleMapping()->mapHandles_VkIndirectCommandsLayoutNVX_u64(&forMarshaling->indirectCommandsLayout, &cgen_var_293, 1);
-    vkStream->write((uint64_t*)&cgen_var_293, 1 * 8);
+    uint64_t cgen_var_306;
+    vkStream->handleMapping()->mapHandles_VkObjectTableNVX_u64(&forMarshaling->objectTable, &cgen_var_306, 1);
+    vkStream->write((uint64_t*)&cgen_var_306, 1 * 8);
+    uint64_t cgen_var_307;
+    vkStream->handleMapping()->mapHandles_VkIndirectCommandsLayoutNVX_u64(&forMarshaling->indirectCommandsLayout, &cgen_var_307, 1);
+    vkStream->write((uint64_t*)&cgen_var_307, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->indirectCommandsTokenCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forMarshaling->indirectCommandsTokenCount; ++i)
     {
         marshal_VkIndirectCommandsTokenNVX(vkStream, (const VkIndirectCommandsTokenNVX*)(forMarshaling->pIndirectCommandsTokens + i));
     }
     vkStream->write((uint32_t*)&forMarshaling->maxSequencesCount, sizeof(uint32_t));
-    uint64_t cgen_var_294;
-    vkStream->handleMapping()->mapHandles_VkCommandBuffer_u64(&forMarshaling->targetCommandBuffer, &cgen_var_294, 1);
-    vkStream->write((uint64_t*)&cgen_var_294, 1 * 8);
-    uint64_t cgen_var_295;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->sequencesCountBuffer, &cgen_var_295, 1);
-    vkStream->write((uint64_t*)&cgen_var_295, 1 * 8);
+    uint64_t cgen_var_308;
+    vkStream->handleMapping()->mapHandles_VkCommandBuffer_u64(&forMarshaling->targetCommandBuffer, &cgen_var_308, 1);
+    vkStream->write((uint64_t*)&cgen_var_308, 1 * 8);
+    uint64_t cgen_var_309;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->sequencesCountBuffer, &cgen_var_309, 1);
+    vkStream->write((uint64_t*)&cgen_var_309, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->sequencesCountOffset, sizeof(VkDeviceSize));
-    uint64_t cgen_var_296;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->sequencesIndexBuffer, &cgen_var_296, 1);
-    vkStream->write((uint64_t*)&cgen_var_296, 1 * 8);
+    uint64_t cgen_var_310;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->sequencesIndexBuffer, &cgen_var_310, 1);
+    vkStream->write((uint64_t*)&cgen_var_310, 1 * 8);
     vkStream->write((VkDeviceSize*)&forMarshaling->sequencesIndexOffset, sizeof(VkDeviceSize));
 }
 
@@ -10459,28 +10677,28 @@ void unmarshal_VkCmdProcessCommandsInfoNVX(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_297;
-    vkStream->read((uint64_t*)&cgen_var_297, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkObjectTableNVX(&cgen_var_297, (VkObjectTableNVX*)&forUnmarshaling->objectTable, 1);
-    uint64_t cgen_var_298;
-    vkStream->read((uint64_t*)&cgen_var_298, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkIndirectCommandsLayoutNVX(&cgen_var_298, (VkIndirectCommandsLayoutNVX*)&forUnmarshaling->indirectCommandsLayout, 1);
+    uint64_t cgen_var_311;
+    vkStream->read((uint64_t*)&cgen_var_311, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkObjectTableNVX(&cgen_var_311, (VkObjectTableNVX*)&forUnmarshaling->objectTable, 1);
+    uint64_t cgen_var_312;
+    vkStream->read((uint64_t*)&cgen_var_312, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkIndirectCommandsLayoutNVX(&cgen_var_312, (VkIndirectCommandsLayoutNVX*)&forUnmarshaling->indirectCommandsLayout, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->indirectCommandsTokenCount, sizeof(uint32_t));
     for (uint32_t i = 0; i < (uint32_t)forUnmarshaling->indirectCommandsTokenCount; ++i)
     {
         unmarshal_VkIndirectCommandsTokenNVX(vkStream, (VkIndirectCommandsTokenNVX*)(forUnmarshaling->pIndirectCommandsTokens + i));
     }
     vkStream->read((uint32_t*)&forUnmarshaling->maxSequencesCount, sizeof(uint32_t));
-    uint64_t cgen_var_299;
-    vkStream->read((uint64_t*)&cgen_var_299, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkCommandBuffer(&cgen_var_299, (VkCommandBuffer*)&forUnmarshaling->targetCommandBuffer, 1);
-    uint64_t cgen_var_300;
-    vkStream->read((uint64_t*)&cgen_var_300, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_300, (VkBuffer*)&forUnmarshaling->sequencesCountBuffer, 1);
+    uint64_t cgen_var_313;
+    vkStream->read((uint64_t*)&cgen_var_313, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkCommandBuffer(&cgen_var_313, (VkCommandBuffer*)&forUnmarshaling->targetCommandBuffer, 1);
+    uint64_t cgen_var_314;
+    vkStream->read((uint64_t*)&cgen_var_314, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_314, (VkBuffer*)&forUnmarshaling->sequencesCountBuffer, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->sequencesCountOffset, sizeof(VkDeviceSize));
-    uint64_t cgen_var_301;
-    vkStream->read((uint64_t*)&cgen_var_301, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_301, (VkBuffer*)&forUnmarshaling->sequencesIndexBuffer, 1);
+    uint64_t cgen_var_315;
+    vkStream->read((uint64_t*)&cgen_var_315, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_315, (VkBuffer*)&forUnmarshaling->sequencesIndexBuffer, 1);
     vkStream->read((VkDeviceSize*)&forUnmarshaling->sequencesIndexOffset, sizeof(VkDeviceSize));
 }
 
@@ -10496,12 +10714,12 @@ void marshal_VkCmdReserveSpaceForCommandsInfoNVX(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_302;
-    vkStream->handleMapping()->mapHandles_VkObjectTableNVX_u64(&forMarshaling->objectTable, &cgen_var_302, 1);
-    vkStream->write((uint64_t*)&cgen_var_302, 1 * 8);
-    uint64_t cgen_var_303;
-    vkStream->handleMapping()->mapHandles_VkIndirectCommandsLayoutNVX_u64(&forMarshaling->indirectCommandsLayout, &cgen_var_303, 1);
-    vkStream->write((uint64_t*)&cgen_var_303, 1 * 8);
+    uint64_t cgen_var_316;
+    vkStream->handleMapping()->mapHandles_VkObjectTableNVX_u64(&forMarshaling->objectTable, &cgen_var_316, 1);
+    vkStream->write((uint64_t*)&cgen_var_316, 1 * 8);
+    uint64_t cgen_var_317;
+    vkStream->handleMapping()->mapHandles_VkIndirectCommandsLayoutNVX_u64(&forMarshaling->indirectCommandsLayout, &cgen_var_317, 1);
+    vkStream->write((uint64_t*)&cgen_var_317, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->maxSequencesCount, sizeof(uint32_t));
 }
 
@@ -10518,12 +10736,12 @@ void unmarshal_VkCmdReserveSpaceForCommandsInfoNVX(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_304;
-    vkStream->read((uint64_t*)&cgen_var_304, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkObjectTableNVX(&cgen_var_304, (VkObjectTableNVX*)&forUnmarshaling->objectTable, 1);
-    uint64_t cgen_var_305;
-    vkStream->read((uint64_t*)&cgen_var_305, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkIndirectCommandsLayoutNVX(&cgen_var_305, (VkIndirectCommandsLayoutNVX*)&forUnmarshaling->indirectCommandsLayout, 1);
+    uint64_t cgen_var_318;
+    vkStream->read((uint64_t*)&cgen_var_318, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkObjectTableNVX(&cgen_var_318, (VkObjectTableNVX*)&forUnmarshaling->objectTable, 1);
+    uint64_t cgen_var_319;
+    vkStream->read((uint64_t*)&cgen_var_319, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkIndirectCommandsLayoutNVX(&cgen_var_319, (VkIndirectCommandsLayoutNVX*)&forUnmarshaling->indirectCommandsLayout, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->maxSequencesCount, sizeof(uint32_t));
 }
 
@@ -10596,9 +10814,9 @@ void marshal_VkObjectTablePipelineEntryNVX(
 {
     vkStream->write((VkObjectEntryTypeNVX*)&forMarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->write((VkObjectEntryUsageFlagsNVX*)&forMarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_306;
-    vkStream->handleMapping()->mapHandles_VkPipeline_u64(&forMarshaling->pipeline, &cgen_var_306, 1);
-    vkStream->write((uint64_t*)&cgen_var_306, 1 * 8);
+    uint64_t cgen_var_320;
+    vkStream->handleMapping()->mapHandles_VkPipeline_u64(&forMarshaling->pipeline, &cgen_var_320, 1);
+    vkStream->write((uint64_t*)&cgen_var_320, 1 * 8);
 }
 
 void unmarshal_VkObjectTablePipelineEntryNVX(
@@ -10607,9 +10825,9 @@ void unmarshal_VkObjectTablePipelineEntryNVX(
 {
     vkStream->read((VkObjectEntryTypeNVX*)&forUnmarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->read((VkObjectEntryUsageFlagsNVX*)&forUnmarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_307;
-    vkStream->read((uint64_t*)&cgen_var_307, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkPipeline(&cgen_var_307, (VkPipeline*)&forUnmarshaling->pipeline, 1);
+    uint64_t cgen_var_321;
+    vkStream->read((uint64_t*)&cgen_var_321, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkPipeline(&cgen_var_321, (VkPipeline*)&forUnmarshaling->pipeline, 1);
 }
 
 void marshal_VkObjectTableDescriptorSetEntryNVX(
@@ -10618,12 +10836,12 @@ void marshal_VkObjectTableDescriptorSetEntryNVX(
 {
     vkStream->write((VkObjectEntryTypeNVX*)&forMarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->write((VkObjectEntryUsageFlagsNVX*)&forMarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_308;
-    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->pipelineLayout, &cgen_var_308, 1);
-    vkStream->write((uint64_t*)&cgen_var_308, 1 * 8);
-    uint64_t cgen_var_309;
-    vkStream->handleMapping()->mapHandles_VkDescriptorSet_u64(&forMarshaling->descriptorSet, &cgen_var_309, 1);
-    vkStream->write((uint64_t*)&cgen_var_309, 1 * 8);
+    uint64_t cgen_var_322;
+    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->pipelineLayout, &cgen_var_322, 1);
+    vkStream->write((uint64_t*)&cgen_var_322, 1 * 8);
+    uint64_t cgen_var_323;
+    vkStream->handleMapping()->mapHandles_VkDescriptorSet_u64(&forMarshaling->descriptorSet, &cgen_var_323, 1);
+    vkStream->write((uint64_t*)&cgen_var_323, 1 * 8);
 }
 
 void unmarshal_VkObjectTableDescriptorSetEntryNVX(
@@ -10632,12 +10850,12 @@ void unmarshal_VkObjectTableDescriptorSetEntryNVX(
 {
     vkStream->read((VkObjectEntryTypeNVX*)&forUnmarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->read((VkObjectEntryUsageFlagsNVX*)&forUnmarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_310;
-    vkStream->read((uint64_t*)&cgen_var_310, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_310, (VkPipelineLayout*)&forUnmarshaling->pipelineLayout, 1);
-    uint64_t cgen_var_311;
-    vkStream->read((uint64_t*)&cgen_var_311, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSet(&cgen_var_311, (VkDescriptorSet*)&forUnmarshaling->descriptorSet, 1);
+    uint64_t cgen_var_324;
+    vkStream->read((uint64_t*)&cgen_var_324, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_324, (VkPipelineLayout*)&forUnmarshaling->pipelineLayout, 1);
+    uint64_t cgen_var_325;
+    vkStream->read((uint64_t*)&cgen_var_325, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDescriptorSet(&cgen_var_325, (VkDescriptorSet*)&forUnmarshaling->descriptorSet, 1);
 }
 
 void marshal_VkObjectTableVertexBufferEntryNVX(
@@ -10646,9 +10864,9 @@ void marshal_VkObjectTableVertexBufferEntryNVX(
 {
     vkStream->write((VkObjectEntryTypeNVX*)&forMarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->write((VkObjectEntryUsageFlagsNVX*)&forMarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_312;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_312, 1);
-    vkStream->write((uint64_t*)&cgen_var_312, 1 * 8);
+    uint64_t cgen_var_326;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_326, 1);
+    vkStream->write((uint64_t*)&cgen_var_326, 1 * 8);
 }
 
 void unmarshal_VkObjectTableVertexBufferEntryNVX(
@@ -10657,9 +10875,9 @@ void unmarshal_VkObjectTableVertexBufferEntryNVX(
 {
     vkStream->read((VkObjectEntryTypeNVX*)&forUnmarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->read((VkObjectEntryUsageFlagsNVX*)&forUnmarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_313;
-    vkStream->read((uint64_t*)&cgen_var_313, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_313, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_327;
+    vkStream->read((uint64_t*)&cgen_var_327, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_327, (VkBuffer*)&forUnmarshaling->buffer, 1);
 }
 
 void marshal_VkObjectTableIndexBufferEntryNVX(
@@ -10668,9 +10886,9 @@ void marshal_VkObjectTableIndexBufferEntryNVX(
 {
     vkStream->write((VkObjectEntryTypeNVX*)&forMarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->write((VkObjectEntryUsageFlagsNVX*)&forMarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_314;
-    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_314, 1);
-    vkStream->write((uint64_t*)&cgen_var_314, 1 * 8);
+    uint64_t cgen_var_328;
+    vkStream->handleMapping()->mapHandles_VkBuffer_u64(&forMarshaling->buffer, &cgen_var_328, 1);
+    vkStream->write((uint64_t*)&cgen_var_328, 1 * 8);
     vkStream->write((VkIndexType*)&forMarshaling->indexType, sizeof(VkIndexType));
 }
 
@@ -10680,9 +10898,9 @@ void unmarshal_VkObjectTableIndexBufferEntryNVX(
 {
     vkStream->read((VkObjectEntryTypeNVX*)&forUnmarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->read((VkObjectEntryUsageFlagsNVX*)&forUnmarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_315;
-    vkStream->read((uint64_t*)&cgen_var_315, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_315, (VkBuffer*)&forUnmarshaling->buffer, 1);
+    uint64_t cgen_var_329;
+    vkStream->read((uint64_t*)&cgen_var_329, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkBuffer(&cgen_var_329, (VkBuffer*)&forUnmarshaling->buffer, 1);
     vkStream->read((VkIndexType*)&forUnmarshaling->indexType, sizeof(VkIndexType));
 }
 
@@ -10692,9 +10910,9 @@ void marshal_VkObjectTablePushConstantEntryNVX(
 {
     vkStream->write((VkObjectEntryTypeNVX*)&forMarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->write((VkObjectEntryUsageFlagsNVX*)&forMarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_316;
-    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->pipelineLayout, &cgen_var_316, 1);
-    vkStream->write((uint64_t*)&cgen_var_316, 1 * 8);
+    uint64_t cgen_var_330;
+    vkStream->handleMapping()->mapHandles_VkPipelineLayout_u64(&forMarshaling->pipelineLayout, &cgen_var_330, 1);
+    vkStream->write((uint64_t*)&cgen_var_330, 1 * 8);
     vkStream->write((VkShaderStageFlags*)&forMarshaling->stageFlags, sizeof(VkShaderStageFlags));
 }
 
@@ -10704,9 +10922,9 @@ void unmarshal_VkObjectTablePushConstantEntryNVX(
 {
     vkStream->read((VkObjectEntryTypeNVX*)&forUnmarshaling->type, sizeof(VkObjectEntryTypeNVX));
     vkStream->read((VkObjectEntryUsageFlagsNVX*)&forUnmarshaling->flags, sizeof(VkObjectEntryUsageFlagsNVX));
-    uint64_t cgen_var_317;
-    vkStream->read((uint64_t*)&cgen_var_317, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_317, (VkPipelineLayout*)&forUnmarshaling->pipelineLayout, 1);
+    uint64_t cgen_var_331;
+    vkStream->read((uint64_t*)&cgen_var_331, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkPipelineLayout(&cgen_var_331, (VkPipelineLayout*)&forUnmarshaling->pipelineLayout, 1);
     vkStream->read((VkShaderStageFlags*)&forUnmarshaling->stageFlags, sizeof(VkShaderStageFlags));
 }
 
@@ -10743,8 +10961,8 @@ void marshal_VkPipelineViewportWScalingStateCreateInfoNV(
     vkStream->write((VkBool32*)&forMarshaling->viewportWScalingEnable, sizeof(VkBool32));
     vkStream->write((uint32_t*)&forMarshaling->viewportCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_318 = (uint64_t)(uintptr_t)forMarshaling->pViewportWScalings;
-    vkStream->putBe64(cgen_var_318);
+    uint64_t cgen_var_332 = (uint64_t)(uintptr_t)forMarshaling->pViewportWScalings;
+    vkStream->putBe64(cgen_var_332);
     if (forMarshaling->pViewportWScalings)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->viewportCount; ++i)
@@ -11036,8 +11254,8 @@ void marshal_VkPresentTimesInfoGOOGLE(
     }
     vkStream->write((uint32_t*)&forMarshaling->swapchainCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_320 = (uint64_t)(uintptr_t)forMarshaling->pTimes;
-    vkStream->putBe64(cgen_var_320);
+    uint64_t cgen_var_334 = (uint64_t)(uintptr_t)forMarshaling->pTimes;
+    vkStream->putBe64(cgen_var_334);
     if (forMarshaling->pTimes)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->swapchainCount; ++i)
@@ -11153,8 +11371,8 @@ void marshal_VkPipelineViewportSwizzleStateCreateInfoNV(
     vkStream->write((VkPipelineViewportSwizzleStateCreateFlagsNV*)&forMarshaling->flags, sizeof(VkPipelineViewportSwizzleStateCreateFlagsNV));
     vkStream->write((uint32_t*)&forMarshaling->viewportCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_322 = (uint64_t)(uintptr_t)forMarshaling->pViewportSwizzles;
-    vkStream->putBe64(cgen_var_322);
+    uint64_t cgen_var_336 = (uint64_t)(uintptr_t)forMarshaling->pViewportSwizzles;
+    vkStream->putBe64(cgen_var_336);
     if (forMarshaling->pViewportSwizzles)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->viewportCount; ++i)
@@ -11244,8 +11462,8 @@ void marshal_VkPipelineDiscardRectangleStateCreateInfoEXT(
     vkStream->write((VkDiscardRectangleModeEXT*)&forMarshaling->discardRectangleMode, sizeof(VkDiscardRectangleModeEXT));
     vkStream->write((uint32_t*)&forMarshaling->discardRectangleCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_324 = (uint64_t)(uintptr_t)forMarshaling->pDiscardRectangles;
-    vkStream->putBe64(cgen_var_324);
+    uint64_t cgen_var_338 = (uint64_t)(uintptr_t)forMarshaling->pDiscardRectangles;
+    vkStream->putBe64(cgen_var_338);
     if (forMarshaling->pDiscardRectangles)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->discardRectangleCount; ++i)
@@ -11452,8 +11670,8 @@ void marshal_VkIOSSurfaceCreateInfoMVK(
     }
     vkStream->write((VkIOSSurfaceCreateFlagsMVK*)&forMarshaling->flags, sizeof(VkIOSSurfaceCreateFlagsMVK));
     // WARNING PTR CHECK
-    uint64_t cgen_var_326 = (uint64_t)(uintptr_t)forMarshaling->pView;
-    vkStream->putBe64(cgen_var_326);
+    uint64_t cgen_var_340 = (uint64_t)(uintptr_t)forMarshaling->pView;
+    vkStream->putBe64(cgen_var_340);
     if (forMarshaling->pView)
     {
         vkStream->write((const void*)forMarshaling->pView, sizeof(const uint8_t));
@@ -11503,8 +11721,8 @@ void marshal_VkMacOSSurfaceCreateInfoMVK(
     }
     vkStream->write((VkMacOSSurfaceCreateFlagsMVK*)&forMarshaling->flags, sizeof(VkMacOSSurfaceCreateFlagsMVK));
     // WARNING PTR CHECK
-    uint64_t cgen_var_328 = (uint64_t)(uintptr_t)forMarshaling->pView;
-    vkStream->putBe64(cgen_var_328);
+    uint64_t cgen_var_342 = (uint64_t)(uintptr_t)forMarshaling->pView;
+    vkStream->putBe64(cgen_var_342);
     if (forMarshaling->pView)
     {
         vkStream->write((const void*)forMarshaling->pView, sizeof(const uint8_t));
@@ -11558,7 +11776,20 @@ void marshal_VkDebugUtilsObjectNameInfoEXT(
     }
     vkStream->write((VkObjectType*)&forMarshaling->objectType, sizeof(VkObjectType));
     vkStream->write((uint64_t*)&forMarshaling->objectHandle, sizeof(uint64_t));
-    vkStream->putString(forMarshaling->pObjectName);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT)
+    {
+        // WARNING PTR CHECK
+        uint64_t cgen_var_344 = (uint64_t)(uintptr_t)forMarshaling->pObjectName;
+        vkStream->putBe64(cgen_var_344);
+        if (forMarshaling->pObjectName)
+        {
+            vkStream->putString(forMarshaling->pObjectName);
+        }
+    }
+    else
+    {
+        vkStream->putString(forMarshaling->pObjectName);
+    }
 }
 
 void unmarshal_VkDebugUtilsObjectNameInfoEXT(
@@ -11576,7 +11807,24 @@ void unmarshal_VkDebugUtilsObjectNameInfoEXT(
     }
     vkStream->read((VkObjectType*)&forUnmarshaling->objectType, sizeof(VkObjectType));
     vkStream->read((uint64_t*)&forUnmarshaling->objectHandle, sizeof(uint64_t));
-    vkStream->loadStringInPlace((char**)&forUnmarshaling->pObjectName);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT)
+    {
+        // WARNING PTR CHECK
+        const char* check_pObjectName;
+        check_pObjectName = (const char*)(uintptr_t)vkStream->getBe64();
+        if (forUnmarshaling->pObjectName)
+        {
+            if (!(check_pObjectName))
+            {
+                fprintf(stderr, "fatal: forUnmarshaling->pObjectName inconsistent between guest and host\n");
+            }
+            vkStream->loadStringInPlace((char**)&forUnmarshaling->pObjectName);
+        }
+    }
+    else
+    {
+        vkStream->loadStringInPlace((char**)&forUnmarshaling->pObjectName);
+    }
 }
 
 void marshal_VkDebugUtilsObjectTagInfoEXT(
@@ -11594,8 +11842,8 @@ void marshal_VkDebugUtilsObjectTagInfoEXT(
     vkStream->write((VkObjectType*)&forMarshaling->objectType, sizeof(VkObjectType));
     vkStream->write((uint64_t*)&forMarshaling->objectHandle, sizeof(uint64_t));
     vkStream->write((uint64_t*)&forMarshaling->tagName, sizeof(uint64_t));
-    uint64_t cgen_var_330 = (uint64_t)forMarshaling->tagSize;
-    vkStream->putBe64(cgen_var_330);
+    uint64_t cgen_var_346 = (uint64_t)forMarshaling->tagSize;
+    vkStream->putBe64(cgen_var_346);
     vkStream->write((const void*)forMarshaling->pTag, forMarshaling->tagSize * sizeof(const uint8_t));
 }
 
@@ -11665,13 +11913,26 @@ void marshal_VkDebugUtilsMessengerCallbackDataEXT(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkDebugUtilsMessengerCallbackDataFlagsEXT*)&forMarshaling->flags, sizeof(VkDebugUtilsMessengerCallbackDataFlagsEXT));
-    vkStream->putString(forMarshaling->pMessageIdName);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT)
+    {
+        // WARNING PTR CHECK
+        uint64_t cgen_var_348 = (uint64_t)(uintptr_t)forMarshaling->pMessageIdName;
+        vkStream->putBe64(cgen_var_348);
+        if (forMarshaling->pMessageIdName)
+        {
+            vkStream->putString(forMarshaling->pMessageIdName);
+        }
+    }
+    else
+    {
+        vkStream->putString(forMarshaling->pMessageIdName);
+    }
     vkStream->write((int32_t*)&forMarshaling->messageIdNumber, sizeof(int32_t));
     vkStream->putString(forMarshaling->pMessage);
     vkStream->write((uint32_t*)&forMarshaling->queueLabelCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_332 = (uint64_t)(uintptr_t)forMarshaling->pQueueLabels;
-    vkStream->putBe64(cgen_var_332);
+    uint64_t cgen_var_349 = (uint64_t)(uintptr_t)forMarshaling->pQueueLabels;
+    vkStream->putBe64(cgen_var_349);
     if (forMarshaling->pQueueLabels)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->queueLabelCount; ++i)
@@ -11681,8 +11942,8 @@ void marshal_VkDebugUtilsMessengerCallbackDataEXT(
     }
     vkStream->write((uint32_t*)&forMarshaling->cmdBufLabelCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_333 = (uint64_t)(uintptr_t)forMarshaling->pCmdBufLabels;
-    vkStream->putBe64(cgen_var_333);
+    uint64_t cgen_var_350 = (uint64_t)(uintptr_t)forMarshaling->pCmdBufLabels;
+    vkStream->putBe64(cgen_var_350);
     if (forMarshaling->pCmdBufLabels)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->cmdBufLabelCount; ++i)
@@ -11692,8 +11953,8 @@ void marshal_VkDebugUtilsMessengerCallbackDataEXT(
     }
     vkStream->write((uint32_t*)&forMarshaling->objectCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_334 = (uint64_t)(uintptr_t)forMarshaling->pObjects;
-    vkStream->putBe64(cgen_var_334);
+    uint64_t cgen_var_351 = (uint64_t)(uintptr_t)forMarshaling->pObjects;
+    vkStream->putBe64(cgen_var_351);
     if (forMarshaling->pObjects)
     {
         for (uint32_t i = 0; i < (uint32_t)forMarshaling->objectCount; ++i)
@@ -11717,7 +11978,24 @@ void unmarshal_VkDebugUtilsMessengerCallbackDataEXT(
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
     vkStream->read((VkDebugUtilsMessengerCallbackDataFlagsEXT*)&forUnmarshaling->flags, sizeof(VkDebugUtilsMessengerCallbackDataFlagsEXT));
-    vkStream->loadStringInPlace((char**)&forUnmarshaling->pMessageIdName);
+    if (vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT)
+    {
+        // WARNING PTR CHECK
+        const char* check_pMessageIdName;
+        check_pMessageIdName = (const char*)(uintptr_t)vkStream->getBe64();
+        if (forUnmarshaling->pMessageIdName)
+        {
+            if (!(check_pMessageIdName))
+            {
+                fprintf(stderr, "fatal: forUnmarshaling->pMessageIdName inconsistent between guest and host\n");
+            }
+            vkStream->loadStringInPlace((char**)&forUnmarshaling->pMessageIdName);
+        }
+    }
+    else
+    {
+        vkStream->loadStringInPlace((char**)&forUnmarshaling->pMessageIdName);
+    }
     vkStream->read((int32_t*)&forUnmarshaling->messageIdNumber, sizeof(int32_t));
     vkStream->loadStringInPlace((char**)&forUnmarshaling->pMessage);
     vkStream->read((uint32_t*)&forUnmarshaling->queueLabelCount, sizeof(uint32_t));
@@ -11782,11 +12060,11 @@ void marshal_VkDebugUtilsMessengerCreateInfoEXT(
     vkStream->write((VkDebugUtilsMessengerCreateFlagsEXT*)&forMarshaling->flags, sizeof(VkDebugUtilsMessengerCreateFlagsEXT));
     vkStream->write((VkDebugUtilsMessageSeverityFlagsEXT*)&forMarshaling->messageSeverity, sizeof(VkDebugUtilsMessageSeverityFlagsEXT));
     vkStream->write((VkDebugUtilsMessageTypeFlagsEXT*)&forMarshaling->messageType, sizeof(VkDebugUtilsMessageTypeFlagsEXT));
-    uint64_t cgen_var_338 = (uint64_t)forMarshaling->pfnUserCallback;
-    vkStream->putBe64(cgen_var_338);
+    uint64_t cgen_var_356 = (uint64_t)forMarshaling->pfnUserCallback;
+    vkStream->putBe64(cgen_var_356);
     // WARNING PTR CHECK
-    uint64_t cgen_var_339 = (uint64_t)(uintptr_t)forMarshaling->pUserData;
-    vkStream->putBe64(cgen_var_339);
+    uint64_t cgen_var_357 = (uint64_t)(uintptr_t)forMarshaling->pUserData;
+    vkStream->putBe64(cgen_var_357);
     if (forMarshaling->pUserData)
     {
         vkStream->write((void*)forMarshaling->pUserData, sizeof(uint8_t));
@@ -11977,9 +12255,9 @@ void marshal_VkMemoryGetAndroidHardwareBufferInfoANDROID(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_342;
-    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_342, 1);
-    vkStream->write((uint64_t*)&cgen_var_342, 1 * 8);
+    uint64_t cgen_var_360;
+    vkStream->handleMapping()->mapHandles_VkDeviceMemory_u64(&forMarshaling->memory, &cgen_var_360, 1);
+    vkStream->write((uint64_t*)&cgen_var_360, 1 * 8);
 }
 
 void unmarshal_VkMemoryGetAndroidHardwareBufferInfoANDROID(
@@ -11995,9 +12273,9 @@ void unmarshal_VkMemoryGetAndroidHardwareBufferInfoANDROID(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_343;
-    vkStream->read((uint64_t*)&cgen_var_343, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_343, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
+    uint64_t cgen_var_361;
+    vkStream->read((uint64_t*)&cgen_var_361, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkDeviceMemory(&cgen_var_361, (VkDeviceMemory*)&forUnmarshaling->memory, 1);
 }
 
 void marshal_VkExternalFormatANDROID(
@@ -12515,8 +12793,8 @@ void marshal_VkPipelineCoverageModulationStateCreateInfoNV(
     vkStream->write((VkBool32*)&forMarshaling->coverageModulationTableEnable, sizeof(VkBool32));
     vkStream->write((uint32_t*)&forMarshaling->coverageModulationTableCount, sizeof(uint32_t));
     // WARNING PTR CHECK
-    uint64_t cgen_var_344 = (uint64_t)(uintptr_t)forMarshaling->pCoverageModulationTable;
-    vkStream->putBe64(cgen_var_344);
+    uint64_t cgen_var_362 = (uint64_t)(uintptr_t)forMarshaling->pCoverageModulationTable;
+    vkStream->putBe64(cgen_var_362);
     if (forMarshaling->pCoverageModulationTable)
     {
         vkStream->write((const float*)forMarshaling->pCoverageModulationTable, forMarshaling->coverageModulationTableCount * sizeof(const float));
@@ -12572,8 +12850,8 @@ void marshal_VkValidationCacheCreateInfoEXT(
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
     vkStream->write((VkValidationCacheCreateFlagsEXT*)&forMarshaling->flags, sizeof(VkValidationCacheCreateFlagsEXT));
-    uint64_t cgen_var_346 = (uint64_t)forMarshaling->initialDataSize;
-    vkStream->putBe64(cgen_var_346);
+    uint64_t cgen_var_364 = (uint64_t)forMarshaling->initialDataSize;
+    vkStream->putBe64(cgen_var_364);
     vkStream->write((const void*)forMarshaling->pInitialData, forMarshaling->initialDataSize * sizeof(const uint8_t));
 }
 
@@ -12607,9 +12885,9 @@ void marshal_VkShaderModuleValidationCacheCreateInfoEXT(
         vkStream->write((const void*)forMarshaling->pNext, sizeof(VkStructureType));
         marshal_extension_struct(vkStream, forMarshaling->pNext);
     }
-    uint64_t cgen_var_348;
-    vkStream->handleMapping()->mapHandles_VkValidationCacheEXT_u64(&forMarshaling->validationCache, &cgen_var_348, 1);
-    vkStream->write((uint64_t*)&cgen_var_348, 1 * 8);
+    uint64_t cgen_var_366;
+    vkStream->handleMapping()->mapHandles_VkValidationCacheEXT_u64(&forMarshaling->validationCache, &cgen_var_366, 1);
+    vkStream->write((uint64_t*)&cgen_var_366, 1 * 8);
 }
 
 void unmarshal_VkShaderModuleValidationCacheCreateInfoEXT(
@@ -12625,9 +12903,9 @@ void unmarshal_VkShaderModuleValidationCacheCreateInfoEXT(
         vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType));
         unmarshal_extension_struct(vkStream, (void*)(forUnmarshaling->pNext));
     }
-    uint64_t cgen_var_349;
-    vkStream->read((uint64_t*)&cgen_var_349, 1 * 8);
-    vkStream->handleMapping()->mapHandles_u64_VkValidationCacheEXT(&cgen_var_349, (VkValidationCacheEXT*)&forUnmarshaling->validationCache, 1);
+    uint64_t cgen_var_367;
+    vkStream->read((uint64_t*)&cgen_var_367, 1 * 8);
+    vkStream->handleMapping()->mapHandles_u64_VkValidationCacheEXT(&cgen_var_367, (VkValidationCacheEXT*)&forUnmarshaling->validationCache, 1);
 }
 
 #endif
@@ -12924,8 +13202,8 @@ void marshal_VkImportMemoryHostPointerInfoEXT(
     }
     vkStream->write((VkExternalMemoryHandleTypeFlagBits*)&forMarshaling->handleType, sizeof(VkExternalMemoryHandleTypeFlagBits));
     // WARNING PTR CHECK
-    uint64_t cgen_var_350 = (uint64_t)(uintptr_t)forMarshaling->pHostPointer;
-    vkStream->putBe64(cgen_var_350);
+    uint64_t cgen_var_368 = (uint64_t)(uintptr_t)forMarshaling->pHostPointer;
+    vkStream->putBe64(cgen_var_368);
     if (forMarshaling->pHostPointer)
     {
         vkStream->write((void*)forMarshaling->pHostPointer, sizeof(uint8_t));
@@ -13219,8 +13497,8 @@ void marshal_VkCheckpointDataNV(
     }
     vkStream->write((VkPipelineStageFlagBits*)&forMarshaling->stage, sizeof(VkPipelineStageFlagBits));
     // WARNING PTR CHECK
-    uint64_t cgen_var_352 = (uint64_t)(uintptr_t)forMarshaling->pCheckpointMarker;
-    vkStream->putBe64(cgen_var_352);
+    uint64_t cgen_var_370 = (uint64_t)(uintptr_t)forMarshaling->pCheckpointMarker;
+    vkStream->putBe64(cgen_var_370);
     if (forMarshaling->pCheckpointMarker)
     {
         vkStream->write((void*)forMarshaling->pCheckpointMarker, sizeof(uint8_t));
@@ -13332,6 +13610,12 @@ void unmarshal_VkImportPhysicalAddressGOOGLE(
 #ifdef VK_GOOGLE_sized_descriptor_update_template
 #endif
 #ifdef VK_GOOGLE_async_command_buffers
+#endif
+#ifdef VK_GOOGLE_create_resources_with_requirements
+#endif
+#ifdef VK_GOOGLE_address_space_info
+#endif
+#ifdef VK_GOOGLE_free_memory_sync
 #endif
 void marshal_extension_struct(
     VulkanStreamGuest* vkStream,
@@ -14655,6 +14939,1474 @@ void unmarshal_extension_struct(
         default:
         {
             return;
+        }
+    }
+}
+
+const char* api_opcode_to_string(
+    const uint32_t opcode)
+{
+    switch(opcode)
+    {
+#ifdef VK_VERSION_1_0
+        case OP_vkCreateInstance:
+        {
+            return "OP_vkCreateInstance";
+        }
+        case OP_vkDestroyInstance:
+        {
+            return "OP_vkDestroyInstance";
+        }
+        case OP_vkEnumeratePhysicalDevices:
+        {
+            return "OP_vkEnumeratePhysicalDevices";
+        }
+        case OP_vkGetPhysicalDeviceFeatures:
+        {
+            return "OP_vkGetPhysicalDeviceFeatures";
+        }
+        case OP_vkGetPhysicalDeviceFormatProperties:
+        {
+            return "OP_vkGetPhysicalDeviceFormatProperties";
+        }
+        case OP_vkGetPhysicalDeviceImageFormatProperties:
+        {
+            return "OP_vkGetPhysicalDeviceImageFormatProperties";
+        }
+        case OP_vkGetPhysicalDeviceProperties:
+        {
+            return "OP_vkGetPhysicalDeviceProperties";
+        }
+        case OP_vkGetPhysicalDeviceQueueFamilyProperties:
+        {
+            return "OP_vkGetPhysicalDeviceQueueFamilyProperties";
+        }
+        case OP_vkGetPhysicalDeviceMemoryProperties:
+        {
+            return "OP_vkGetPhysicalDeviceMemoryProperties";
+        }
+        case OP_vkGetInstanceProcAddr:
+        {
+            return "OP_vkGetInstanceProcAddr";
+        }
+        case OP_vkGetDeviceProcAddr:
+        {
+            return "OP_vkGetDeviceProcAddr";
+        }
+        case OP_vkCreateDevice:
+        {
+            return "OP_vkCreateDevice";
+        }
+        case OP_vkDestroyDevice:
+        {
+            return "OP_vkDestroyDevice";
+        }
+        case OP_vkEnumerateInstanceExtensionProperties:
+        {
+            return "OP_vkEnumerateInstanceExtensionProperties";
+        }
+        case OP_vkEnumerateDeviceExtensionProperties:
+        {
+            return "OP_vkEnumerateDeviceExtensionProperties";
+        }
+        case OP_vkEnumerateInstanceLayerProperties:
+        {
+            return "OP_vkEnumerateInstanceLayerProperties";
+        }
+        case OP_vkEnumerateDeviceLayerProperties:
+        {
+            return "OP_vkEnumerateDeviceLayerProperties";
+        }
+        case OP_vkGetDeviceQueue:
+        {
+            return "OP_vkGetDeviceQueue";
+        }
+        case OP_vkQueueSubmit:
+        {
+            return "OP_vkQueueSubmit";
+        }
+        case OP_vkQueueWaitIdle:
+        {
+            return "OP_vkQueueWaitIdle";
+        }
+        case OP_vkDeviceWaitIdle:
+        {
+            return "OP_vkDeviceWaitIdle";
+        }
+        case OP_vkAllocateMemory:
+        {
+            return "OP_vkAllocateMemory";
+        }
+        case OP_vkFreeMemory:
+        {
+            return "OP_vkFreeMemory";
+        }
+        case OP_vkMapMemory:
+        {
+            return "OP_vkMapMemory";
+        }
+        case OP_vkUnmapMemory:
+        {
+            return "OP_vkUnmapMemory";
+        }
+        case OP_vkFlushMappedMemoryRanges:
+        {
+            return "OP_vkFlushMappedMemoryRanges";
+        }
+        case OP_vkInvalidateMappedMemoryRanges:
+        {
+            return "OP_vkInvalidateMappedMemoryRanges";
+        }
+        case OP_vkGetDeviceMemoryCommitment:
+        {
+            return "OP_vkGetDeviceMemoryCommitment";
+        }
+        case OP_vkBindBufferMemory:
+        {
+            return "OP_vkBindBufferMemory";
+        }
+        case OP_vkBindImageMemory:
+        {
+            return "OP_vkBindImageMemory";
+        }
+        case OP_vkGetBufferMemoryRequirements:
+        {
+            return "OP_vkGetBufferMemoryRequirements";
+        }
+        case OP_vkGetImageMemoryRequirements:
+        {
+            return "OP_vkGetImageMemoryRequirements";
+        }
+        case OP_vkGetImageSparseMemoryRequirements:
+        {
+            return "OP_vkGetImageSparseMemoryRequirements";
+        }
+        case OP_vkGetPhysicalDeviceSparseImageFormatProperties:
+        {
+            return "OP_vkGetPhysicalDeviceSparseImageFormatProperties";
+        }
+        case OP_vkQueueBindSparse:
+        {
+            return "OP_vkQueueBindSparse";
+        }
+        case OP_vkCreateFence:
+        {
+            return "OP_vkCreateFence";
+        }
+        case OP_vkDestroyFence:
+        {
+            return "OP_vkDestroyFence";
+        }
+        case OP_vkResetFences:
+        {
+            return "OP_vkResetFences";
+        }
+        case OP_vkGetFenceStatus:
+        {
+            return "OP_vkGetFenceStatus";
+        }
+        case OP_vkWaitForFences:
+        {
+            return "OP_vkWaitForFences";
+        }
+        case OP_vkCreateSemaphore:
+        {
+            return "OP_vkCreateSemaphore";
+        }
+        case OP_vkDestroySemaphore:
+        {
+            return "OP_vkDestroySemaphore";
+        }
+        case OP_vkCreateEvent:
+        {
+            return "OP_vkCreateEvent";
+        }
+        case OP_vkDestroyEvent:
+        {
+            return "OP_vkDestroyEvent";
+        }
+        case OP_vkGetEventStatus:
+        {
+            return "OP_vkGetEventStatus";
+        }
+        case OP_vkSetEvent:
+        {
+            return "OP_vkSetEvent";
+        }
+        case OP_vkResetEvent:
+        {
+            return "OP_vkResetEvent";
+        }
+        case OP_vkCreateQueryPool:
+        {
+            return "OP_vkCreateQueryPool";
+        }
+        case OP_vkDestroyQueryPool:
+        {
+            return "OP_vkDestroyQueryPool";
+        }
+        case OP_vkGetQueryPoolResults:
+        {
+            return "OP_vkGetQueryPoolResults";
+        }
+        case OP_vkCreateBuffer:
+        {
+            return "OP_vkCreateBuffer";
+        }
+        case OP_vkDestroyBuffer:
+        {
+            return "OP_vkDestroyBuffer";
+        }
+        case OP_vkCreateBufferView:
+        {
+            return "OP_vkCreateBufferView";
+        }
+        case OP_vkDestroyBufferView:
+        {
+            return "OP_vkDestroyBufferView";
+        }
+        case OP_vkCreateImage:
+        {
+            return "OP_vkCreateImage";
+        }
+        case OP_vkDestroyImage:
+        {
+            return "OP_vkDestroyImage";
+        }
+        case OP_vkGetImageSubresourceLayout:
+        {
+            return "OP_vkGetImageSubresourceLayout";
+        }
+        case OP_vkCreateImageView:
+        {
+            return "OP_vkCreateImageView";
+        }
+        case OP_vkDestroyImageView:
+        {
+            return "OP_vkDestroyImageView";
+        }
+        case OP_vkCreateShaderModule:
+        {
+            return "OP_vkCreateShaderModule";
+        }
+        case OP_vkDestroyShaderModule:
+        {
+            return "OP_vkDestroyShaderModule";
+        }
+        case OP_vkCreatePipelineCache:
+        {
+            return "OP_vkCreatePipelineCache";
+        }
+        case OP_vkDestroyPipelineCache:
+        {
+            return "OP_vkDestroyPipelineCache";
+        }
+        case OP_vkGetPipelineCacheData:
+        {
+            return "OP_vkGetPipelineCacheData";
+        }
+        case OP_vkMergePipelineCaches:
+        {
+            return "OP_vkMergePipelineCaches";
+        }
+        case OP_vkCreateGraphicsPipelines:
+        {
+            return "OP_vkCreateGraphicsPipelines";
+        }
+        case OP_vkCreateComputePipelines:
+        {
+            return "OP_vkCreateComputePipelines";
+        }
+        case OP_vkDestroyPipeline:
+        {
+            return "OP_vkDestroyPipeline";
+        }
+        case OP_vkCreatePipelineLayout:
+        {
+            return "OP_vkCreatePipelineLayout";
+        }
+        case OP_vkDestroyPipelineLayout:
+        {
+            return "OP_vkDestroyPipelineLayout";
+        }
+        case OP_vkCreateSampler:
+        {
+            return "OP_vkCreateSampler";
+        }
+        case OP_vkDestroySampler:
+        {
+            return "OP_vkDestroySampler";
+        }
+        case OP_vkCreateDescriptorSetLayout:
+        {
+            return "OP_vkCreateDescriptorSetLayout";
+        }
+        case OP_vkDestroyDescriptorSetLayout:
+        {
+            return "OP_vkDestroyDescriptorSetLayout";
+        }
+        case OP_vkCreateDescriptorPool:
+        {
+            return "OP_vkCreateDescriptorPool";
+        }
+        case OP_vkDestroyDescriptorPool:
+        {
+            return "OP_vkDestroyDescriptorPool";
+        }
+        case OP_vkResetDescriptorPool:
+        {
+            return "OP_vkResetDescriptorPool";
+        }
+        case OP_vkAllocateDescriptorSets:
+        {
+            return "OP_vkAllocateDescriptorSets";
+        }
+        case OP_vkFreeDescriptorSets:
+        {
+            return "OP_vkFreeDescriptorSets";
+        }
+        case OP_vkUpdateDescriptorSets:
+        {
+            return "OP_vkUpdateDescriptorSets";
+        }
+        case OP_vkCreateFramebuffer:
+        {
+            return "OP_vkCreateFramebuffer";
+        }
+        case OP_vkDestroyFramebuffer:
+        {
+            return "OP_vkDestroyFramebuffer";
+        }
+        case OP_vkCreateRenderPass:
+        {
+            return "OP_vkCreateRenderPass";
+        }
+        case OP_vkDestroyRenderPass:
+        {
+            return "OP_vkDestroyRenderPass";
+        }
+        case OP_vkGetRenderAreaGranularity:
+        {
+            return "OP_vkGetRenderAreaGranularity";
+        }
+        case OP_vkCreateCommandPool:
+        {
+            return "OP_vkCreateCommandPool";
+        }
+        case OP_vkDestroyCommandPool:
+        {
+            return "OP_vkDestroyCommandPool";
+        }
+        case OP_vkResetCommandPool:
+        {
+            return "OP_vkResetCommandPool";
+        }
+        case OP_vkAllocateCommandBuffers:
+        {
+            return "OP_vkAllocateCommandBuffers";
+        }
+        case OP_vkFreeCommandBuffers:
+        {
+            return "OP_vkFreeCommandBuffers";
+        }
+        case OP_vkBeginCommandBuffer:
+        {
+            return "OP_vkBeginCommandBuffer";
+        }
+        case OP_vkEndCommandBuffer:
+        {
+            return "OP_vkEndCommandBuffer";
+        }
+        case OP_vkResetCommandBuffer:
+        {
+            return "OP_vkResetCommandBuffer";
+        }
+        case OP_vkCmdBindPipeline:
+        {
+            return "OP_vkCmdBindPipeline";
+        }
+        case OP_vkCmdSetViewport:
+        {
+            return "OP_vkCmdSetViewport";
+        }
+        case OP_vkCmdSetScissor:
+        {
+            return "OP_vkCmdSetScissor";
+        }
+        case OP_vkCmdSetLineWidth:
+        {
+            return "OP_vkCmdSetLineWidth";
+        }
+        case OP_vkCmdSetDepthBias:
+        {
+            return "OP_vkCmdSetDepthBias";
+        }
+        case OP_vkCmdSetBlendConstants:
+        {
+            return "OP_vkCmdSetBlendConstants";
+        }
+        case OP_vkCmdSetDepthBounds:
+        {
+            return "OP_vkCmdSetDepthBounds";
+        }
+        case OP_vkCmdSetStencilCompareMask:
+        {
+            return "OP_vkCmdSetStencilCompareMask";
+        }
+        case OP_vkCmdSetStencilWriteMask:
+        {
+            return "OP_vkCmdSetStencilWriteMask";
+        }
+        case OP_vkCmdSetStencilReference:
+        {
+            return "OP_vkCmdSetStencilReference";
+        }
+        case OP_vkCmdBindDescriptorSets:
+        {
+            return "OP_vkCmdBindDescriptorSets";
+        }
+        case OP_vkCmdBindIndexBuffer:
+        {
+            return "OP_vkCmdBindIndexBuffer";
+        }
+        case OP_vkCmdBindVertexBuffers:
+        {
+            return "OP_vkCmdBindVertexBuffers";
+        }
+        case OP_vkCmdDraw:
+        {
+            return "OP_vkCmdDraw";
+        }
+        case OP_vkCmdDrawIndexed:
+        {
+            return "OP_vkCmdDrawIndexed";
+        }
+        case OP_vkCmdDrawIndirect:
+        {
+            return "OP_vkCmdDrawIndirect";
+        }
+        case OP_vkCmdDrawIndexedIndirect:
+        {
+            return "OP_vkCmdDrawIndexedIndirect";
+        }
+        case OP_vkCmdDispatch:
+        {
+            return "OP_vkCmdDispatch";
+        }
+        case OP_vkCmdDispatchIndirect:
+        {
+            return "OP_vkCmdDispatchIndirect";
+        }
+        case OP_vkCmdCopyBuffer:
+        {
+            return "OP_vkCmdCopyBuffer";
+        }
+        case OP_vkCmdCopyImage:
+        {
+            return "OP_vkCmdCopyImage";
+        }
+        case OP_vkCmdBlitImage:
+        {
+            return "OP_vkCmdBlitImage";
+        }
+        case OP_vkCmdCopyBufferToImage:
+        {
+            return "OP_vkCmdCopyBufferToImage";
+        }
+        case OP_vkCmdCopyImageToBuffer:
+        {
+            return "OP_vkCmdCopyImageToBuffer";
+        }
+        case OP_vkCmdUpdateBuffer:
+        {
+            return "OP_vkCmdUpdateBuffer";
+        }
+        case OP_vkCmdFillBuffer:
+        {
+            return "OP_vkCmdFillBuffer";
+        }
+        case OP_vkCmdClearColorImage:
+        {
+            return "OP_vkCmdClearColorImage";
+        }
+        case OP_vkCmdClearDepthStencilImage:
+        {
+            return "OP_vkCmdClearDepthStencilImage";
+        }
+        case OP_vkCmdClearAttachments:
+        {
+            return "OP_vkCmdClearAttachments";
+        }
+        case OP_vkCmdResolveImage:
+        {
+            return "OP_vkCmdResolveImage";
+        }
+        case OP_vkCmdSetEvent:
+        {
+            return "OP_vkCmdSetEvent";
+        }
+        case OP_vkCmdResetEvent:
+        {
+            return "OP_vkCmdResetEvent";
+        }
+        case OP_vkCmdWaitEvents:
+        {
+            return "OP_vkCmdWaitEvents";
+        }
+        case OP_vkCmdPipelineBarrier:
+        {
+            return "OP_vkCmdPipelineBarrier";
+        }
+        case OP_vkCmdBeginQuery:
+        {
+            return "OP_vkCmdBeginQuery";
+        }
+        case OP_vkCmdEndQuery:
+        {
+            return "OP_vkCmdEndQuery";
+        }
+        case OP_vkCmdResetQueryPool:
+        {
+            return "OP_vkCmdResetQueryPool";
+        }
+        case OP_vkCmdWriteTimestamp:
+        {
+            return "OP_vkCmdWriteTimestamp";
+        }
+        case OP_vkCmdCopyQueryPoolResults:
+        {
+            return "OP_vkCmdCopyQueryPoolResults";
+        }
+        case OP_vkCmdPushConstants:
+        {
+            return "OP_vkCmdPushConstants";
+        }
+        case OP_vkCmdBeginRenderPass:
+        {
+            return "OP_vkCmdBeginRenderPass";
+        }
+        case OP_vkCmdNextSubpass:
+        {
+            return "OP_vkCmdNextSubpass";
+        }
+        case OP_vkCmdEndRenderPass:
+        {
+            return "OP_vkCmdEndRenderPass";
+        }
+        case OP_vkCmdExecuteCommands:
+        {
+            return "OP_vkCmdExecuteCommands";
+        }
+#endif
+#ifdef VK_VERSION_1_1
+        case OP_vkEnumerateInstanceVersion:
+        {
+            return "OP_vkEnumerateInstanceVersion";
+        }
+        case OP_vkBindBufferMemory2:
+        {
+            return "OP_vkBindBufferMemory2";
+        }
+        case OP_vkBindImageMemory2:
+        {
+            return "OP_vkBindImageMemory2";
+        }
+        case OP_vkGetDeviceGroupPeerMemoryFeatures:
+        {
+            return "OP_vkGetDeviceGroupPeerMemoryFeatures";
+        }
+        case OP_vkCmdSetDeviceMask:
+        {
+            return "OP_vkCmdSetDeviceMask";
+        }
+        case OP_vkCmdDispatchBase:
+        {
+            return "OP_vkCmdDispatchBase";
+        }
+        case OP_vkEnumeratePhysicalDeviceGroups:
+        {
+            return "OP_vkEnumeratePhysicalDeviceGroups";
+        }
+        case OP_vkGetImageMemoryRequirements2:
+        {
+            return "OP_vkGetImageMemoryRequirements2";
+        }
+        case OP_vkGetBufferMemoryRequirements2:
+        {
+            return "OP_vkGetBufferMemoryRequirements2";
+        }
+        case OP_vkGetImageSparseMemoryRequirements2:
+        {
+            return "OP_vkGetImageSparseMemoryRequirements2";
+        }
+        case OP_vkGetPhysicalDeviceFeatures2:
+        {
+            return "OP_vkGetPhysicalDeviceFeatures2";
+        }
+        case OP_vkGetPhysicalDeviceProperties2:
+        {
+            return "OP_vkGetPhysicalDeviceProperties2";
+        }
+        case OP_vkGetPhysicalDeviceFormatProperties2:
+        {
+            return "OP_vkGetPhysicalDeviceFormatProperties2";
+        }
+        case OP_vkGetPhysicalDeviceImageFormatProperties2:
+        {
+            return "OP_vkGetPhysicalDeviceImageFormatProperties2";
+        }
+        case OP_vkGetPhysicalDeviceQueueFamilyProperties2:
+        {
+            return "OP_vkGetPhysicalDeviceQueueFamilyProperties2";
+        }
+        case OP_vkGetPhysicalDeviceMemoryProperties2:
+        {
+            return "OP_vkGetPhysicalDeviceMemoryProperties2";
+        }
+        case OP_vkGetPhysicalDeviceSparseImageFormatProperties2:
+        {
+            return "OP_vkGetPhysicalDeviceSparseImageFormatProperties2";
+        }
+        case OP_vkTrimCommandPool:
+        {
+            return "OP_vkTrimCommandPool";
+        }
+        case OP_vkGetDeviceQueue2:
+        {
+            return "OP_vkGetDeviceQueue2";
+        }
+        case OP_vkCreateSamplerYcbcrConversion:
+        {
+            return "OP_vkCreateSamplerYcbcrConversion";
+        }
+        case OP_vkDestroySamplerYcbcrConversion:
+        {
+            return "OP_vkDestroySamplerYcbcrConversion";
+        }
+        case OP_vkCreateDescriptorUpdateTemplate:
+        {
+            return "OP_vkCreateDescriptorUpdateTemplate";
+        }
+        case OP_vkDestroyDescriptorUpdateTemplate:
+        {
+            return "OP_vkDestroyDescriptorUpdateTemplate";
+        }
+        case OP_vkUpdateDescriptorSetWithTemplate:
+        {
+            return "OP_vkUpdateDescriptorSetWithTemplate";
+        }
+        case OP_vkGetPhysicalDeviceExternalBufferProperties:
+        {
+            return "OP_vkGetPhysicalDeviceExternalBufferProperties";
+        }
+        case OP_vkGetPhysicalDeviceExternalFenceProperties:
+        {
+            return "OP_vkGetPhysicalDeviceExternalFenceProperties";
+        }
+        case OP_vkGetPhysicalDeviceExternalSemaphoreProperties:
+        {
+            return "OP_vkGetPhysicalDeviceExternalSemaphoreProperties";
+        }
+        case OP_vkGetDescriptorSetLayoutSupport:
+        {
+            return "OP_vkGetDescriptorSetLayoutSupport";
+        }
+#endif
+#ifdef VK_KHR_surface
+        case OP_vkDestroySurfaceKHR:
+        {
+            return "OP_vkDestroySurfaceKHR";
+        }
+        case OP_vkGetPhysicalDeviceSurfaceSupportKHR:
+        {
+            return "OP_vkGetPhysicalDeviceSurfaceSupportKHR";
+        }
+        case OP_vkGetPhysicalDeviceSurfaceCapabilitiesKHR:
+        {
+            return "OP_vkGetPhysicalDeviceSurfaceCapabilitiesKHR";
+        }
+        case OP_vkGetPhysicalDeviceSurfaceFormatsKHR:
+        {
+            return "OP_vkGetPhysicalDeviceSurfaceFormatsKHR";
+        }
+        case OP_vkGetPhysicalDeviceSurfacePresentModesKHR:
+        {
+            return "OP_vkGetPhysicalDeviceSurfacePresentModesKHR";
+        }
+#endif
+#ifdef VK_KHR_swapchain
+        case OP_vkCreateSwapchainKHR:
+        {
+            return "OP_vkCreateSwapchainKHR";
+        }
+        case OP_vkDestroySwapchainKHR:
+        {
+            return "OP_vkDestroySwapchainKHR";
+        }
+        case OP_vkGetSwapchainImagesKHR:
+        {
+            return "OP_vkGetSwapchainImagesKHR";
+        }
+        case OP_vkAcquireNextImageKHR:
+        {
+            return "OP_vkAcquireNextImageKHR";
+        }
+        case OP_vkQueuePresentKHR:
+        {
+            return "OP_vkQueuePresentKHR";
+        }
+        case OP_vkGetDeviceGroupPresentCapabilitiesKHR:
+        {
+            return "OP_vkGetDeviceGroupPresentCapabilitiesKHR";
+        }
+        case OP_vkGetDeviceGroupSurfacePresentModesKHR:
+        {
+            return "OP_vkGetDeviceGroupSurfacePresentModesKHR";
+        }
+        case OP_vkGetPhysicalDevicePresentRectanglesKHR:
+        {
+            return "OP_vkGetPhysicalDevicePresentRectanglesKHR";
+        }
+        case OP_vkAcquireNextImage2KHR:
+        {
+            return "OP_vkAcquireNextImage2KHR";
+        }
+#endif
+#ifdef VK_KHR_display
+        case OP_vkGetPhysicalDeviceDisplayPropertiesKHR:
+        {
+            return "OP_vkGetPhysicalDeviceDisplayPropertiesKHR";
+        }
+        case OP_vkGetPhysicalDeviceDisplayPlanePropertiesKHR:
+        {
+            return "OP_vkGetPhysicalDeviceDisplayPlanePropertiesKHR";
+        }
+        case OP_vkGetDisplayPlaneSupportedDisplaysKHR:
+        {
+            return "OP_vkGetDisplayPlaneSupportedDisplaysKHR";
+        }
+        case OP_vkGetDisplayModePropertiesKHR:
+        {
+            return "OP_vkGetDisplayModePropertiesKHR";
+        }
+        case OP_vkCreateDisplayModeKHR:
+        {
+            return "OP_vkCreateDisplayModeKHR";
+        }
+        case OP_vkGetDisplayPlaneCapabilitiesKHR:
+        {
+            return "OP_vkGetDisplayPlaneCapabilitiesKHR";
+        }
+        case OP_vkCreateDisplayPlaneSurfaceKHR:
+        {
+            return "OP_vkCreateDisplayPlaneSurfaceKHR";
+        }
+#endif
+#ifdef VK_KHR_display_swapchain
+        case OP_vkCreateSharedSwapchainsKHR:
+        {
+            return "OP_vkCreateSharedSwapchainsKHR";
+        }
+#endif
+#ifdef VK_KHR_xlib_surface
+        case OP_vkCreateXlibSurfaceKHR:
+        {
+            return "OP_vkCreateXlibSurfaceKHR";
+        }
+        case OP_vkGetPhysicalDeviceXlibPresentationSupportKHR:
+        {
+            return "OP_vkGetPhysicalDeviceXlibPresentationSupportKHR";
+        }
+#endif
+#ifdef VK_KHR_xcb_surface
+        case OP_vkCreateXcbSurfaceKHR:
+        {
+            return "OP_vkCreateXcbSurfaceKHR";
+        }
+        case OP_vkGetPhysicalDeviceXcbPresentationSupportKHR:
+        {
+            return "OP_vkGetPhysicalDeviceXcbPresentationSupportKHR";
+        }
+#endif
+#ifdef VK_KHR_wayland_surface
+        case OP_vkCreateWaylandSurfaceKHR:
+        {
+            return "OP_vkCreateWaylandSurfaceKHR";
+        }
+        case OP_vkGetPhysicalDeviceWaylandPresentationSupportKHR:
+        {
+            return "OP_vkGetPhysicalDeviceWaylandPresentationSupportKHR";
+        }
+#endif
+#ifdef VK_KHR_mir_surface
+        case OP_vkCreateMirSurfaceKHR:
+        {
+            return "OP_vkCreateMirSurfaceKHR";
+        }
+        case OP_vkGetPhysicalDeviceMirPresentationSupportKHR:
+        {
+            return "OP_vkGetPhysicalDeviceMirPresentationSupportKHR";
+        }
+#endif
+#ifdef VK_KHR_android_surface
+        case OP_vkCreateAndroidSurfaceKHR:
+        {
+            return "OP_vkCreateAndroidSurfaceKHR";
+        }
+#endif
+#ifdef VK_KHR_win32_surface
+        case OP_vkCreateWin32SurfaceKHR:
+        {
+            return "OP_vkCreateWin32SurfaceKHR";
+        }
+        case OP_vkGetPhysicalDeviceWin32PresentationSupportKHR:
+        {
+            return "OP_vkGetPhysicalDeviceWin32PresentationSupportKHR";
+        }
+#endif
+#ifdef VK_KHR_get_physical_device_properties2
+        case OP_vkGetPhysicalDeviceFeatures2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceFeatures2KHR";
+        }
+        case OP_vkGetPhysicalDeviceProperties2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceProperties2KHR";
+        }
+        case OP_vkGetPhysicalDeviceFormatProperties2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceFormatProperties2KHR";
+        }
+        case OP_vkGetPhysicalDeviceImageFormatProperties2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceImageFormatProperties2KHR";
+        }
+        case OP_vkGetPhysicalDeviceQueueFamilyProperties2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceQueueFamilyProperties2KHR";
+        }
+        case OP_vkGetPhysicalDeviceMemoryProperties2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceMemoryProperties2KHR";
+        }
+        case OP_vkGetPhysicalDeviceSparseImageFormatProperties2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceSparseImageFormatProperties2KHR";
+        }
+#endif
+#ifdef VK_KHR_device_group
+        case OP_vkGetDeviceGroupPeerMemoryFeaturesKHR:
+        {
+            return "OP_vkGetDeviceGroupPeerMemoryFeaturesKHR";
+        }
+        case OP_vkCmdSetDeviceMaskKHR:
+        {
+            return "OP_vkCmdSetDeviceMaskKHR";
+        }
+        case OP_vkCmdDispatchBaseKHR:
+        {
+            return "OP_vkCmdDispatchBaseKHR";
+        }
+#endif
+#ifdef VK_KHR_maintenance1
+        case OP_vkTrimCommandPoolKHR:
+        {
+            return "OP_vkTrimCommandPoolKHR";
+        }
+#endif
+#ifdef VK_KHR_device_group_creation
+        case OP_vkEnumeratePhysicalDeviceGroupsKHR:
+        {
+            return "OP_vkEnumeratePhysicalDeviceGroupsKHR";
+        }
+#endif
+#ifdef VK_KHR_external_memory_capabilities
+        case OP_vkGetPhysicalDeviceExternalBufferPropertiesKHR:
+        {
+            return "OP_vkGetPhysicalDeviceExternalBufferPropertiesKHR";
+        }
+#endif
+#ifdef VK_KHR_external_memory_win32
+        case OP_vkGetMemoryWin32HandleKHR:
+        {
+            return "OP_vkGetMemoryWin32HandleKHR";
+        }
+        case OP_vkGetMemoryWin32HandlePropertiesKHR:
+        {
+            return "OP_vkGetMemoryWin32HandlePropertiesKHR";
+        }
+#endif
+#ifdef VK_KHR_external_memory_fd
+        case OP_vkGetMemoryFdKHR:
+        {
+            return "OP_vkGetMemoryFdKHR";
+        }
+        case OP_vkGetMemoryFdPropertiesKHR:
+        {
+            return "OP_vkGetMemoryFdPropertiesKHR";
+        }
+#endif
+#ifdef VK_KHR_external_semaphore_capabilities
+        case OP_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR:
+        {
+            return "OP_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR";
+        }
+#endif
+#ifdef VK_KHR_external_semaphore_win32
+        case OP_vkImportSemaphoreWin32HandleKHR:
+        {
+            return "OP_vkImportSemaphoreWin32HandleKHR";
+        }
+        case OP_vkGetSemaphoreWin32HandleKHR:
+        {
+            return "OP_vkGetSemaphoreWin32HandleKHR";
+        }
+#endif
+#ifdef VK_KHR_external_semaphore_fd
+        case OP_vkImportSemaphoreFdKHR:
+        {
+            return "OP_vkImportSemaphoreFdKHR";
+        }
+        case OP_vkGetSemaphoreFdKHR:
+        {
+            return "OP_vkGetSemaphoreFdKHR";
+        }
+#endif
+#ifdef VK_KHR_push_descriptor
+        case OP_vkCmdPushDescriptorSetKHR:
+        {
+            return "OP_vkCmdPushDescriptorSetKHR";
+        }
+        case OP_vkCmdPushDescriptorSetWithTemplateKHR:
+        {
+            return "OP_vkCmdPushDescriptorSetWithTemplateKHR";
+        }
+#endif
+#ifdef VK_KHR_descriptor_update_template
+        case OP_vkCreateDescriptorUpdateTemplateKHR:
+        {
+            return "OP_vkCreateDescriptorUpdateTemplateKHR";
+        }
+        case OP_vkDestroyDescriptorUpdateTemplateKHR:
+        {
+            return "OP_vkDestroyDescriptorUpdateTemplateKHR";
+        }
+        case OP_vkUpdateDescriptorSetWithTemplateKHR:
+        {
+            return "OP_vkUpdateDescriptorSetWithTemplateKHR";
+        }
+#endif
+#ifdef VK_KHR_create_renderpass2
+        case OP_vkCreateRenderPass2KHR:
+        {
+            return "OP_vkCreateRenderPass2KHR";
+        }
+        case OP_vkCmdBeginRenderPass2KHR:
+        {
+            return "OP_vkCmdBeginRenderPass2KHR";
+        }
+        case OP_vkCmdNextSubpass2KHR:
+        {
+            return "OP_vkCmdNextSubpass2KHR";
+        }
+        case OP_vkCmdEndRenderPass2KHR:
+        {
+            return "OP_vkCmdEndRenderPass2KHR";
+        }
+#endif
+#ifdef VK_KHR_shared_presentable_image
+        case OP_vkGetSwapchainStatusKHR:
+        {
+            return "OP_vkGetSwapchainStatusKHR";
+        }
+#endif
+#ifdef VK_KHR_external_fence_capabilities
+        case OP_vkGetPhysicalDeviceExternalFencePropertiesKHR:
+        {
+            return "OP_vkGetPhysicalDeviceExternalFencePropertiesKHR";
+        }
+#endif
+#ifdef VK_KHR_external_fence_win32
+        case OP_vkImportFenceWin32HandleKHR:
+        {
+            return "OP_vkImportFenceWin32HandleKHR";
+        }
+        case OP_vkGetFenceWin32HandleKHR:
+        {
+            return "OP_vkGetFenceWin32HandleKHR";
+        }
+#endif
+#ifdef VK_KHR_external_fence_fd
+        case OP_vkImportFenceFdKHR:
+        {
+            return "OP_vkImportFenceFdKHR";
+        }
+        case OP_vkGetFenceFdKHR:
+        {
+            return "OP_vkGetFenceFdKHR";
+        }
+#endif
+#ifdef VK_KHR_get_surface_capabilities2
+        case OP_vkGetPhysicalDeviceSurfaceCapabilities2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceSurfaceCapabilities2KHR";
+        }
+        case OP_vkGetPhysicalDeviceSurfaceFormats2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceSurfaceFormats2KHR";
+        }
+#endif
+#ifdef VK_KHR_get_display_properties2
+        case OP_vkGetPhysicalDeviceDisplayProperties2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceDisplayProperties2KHR";
+        }
+        case OP_vkGetPhysicalDeviceDisplayPlaneProperties2KHR:
+        {
+            return "OP_vkGetPhysicalDeviceDisplayPlaneProperties2KHR";
+        }
+        case OP_vkGetDisplayModeProperties2KHR:
+        {
+            return "OP_vkGetDisplayModeProperties2KHR";
+        }
+        case OP_vkGetDisplayPlaneCapabilities2KHR:
+        {
+            return "OP_vkGetDisplayPlaneCapabilities2KHR";
+        }
+#endif
+#ifdef VK_KHR_get_memory_requirements2
+        case OP_vkGetImageMemoryRequirements2KHR:
+        {
+            return "OP_vkGetImageMemoryRequirements2KHR";
+        }
+        case OP_vkGetBufferMemoryRequirements2KHR:
+        {
+            return "OP_vkGetBufferMemoryRequirements2KHR";
+        }
+        case OP_vkGetImageSparseMemoryRequirements2KHR:
+        {
+            return "OP_vkGetImageSparseMemoryRequirements2KHR";
+        }
+#endif
+#ifdef VK_KHR_sampler_ycbcr_conversion
+        case OP_vkCreateSamplerYcbcrConversionKHR:
+        {
+            return "OP_vkCreateSamplerYcbcrConversionKHR";
+        }
+        case OP_vkDestroySamplerYcbcrConversionKHR:
+        {
+            return "OP_vkDestroySamplerYcbcrConversionKHR";
+        }
+#endif
+#ifdef VK_KHR_bind_memory2
+        case OP_vkBindBufferMemory2KHR:
+        {
+            return "OP_vkBindBufferMemory2KHR";
+        }
+        case OP_vkBindImageMemory2KHR:
+        {
+            return "OP_vkBindImageMemory2KHR";
+        }
+#endif
+#ifdef VK_KHR_maintenance3
+        case OP_vkGetDescriptorSetLayoutSupportKHR:
+        {
+            return "OP_vkGetDescriptorSetLayoutSupportKHR";
+        }
+#endif
+#ifdef VK_KHR_draw_indirect_count
+        case OP_vkCmdDrawIndirectCountKHR:
+        {
+            return "OP_vkCmdDrawIndirectCountKHR";
+        }
+        case OP_vkCmdDrawIndexedIndirectCountKHR:
+        {
+            return "OP_vkCmdDrawIndexedIndirectCountKHR";
+        }
+#endif
+#ifdef VK_ANDROID_native_buffer
+        case OP_vkGetSwapchainGrallocUsageANDROID:
+        {
+            return "OP_vkGetSwapchainGrallocUsageANDROID";
+        }
+        case OP_vkAcquireImageANDROID:
+        {
+            return "OP_vkAcquireImageANDROID";
+        }
+        case OP_vkQueueSignalReleaseImageANDROID:
+        {
+            return "OP_vkQueueSignalReleaseImageANDROID";
+        }
+#endif
+#ifdef VK_EXT_debug_report
+        case OP_vkCreateDebugReportCallbackEXT:
+        {
+            return "OP_vkCreateDebugReportCallbackEXT";
+        }
+        case OP_vkDestroyDebugReportCallbackEXT:
+        {
+            return "OP_vkDestroyDebugReportCallbackEXT";
+        }
+        case OP_vkDebugReportMessageEXT:
+        {
+            return "OP_vkDebugReportMessageEXT";
+        }
+#endif
+#ifdef VK_EXT_debug_marker
+        case OP_vkDebugMarkerSetObjectTagEXT:
+        {
+            return "OP_vkDebugMarkerSetObjectTagEXT";
+        }
+        case OP_vkDebugMarkerSetObjectNameEXT:
+        {
+            return "OP_vkDebugMarkerSetObjectNameEXT";
+        }
+        case OP_vkCmdDebugMarkerBeginEXT:
+        {
+            return "OP_vkCmdDebugMarkerBeginEXT";
+        }
+        case OP_vkCmdDebugMarkerEndEXT:
+        {
+            return "OP_vkCmdDebugMarkerEndEXT";
+        }
+        case OP_vkCmdDebugMarkerInsertEXT:
+        {
+            return "OP_vkCmdDebugMarkerInsertEXT";
+        }
+#endif
+#ifdef VK_AMD_draw_indirect_count
+        case OP_vkCmdDrawIndirectCountAMD:
+        {
+            return "OP_vkCmdDrawIndirectCountAMD";
+        }
+        case OP_vkCmdDrawIndexedIndirectCountAMD:
+        {
+            return "OP_vkCmdDrawIndexedIndirectCountAMD";
+        }
+#endif
+#ifdef VK_AMD_shader_info
+        case OP_vkGetShaderInfoAMD:
+        {
+            return "OP_vkGetShaderInfoAMD";
+        }
+#endif
+#ifdef VK_NV_external_memory_capabilities
+        case OP_vkGetPhysicalDeviceExternalImageFormatPropertiesNV:
+        {
+            return "OP_vkGetPhysicalDeviceExternalImageFormatPropertiesNV";
+        }
+#endif
+#ifdef VK_NV_external_memory_win32
+        case OP_vkGetMemoryWin32HandleNV:
+        {
+            return "OP_vkGetMemoryWin32HandleNV";
+        }
+#endif
+#ifdef VK_NN_vi_surface
+        case OP_vkCreateViSurfaceNN:
+        {
+            return "OP_vkCreateViSurfaceNN";
+        }
+#endif
+#ifdef VK_EXT_conditional_rendering
+        case OP_vkCmdBeginConditionalRenderingEXT:
+        {
+            return "OP_vkCmdBeginConditionalRenderingEXT";
+        }
+        case OP_vkCmdEndConditionalRenderingEXT:
+        {
+            return "OP_vkCmdEndConditionalRenderingEXT";
+        }
+#endif
+#ifdef VK_NVX_device_generated_commands
+        case OP_vkCmdProcessCommandsNVX:
+        {
+            return "OP_vkCmdProcessCommandsNVX";
+        }
+        case OP_vkCmdReserveSpaceForCommandsNVX:
+        {
+            return "OP_vkCmdReserveSpaceForCommandsNVX";
+        }
+        case OP_vkCreateIndirectCommandsLayoutNVX:
+        {
+            return "OP_vkCreateIndirectCommandsLayoutNVX";
+        }
+        case OP_vkDestroyIndirectCommandsLayoutNVX:
+        {
+            return "OP_vkDestroyIndirectCommandsLayoutNVX";
+        }
+        case OP_vkCreateObjectTableNVX:
+        {
+            return "OP_vkCreateObjectTableNVX";
+        }
+        case OP_vkDestroyObjectTableNVX:
+        {
+            return "OP_vkDestroyObjectTableNVX";
+        }
+        case OP_vkRegisterObjectsNVX:
+        {
+            return "OP_vkRegisterObjectsNVX";
+        }
+        case OP_vkUnregisterObjectsNVX:
+        {
+            return "OP_vkUnregisterObjectsNVX";
+        }
+        case OP_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX:
+        {
+            return "OP_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX";
+        }
+#endif
+#ifdef VK_NV_clip_space_w_scaling
+        case OP_vkCmdSetViewportWScalingNV:
+        {
+            return "OP_vkCmdSetViewportWScalingNV";
+        }
+#endif
+#ifdef VK_EXT_direct_mode_display
+        case OP_vkReleaseDisplayEXT:
+        {
+            return "OP_vkReleaseDisplayEXT";
+        }
+#endif
+#ifdef VK_EXT_acquire_xlib_display
+        case OP_vkAcquireXlibDisplayEXT:
+        {
+            return "OP_vkAcquireXlibDisplayEXT";
+        }
+        case OP_vkGetRandROutputDisplayEXT:
+        {
+            return "OP_vkGetRandROutputDisplayEXT";
+        }
+#endif
+#ifdef VK_EXT_display_surface_counter
+        case OP_vkGetPhysicalDeviceSurfaceCapabilities2EXT:
+        {
+            return "OP_vkGetPhysicalDeviceSurfaceCapabilities2EXT";
+        }
+#endif
+#ifdef VK_EXT_display_control
+        case OP_vkDisplayPowerControlEXT:
+        {
+            return "OP_vkDisplayPowerControlEXT";
+        }
+        case OP_vkRegisterDeviceEventEXT:
+        {
+            return "OP_vkRegisterDeviceEventEXT";
+        }
+        case OP_vkRegisterDisplayEventEXT:
+        {
+            return "OP_vkRegisterDisplayEventEXT";
+        }
+        case OP_vkGetSwapchainCounterEXT:
+        {
+            return "OP_vkGetSwapchainCounterEXT";
+        }
+#endif
+#ifdef VK_GOOGLE_display_timing
+        case OP_vkGetRefreshCycleDurationGOOGLE:
+        {
+            return "OP_vkGetRefreshCycleDurationGOOGLE";
+        }
+        case OP_vkGetPastPresentationTimingGOOGLE:
+        {
+            return "OP_vkGetPastPresentationTimingGOOGLE";
+        }
+#endif
+#ifdef VK_EXT_discard_rectangles
+        case OP_vkCmdSetDiscardRectangleEXT:
+        {
+            return "OP_vkCmdSetDiscardRectangleEXT";
+        }
+#endif
+#ifdef VK_EXT_hdr_metadata
+        case OP_vkSetHdrMetadataEXT:
+        {
+            return "OP_vkSetHdrMetadataEXT";
+        }
+#endif
+#ifdef VK_MVK_ios_surface
+        case OP_vkCreateIOSSurfaceMVK:
+        {
+            return "OP_vkCreateIOSSurfaceMVK";
+        }
+#endif
+#ifdef VK_MVK_macos_surface
+        case OP_vkCreateMacOSSurfaceMVK:
+        {
+            return "OP_vkCreateMacOSSurfaceMVK";
+        }
+#endif
+#ifdef VK_EXT_debug_utils
+        case OP_vkSetDebugUtilsObjectNameEXT:
+        {
+            return "OP_vkSetDebugUtilsObjectNameEXT";
+        }
+        case OP_vkSetDebugUtilsObjectTagEXT:
+        {
+            return "OP_vkSetDebugUtilsObjectTagEXT";
+        }
+        case OP_vkQueueBeginDebugUtilsLabelEXT:
+        {
+            return "OP_vkQueueBeginDebugUtilsLabelEXT";
+        }
+        case OP_vkQueueEndDebugUtilsLabelEXT:
+        {
+            return "OP_vkQueueEndDebugUtilsLabelEXT";
+        }
+        case OP_vkQueueInsertDebugUtilsLabelEXT:
+        {
+            return "OP_vkQueueInsertDebugUtilsLabelEXT";
+        }
+        case OP_vkCmdBeginDebugUtilsLabelEXT:
+        {
+            return "OP_vkCmdBeginDebugUtilsLabelEXT";
+        }
+        case OP_vkCmdEndDebugUtilsLabelEXT:
+        {
+            return "OP_vkCmdEndDebugUtilsLabelEXT";
+        }
+        case OP_vkCmdInsertDebugUtilsLabelEXT:
+        {
+            return "OP_vkCmdInsertDebugUtilsLabelEXT";
+        }
+        case OP_vkCreateDebugUtilsMessengerEXT:
+        {
+            return "OP_vkCreateDebugUtilsMessengerEXT";
+        }
+        case OP_vkDestroyDebugUtilsMessengerEXT:
+        {
+            return "OP_vkDestroyDebugUtilsMessengerEXT";
+        }
+        case OP_vkSubmitDebugUtilsMessageEXT:
+        {
+            return "OP_vkSubmitDebugUtilsMessageEXT";
+        }
+#endif
+#ifdef VK_ANDROID_external_memory_android_hardware_buffer
+        case OP_vkGetAndroidHardwareBufferPropertiesANDROID:
+        {
+            return "OP_vkGetAndroidHardwareBufferPropertiesANDROID";
+        }
+        case OP_vkGetMemoryAndroidHardwareBufferANDROID:
+        {
+            return "OP_vkGetMemoryAndroidHardwareBufferANDROID";
+        }
+#endif
+#ifdef VK_EXT_sample_locations
+        case OP_vkCmdSetSampleLocationsEXT:
+        {
+            return "OP_vkCmdSetSampleLocationsEXT";
+        }
+        case OP_vkGetPhysicalDeviceMultisamplePropertiesEXT:
+        {
+            return "OP_vkGetPhysicalDeviceMultisamplePropertiesEXT";
+        }
+#endif
+#ifdef VK_EXT_validation_cache
+        case OP_vkCreateValidationCacheEXT:
+        {
+            return "OP_vkCreateValidationCacheEXT";
+        }
+        case OP_vkDestroyValidationCacheEXT:
+        {
+            return "OP_vkDestroyValidationCacheEXT";
+        }
+        case OP_vkMergeValidationCachesEXT:
+        {
+            return "OP_vkMergeValidationCachesEXT";
+        }
+        case OP_vkGetValidationCacheDataEXT:
+        {
+            return "OP_vkGetValidationCacheDataEXT";
+        }
+#endif
+#ifdef VK_EXT_external_memory_host
+        case OP_vkGetMemoryHostPointerPropertiesEXT:
+        {
+            return "OP_vkGetMemoryHostPointerPropertiesEXT";
+        }
+#endif
+#ifdef VK_AMD_buffer_marker
+        case OP_vkCmdWriteBufferMarkerAMD:
+        {
+            return "OP_vkCmdWriteBufferMarkerAMD";
+        }
+#endif
+#ifdef VK_NV_device_diagnostic_checkpoints
+        case OP_vkCmdSetCheckpointNV:
+        {
+            return "OP_vkCmdSetCheckpointNV";
+        }
+        case OP_vkGetQueueCheckpointDataNV:
+        {
+            return "OP_vkGetQueueCheckpointDataNV";
+        }
+#endif
+#ifdef VK_GOOGLE_address_space
+        case OP_vkMapMemoryIntoAddressSpaceGOOGLE:
+        {
+            return "OP_vkMapMemoryIntoAddressSpaceGOOGLE";
+        }
+#endif
+#ifdef VK_GOOGLE_color_buffer
+        case OP_vkRegisterImageColorBufferGOOGLE:
+        {
+            return "OP_vkRegisterImageColorBufferGOOGLE";
+        }
+        case OP_vkRegisterBufferColorBufferGOOGLE:
+        {
+            return "OP_vkRegisterBufferColorBufferGOOGLE";
+        }
+#endif
+#ifdef VK_GOOGLE_sized_descriptor_update_template
+        case OP_vkUpdateDescriptorSetWithTemplateSizedGOOGLE:
+        {
+            return "OP_vkUpdateDescriptorSetWithTemplateSizedGOOGLE";
+        }
+#endif
+#ifdef VK_GOOGLE_async_command_buffers
+        case OP_vkBeginCommandBufferAsyncGOOGLE:
+        {
+            return "OP_vkBeginCommandBufferAsyncGOOGLE";
+        }
+        case OP_vkEndCommandBufferAsyncGOOGLE:
+        {
+            return "OP_vkEndCommandBufferAsyncGOOGLE";
+        }
+        case OP_vkResetCommandBufferAsyncGOOGLE:
+        {
+            return "OP_vkResetCommandBufferAsyncGOOGLE";
+        }
+        case OP_vkCommandBufferHostSyncGOOGLE:
+        {
+            return "OP_vkCommandBufferHostSyncGOOGLE";
+        }
+#endif
+#ifdef VK_GOOGLE_create_resources_with_requirements
+        case OP_vkCreateImageWithRequirementsGOOGLE:
+        {
+            return "OP_vkCreateImageWithRequirementsGOOGLE";
+        }
+        case OP_vkCreateBufferWithRequirementsGOOGLE:
+        {
+            return "OP_vkCreateBufferWithRequirementsGOOGLE";
+        }
+#endif
+#ifdef VK_GOOGLE_address_space_info
+        case OP_vkGetMemoryHostAddressInfoGOOGLE:
+        {
+            return "OP_vkGetMemoryHostAddressInfoGOOGLE";
+        }
+#endif
+#ifdef VK_GOOGLE_free_memory_sync
+        case OP_vkFreeMemorySyncGOOGLE:
+        {
+            return "OP_vkFreeMemorySyncGOOGLE";
+        }
+#endif
+        default:
+        {
+            return "OP_UNKNOWN_API_CALL";
         }
     }
 }

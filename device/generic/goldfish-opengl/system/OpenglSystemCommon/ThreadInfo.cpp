@@ -16,9 +16,17 @@
 #include "ThreadInfo.h"
 #include "cutils/threads.h"
 
+#ifdef __BIONIC__
+#include <bionic/tls.h>
+#endif
+
 #ifdef __ANDROID__
+// Are we missing an actual set of TLS defs?
+#ifdef GOLDFISH_OPENGL_NO_PLATFORM_BIONIC_INCLUDES
 #include <bionic_tls.h>
 #endif
+#endif
+
 #include <pthread.h>
 
 thread_store_t s_tls = THREAD_STORE_INITIALIZER;

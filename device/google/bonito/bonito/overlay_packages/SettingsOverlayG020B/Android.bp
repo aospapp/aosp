@@ -1,0 +1,4 @@
+runtime_resource_overlay {
+    name: "SettingsOverlayG020B",
+    product_specific: true,
+}

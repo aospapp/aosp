@@ -20,7 +20,6 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.pm.UserInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -31,6 +30,8 @@ import android.provider.Settings;
  */
 public class DefaultActivity extends Activity {
 
+    private static final String TV_USER_SETUP_COMPLETE = "tv_user_setup_complete";
+
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
@@ -40,7 +41,7 @@ public class DefaultActivity extends Activity {
             Settings.Global.putInt(getContentResolver(), Settings.Global.DEVICE_PROVISIONED, 1);
         }
         Settings.Secure.putInt(getContentResolver(), Settings.Secure.USER_SETUP_COMPLETE, 1);
-        Settings.Secure.putInt(getContentResolver(), Settings.Secure.TV_USER_SETUP_COMPLETE, 1);
+        Settings.Secure.putInt(getContentResolver(), TV_USER_SETUP_COMPLETE, 1);
 
         // remove this activity from the package manager.
         PackageManager pm = getPackageManager();
@@ -54,8 +55,7 @@ public class DefaultActivity extends Activity {
 
     private boolean isRestrictedUser() {
         UserManager userManager = (UserManager) getSystemService(Context.USER_SERVICE);
-        UserInfo userInfo = userManager.getUserInfo(UserHandle.myUserId());
-        return userInfo.isRestricted();
+        return userManager.isRestrictedProfile();
     }
 }
 

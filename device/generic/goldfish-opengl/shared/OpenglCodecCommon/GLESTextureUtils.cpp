@@ -207,7 +207,9 @@ static int computePackingOffset(GLenum format, GLenum type, GLsizei width, GLsiz
     GLsizei alignedPitch = computePitch(width, format, type, align);
     int packingOffsetRows =
         (skipImages * height + skipRows);
-    return packingOffsetRows * alignedPitch + skipPixels * computePixelSize(format, type);
+    int res = packingOffsetRows * alignedPitch + skipPixels * computePixelSize(format, type);
+
+    return res;
 }
 
 void computeTextureStartEnd(
@@ -295,6 +297,7 @@ void computePackingOffsets2D(
         int packRowLength,
         int packSkipPixels,
         int packSkipRows,
+        int* bpp,
         int* startOffset,
         int* packingPixelRowSize,
         int* packingTotalRowSize) {
@@ -307,10 +310,46 @@ void computePackingOffsets2D(
         computePackingOffset(
                 format, type, widthTotal, height, packAlignment, packSkipPixels, packSkipRows, 0 /* skip images = 0 */);
 
+    if (bpp) *bpp = computePixelSize(format, type);
     if (startOffset) *startOffset = packingOffsetStart;
     if (packingPixelRowSize) *packingPixelRowSize = pixelsOnlyRowSize;
     if (packingTotalRowSize) *packingTotalRowSize = totalRowSize;
 }
 
+void computePackingOffsets3D(
+        GLsizei width, GLsizei height, GLsizei depth,
+        GLenum format, GLenum type,
+        int packAlignment,
+        int packRowLength,
+        int packImageHeight,
+        int packSkipPixels,
+        int packSkipRows,
+        int packSkipImages,
+        int* bpp,
+        int* startOffset,
+        int* packingPixelRowSize,
+        int* packingTotalRowSize,
+        int* packingPixelImageSize,
+        int* packingTotalImageSize) {
+
+    int widthTotal = (packRowLength == 0) ? width : packRowLength;
+    int totalRowSize = computePitch(widthTotal, format, type, packAlignment);
+    int pixelsOnlyRowSize = computePitch(width, format, type, packAlignment);
+
+    int heightTotal = packImageHeight == 0 ? height : packImageHeight;
+    int totalImageSize = totalRowSize * heightTotal;
+    int pixelsOnlyImageSize = totalRowSize * height;
+
+    int packingOffsetStart =
+        computePackingOffset(
+                format, type, widthTotal, heightTotal, packAlignment, packSkipPixels, packSkipRows, packSkipImages);
+
+    if (bpp) *bpp = computePixelSize(format, type);
+    if (startOffset) *startOffset = packingOffsetStart;
+    if (packingPixelRowSize) *packingPixelRowSize = pixelsOnlyRowSize;
+    if (packingTotalRowSize) *packingTotalRowSize = totalRowSize;
+    if (packingPixelImageSize) *packingPixelImageSize = pixelsOnlyImageSize;
+    if (packingTotalImageSize) *packingTotalImageSize = totalImageSize;
+}
 
 } // namespace GLESTextureUtils

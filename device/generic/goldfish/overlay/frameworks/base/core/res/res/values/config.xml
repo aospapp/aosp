@@ -40,4 +40,18 @@
          to get a smaller screen and opening the lid causes the device to enter the unfolded state
          which means to get a larger screen. -->
     <bool name="config_lidControlsDisplayFold">true</bool>
+
+    <!-- Allow testing SoftAP using the simulated interfaces on the emulator. -->
+    <string-array name="config_tether_wifi_regexs">
+      <item>"wlan\\d"</item>
+    </string-array>
+
+    <!-- List of biometric sensors on the device, in decreasing strength. Consumed by AuthService
+     when registering authenticators with BiometricService. Format must be ID:Modality:Strength,
+     where: IDs are unique per device, Modality as defined in BiometricAuthenticator.java,
+     and Strength as defined in Authenticators.java -->
+    <string-array name="config_biometric_sensors" translatable="false" >
+        <item>0:2:15</item> <!-- ID0:Fingerprint:Strong -->
+    </string-array>
+
 </resources>

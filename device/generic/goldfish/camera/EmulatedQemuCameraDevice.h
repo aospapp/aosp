@@ -132,7 +132,7 @@ private:
      * pair. */
     using FrameBufferPair = std::pair<uint8_t*, uint32_t*>;
     FrameBufferPair     mFrameBufferPairs[2];
-
+    using EmulatedCameraDevice::Initialize;
 };
 
 }; /* namespace android */

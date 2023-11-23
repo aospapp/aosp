@@ -16,18 +16,13 @@
 
 #include "wifi_command.h"
 
-#include "../fork.h"
-#include "log.h"
+#include "../bridge.h"
+#include "../utils.h"
 
 #include <cutils/properties.h>
 #include <errno.h>
-#include <net/if.h>
-#include <netinet/in.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 static const char kHostApdStubFile[] = "/vendor/etc/simulated_hostapd.conf";
@@ -70,24 +65,9 @@ private:
     int mFd;
 };
 
-std::vector<std::string> explode(const char* str) {
-    const char* cur = str;
-    const char* space = nullptr;
-    std::vector<std::string> result;
-    do {
-        space = ::strchr(cur, ' ');
-        if (space) {
-            result.emplace_back(cur, space);
-            cur = space + 1;
-        } else {
-            result.emplace_back(cur);
-        }
-    } while (space);
-
-    return result;
-}
-
-WifiCommand::WifiCommand() : mLowestInterfaceNumber(1) {
+WifiCommand::WifiCommand(Bridge& bridge)
+    : mBridge(bridge)
+    , mLowestInterfaceNumber(1) {
     readConfig();
 }
 
@@ -103,7 +83,7 @@ Result WifiCommand::onCommand(const char* /*command*/, const char* args) {
         return Result::error("Empty wifi command");
     }
 
-    std::vector<std::string> subArgs = explode(divider + 1);
+    std::vector<std::string> subArgs = explode(divider + 1, ' ');
     if (subArgs.empty()) {
         // All of these commands require sub arguments
         return Result::error("Missing argument to command '%s'",
@@ -172,55 +152,6 @@ Result WifiCommand::triggerHostApd() {
     return Result::success();
 }
 
-static const char* sSetForwardRule[] = {"/system/bin/iptables",
-                                        "-w",    // Wait for iptables lock if
-                                        "-W",    // needed. This prevents
-                                        "50000", // spurious failures.
-                                        "<AddOrDelete>", // To be replaced
-                                        "FORWARD",
-                                        "-i",
-                                        "<InInterface>", // To be replaced
-                                        "-o",
-                                        "<OutInterface>", // To be replaced
-                                        "-j",
-                                        "DROP",
-                                        nullptr };
-
-static const char kIpTables[] = "/system/bin/iptables";
-static const char kIp6Tables[] = "/system/bin/ip6tables";
-static const char kAddRule[] = "-A";
-static const char kDeleteRule[] = "-D";
-static const size_t kIpTablesIndex = 0;
-static const size_t kActionIndex = 4;
-static const size_t kInInterfaceIndex = 7;
-static const size_t kOutInterfaceIndex = 9;
-
-
-Result WifiCommand::setBlocked(const char* ifName, bool blocked) {
-    // Blocking means adding block rules, unblocking means removing them
-    sSetForwardRule[kActionIndex] = blocked ? kAddRule : kDeleteRule;
-
-    // Do this for both IPv4 and IPv6 to ensure all traffic is blocked/unblocked
-    for (const auto& iptables : { kIpTables, kIp6Tables }) {
-        // Block traffic coming in from the outside world to this wlan
-        sSetForwardRule[kIpTablesIndex] = iptables;
-        sSetForwardRule[kInInterfaceIndex] = "eth0";
-        sSetForwardRule[kOutInterfaceIndex] = ifName;
-        if (!forkAndExec(sSetForwardRule)) {
-            return Result::error("Internal error: Unable to %s network",
-                                 blocked ? "block" : "unblock");
-        }
-        // Block traffic going from the wlan to the outside world
-        sSetForwardRule[kInInterfaceIndex] = ifName;
-        sSetForwardRule[kOutInterfaceIndex] = "eth0";
-        if (!forkAndExec(sSetForwardRule)) {
-            return Result::error("Internal error: Unable to %s network",
-                                 blocked ? "block" : "unblock");
-        }
-    }
-    return Result::success();
-}
-
 Result WifiCommand::onAdd(const std::vector<std::string>& arguments) {
     AccessPoint& ap = mAccessPoints[arguments[0]];
     ap.ssid = arguments[0];
@@ -256,18 +187,18 @@ Result WifiCommand::onAdd(const std::vector<std::string>& arguments) {
 Result WifiCommand::onBlock(const std::vector<std::string>& arguments) {
     auto interface = mAccessPoints.find(arguments[0]);
     if (interface == mAccessPoints.end()) {
-        return Result::error("Unknown SSID '%s", arguments[0].c_str());
+        return Result::error("Unknown SSID '%s'", arguments[0].c_str());
     }
     interface->second.blocked = true;
-    return setBlocked(interface->second.ifName.c_str(), true);
+    return mBridge.removeInterface(interface->second.ifName.c_str());
 }
 
 Result WifiCommand::onUnblock(const std::vector<std::string>& arguments) {
     auto interface = mAccessPoints.find(arguments[0]);
     if (interface == mAccessPoints.end()) {
-        return Result::error("Unknown SSID '%s", arguments[0].c_str());
+        return Result::error("Unknown SSID '%s'", arguments[0].c_str());
     }
     interface->second.blocked = false;
-    return setBlocked(interface->second.ifName.c_str(), false);
+    return mBridge.addInterface(interface->second.ifName.c_str());
 }
 

@@ -27,10 +27,16 @@
 
 #include <random>
 
+// Options to configure the behavior of the DHCP client.
+enum class ClientOption : uint32_t {
+    NoGateway = (1 << 0),   // Do not configure the system's default gateway
+};
 
 class DhcpClient {
 public:
-    DhcpClient();
+    // Create a DHCP client with the given |options|. These options are values
+    // from the ClientOption enum.
+    explicit DhcpClient(uint32_t options);
 
     // Initialize the DHCP client to listen on |interfaceName|.
     Result init(const char* interfaceName);
@@ -72,6 +78,7 @@ private:
                 uint16_t sourcePort, uint16_t destinationPort,
                 const uint8_t* data, size_t size);
 
+    uint32_t mOptions;
     std::mt19937 mRandomEngine; // Mersenne Twister RNG
     std::uniform_int_distribution<int> mRandomDistribution;
 

@@ -1,11 +1,11 @@
 drops {
   android_build_drop {
-    build_id: "5725533"
+    build_id: "6647920"
     target: "kernel_bluecross_debug_api"
     source_file: "snd-soc-sdm845.ko"
   }
   dest_file: "debug_api/snd-soc-sdm845.ko"
-  version: "Linux version 4.9.165-gfff483291c07-ab5725533 (android-build@wprl4.hot.corp.google.com) (Android (5484270 based on r353983c) clang version 9.0.3 (https://android.googlesource.com/toolchain/clang 745b335211bb9eadfa6aa6301f84715cee4b37c5) (https://android.googlesource.com/toolchain/llvm 60cf23e54e46c807513f7a36d0a7b777920b5881) (based on LLVM 9.0.3svn)) #0 SMP PREEMPT Fri Jul 12 22:55:38 UTC 2019"
+  version: "Linux version 4.9.223-g5bded8e40b62-ab6647920 (android-build@abfarm-us-west1-c-0040) (Android (6443078 based on r383902) clang version 11.0.1 (https://android.googlesource.com/toolchain/llvm-project b397f81060ce6d701042b782172ed13bee898b79)) #0 SMP PREEMPT Thu Jul 2 03:22:48 UTC 2020"
   version_group: "kernel-and-modules"
   git_project: "device/google/crosshatch-kernel"
 }

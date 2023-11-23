@@ -7,12 +7,11 @@ net_domain(dhcpclient)
 
 dontaudit dhcpclient kernel:system module_request;
 allow dhcpclient self:capability { net_admin net_raw };
-allow dhcpclient self:udp_socket create;
-allow dhcpclient self:netlink_route_socket { write nlmsg_write };
+allow dhcpclient self:netlink_route_socket { ioctl write nlmsg_write };
 allow dhcpclient varrun_file:dir search;
 allow dhcpclient self:packet_socket { create bind write read };
-allowxperm dhcpclient self:udp_socket ioctl { SIOCSIFFLAGS
-                                              SIOCSIFADDR
-                                              SIOCSIFNETMASK
-                                              SIOCSIFMTU
-                                              SIOCGIFHWADDR };
+allowxperm dhcpclient self:netlink_route_socket ioctl { SIOCGIFFLAGS
+                                                        SIOCSIFFLAGS
+                                                        SIOCSIFMTU
+                                                        SIOCGIFINDEX
+                                                        SIOCGIFHWADDR };

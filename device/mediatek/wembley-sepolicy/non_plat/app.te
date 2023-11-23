@@ -1,0 +1,50 @@
+# ==============================================
+# MTK Policy Rule
+# ============
+
+# Date : WK16.33
+# Purpose: Allow to access ged for gralloc_extra functions
+allow appdomain proc_ged:file rw_file_perms;
+allowxperm appdomain proc_ged:file ioctl { proc_ged_ioctls };
+
+# Date : W16.42
+# Operation : Integration
+# Purpose : DRM / DRI GPU driver required
+allow appdomain gpu_device:dir search;
+
+# Date : W17.30
+# Purpose : Allow MDP user access cmdq driver
+allow appdomain mtk_cmdq_device:chr_file {open read ioctl};
+
+# Date : W17.41
+# Operation: SQC
+# Purpose : Allow HWUI to access perfmgr
+allow appdomain proc_perfmgr:dir search;
+allow appdomain proc_perfmgr:file { getattr open read ioctl};
+allowxperm appdomain proc_perfmgr:file ioctl {
+  PERFMGR_FPSGO_QUEUE
+  PERFMGR_FPSGO_DEQUEUE
+  PERFMGR_FPSGO_QUEUE_CONNECT
+  PERFMGR_FPSGO_BQID
+};
+
+# Date : W19.4
+# Purpose : Allow MDP user access mdp driver
+allow appdomain mdp_device:chr_file rw_file_perms;
+allow appdomain mtk_mdp_device:chr_file rw_file_perms;
+allow appdomain sw_sync_device:chr_file rw_file_perms;
+
+# Date : W19.23
+# Operation : Migration
+# Purpose : For platform app com.android.gallery3d
+allow { appdomain -isolated_app } radio_data_file:file rw_file_perms;
+
+# Date : W19.23
+# Operation : Migration
+# Purpose : For app com.tencent.qqpimsecure
+allowxperm appdomain appdomain:fifo_file ioctl SNDCTL_TMR_START;
+
+# Date: 2019/06/17
+# Operation : Migration
+# Purpose : appdomain need get mtk_amslog_prop
+get_prop(appdomain, mtk_amslog_prop)

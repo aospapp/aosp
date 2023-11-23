@@ -429,6 +429,8 @@ extern "C" {
 	void glDrawElementsNullAEMU(GLenum mode, GLsizei count, GLenum type, const GLvoid* indices);
 	void glDrawElementsOffsetNullAEMU(GLenum mode, GLsizei count, GLenum type, GLuint offset);
 	void glDrawElementsDataNullAEMU(GLenum mode, GLsizei count, GLenum type, void* data, GLuint datalen);
+	void glUnmapBufferAsyncAEMU(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer, GLboolean* out_res);
+	void glFlushMappedBufferRangeAEMU2(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer);
 };
 
 #ifndef GET_CONTEXT
@@ -3016,5 +3018,17 @@ void glDrawElementsDataNullAEMU(GLenum mode, GLsizei count, GLenum type, void* d
 {
 	GET_CONTEXT;
 	ctx->glDrawElementsDataNullAEMU(ctx, mode, count, type, data, datalen);
+}
+
+void glUnmapBufferAsyncAEMU(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer, GLboolean* out_res)
+{
+	GET_CONTEXT;
+	ctx->glUnmapBufferAsyncAEMU(ctx, target, offset, length, access, guest_buffer, out_res);
+}
+
+void glFlushMappedBufferRangeAEMU2(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer)
+{
+	GET_CONTEXT;
+	ctx->glFlushMappedBufferRangeAEMU2(ctx, target, offset, length, access, guest_buffer);
 }
 

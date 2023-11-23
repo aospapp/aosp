@@ -26,7 +26,7 @@ BOARD_AVB_ENABLE := true
 BOARD_EXT4_SHARE_DUP_BLOCKS := true
 
 # sepolicy
-BOARD_SEPOLICY_DIRS += device/google/taimen/sepolicy
+BOARD_VENDOR_SEPOLICY_DIRS += device/google/taimen/sepolicy
 
 # Kernel modules
 ifeq (,$(filter-out taimen_kasan, $(TARGET_PRODUCT)))
@@ -91,7 +91,6 @@ TARGET_RECOVERY_UI_MARGIN_HEIGHT := 105
 
 TARGET_RECOVERY_UI_LIB := \
     librecovery_ui_taimen \
-    libbootloader_message \
     libfstab
 
 # VTS DTBO Verification. This kernel cmdline parameter should be added by the bootloader

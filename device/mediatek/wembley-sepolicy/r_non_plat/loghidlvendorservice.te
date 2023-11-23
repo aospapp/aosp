@@ -1,0 +1,14 @@
+# ==============================================
+# Policy File of /system/bin/loghidlvendorservice Executable File
+
+# ==============================================
+# Type Declaration
+# ==============================================
+
+type loghidlvendorservice ,domain;
+type loghidlvendorservice_exec, exec_type, file_type, vendor_file_type;
+typeattribute loghidlvendorservice mlstrustedsubject;
+
+hal_server_domain(loghidlvendorservice, mtk_hal_log)
+init_daemon_domain(loghidlvendorservice)
+# allow loghidlvendorservice self:capability dac_override;

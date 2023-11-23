@@ -1,18 +1,18 @@
   hisilicon)
     TO_EXTRACT="\
-            SYSTEM/lib/libc_secshared.so \
-            SYSTEM/lib/libhiion.so \
-            SYSTEM/lib/libhilog.so \
-            SYSTEM/lib/libOMX.hisi.vdec.core.so \
-            SYSTEM/lib/libOMX.hisi.video.decoder.so \
-            SYSTEM/lib/libOMX_Core.so \
-            SYSTEM/lib/libstagefrighthw.so \
-            SYSTEM/lib64/libc_secshared.so \
-            SYSTEM/lib64/libhiion.so \
-            SYSTEM/lib64/libhilog.so \
-            SYSTEM/lib64/libOMX.hisi.vdec.core.so \
-            SYSTEM/lib64/libOMX.hisi.video.decoder.so \
-            SYSTEM/lib64/libOMX_Core.so \
-            SYSTEM/lib64/libstagefrighthw.so \
+            VENDOR/lib/libc_secshared.so \
+            VENDOR/lib/libhiion.so \
+            VENDOR/lib/libhilog.so \
+            VENDOR/lib/libOMX.hisi.vdec.core.so \
+            VENDOR/lib/libOMX.hisi.video.decoder.so \
+            VENDOR/lib/libOMX_Core.so \
+            VENDOR/lib/libstagefrighthw.so \
+            VENDOR/lib64/libc_secshared.so \
+            VENDOR/lib64/libhiion.so \
+            VENDOR/lib64/libhilog.so \
+            VENDOR/lib64/libOMX.hisi.vdec.core.so \
+            VENDOR/lib64/libOMX.hisi.video.decoder.so \
+            VENDOR/lib64/libOMX_Core.so \
+            VENDOR/lib64/libstagefrighthw.so \
             "
             ;;

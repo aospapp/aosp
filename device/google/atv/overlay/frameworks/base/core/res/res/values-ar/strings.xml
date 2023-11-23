@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"عند تشغيل الاختصار، سيؤدي الضغط على الزرين \"رجوع\" و\"لأسفل\" معًا لمدة 3 ثوانٍ إلى بدء ميزة إمكانية الوصول.\n\n ميزة إمكانية الوصول الحالية:\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n يمكنك تغيير الميزة في الإعدادات &gt; إمكانية الوصول."</string>
+    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"عند تفعيل الاختصار، سيؤدي الضغط على زر الرجوع وزر الاتجاه للأسفل معًا لمدة 3 ثوانٍ إلى بدء ميزة من ميزات \"سهولة الاستخدام\".\n\n ميزة سهولة الاستخدام الحالية:\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n يمكنك تغيير الميزة في الإعدادات &gt; سهولة الاستخدام."</string>
 </resources>

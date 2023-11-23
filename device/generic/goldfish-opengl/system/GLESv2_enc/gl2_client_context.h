@@ -434,6 +434,8 @@ struct gl2_client_context_t {
 	glDrawElementsNullAEMU_client_proc_t glDrawElementsNullAEMU;
 	glDrawElementsOffsetNullAEMU_client_proc_t glDrawElementsOffsetNullAEMU;
 	glDrawElementsDataNullAEMU_client_proc_t glDrawElementsDataNullAEMU;
+	glUnmapBufferAsyncAEMU_client_proc_t glUnmapBufferAsyncAEMU;
+	glFlushMappedBufferRangeAEMU2_client_proc_t glFlushMappedBufferRangeAEMU2;
 	virtual ~gl2_client_context_t() {}
 
 	typedef gl2_client_context_t *CONTEXT_ACCESSOR_TYPE(void);

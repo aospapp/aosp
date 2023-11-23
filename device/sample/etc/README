@@ -16,4 +16,4 @@ A typical APN config looks like this:
 
 For APNs with a matching carrier ID please assign a carrier ID
 AOSP carrier ID assignments can be found at
-https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/master/assets/carrier_list.textpb
+https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/master/assets/latest_carrier_id/carrier_list.textpb

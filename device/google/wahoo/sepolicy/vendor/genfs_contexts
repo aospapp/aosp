@@ -46,7 +46,6 @@ genfscon sysfs /devices/soc/soc:qcom,ipa_fws@1e08000                    u:object
 genfscon sysfs /devices/soc/cce0000.qcom,venus                          u:object_r:sysfs_msm_subsys:s0
 genfscon sysfs /devices/soc/0.qcom,rmtfs_sharedmem                      u:object_r:sysfs_rmtfs:s0
 genfscon sysfs /devices/soc/soc:fp_fpc1020                              u:object_r:sysfs_fingerprint:s0
-genfscon sysfs /devices/virtual/thermal                                 u:object_r:sysfs_thermal:s0
 genfscon sysfs /devices/virtual/wahoo_laser                             u:object_r:sysfs_laser:s0
 genfscon sysfs /module/msm_thermal                                      u:object_r:sysfs_thermal:s0
 genfscon sysfs /module/printk/parameters/console_suspend                u:object_r:sysfs_console_suspend:s0
@@ -63,6 +62,7 @@ genfscon sysfs /devices/soc/800f000.qcom,spmi/spmi-0/spmi0-02/800f000.qcom,spmi:
 genfscon sysfs /devices/soc/800f000.qcom,spmi/spmi-0/spmi0-02/800f000.qcom,spmi:qcom,pmi8998@2:qcom,qpnp-smb2/power_supply                     u:object_r:sysfs_batteryinfo:s0
 genfscon sysfs /bus/msm_subsys                                          u:object_r:sysfs_msm_subsys:s0
 genfscon sysfs /module/subsystem_restart                                u:object_r:sysfs_msm_subsys_restart:s0
+genfscon sysfs /module/wlan/parameters/con_mode                         u:object_r:sysfs_wifi_conmode:s0
 genfscon sysfs /kernel/boot_adsp/boot                                   u:object_r:sysfs_msm_subsys:s0
 genfscon sysfs /kernel/boot_slpi/boot                                   u:object_r:sysfs_msm_subsys:s0
 genfscon sysfs /kernel/wifi/wlan                                        u:object_r:sysfs_msm_wlan:s0

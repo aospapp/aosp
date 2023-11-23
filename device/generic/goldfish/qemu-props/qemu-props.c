@@ -35,7 +35,10 @@
 
 #include <cutils/properties.h>
 #include <unistd.h>
-#include "qemud.h"
+#include <qemu_pipe_bp.h>
+#include <qemud.h>
+#include <string.h>
+#include <stdio.h>
 
 /* Name of the qemud service we want to connect to.
  */
@@ -91,7 +94,7 @@ int  main(void)
         char* q;
         char  temp[BUFF_SIZE];
         char  vendortemp[BUFF_SIZE];
-        int   len = qemud_channel_recv(qemud_fd, temp, sizeof temp - 1);
+        int   len = qemud_channel_recv(qemud_fd, temp, sizeof(temp) - 1);
 
         /* lone NUL-byte signals end of properties */
         if (len < 0 || len > BUFF_SIZE-1 || temp[0] == '\0')
@@ -172,7 +175,7 @@ void notifyHostBootComplete() {
 
 void sendMessage(const char* mesg) {
    if (s_QemuMiscPipe < 0) {
-        s_QemuMiscPipe = qemu_pipe_open(QEMU_MISC_PIPE);
+        s_QemuMiscPipe = qemu_pipe_open_ns(NULL, QEMU_MISC_PIPE, O_RDWR);
         if (s_QemuMiscPipe < 0) {
             ALOGE("failed to open %s", QEMU_MISC_PIPE);
             return;
@@ -181,10 +184,10 @@ void sendMessage(const char* mesg) {
     char set[64];
     snprintf(set, sizeof(set), "%s", mesg);
     int pipe_command_length = strlen(set)+1; //including trailing '\0'
-    WriteFully(s_QemuMiscPipe, &pipe_command_length, sizeof(pipe_command_length));
-    WriteFully(s_QemuMiscPipe, set, pipe_command_length);
-    ReadFully(s_QemuMiscPipe, &pipe_command_length, sizeof(pipe_command_length));
+    qemu_pipe_write_fully(s_QemuMiscPipe, &pipe_command_length, sizeof(pipe_command_length));
+    qemu_pipe_write_fully(s_QemuMiscPipe, set, pipe_command_length);
+    qemu_pipe_read_fully(s_QemuMiscPipe, &pipe_command_length, sizeof(pipe_command_length));
     if (pipe_command_length > (int)(sizeof(set)) || pipe_command_length <= 0)
         return;
-    ReadFully(s_QemuMiscPipe, set, pipe_command_length);
+    qemu_pipe_read_fully(s_QemuMiscPipe, set, pipe_command_length);
 }

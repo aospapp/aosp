@@ -139,6 +139,7 @@ public:
         GLsizeiptr size;
         GLuint buffer;
         GLuint divisor;
+        GLint vertexAttribLoc;
     };
 
     typedef std::vector<VertexAttribState> VertexAttribStateVector;
@@ -221,6 +222,7 @@ public:
     const BufferBinding& getCurrAttributeBindingInfo(int attribindex);
     void setVertexAttribBinding(int attribindex, int bindingindex);
     void setVertexAttribFormat(int location, int size, GLenum type, GLboolean normalized, GLuint reloffset, bool isInt = false);
+    void getVBOUsage(bool* hasClientArrays, bool* hasVBOs);
     const VertexAttribState& getState(int location);
     const VertexAttribState& getStateAndEnableDirty(int location, bool *enableChanged);
     void updateEnableDirtyArrayForDraw();
@@ -251,7 +253,9 @@ public:
     size_t pixelDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack) const;
     size_t pboNeededDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack) const;
     size_t clearBufferNumElts(GLenum buffer) const;
-    void getPackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const;
+    void getPackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* bpp, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const;
+    void getUnpackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* bpp, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const;
+    void getUnpackingOffsets3D(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int* bpp, int* startOffset, int* pixelRowSize, int* totalRowSize, int* pixelImageSize, int* totalImageSize, int* skipRows, int* skipImages) const;
 
     void setCurrentProgram(GLint program) { m_currentProgram = program; }
     void setCurrentShaderProgram(GLint program) { m_currentShaderProgram = program; }
@@ -449,6 +453,12 @@ private:
     GLuint m_arrayBuffer_lastEncode;
     VAOStateMap m_vaoMap;
     VAOStateRef m_currVaoState;
+
+    uint16_t m_attribEnableCache;
+    uint16_t m_vaoAttribBindingCacheInvalid;
+    uint16_t m_vaoAttribBindingHasClientArrayCache;
+    uint16_t m_vaoAttribBindingHasVboCache;
+    uint8_t m_noClientArraysCache;
 
     // Other buffer id's, other targets
     GLuint m_copyReadBuffer;

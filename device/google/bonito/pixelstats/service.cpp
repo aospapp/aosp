@@ -41,6 +41,7 @@ const struct SysfsCollector::SysfsPaths sysfs_paths = {
         "c440000.qcom,spmi:qcom,pm660l@3:analog-codec@f000/codec_state",
     .Codec1Path =
         "/sys/devices/platform/soc/a88000.i2c/i2c-0/0-0057/codec_state",
+    .F2fsStatsPath = "/sys/fs/f2fs/",
 };
 
 int main() {

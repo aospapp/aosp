@@ -27,40 +27,14 @@
 #include <vector>
 
 /*
- * The NV21 format is a YUV format with an 8-bit Y-component and the U and V
+ * The YU12 format is a YUV format with an 8-bit Y-component and the U and V
  * components are stored as 8 bits each but they are shared between a block of
  * 2x2 pixels. So when calculating bits per pixel the 16 bits of U and V are
  * shared between 4 pixels leading to 4 bits of U and V per pixel. Together
  * with the 8 bits of Y this gives us 12 bits per pixel..
  *
- * The components are not grouped by pixels but separated into one Y-plane and
- * one interleaved U and V-plane. The first half of the byte sequence is all of
- * the Y data laid out in a linear fashion. After that the interleaved U and V-
- * plane starts with one byte of V followed by one byte of U followed by one
- * byte of V and so on. Each byte of U or V is associated with a 2x2 pixel block
- * in a linear fashion.
- *
- * For an 8 by 4 pixel image the layout would be:
- *
- * +-----+-----+-----+-----+-----+-----+-----+-----+
- * | Y0  | Y1  | Y2  | Y3  | Y4  | Y5  | Y6  | Y7  |
- * +-----+-----+-----+-----+-----+-----+-----+-----+
- * | Y8  | Y9  | Y10 | Y11 | Y12 | Y13 | Y14 | Y15 |
- * +-----+-----+-----+-----+-----+-----+-----+-----+
- * | Y16 | Y17 | Y18 | Y19 | Y20 | Y21 | Y22 | Y23 |
- * +-----+-----+-----+-----+-----+-----+-----+-----+
- * | Y24 | Y25 | Y26 | Y27 | Y28 | Y29 | Y30 | Y31 |
- * +-----+-----+-----+-----+-----+-----+-----+-----+
- * | V0  | U0  | V1  | U1  | V2  | U2  | V3  | U3  |
- * +-----+-----+-----+-----+-----+-----+-----+-----+
- * | V4  | U4  | V5  | U5  | V6  | U6  | V7  | U7  |
- * +-----+-----+-----+-----+-----+-----+-----+-----+
- *
- * In this image V0 and U0 are the V and U components for the 2x2 block of
- * pixels whose Y components are Y0, Y1, Y8 and Y9. V1 and U1 are matched with
- * the Y components Y2, Y3, Y10, Y11, and so on for that row. For the next row
- * of V and U the V4 and U4 components would be paired with Y16, Y17, Y24 and
- * Y25.
+ * The components are not grouped by pixels but separated into one Y-plane, one
+ * U-plane and one V-plane.
  */
 
 namespace android {
@@ -69,20 +43,9 @@ static bool createRawThumbnail(const unsigned char* sourceImage,
                                int sourceWidth, int sourceHeight,
                                int thumbnailWidth, int thumbnailHeight,
                                std::vector<unsigned char>* thumbnail) {
-    // Deinterleave the U and V planes into separate planes, this is because
-    // libyuv requires the planes to be separate when scaling
-    const size_t sourceUVPlaneSize = (sourceWidth * sourceHeight) / 4;
-    // Put both U and V planes in one buffer, one after the other, to reduce
-    // memory fragmentation and number of allocations
-    std::vector<unsigned char> sourcePlanes(sourceUVPlaneSize * 2);
     const unsigned char* ySourcePlane = sourceImage;
-    unsigned char* uSourcePlane = &sourcePlanes[0];
-    unsigned char* vSourcePlane = &sourcePlanes[sourceUVPlaneSize];
-
-    for (size_t i = 0; i < sourceUVPlaneSize; ++i) {
-        vSourcePlane[i] = sourceImage[sourceWidth * sourceHeight + i * 2 + 0];
-        uSourcePlane[i] = sourceImage[sourceWidth * sourceHeight + i * 2 + 1];
-    }
+    const unsigned char* uSourcePlane = sourceImage + sourceWidth * sourceHeight;
+    const unsigned char* vSourcePlane = uSourcePlane + sourceWidth * sourceHeight / 4;
 
     // Create enough space in the output vector for the result
     thumbnail->resize((thumbnailWidth * thumbnailHeight * 12) / 8);
@@ -92,8 +55,8 @@ static bool createRawThumbnail(const unsigned char* sourceImage,
     const size_t destUVPlaneSize = (thumbnailWidth * thumbnailHeight) / 4;
     std::vector<unsigned char> destPlanes(destUVPlaneSize * 2);
     unsigned char* yDestPlane = &(*thumbnail)[0];
-    unsigned char* uDestPlane = &destPlanes[0];
-    unsigned char* vDestPlane = &destPlanes[destUVPlaneSize];
+    unsigned char* uDestPlane = yDestPlane + thumbnailWidth * thumbnailHeight;
+    unsigned char* vDestPlane = uDestPlane + thumbnailWidth * thumbnailHeight / 4;
 
     // The strides for the U and V planes are half the width because the U and V
     // components are common to 2x2 pixel blocks
@@ -110,14 +73,6 @@ static bool createRawThumbnail(const unsigned char* sourceImage,
         ALOGE("Unable to create thumbnail, downscaling failed with error: %d",
               result);
         return false;
-    }
-
-    // Now we need to interleave the downscaled U and V planes into the
-    // output buffer to make it NV21 encoded
-    const size_t uvPlanesOffset = thumbnailWidth * thumbnailHeight;
-    for (size_t i = 0; i < destUVPlaneSize; ++i) {
-        (*thumbnail)[uvPlanesOffset + i * 2 + 0] = vDestPlane[i];
-        (*thumbnail)[uvPlanesOffset + i * 2 + 1] = uDestPlane[i];
     }
 
     return true;

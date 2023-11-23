@@ -505,28 +505,6 @@ void overTempCalSetTemperature(struct OverTempCal *over_temp_cal,
                                float temperature_celsius);
 
 /*
- * Computes the maximum absolute error between the 'model_data' estimates and
- * the estimate determined by the input model parameters.
- *   max_error (over all i)
- *     |model_data[i]->offset_xyz -
- *       getCompensatedOffset(model_data[i]->offset_temp_celsius,
- *         temp_sensitivity, sensor_intercept)|
- *
- * INPUTS:
- *   over_temp_cal:    Over-temp data structure.
- *   temp_sensitivity: Model temperature sensitivity to test (array).
- *   sensor_intercept: Model intercept to test (array).
- * OUTPUTS:
- *   max_error:        Maximum absolute error for the candidate model (array).
- *
- * NOTE 1: Arrays are all 3-dimensional with indices: 0=x, 1=y, 2=z.
- * NOTE 2: This function is provided for testing purposes.
- */
-void overTempGetModelError(const struct OverTempCal *over_temp_cal,
-                           const float *temp_sensitivity,
-                           const float *sensor_intercept, float *max_error);
-
-/*
  * Defines an element in the weighting function that is used to control the
  * fitting behavior of the simple linear model regression used in this module.
  * The total number of weighting levels that define this functionality is set by
@@ -571,6 +549,28 @@ void overTempCalDebugDescriptors(struct OverTempCal *over_temp_cal,
                                  const char *otc_sensor_tag,
                                  const char *otc_unit_tag,
                                  float otc_unit_conversion);
+
+/*
+ * Computes the maximum absolute error between the 'model_data' estimates and
+ * the estimate determined by the input model parameters.
+ *   max_error (over all i)
+ *     |model_data[i]->offset_xyz -
+ *       getCompensatedOffset(model_data[i]->offset_temp_celsius,
+ *         temp_sensitivity, sensor_intercept)|
+ *
+ * INPUTS:
+ *   over_temp_cal:    Over-temp data structure.
+ *   temp_sensitivity: Model temperature sensitivity to test (array).
+ *   sensor_intercept: Model intercept to test (array).
+ * OUTPUTS:
+ *   max_error:        Maximum absolute error for the candidate model (array).
+ *
+ * NOTE 1: Arrays are all 3-dimensional with indices: 0=x, 1=y, 2=z.
+ * NOTE 2: This function is provided for testing purposes.
+ */
+void overTempGetModelError(const struct OverTempCal *over_temp_cal,
+                           const float *temp_sensitivity,
+                           const float *sensor_intercept, float *max_error);
 #endif  // OVERTEMPCAL_DBG_ENABLED
 
 #ifdef __cplusplus

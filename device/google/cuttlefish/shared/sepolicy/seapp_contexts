@@ -1,2 +1,0 @@
-# GceService app
-user=system seinfo=platform name=com.android.google.gce.gceservice domain=gceservice type=app_data_file

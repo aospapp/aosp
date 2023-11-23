@@ -1,0 +1,27 @@
+#!/bin/sh
+
+fastboot flash partition:0 gpt_both0.bin
+fastboot flash partition:1 gpt_both1.bin
+fastboot flash partition:2 gpt_both2.bin
+fastboot flash partition:3 gpt_both3.bin
+fastboot flash partition:4 gpt_both4.bin
+fastboot flash partition:5 gpt_both5.bin
+
+fastboot flash ImageFv_a imagefv.elf
+fastboot flash aop_a aop.mbn
+fastboot flash bluetooth_a BTFM.bin
+fastboot flash cmnlib64_a cmnlib64.mbn
+fastboot flash cmnlib_a cmnlib.mbn
+fastboot erase ddr
+fastboot flash devcfg_a devcfg.mbn
+fastboot flash dsp_a dspso.bin
+fastboot flash hyp_a hyp.mbn
+fastboot flash keymaster_a keymaster64.mbn
+#fastboot flash logfs logfs_ufs_8mb.bin
+#fastboot flash modem_a NON-HLOS.bin
+fastboot flash qupfw_a qupv3fw.elf
+fastboot flash storsec_a storsec.mbn
+fastboot flash tz_a tz.mbn
+fastboot flash xbl_a xbl.elf
+fastboot flash xbl_config_a xbl_config.elf
+fastboot flash abl_a abl.elf

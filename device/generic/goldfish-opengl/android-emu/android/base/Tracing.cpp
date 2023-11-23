@@ -36,7 +36,9 @@ void ScopedTrace::endTraceImpl(const char*) {
 
 #elif __Fuchsia__
 
-#include <trace/event.h>
+#ifndef FUCHSIA_NO_TRACE
+#include <lib/trace/event.h>
+#endif
 
 #define VK_TRACE_TAG "gfx"
 
@@ -44,11 +46,15 @@ namespace android {
 namespace base {
 
 void ScopedTrace::beginTraceImpl(const char* name) {
+#ifndef FUCHSIA_NO_TRACE
     TRACE_DURATION_BEGIN(VK_TRACE_TAG, name);
+#endif
 }
 
 void ScopedTrace::endTraceImpl(const char* name) {
+#ifndef FUCHSIA_NO_TRACE
     TRACE_DURATION_END(VK_TRACE_TAG, name);
+#endif
 }
 
 } // namespace base

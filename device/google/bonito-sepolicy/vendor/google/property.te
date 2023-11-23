@@ -7,3 +7,6 @@ type vendor_fingerprint_prop, property_type;
 
 type vendor_build_type_prop, property_type;
 type vendor_modem_prop, property_type;
+
+# hal_health
+type vendor_battery_defender_prop, property_type;

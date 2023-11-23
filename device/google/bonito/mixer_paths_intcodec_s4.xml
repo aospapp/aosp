@@ -1858,6 +1858,8 @@
 
     <path name="voice-rec-dmic-ef">
         <path name="dmic-endfire" />
+        <ctl name="ADC1 Capture Volume" value="53"/>
+        <ctl name="ADC2 Capture Volume" value="53"/>
     </path>
 
     <path name="voice-rec-dmic-ef-fluence">
@@ -2072,11 +2074,11 @@
     </path>
 
     <path name="mmap-playback">
-        <ctl name="SEC_MI2S_RX Audio Mixer MultiMedia16" value="1" />
+        <ctl name="SEC_TDM_RX_0 Audio Mixer MultiMedia16" value="1" />
     </path>
 
     <path name="mmap-playback handset">
-        <ctl name="SEC_MI2S_RX Audio Mixer MultiMedia16" value="1" />
+        <ctl name="SEC_TDM_RX_0 Audio Mixer MultiMedia16" value="1" />
     </path>
 
     <path name="mmap-playback speaker">

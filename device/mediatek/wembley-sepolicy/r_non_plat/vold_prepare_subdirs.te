@@ -1,0 +1,10 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# volume manager
+
+# Date : WK18.42
+# Operation : Migration
+# Purpose : kernel-4.14 migration
+allow vold_prepare_subdirs vendor_configs_file:file map;

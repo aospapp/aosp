@@ -22,6 +22,8 @@
 // Structure similar to
 // https://github.com/mesa3d/mesa/blob/master/src/intel/vulkan/anv_android.c
 
+class Gralloc;
+
 namespace goldfish_vk {
 
 uint64_t
@@ -30,6 +32,7 @@ getAndroidHardwareBufferUsageFromVkUsage(
     const VkImageUsageFlags vk_usage);
 
 VkResult getAndroidHardwareBufferPropertiesANDROID(
+    Gralloc* grallocHelper,
     const HostVisibleMemoryVirtualizationInfo* hostMemVirtInfo,
     VkDevice device,
     const AHardwareBuffer* buffer,
@@ -39,6 +42,7 @@ VkResult getMemoryAndroidHardwareBufferANDROID(
     struct AHardwareBuffer **pBuffer);
 
 VkResult importAndroidHardwareBuffer(
+    Gralloc* grallocHelper,
     const VkImportAndroidHardwareBufferInfoANDROID* info,
     struct AHardwareBuffer **importOut);
 

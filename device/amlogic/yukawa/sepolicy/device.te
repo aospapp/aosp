@@ -1,0 +1,5 @@
+type cec_device, dev_type;
+
+allow domain cec_device:chr_file rw_file_perms;
+
+type led_device, dev_type;

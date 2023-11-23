@@ -171,7 +171,10 @@ bool eglDisplay::initialize(EGLClient_eglInterface *eglIface)
 
         uint32_t nInts = m_numConfigAttribs * (m_numConfigs + 1);
         EGLint tmp_buf[nInts];
+        uint32_t configCount = nInts - m_numConfigAttribs;
+
         m_configs = new EGLint[nInts-m_numConfigAttribs];
+
         if (!m_configs) {
             pthread_mutex_unlock(&m_lock);
             return false;
@@ -204,7 +207,7 @@ bool eglDisplay::initialize(EGLClient_eglInterface *eglIface)
 void eglDisplay::processConfigs()
 {
     for (intptr_t i=0; i<m_numConfigs; i++) {
-        EGLConfig config = (EGLConfig)i;
+        EGLConfig config = getConfigAtIndex(i);
         PixelFormat format;
         if (getConfigNativePixelFormat(config, &format)) {
             setConfigAttrib(config, EGL_NATIVE_VISUAL_ID, format);
@@ -331,23 +334,6 @@ static char *queryHostEGLString(EGLint name)
     return NULL;
 }
 
-static bool findExtInList(const char* token, int tokenlen, const char* list)
-{
-    const char* p = list;
-    while (*p != '\0') {
-        const char* q = strchr(p, ' ');
-        if (q == NULL) {
-            /* should not happen, list must be space-terminated */
-            break;
-        }
-        if (tokenlen == (q - p) && !memcmp(token, p, tokenlen)) {
-            return true;  /* found it */
-        }
-        p = q+1;
-    }
-    return false;  /* not found */
-}
-
 static char *buildExtensionString()
 {
     //Query host extension string
@@ -460,12 +446,28 @@ EGLBoolean eglDisplay::getAttribValue(EGLConfig config, EGLint attribIdx, EGLint
         ALOGE("[%s] Bad attribute idx\n", __FUNCTION__);
         return EGL_FALSE;
     }
-    *value = *(m_configs + (intptr_t)config*m_numConfigAttribs + attribIdx);
+    *value = *(m_configs + (intptr_t)(getIndexOfConfig(config))*m_numConfigAttribs + attribIdx);
     return EGL_TRUE;
 }
 
 #define EGL_COLOR_COMPONENT_TYPE_EXT 0x3339
 #define EGL_COLOR_COMPONENT_TYPE_FIXED_EXT 0x333A
+
+EGLConfig eglDisplay::getConfigAtIndex(uint32_t index) const {
+    uintptr_t asPtr = (uintptr_t)index;
+    return (EGLConfig)(asPtr + 1);
+}
+
+uint32_t eglDisplay::getIndexOfConfig(EGLConfig config) const {
+    uintptr_t asInteger = (uintptr_t)config;
+    return (uint32_t)(asInteger - 1);
+}
+
+bool eglDisplay::isValidConfig(EGLConfig cfg) const {
+    uint32_t index = getIndexOfConfig(cfg);
+    intptr_t asInt = (intptr_t)index;
+    return !(asInt < 0 || asInt > m_numConfigs);
+}
 
 EGLBoolean eglDisplay::getConfigAttrib(EGLConfig config, EGLint attrib, EGLint * value)
 {
@@ -501,10 +503,10 @@ EGLBoolean eglDisplay::getConfigAttrib(EGLConfig config, EGLint attrib, EGLint *
 void eglDisplay::dumpConfig(EGLConfig config)
 {
     EGLint value = 0;
-    DBG("^^^^^^^^^^ dumpConfig %d ^^^^^^^^^^^^^^^^^^", (int)config);
+    DBG("^^^^^^^^^^ dumpConfig %p ^^^^^^^^^^^^^^^^^^", config);
     for (int i=0; i<m_numConfigAttribs; i++) {
         getAttribValue(config, i, &value);
-        DBG("{%d}[%d] %d\n", (int)config, i, value);
+        DBG("Config %p: {%u}[%d] %d\n", config, getIndexOfConfig(config), i, value);
     }
 }
 
@@ -518,7 +520,7 @@ EGLBoolean eglDisplay::setAttribValue(EGLConfig config, EGLint attribIdx, EGLint
         ALOGE("[%s] Bad attribute idx\n", __FUNCTION__);
         return EGL_FALSE;
     }
-    *(m_configs + (intptr_t)config*m_numConfigAttribs + attribIdx) = value;
+    *(m_configs + (intptr_t)(getIndexOfConfig(config))*m_numConfigAttribs + attribIdx) = value;
     return EGL_TRUE;
 }
 

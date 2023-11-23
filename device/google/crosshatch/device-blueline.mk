@@ -20,6 +20,15 @@ include device/google/crosshatch/device-common.mk
 
 DEVICE_PACKAGE_OVERLAYS += device/google/crosshatch/blueline/overlay
 
+# SKU specific RROs
+PRODUCT_PACKAGES += \
+    SettingsOverlayG013A \
+    SettingsOverlayG013B \
+
+# Setup wizard overlay packages for ActiveEdge
+PRODUCT_PACKAGES += \
+    PixelSetupWizardOverlayActiveEdge \
+
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/init.insmod.blueline.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod.cfg
 
@@ -30,6 +39,15 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio_platform_info_tavil_b1.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_platform_info_tavil_b1.xml
 
 PRODUCT_COPY_FILES += \
-    device/google/crosshatch/nfc/libnfc-nxp.blueline.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf
+    device/google/crosshatch/nfc/libnfc-nxp.blueline.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf \
+    device/google/crosshatch/nfc/libnfc-nxp.blueline.uicc.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp-G013A.conf \
+    device/google/crosshatch/nfc/libnfc-nxp.blueline.ese.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp-G013B.conf
 
 PRODUCT_PRODUCT_PROPERTIES += ro.com.google.ime.height_ratio=1.2
+
+# Enable iorapd perfetto tracing for app starts
+PRODUCT_PRODUCT_PROPERTIES += \
+    iorapd.perfetto.enable=true
+# Enable iorapd readahead for app starts
+PRODUCT_PRODUCT_PROPERTIES += \
+    iorapd.readahead.enable=true

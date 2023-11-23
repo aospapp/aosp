@@ -41,6 +41,13 @@ void GLClientState::init() {
 
     m_arrayBuffer = 0;
     m_arrayBuffer_lastEncode = 0;
+
+    m_attribEnableCache = 0;
+    m_vaoAttribBindingCacheInvalid = 0xffff;
+    m_vaoAttribBindingHasClientArrayCache = 0;
+    m_vaoAttribBindingHasVboCache = 0;
+    m_noClientArraysCache = 0;
+
     m_max_vertex_attrib_bindings = m_nLocations;
     addVertexArrayObject(0);
     setVertexArrayObject(0);
@@ -130,6 +137,12 @@ void GLClientState::enable(int location, int state)
 {
     m_currVaoState[location].enableDirty |= (state != m_currVaoState[location].enabled);
     m_currVaoState[location].enabled = state;
+    if (state) {
+        m_attribEnableCache |= (1 << location);
+        m_noClientArraysCache = 0;
+    } else {
+        m_attribEnableCache &= ~(1 << location);
+    }
 }
 
 void GLClientState::setVertexAttribState(int location, int size, GLenum type, GLboolean normalized, GLsizei stride, const void *data, bool isInt)
@@ -163,6 +176,9 @@ const GLClientState::BufferBinding& GLClientState::getCurrAttributeBindingInfo(i
 
 void GLClientState::setVertexAttribBinding(int attribindex, int bindingindex) {
     m_currVaoState[attribindex].bindingindex = bindingindex;
+    m_currVaoState.bufferBinding(bindingindex).vertexAttribLoc = attribindex;
+    m_vaoAttribBindingCacheInvalid |= (1 << attribindex);
+    m_noClientArraysCache = 0;
 }
 
 void GLClientState::setVertexAttribFormat(int location, int size, GLenum type, GLboolean normalized, GLuint reloffset, bool isInt) {
@@ -261,19 +277,74 @@ void GLClientState::setVertexArrayObject(GLuint name) {
 
     m_currVaoState =
         VAOStateRef(m_vaoMap.find(name));
-    ALOGD("%s: set vao to %u (%u) %u %u", __FUNCTION__,
-            name,
-            m_currVaoState.vaoId(),
-            m_arrayBuffer,
-            m_currVaoState.iboId());
 }
 
 bool GLClientState::isVertexArrayObject(GLuint vao) const {
     return m_vaoMap.find(vao) != m_vaoMap.end();
 }
 
-const GLClientState::VertexAttribState& GLClientState::getState(int location)
-{
+void GLClientState::getVBOUsage(bool* hasClientArrays, bool* hasVBOs) {
+    uint8_t todo_count = 0;
+    uint8_t todo[CODEC_MAX_VERTEX_ATTRIBUTES];
+
+    if (m_noClientArraysCache) {
+        *hasClientArrays = false;
+        *hasVBOs = true;
+        return;
+    }
+
+    for (int i = 0; i < CODEC_MAX_VERTEX_ATTRIBUTES; i++) {
+        if ((1 << i) & (m_attribEnableCache)) {
+            if (!((1 << i) & m_vaoAttribBindingCacheInvalid)) {
+                if ((1 << i) & m_vaoAttribBindingHasClientArrayCache) {
+                    *hasClientArrays = true;
+                }
+                if ((1 << i) & m_vaoAttribBindingHasVboCache) {
+                    *hasVBOs = true;
+                }
+                if (*hasClientArrays && *hasVBOs) return;
+            } else {
+                todo[todo_count] = i;
+                ++todo_count;
+            }
+        }
+    }
+
+    if (todo_count == 0 &&
+        !(*hasClientArrays) &&
+        *hasVBOs) {
+        m_noClientArraysCache = 1;
+    }
+
+    for (int k = 0; k < todo_count; ++k) {
+        int i = todo[k];
+        const GLClientState::BufferBinding& curr_binding =
+            m_currVaoState.bufferBindings_const()[
+                m_currVaoState[i].bindingindex];
+        GLuint bufferObject = curr_binding.buffer;
+        if (bufferObject == 0 && curr_binding.offset && hasClientArrays) {
+            *hasClientArrays = true;
+            m_vaoAttribBindingHasClientArrayCache |= (1 << i);
+        } else {
+            m_vaoAttribBindingHasClientArrayCache &= ~(1 << i);
+        }
+        if (bufferObject != 0 && hasVBOs) {
+            *hasVBOs = true;
+            m_vaoAttribBindingHasVboCache |= (1 << i);
+        } else {
+            m_vaoAttribBindingHasVboCache &= ~(1 << i);
+        }
+        m_vaoAttribBindingCacheInvalid &= ~(1 << i);
+        if (*hasClientArrays && *hasVBOs) return;
+    }
+
+    if (!(*hasClientArrays) &&
+        *hasVBOs) {
+        m_noClientArraysCache = 1;
+    }
+}
+
+const GLClientState::VertexAttribState& GLClientState::getState(int location) {
     return m_currVaoState[location];
 }
 
@@ -399,6 +470,8 @@ void GLClientState::unBindBuffer(GLuint id) {
     sClearIndexedBufferBinding(id, m_indexedAtomicCounterBuffers);
     sClearIndexedBufferBinding(id, m_indexedShaderStorageBuffers);
     sClearIndexedBufferBinding(id, m_currVaoState.bufferBindings());
+    m_vaoAttribBindingCacheInvalid = 0xffff;
+    m_noClientArraysCache = 0;
 }
 
 int GLClientState::bindBuffer(GLenum target, GLuint id)
@@ -479,6 +552,7 @@ void GLClientState::bindIndexedBuffer(GLenum target, GLuint index, GLuint buffer
         m_currVaoState.bufferBinding(index).size = size;
         m_currVaoState.bufferBinding(index).stride = stride;
         m_currVaoState.bufferBinding(index).effectiveStride = effectiveStride;
+        m_vaoAttribBindingCacheInvalid |= (1 << m_currVaoState.bufferBinding(index).vertexAttribLoc);
         return;
     }
 }
@@ -659,7 +733,7 @@ void GLClientState::getClientStatePointer(GLenum pname, GLvoid** params)
         }
     }
     if (which_state != -1)
-        *params = getState(which_state).data;
+        *params = m_currVaoState[which_state].data;
 }
 
 int GLClientState::setPixelStore(GLenum param, GLint value)
@@ -778,7 +852,7 @@ size_t GLClientState::clearBufferNumElts(GLenum buffer) const
     return 1;
 }
 
-void GLClientState::getPackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const
+void GLClientState::getPackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* bpp, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const
 {
     if (width <= 0 || height <= 0) {
         *startOffset = 0;
@@ -794,11 +868,65 @@ void GLClientState::getPackingOffsets2D(GLsizei width, GLsizei height, GLenum fo
             m_pixelStore.pack_row_length,
             m_pixelStore.pack_skip_pixels,
             m_pixelStore.pack_skip_rows,
+            bpp,
             startOffset,
             pixelRowSize,
             totalRowSize);
 
     *skipRows = m_pixelStore.pack_skip_rows;
+}
+
+void GLClientState::getUnpackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* bpp, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const
+{
+    if (width <= 0 || height <= 0) {
+        *startOffset = 0;
+        *pixelRowSize = 0;
+        *totalRowSize = 0;
+        return;
+    }
+
+    GLESTextureUtils::computePackingOffsets2D(
+            width, height,
+            format, type,
+            m_pixelStore.unpack_alignment,
+            m_pixelStore.unpack_row_length,
+            m_pixelStore.unpack_skip_pixels,
+            m_pixelStore.unpack_skip_rows,
+            bpp,
+            startOffset,
+            pixelRowSize,
+            totalRowSize);
+
+    *skipRows = m_pixelStore.unpack_skip_rows;
+}
+
+void GLClientState::getUnpackingOffsets3D(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int* bpp, int* startOffset, int* pixelRowSize, int* totalRowSize, int* pixelImageSize, int* totalImageSize, int* skipRows, int* skipImages) const
+{
+    if (width <= 0 || height <= 0) {
+        *startOffset = 0;
+        *pixelRowSize = 0;
+        *totalRowSize = 0;
+        return;
+    }
+
+    GLESTextureUtils::computePackingOffsets3D(
+            width, height, depth,
+            format, type,
+            m_pixelStore.unpack_alignment,
+            m_pixelStore.unpack_row_length,
+            m_pixelStore.unpack_image_height,
+            m_pixelStore.unpack_skip_pixels,
+            m_pixelStore.unpack_skip_rows,
+            m_pixelStore.unpack_skip_images,
+            bpp,
+            startOffset,
+            pixelRowSize,
+            totalRowSize,
+            pixelImageSize,
+            totalImageSize);
+
+    *skipRows = m_pixelStore.unpack_skip_rows;
+    *skipImages = m_pixelStore.unpack_skip_images;
 }
 
 void GLClientState::setNumActiveUniformsInUniformBlock(GLuint program, GLuint uniformBlockIndex, GLint numActiveUniforms) {
@@ -956,6 +1084,8 @@ GLenum GLClientState::bindTexture(GLenum target, GLuint texture,
 }
 
 void GLClientState::setBoundEGLImage(GLenum target, GLeglImageOES image) {
+    (void)image;
+
     GLuint texture = getBoundTexture(target);
     TextureRec* texrec = getTextureRec(texture);
     if (!texrec) return;

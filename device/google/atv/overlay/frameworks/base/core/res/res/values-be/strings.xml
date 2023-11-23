@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"Калі камбінацыя хуткага доступу ўключана, вы можаце націснуць кнопкі \"Назад\" і \"Уніз\" і ўтрымліваць іх 3 секунды, каб уключыць функцыю спецыяльных магчымасцей.\n\n Бягучая функцыя спецыяльных магчымасцей:\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n Вы можаце змяніць гэту функцыю ў меню \"Налады &gt; Спецыяльныя магчымасці\"."</string>
+    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"Калі гэта функцыя ўключана, вы можаце актываваць спецыяльныя магчымасці, утрымліваючы кнопкі \"Назад\" і \"Уніз\" на працягу 3 секунд.\n\n Бягучая функцыя спецыяльных магчымасцей:\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n Вы можаце змяніць гэту функцыю ў меню \"Налады &gt; Спецыяльныя магчымасці\"."</string>
 </resources>

@@ -10,9 +10,11 @@ LOCAL_SRC_FILES := \
     gl2_client_context.cpp \
     gl2_enc.cpp \
     gl2_entry.cpp \
-    ../enc_common/IOStream_common.cpp \
+    IOStream2.cpp \
 
 LOCAL_CFLAGS += -DLOG_TAG=\"emuglGLESv2_enc\"
+LOCAL_CFLAGS += -Wno-unused-private-field
+
 
 $(call emugl-export,C_INCLUDES,$(LOCAL_PATH))
 $(call emugl-import,libOpenglCodecCommon$(GOLDFISH_OPENGL_LIB_SUFFIX))

@@ -385,6 +385,8 @@ public:
      */
     status_t queryStart(uint32_t pixel_format, int width, int height);
 
+    status_t queryStart();
+
     /* Queries camera to stop capturing video.
      * Return:
      *  NO_ERROR on success, or an appropriate error status on failure.
@@ -418,6 +420,16 @@ public:
     /****************************************************************************
      * Names of the queries available for the emulated camera.
      ***************************************************************************/
+
+    status_t queryFrame(int wdith,
+                        int height,
+                        uint32_t pixel_format,
+                        uint64_t offset,
+                        float r_scale,
+                        float g_scale,
+                        float b_scale,
+                        float exposure_comp,
+                        int64_t* frame_time);
 
 private:
     /* Connect to the camera. */

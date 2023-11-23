@@ -39,10 +39,6 @@ void lmSolverInit(struct LmSolver *solver, const struct LmParams *params,
   solver->num_iter = 0;
 }
 
-void lmSolverDestroy(struct LmSolver *solver) {
-  (void)solver;
-}
-
 void lmSolverSetData(struct LmSolver *solver, struct LmData *data) {
   ASSERT_NOT_NULL(solver);
   ASSERT_NOT_NULL(data);

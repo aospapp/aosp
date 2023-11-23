@@ -20,7 +20,9 @@
 #include <inttypes.h>
 #include <string.h>
 
+#ifdef MAG_CAL_DEBUG_ENABLE
 #include "calibration/util/cal_log.h"
+#endif  // MAG_CAL_DEBUG_ENABLE
 
 // Local helper macro for printing log messages.
 #ifdef MAG_CAL_DEBUG_ENABLE

@@ -1,0 +1,25 @@
+# ==============================================
+# MTK Policy Rule
+# ============
+
+# Date : WK16.46
+# Purpose : allow shell to switch aee mode
+allow shell aee_aed:unix_stream_socket connectto;
+
+# Date : WK17.35
+# Purpose : allow shell to dump the debugging information of camera hal.
+#allow shell hal_camera_hwservice:hwservice_manager { find };
+binder_call(shell, mtk_hal_camera)
+
+# Date : WK17.36
+# Purpose : allow shell to dump the debugging information of power hal.
+hal_client_domain(shell, hal_power)
+allow shell aee_exp_vendor_file:dir r_dir_perms;
+allow shell aee_exp_vendor_file:file r_file_perms;
+allow shell aee_exp_data_file:dir r_dir_perms;
+allow shell aee_exp_data_file:file r_file_perms;
+
+get_prop(shell, mobile_log_prop)
+get_prop(shell, persist_mtk_aee_prop);
+get_prop(shell, persist_aee_prop);
+get_prop(shell, debug_mtk_aee_prop);

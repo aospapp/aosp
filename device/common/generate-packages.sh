@@ -42,12 +42,11 @@ do
   FILEDIR_ROOT=tmp/vendor/$MANUFACTURER/$ROOTDEVICE
 
   case ${ROOTDEVICE} in
-    dragon|marlin|sailfish|taimen|walleye|crosshatch|blueline|bonito|sargo)
-      FILEDIR_ROOT=tmp/vendor/${MANUFACTURER}_devices/$ROOTDEVICE ;;
     hikey960)
       FILEDIR=tmp/vendor/linaro/$DEVICE/$COMPANY/proprietary
       MAKEFILEDIR=tmp/vendor/linaro/$DEVICE/$COMPANY ;;
-    *) ;;
+    *)
+      FILEDIR_ROOT=tmp/vendor/${MANUFACTURER}_devices/$ROOTDEVICE ;;
   esac
 
   mkdir -p ${FILEDIR}
@@ -60,7 +59,7 @@ do
   do
     if test ${ZIP_TYPE} = target_files
     then
-      ONE_FILE=`echo $ONE_FILE | sed 's/system\//SYSTEM\//g'`
+      ONE_FILE=`echo $ONE_FILE | sed -e 's/system\//SYSTEM\//g' -e 's/system_ext\//SYSTEM_EXT\//g' -e 's/product\//PRODUCT\//g'`
     fi
 
     if [[ $ONE_FILE == */lib64/* ]]
@@ -96,6 +95,8 @@ do
     fi
 
   done
+  echo \ \ Copying $COMPANY-specific LICENSE
+  cp $COMPANY/LICENSE ${MAKEFILEDIR} || echo \ \ \ \ Error copying LICENSE
   echo \ \ Setting up $COMPANY-specific makefiles
   cp -R $COMPANY/staging/* $MAKEFILEDIR || echo \ \ \ \ Error copying makefiles
   echo \ \ Setting up shared makefiles
@@ -142,19 +143,25 @@ do
     # Move device-vendor-sargo.mk under bonito directory so that it can
     # be inherited by device/google/bonito/aosp_sargo.mk
     mv ${FILEDIR_ROOT}/proprietary/device-vendor.mk ${FILEDIR_ROOT_SHARE}
+  elif [[ ${ROOTDEVICE} == flame ]]
+  then
+    FILEDIR_ROOT_SHARE=tmp/vendor/${MANUFACTURER}_devices/coral/proprietary
+    mkdir -p ${FILEDIR_ROOT_SHARE}
+
+    # flame shares BoardConfigVendor.mk with its sis-in-law' coral
+    mv ${FILEDIR_ROOT}/proprietary/BoardConfigVendor.mk ${FILEDIR_ROOT_SHARE}
+    # Move device-vendor-flame.mk under coral directory so that it can
+    # be inherited by device/google/coral/aosp_flame.mk
+    mv ${FILEDIR_ROOT}/proprietary/device-vendor.mk ${FILEDIR_ROOT_SHARE}
   fi
 
-  if [[ ${COMPANY} == qcom ]]
+  if [[ -e "${MAKEFILEDIR}/Android.mk" ]]
   then
-    case ${ROOTDEVICE} in
-      marlin|sailfish|taimen|walleye|crosshatch|blueline|bonito|sargo)
-        if [[ -e "${MAKEFILEDIR}/Android.mk" ]]
-        then
-          mv ${MAKEFILEDIR}/Android.mk ${FILEDIR}/
-        fi
-         ;;
-      *) ;;
-    esac
+    mv ${MAKEFILEDIR}/Android.mk ${FILEDIR}/
+  fi
+
+  if [[ -e "${MAKEFILEDIR}/Android.bp.txt" ]]; then
+    mv "${MAKEFILEDIR}/Android.bp.txt" "${FILEDIR}/Android.bp"
   fi
 
   echo \ \ Generating self-extracting script

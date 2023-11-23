@@ -16,49 +16,25 @@
 
 PRODUCT_IS_ATV_SDK := true
 
-PRODUCT_USE_DYNAMIC_PARTITIONS := true
+# ATV SDK is not designed to have a camera by default
+PRODUCT_SUPPORTS_CAMERA ?= false
 
-PRODUCT_PACKAGES := \
-    LeanbackSampleApp \
-    TelephonyProvider \
-    SdkSetup \
-    audio.primary.goldfish \
-    rild
+QEMU_USE_SYSTEM_EXT_PARTITIONS := true
 
-DEVICE_PACKAGE_OVERLAYS := \
-    device/google/atv/sdk_overlay \
-    development/sdk_overlay
-
-PRODUCT_COPY_FILES := \
-    device/generic/goldfish/data/etc/apns-conf.xml:system/etc/apns-conf.xml \
-    device/generic/goldfish/camera/media_codecs.xml:system/etc/media_codecs.xml \
-    frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:system/etc/media_codecs_google_audio.xml \
-    frameworks/native/data/etc/android.hardware.ethernet.xml:system/etc/permissions/android.hardware.ethernet.xml \
-    frameworks/av/media/libstagefright/data/media_codecs_google_telephony.xml:system/etc/media_codecs_google_telephony.xml \
-    frameworks/av/media/libstagefright/data/media_codecs_google_tv.xml:system/etc/media_codecs_google_tv.xml \
-    frameworks/av/media/libstagefright/data/media_codecs_google_video.xml:system/etc/media_codecs_google_video.xml \
-    hardware/libhardware_legacy/audio/audio_policy.conf:system/etc/audio_policy.conf
-
-# Put en_US first in the list, so make it default.
-PRODUCT_LOCALES := en_US
-
-# Include drawables for various densities.
-PRODUCT_AAPT_CONFIG := normal large xlarge tvdpi hdpi xhdpi xxhdpi
-
-# Add TV skins to SDK, in addition to (not replacing) original SDK tree
-PRODUCT_SDK_ATREE_FILES := \
-    development/build/sdk.atree \
-    device/google/atv/sdk/atv_sdk.atree
+$(call inherit-product, device/google/atv/products/aosp_tv_arm.mk)
 
 # Define the host tools and libs that are parts of the SDK.
--include sdk/build/product_sdk.mk
--include development/build/product_sdk.mk
+$(call inherit-product, sdk/build/product_sdk.mk)
+$(call inherit-product, development/build/product_sdk.mk)
 
-include $(SRC_TARGET_DIR)/product/emulator.mk
-
-$(call inherit-product, device/google/atv/products/atv_base.mk)
+# keep this apk for sdk targets for now
+PRODUCT_PACKAGES += \
+    EmulatorSmokeTests
 
 # Overrides
+PRODUCT_BRAND := Android
 PRODUCT_NAME := sdk_atv_armv7
 PRODUCT_DEVICE := generic
-PRODUCT_BRAND := google
+
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.oem.key1=ATV00100020

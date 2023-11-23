@@ -17,7 +17,7 @@ ifneq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 
 # Only import androidemu if not building for host.
 # if building for host, we already import android-emu.
-$(call emugl-import,libandroidemu)
+$(call emugl-export,SHARED_LIBRARIES,libandroidemu)
 
 LOCAL_HEADER_LIBRARIES += \
     hwvulkan_headers \

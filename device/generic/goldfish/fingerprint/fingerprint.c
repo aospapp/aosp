@@ -31,11 +31,14 @@
 #include <endian.h>
 #include <inttypes.h>
 #include <malloc.h>
+#include <pthread.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <log/log.h>
 #include <hardware/hardware.h>
 #include <hardware/fingerprint.h>
-#include "qemud.h"
+#include <qemud.h>
 
 #include <poll.h>
 
@@ -123,7 +126,7 @@ static void saveFingerprint(worker_thread_t* listener, int idx) {
         return;
     }
     int nf = fwrite(&listener->fingerid[idx], sizeof(uint64_t), 1, fp);
-    if (ns != 1 || ns !=1)
+    if (ns != 1 || nf !=1)
         ALOGW("Corrupt emulator fingerprints storage; could not save "
               "fingerprints");
 

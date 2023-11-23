@@ -1,0 +1,18 @@
+# Android fstab file for kernel v4.x
+#
+# The filesystem that contains the filesystem e2fsck binary (typically /system) cannot
+# specify 'check', and must come before any filesystems that do specify 'check'
+
+#<src>                                                                  <mnt_point>     <type>  <mnt_flags and options> <fs_mgr_flags>
+system                                                                  /system         ext4    ro,barrier=1            wait,slotselect,logical,first_stage_mount
+# Add all non-dynamic partitions except system, after this comment
+/dev/block/platform/44000000.ocp/480b4000.mmc/by-name/userdata          /data           ext4    noatime,nosuid,nodev    wait,check,quota
+/dev/block/platform/44000000.ocp/480b4000.mmc/by-name/recovery          /recovery       emmc    defaults                defaults
+/dev/block/platform/44000000.ocp/480b4000.mmc/by-name/boot              /boot           emmc    defaults                defaults
+/dev/block/platform/44000000.ocp/480b4000.mmc/by-name/misc              /misc           emmc    defaults                defaults
+# Add all dynamic partitions except system, after this comment
+vendor                                                                  /vendor         ext4    ro,barrier=1            wait,slotselect,logical,first_stage_mount
+# USB / SD card
+/devices/platform/44000000.ocp/488c0000.omap_dwc3_2/488d0000.usb*       auto            auto    defaults                voldmanaged=usb0:auto
+/devices/platform/44000000.ocp/48880000.omap_dwc3_1/48890000.usb*       auto            auto    defaults                voldmanaged=usb1:auto
+/devices/platform/44000000.ocp/4809c000.mmc/mmc_host*                   auto            auto    defaults                voldmanaged=sdcard1:auto

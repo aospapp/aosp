@@ -20,10 +20,7 @@
 #include "log.h"
 
 #include <errno.h>
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-function"
-#include <qemu_pipe.h>
-#pragma clang diagnostic pop
+#include <qemu_pipe_bp.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -78,7 +75,7 @@ bool Commander::onReadAvailable(int /*fd*/, int* /*status*/) {
         offset = 0;
     }
     while (true) {
-        int status = ::read(mPipeFd, &mReceiveBuffer[offset], kReceiveSpace);
+        int status = qemu_pipe_read(mPipeFd, &mReceiveBuffer[offset], kReceiveSpace);
 
         if (status < 0) {
             if (errno == EINTR) {
@@ -144,7 +141,7 @@ bool Commander::onTimeout(int* /*status*/) {
 }
 
 void Commander::openPipe() {
-    mPipeFd = qemu_pipe_open(kQemuPipeName);
+    mPipeFd = qemu_pipe_open_ns(NULL, kQemuPipeName, O_RDWR);
     if (mPipeFd == -1) {
         LOGE("Failed to open QEMU pipe '%s': %s",
              kQemuPipeName,
@@ -157,8 +154,8 @@ void Commander::openPipe() {
 }
 
 void Commander::closePipe() {
-    if (mPipeFd != -1) {
-        ::close(mPipeFd);
-        mPipeFd = -1;
+    if (qemu_pipe_valid(mPipeFd)) {
+        qemu_pipe_close(mPipeFd);
+        mPipeFd = QEMU_PIPE_INVALID_HANDLE;
     }
 }

@@ -32,14 +32,7 @@ fi
 dd if=/dev/zero of=$target ibs=1024k count=1 > /dev/null 2>&1
 dd if=$srcimg of=$target conv=notrunc,sync ibs=1024k obs=1024k seek=1 > /dev/null 2>&1
 unamestr=`uname`
-if [[ "$unamestr" == 'Linux' ]]; then
 curdisksize=$(stat -c %s $target)
-elif [[ "$unamestr" == 'Darwin' ]]; then
-curdisksize=$(stat -f %z $target)
-else
-echo "Cannot determine OS type, quit"
-exit 1
-fi
 
 dd if=/dev/zero of=$target conv=notrunc bs=1 count=1024k seek=$curdisksize > /dev/null 2>&1
 

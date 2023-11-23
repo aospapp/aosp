@@ -22,14 +22,15 @@ cc_binary {
              "-Werror",
             ],
     srcs: [
-           "address_assigner.cpp",
+           "bridge.cpp",
+           "bridge_builder.cpp",
            "commander.cpp",
-           "fork.cpp",
            "interface_state.cpp",
            "log.cpp",
            "main.cpp",
            "monitor.cpp",
            "poller.cpp",
+           "utils.cpp",
            "wifi_forwarder.cpp",
            "commands/wifi_command.cpp",
           ],
@@ -38,7 +39,7 @@ cc_binary {
         "liblog",
         "libpcap",
     ],
-    header_libs: [
-        "goldfish_headers",
+    static_libs: [
+        "libqemupipe.ranchu",
     ],
 }

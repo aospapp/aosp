@@ -1,0 +1,6 @@
+# HwBinder IPC from clients into server, and callbacks
+binder_call(hal_gpu_client, hal_gpu_server)
+binder_call(hal_gpu_server, hal_gpu_client)
+
+# give permission for hal client
+allow hal_gpu_client mtk_hal_gpu_hwservice :hwservice_manager find;

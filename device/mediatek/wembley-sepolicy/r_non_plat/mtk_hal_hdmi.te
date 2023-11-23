@@ -1,0 +1,48 @@
+# ==============================================
+# Policy File of /vendor/bin/hw/vendor.mediatek.hardware.hdmi@1.0-service Executable File
+
+# ==============================================
+# Type Declaration
+# ==============================================
+
+type mtk_hal_hdmi, domain;
+type mtk_hal_hdmi_exec, exec_type, file_type, vendor_file_type;
+
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# Setup for domain transition
+init_daemon_domain(mtk_hal_hdmi)
+
+# Allow to use HWBinder IPC
+hwbinder_use(mtk_hal_hdmi);
+
+# Allow a set of permissions required for a domain to be a server which provides a HAL implementation over HWBinder.
+hal_server_domain(mtk_hal_hdmi, hal_hdmi)
+
+# add/find permission rule to hwservicemanager
+add_hwservice(hal_hdmi_server, mtk_hal_hdmi_hwservice)
+
+# Allow to allocate hidl memory
+#hal_client_domain(mtk_hal_hdmi, hal_allocator)
+
+# Purpose : Allow to use kernel driver
+allow mtk_hal_hdmi graphics_device:chr_file rw_file_perms;
+
+# Purpose : Allow permission to get AmbientLux from hwservice_manager
+allow mtk_hal_hdmi fwk_sensor_hwservice:hwservice_manager find;
+
+#for hdmi uevent
+allow mtk_hal_hdmi self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+
+#============= Key Manager HIDL Service ==============
+allow mtk_hal_hdmi mtk_hal_keymanage:binder call;
+
+# Purpose : Allow hdmi to call vendor.mediatek.hardware.keymanage@1.0-service.
+hal_client_domain(mtk_hal_hdmi, hal_keymaster)
+
+allow mtk_hal_hdmi mtk_hal_keymanage_hwservice:hwservice_manager find;
+
+# Purpose : Allow permission to set hdmi property
+set_prop(mtk_hal_hdmi, mtk_hdmi_prop);

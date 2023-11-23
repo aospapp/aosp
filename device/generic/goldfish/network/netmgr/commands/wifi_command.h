@@ -24,9 +24,11 @@
 #include <unordered_set>
 #include <vector>
 
+class Bridge;
+
 class WifiCommand : public Command {
 public:
-    WifiCommand();
+    explicit WifiCommand(Bridge& bridge);
     virtual ~WifiCommand() = default;
 
     Result onCommand(const char* command, const char* args) override;
@@ -34,7 +36,6 @@ private:
     void readConfig();
     Result writeConfig();
     Result triggerHostApd();
-    Result setBlocked(const char* ifName, bool blocked);
 
     Result onAdd(const std::vector<std::string>& args);
     Result onBlock(const std::vector<std::string>& args);
@@ -48,6 +49,7 @@ private:
         bool blocked;
     };
 
+    Bridge& mBridge;
     std::unordered_map<std::string, AccessPoint> mAccessPoints;
     std::unordered_set<std::string> mUsedInterfaces;
     int mLowestInterfaceNumber;

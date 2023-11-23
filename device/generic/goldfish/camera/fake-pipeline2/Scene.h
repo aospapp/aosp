@@ -64,13 +64,38 @@ class Scene {
     void calculateScene(nsecs_t time);
 
     // Set sensor pixel readout location.
-    void setReadoutPixel(int x, int y);
+    inline void setReadoutPixel(int x, int y) {
+        mCurrentX = x;
+        mCurrentY = y;
+        mSubX = (x + mOffsetX + mHandshakeX) % mMapDiv;
+        mSubY = (y + mOffsetY + mHandshakeY) % mMapDiv;
+        mSceneX = (x + mOffsetX + mHandshakeX) / mMapDiv;
+        mSceneY = (y + mOffsetY + mHandshakeY) / mMapDiv;
+        mSceneIdx = mSceneY * kSceneWidth + mSceneX;
+        mCurrentSceneMaterial = &(mCurrentColors[kScene[mSceneIdx]]);
+    }
 
     // Get sensor response in physical units (electrons) for light hitting the
     // current readout pixel, after passing through color filters. The readout
     // pixel will be auto-incremented. The returned array can be indexed with
     // ColorChannels.
-    const uint32_t* getPixelElectrons();
+    inline const uint32_t* getPixelElectrons() {
+        const uint32_t *pixel = mCurrentSceneMaterial;
+        mCurrentX++;
+        mSubX++;
+        if (mCurrentX >= mSensorWidth) {
+            mCurrentX = 0;
+            mCurrentY++;
+            if (mCurrentY >= mSensorHeight) mCurrentY = 0;
+            setReadoutPixel(mCurrentX, mCurrentY);
+        } else if (mSubX > mMapDiv) {
+            mSceneIdx++;
+            mSceneX++;
+            mCurrentSceneMaterial = &(mCurrentColors[kScene[mSceneIdx]]);
+            mSubX = 0;
+        }
+        return pixel;
+    }
 
     enum ColorChannels {
         R = 0,
@@ -82,6 +107,11 @@ class Scene {
         Cr,
         NUM_CHANNELS
     };
+
+    // Max scene width and height. Calculation for larger scene consumes much
+    // CPU resource. So we put a limit here.
+    static const int kMaxWidth;
+    static const int kMaxHeight;
 
   private:
     // Sensor color filtering coefficients in XYZ

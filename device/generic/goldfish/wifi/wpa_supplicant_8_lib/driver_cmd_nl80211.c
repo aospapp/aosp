@@ -9,6 +9,7 @@
  * license.
  */
 
+#include "includes.h"
 #include "driver_cmd_nl80211.h"
 
 #include <stddef.h>

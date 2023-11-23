@@ -21,7 +21,10 @@
 #include <math.h>
 #include <string.h>
 
+#if defined(OVERTEMPCAL_DBG_ENABLED) || defined(OVERTEMPCAL_DBG_LOG_TEMP)
 #include "calibration/util/cal_log.h"
+#endif  // OVERTEMPCAL_DBG_ENABLED || OVERTEMPCAL_DBG_LOG_TEMP
+
 #include "util/nano_assert.h"
 
 /////// DEFINITIONS AND MACROS ////////////////////////////////////////////////
@@ -603,7 +606,7 @@ void overTempCalUpdateSensorEstimate(struct OverTempCal *over_temp_cal,
 
   // Computes the temperature bin range data.
   const int32_t bin_num =
-      CAL_FLOOR(temperature_celsius / over_temp_cal->delta_temp_per_bin);
+      NANO_FLOOR(temperature_celsius / over_temp_cal->delta_temp_per_bin);
   const float temp_lo_check = bin_num * over_temp_cal->delta_temp_per_bin;
   const float temp_hi_check = (bin_num + 1) * over_temp_cal->delta_temp_per_bin;
 
@@ -744,31 +747,6 @@ void overTempCalSetTemperature(struct OverTempCal *over_temp_cal,
 
   // Sets the OTC offset compensation time check.
   over_temp_cal->last_offset_update_nanos = timestamp_nanos;
-}
-
-void overTempGetModelError(const struct OverTempCal *over_temp_cal,
-                           const float *temp_sensitivity,
-                           const float *sensor_intercept, float *max_error) {
-  ASSERT_NOT_NULL(over_temp_cal);
-  ASSERT_NOT_NULL(temp_sensitivity);
-  ASSERT_NOT_NULL(sensor_intercept);
-  ASSERT_NOT_NULL(max_error);
-
-  float max_error_test;
-  memset(max_error, 0, 3 * sizeof(float));
-
-  for (size_t i = 0; i < over_temp_cal->num_model_pts; i++) {
-    for (size_t j = 0; j < 3; j++) {
-      max_error_test =
-          NANO_ABS(over_temp_cal->model_data[i].offset[j] -
-                   (temp_sensitivity[j] *
-                        over_temp_cal->model_data[i].offset_temp_celsius +
-                    sensor_intercept[j]));
-      if (max_error_test > max_error[j]) {
-        max_error[j] = max_error_test;
-      }
-    }
-  }
 }
 
 bool overTempValidateAndSetWeight(
@@ -1311,8 +1289,8 @@ bool jumpStartModelData(struct OverTempCal *over_temp_cal) {
   // This defines the minimum contiguous set of points to allow a model update
   // when the next offset estimate is received. They are placed at a common
   // temperature range that is likely to get replaced with actual data soon.
-  const int32_t start_bin_num = CAL_FLOOR(JUMPSTART_START_TEMP_CELSIUS /
-                                          over_temp_cal->delta_temp_per_bin);
+  const int32_t start_bin_num = NANO_FLOOR(JUMPSTART_START_TEMP_CELSIUS /
+                                           over_temp_cal->delta_temp_per_bin);
   float offset_temp_celsius =
       (start_bin_num + 0.5f) * over_temp_cal->delta_temp_per_bin;
 
@@ -1769,6 +1747,31 @@ void overTempCalDebugDescriptors(struct OverTempCal *over_temp_cal,
   strcpy(over_temp_cal->otc_sensor_tag, otc_sensor_tag);
   strcpy(over_temp_cal->otc_unit_tag, otc_unit_tag);
   over_temp_cal->otc_unit_conversion = otc_unit_conversion;
+}
+
+void overTempGetModelError(const struct OverTempCal *over_temp_cal,
+                           const float *temp_sensitivity,
+                           const float *sensor_intercept, float *max_error) {
+  ASSERT_NOT_NULL(over_temp_cal);
+  ASSERT_NOT_NULL(temp_sensitivity);
+  ASSERT_NOT_NULL(sensor_intercept);
+  ASSERT_NOT_NULL(max_error);
+
+  float max_error_test;
+  memset(max_error, 0, 3 * sizeof(float));
+
+  for (size_t i = 0; i < over_temp_cal->num_model_pts; i++) {
+    for (size_t j = 0; j < 3; j++) {
+      max_error_test =
+          NANO_ABS(over_temp_cal->model_data[i].offset[j] -
+                   (temp_sensitivity[j] *
+                        over_temp_cal->model_data[i].offset_temp_celsius +
+                    sensor_intercept[j]));
+      if (max_error_test > max_error[j]) {
+        max_error[j] = max_error_test;
+      }
+    }
+  }
 }
 
 #endif  // OVERTEMPCAL_DBG_ENABLED

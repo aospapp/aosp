@@ -1,9 +1,10 @@
 avd.ini.encoding=UTF-8
 disk.dataPartition.size=2G
+fastboot.forceColdBoot = yes
 hw.accelerometer=no
 hw.audioInput=yes
 hw.battery=no
-hw.camera.back=emulated
+hw.camera.back=none
 hw.camera.front=none
 hw.dPad=no
 hw.gps=yes

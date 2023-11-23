@@ -1,0 +1,50 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+typeattribute system_app mlstrustedsubject;
+
+# Date : 2017/07/21
+# Purpose :[CdsInfo] read/ write WI-FI MAC address by NVRAM API
+# Package Name: com.mediatek.connectivity
+hal_client_domain(system_app, hal_nvramagent);
+
+hal_client_domain(system_app, mtk_hal_lbs)
+
+#Dat: 2017/02/14
+#Purpose: allow set telephony Sensitive property
+get_prop(system_app, mtk_telephony_sensitive_prop)
+
+
+# Date : WK17.12
+# Operation : MT6799 SQC
+# Purpose : Change thermal config
+allow system_app mtk_thermal_config_prop:file { getattr open read };
+
+
+# Date : 2017/11/07
+# Operation : Migration
+# Purpose : CAT need copy exception db file from data folder
+# Package: CAT tool
+allow system_app aee_exp_data_file:file r_file_perms;
+allow system_app aee_exp_data_file:dir r_dir_perms;
+
+# Date: 2018/11/08
+# Operation : JPEG
+# Purpose : JPEG need to use PQ via MMS HIDL
+allow system_app mtk_hal_mms_hwservice:hwservice_manager find;
+allow system_app mtk_hal_mms:binder call;
+
+# Date: 2019/06/14
+# Operation : Migration
+# Purpose : system_app need vendor_default_prop
+get_prop(system_app, vendor_default_prop)
+
+# Date: 2019/07/16
+# Operation : Migration
+# Purpose : system_app need use hdmi service and create socktet
+allow system_app mtk_hal_hdmi_hwservice:hwservice_manager find;
+allow system_app mtk_hal_hdmi:binder call;
+allow system_app self:netlink_kobject_uevent_socket {read bind create setopt };
+# system_app need to read from sysfs /sys/class/switch/hdmi/state
+r_dir_file(system_app, sysfs_switch);
