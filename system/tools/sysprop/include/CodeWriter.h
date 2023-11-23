@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_TOOLS_SYSPROP_CODE_WRITER_H_
-#define SYSTEM_TOOLS_SYSPROP_CODE_WRITER_H_
+#pragma once
 
 #include <string>
 
@@ -41,5 +40,3 @@ class CodeWriter {
   std::string code_;
   const std::string indent_;
 };
-
-#endif  // SYSTEM_TOOLS_SYSPROP_CODE_WRITER_H_

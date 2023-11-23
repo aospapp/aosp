@@ -21,11 +21,12 @@ import android.content.Context;
 import com.android.cts.verifier.wifiaware.testcase.DataPathInBandTestCase;
 
 /**
- * Test activity for data-path, open, passive subscribe
+ * Test activity for data-path, passphrase, active subscribe
  */
 public class DataPathPassphraseActiveSubscribeTestActivity extends BaseTestActivity {
     @Override
     protected BaseTestCase getTestCase(Context context) {
-        return new DataPathInBandTestCase(context, false, false, false);
+        return new DataPathInBandTestCase(context, /* isSecurityOpen */ false,
+                /* isPublish */ false, /* isUnsolicited */ false, /* usePmk */ false);
     }
 }

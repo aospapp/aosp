@@ -46,7 +46,6 @@ public class ThirdPartyInCallServiceTest extends BaseTelecomTestWithMockServices
 
     private static final String TAG = ThirdPartyInCallServiceTest.class.getSimpleName();
     private static final String ROLE_COMPANION_APP = "android.app.role.CALL_COMPANION";
-    private static final String ROLE_CAR_MODE_DIALER_APP = "android.app.role.CAR_MODE_DIALER";
     private static final Uri sTestUri = Uri.parse("tel:555-TEST");
     private Context mContext;
     private UiModeManager mUiModeManager;
@@ -71,29 +70,16 @@ public class ThirdPartyInCallServiceTest extends BaseTelecomTestWithMockServices
 
         mThirdPartyPackageName = CtsThirdPartyInCallService.class.getPackage().getName();
 
-        // Ensure no ThirdPartyInCallService serves as a car mode dialer app or companion app.
+        // Ensure no ThirdPartyInCallService serves as a companion app.
         // (Probably from previous test failures, if any.)
-        mCtsRoleManagerAdapter.removeAutomotiveRoleHolder(mThirdPartyPackageName);
         mCtsRoleManagerAdapter.removeCompanionAppRoleHolder(mThirdPartyPackageName);
-
-        // Cache current role holder.
-        cacheCurrentRoleHolder(ROLE_CAR_MODE_DIALER_APP);
     }
 
     @Override
     public void tearDown() throws Exception {
         mICtsThirdPartyInCallServiceControl.resetCalls();
-
-        // Disable car mode and remove any third party car mode assigned before tear down.
-        mCtsRoleManagerAdapter.removeAutomotiveRoleHolder(mThirdPartyPackageName);
         // Remove the third party companion app before tear down.
         mCtsRoleManagerAdapter.removeCompanionAppRoleHolder(mThirdPartyPackageName);
-
-        // Restore cached car mode role holder.
-        if (!TextUtils.isEmpty(mPreviousRoleHolder)) {
-            mCtsRoleManagerAdapter.addAutomotiveRoleHolder(mPreviousRoleHolder);
-        }
-        mUiModeManager.disableCarMode(0);
 
         super.tearDown();
         if (!mSkipNullUnboundLatch) {
@@ -128,17 +114,6 @@ public class ThirdPartyInCallServiceTest extends BaseTelecomTestWithMockServices
         addAndVerifyNewIncomingCall(sTestUri, null);
         assertBindStatus(/* true: bind, false: unbind */true, /* expected result */true);
         assertCallCount(previousCallCount + 1);
-        mICtsThirdPartyInCallServiceControl.resetLatchForServiceBound(true);
-    }
-
-    public void doNotTestCallWithThirdPartyCarModeApp() throws Exception {
-        // Set car mode app default.
-        mCtsRoleManagerAdapter.addAutomotiveRoleHolder(mThirdPartyPackageName);
-        assertEquals(mThirdPartyPackageName,
-                mCtsRoleManagerAdapter.getRoleHolders(ROLE_CAR_MODE_DIALER_APP).get(0));
-
-        mUiModeManager.enableCarMode(0);
-        addAndVerifyNewIncomingCallInCarMode(sTestUri, null);
         mICtsThirdPartyInCallServiceControl.resetLatchForServiceBound(true);
     }
 

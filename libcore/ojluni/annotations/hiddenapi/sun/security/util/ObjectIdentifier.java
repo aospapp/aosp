@@ -30,12 +30,12 @@ import java.io.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class ObjectIdentifier implements java.io.Serializable {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public ObjectIdentifier(java.lang.String oid) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public ObjectIdentifier(int[] values) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -61,7 +61,7 @@ public final class ObjectIdentifier implements java.io.Serializable {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static sun.security.util.ObjectIdentifier newInternal(int[] values) {
         throw new RuntimeException("Stub!");
     }
@@ -71,7 +71,7 @@ public final class ObjectIdentifier implements java.io.Serializable {
     }
 
     @Deprecated
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public boolean equals(sun.security.util.ObjectIdentifier other) {
         throw new RuntimeException("Stub!");
     }

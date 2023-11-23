@@ -26,6 +26,7 @@ import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.SandboxConfigurationFactory;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -60,7 +61,8 @@ public class NoisyDryRunTest implements IRemoteTest {
     private long mTimeoutMilliSec = 0;
 
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         List<CommandLine> commands = testCommandFile(listener, mCmdfile);
         if (commands != null) {
             testCommandLines(listener, commands);
@@ -156,7 +158,7 @@ public class NoisyDryRunTest implements IRemoteTest {
                             ConfigurationFactory.getInstance()
                                     .createConfigurationFromArgs(args, null, new DryRunKeyStore());
                     // Do not resolve dynamic files
-                    config.validateOptions(false);
+                    config.validateOptions();
                 }
             } catch (ConfigurationException e) {
                 String errorMessage = String.format("Failed to parse command line: %s.", cmdLine);
@@ -182,7 +184,7 @@ public class NoisyDryRunTest implements IRemoteTest {
                         .createConfigurationFromArgs(
                                 args, new DryRunKeyStore(), createSandbox(), createRunUtil());
         // Do not resolve dynamic files
-        config.validateOptions(false);
+        config.validateOptions();
     }
 
     /** Returns a {@link IRunUtil} implementation. */

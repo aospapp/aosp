@@ -16,13 +16,20 @@
 
 package dalvik.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.annotation.optimization.FastNative;
+import android.compat.annotation.ChangeId;
+import android.compat.annotation.EnabledAfter;
+import android.compat.annotation.UnsupportedAppUsage;
+
+import dalvik.annotation.compat.VersionCodes;
+
 import java.lang.ref.FinalizerReference;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+
+import dalvik.annotation.optimization.CriticalNative;
+import dalvik.annotation.optimization.FastNative;
 
 /**
  * Provides an interface to VM-global, Dalvik-specific features.
@@ -53,7 +60,32 @@ public final class VMRuntime {
         ABI_TO_INSTRUCTION_SET_MAP.put("x86", "x86");
         ABI_TO_INSTRUCTION_SET_MAP.put("x86_64", "x86_64");
         ABI_TO_INSTRUCTION_SET_MAP.put("arm64-v8a", "arm64");
+        ABI_TO_INSTRUCTION_SET_MAP.put("arm64-v8a-hwasan", "arm64");
     }
+
+    /**
+     * Remove meta-reflection workaround for hidden api usage for apps targeting R+. This allowed
+     * apps to obtain references to blacklisted fields and methods through an extra layer of
+     * reflection.
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = VersionCodes.Q)
+    private static final long
+        PREVENT_META_REFLECTION_BLACKLIST_ACCESS = 142365358; // This is a bug id.
+
+    /**
+     * Gating access to greylist-max-p APIs.
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = VersionCodes.P)
+    private static final long HIDE_MAXTARGETSDK_P_HIDDEN_APIS = 149997251; // This is a bug id.
+
+    /**
+     * Gating access to greylist-max-q APIs.
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = VersionCodes.Q)
+    private static final long HIDE_MAXTARGETSDK_Q_HIDDEN_APIS = 149994052; // This is a bug id.
 
     /**
      * Interface for logging hidden API usage events.
@@ -147,6 +179,8 @@ public final class VMRuntime {
 
     // Allocations since last call to native layer. See notifyNativeAllocation().
     private final AtomicInteger allocationCount = new AtomicInteger(0);
+
+    private long[] disabledCompatChanges = new long[0];
 
     /**
      * Prevents this class from being instantiated.
@@ -272,10 +306,24 @@ public final class VMRuntime {
      * app starts to run, because it may change the VM's behavior in
      * dangerous ways. Defaults to {@link #SDK_VERSION_CUR_DEVELOPMENT}.
      */
+    @UnsupportedAppUsage(maxTargetSdk=0, publicAlternatives="Use the {@code targetSdkVersion}"
+        +" attribute in the {@code uses-sdk} manifest tag instead.")
     @libcore.api.CorePlatformApi
     public synchronized void setTargetSdkVersion(int targetSdkVersion) {
         this.targetSdkVersion = targetSdkVersion;
         setTargetSdkVersionNative(this.targetSdkVersion);
+    }
+
+
+    /**
+     * Sets the disabled compat changes. Should only be called before the
+     * app starts to run, because it may change the VM's behavior in
+     * dangerous ways. Defaults to empty.
+     */
+    @libcore.api.CorePlatformApi
+    public synchronized void setDisabledCompatChanges(long[] disabledCompatChanges) {
+        this.disabledCompatChanges = disabledCompatChanges;
+        setDisabledCompatChangesNative(this.disabledCompatChanges);
     }
 
     /**
@@ -288,6 +336,7 @@ public final class VMRuntime {
     }
 
     private native void setTargetSdkVersionNative(int targetSdkVersion);
+    private native void setDisabledCompatChangesNative(long[] disabledCompatChanges);
 
     /**
      * This method exists for binary compatibility.  It was part of a
@@ -439,12 +488,6 @@ public final class VMRuntime {
      */
     @libcore.api.CorePlatformApi
     public native void clampGrowthLimit();
-
-    /**
-     * Returns true if either a Java debugger or native debugger is active.
-     */
-    @FastNative
-    public native boolean isDebuggerActive();
 
     /**
      * Returns true if native debugging is on.
@@ -631,6 +674,16 @@ public final class VMRuntime {
     }
 
     /**
+     * Prevent initialization of the caller's class if they are calling
+     * from their clinit method. This works because calling a JNI method
+     * from clinit causes the transactional runtime to abort the current
+     * transaction.
+     * @hide
+     */
+    @CriticalNative
+    public static native void doNotInitializeInAot();
+
+    /**
      * Return false if the boot class path for the given instruction
      * set mapped from disk storage, versus being interpretted from
      * dirty pages in memory.
@@ -647,6 +700,20 @@ public final class VMRuntime {
     @libcore.api.CorePlatformApi
     @FastNative
     public static native boolean hasBootImageSpaces();
+
+    /**
+     * Used to notify the runtime that boot completed.
+     */
+    @libcore.api.CorePlatformApi
+    public static native void bootCompleted();
+
+    /**
+     * Used to notify the runtime to reset Jit counters. This is done for the boot image
+     * profiling configuration to avoid samples during class preloading. This helps avoid
+     * the regression from disabling class profiling.
+     */
+    @libcore.api.CorePlatformApi
+    public static native void resetJitCounters();
 
     /**
      * Returns the instruction set of the current runtime.
@@ -702,4 +769,15 @@ public final class VMRuntime {
      */
     @libcore.api.CorePlatformApi
     public static native void setProcessDataDirectory(String dataDir);
+
+    /**
+     * Returns whether {@code encodedClassLoaderContext} is a valid encoded class loader context.
+     * A class loader context is an internal opaque format used by the runtime to encode the
+     * class loader hierarchy (including each ClassLoader's classpath) used to load a dex file.
+     *
+     * @return True if encodedClassLoaderContext is a non-null valid encoded class loader context.
+     *   Throws NullPointerException if encodedClassLoaderContext is null.
+     */
+    @libcore.api.CorePlatformApi
+    public static native boolean isValidClassLoaderContext(String encodedClassLoaderContext);
 }

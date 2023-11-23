@@ -59,6 +59,6 @@ public class EnforcedSeLinuxChecker implements ISystemStatusChecker {
     private void setEnforced(ITestDevice device, boolean enforced)
             throws DeviceNotAvailableException {
         String enforce = enforced ? "1" : "0";
-        device.executeShellCommand("setenforce " + enforce);
+        device.executeShellCommand("su root setenforce " + enforce);
     }
 }

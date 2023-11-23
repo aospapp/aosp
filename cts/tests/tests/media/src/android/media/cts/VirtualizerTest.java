@@ -29,6 +29,7 @@ import android.media.cts.R;
 
 import java.util.Arrays;
 
+@NonMediaMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class VirtualizerTest extends PostProcTestBase {
 

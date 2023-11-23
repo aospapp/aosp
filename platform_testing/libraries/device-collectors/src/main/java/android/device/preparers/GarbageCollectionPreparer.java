@@ -41,6 +41,7 @@ import org.junit.runner.Description;
  * stabilize. Default is specified in {@link GarbageCollectionHelper}. This should be tuned based
  * off noise in metric results (i.e. increase sleep if results are noisy, decrease if it's taking
  * too long).
+ * -e garbagecollection-run-end [boolean] : whether to run GC on end of test. Default is true.
  */
 @OptionClass(alias = "garbage-collection-preparer")
 public final class GarbageCollectionPreparer extends BaseMetricListener {
@@ -51,11 +52,13 @@ public final class GarbageCollectionPreparer extends BaseMetricListener {
     static final String PROCESS_NAMES_KEY = "garbagecollection-process-names";
     @VisibleForTesting
     static final String GC_WAIT_TIME_KEY = "garbagecollection-wait-time";
+    @VisibleForTesting static final String GC_RUN_END = "garbagecollection-run-end";
 
     private final GarbageCollectionHelper mGcHelper;
     // Whether the preparer successfully set up and initialized.
     private boolean mSetUp;
     private Long mWaitTime;
+    private boolean mRunEnd;
 
     public GarbageCollectionPreparer() {
         super();
@@ -90,6 +93,8 @@ public final class GarbageCollectionPreparer extends BaseMetricListener {
                 Log.e(TAG, "Unexpected wait time format. Using default time", e);
             }
         }
+        String gcRunEnd = args.getString(GC_RUN_END);
+        mRunEnd = gcRunEnd == null || Boolean.parseBoolean(gcRunEnd);
         mSetUp = true;
     }
 
@@ -100,7 +105,9 @@ public final class GarbageCollectionPreparer extends BaseMetricListener {
 
     @Override
     public void onTestEnd(DataRecord testData, Description description) {
-        garbageCollect();
+        if (mRunEnd) {
+            garbageCollect();
+        }
     }
 
     private void garbageCollect() {

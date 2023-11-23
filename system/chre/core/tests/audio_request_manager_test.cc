@@ -40,22 +40,19 @@ TEST(AudioDurationFromSampleCountAndRate, OneHundredSecond) {
 }
 
 TEST(AudioSampleCountFromRateAndDuration, OneSample) {
-  uint32_t sampleCount =
-      AudioRequestManager::getSampleCountFromRateAndDuration(16000,
-          Nanoseconds(62500));
+  uint32_t sampleCount = AudioRequestManager::getSampleCountFromRateAndDuration(
+      16000, Nanoseconds(62500));
   EXPECT_EQ(sampleCount, 1);
 }
 
 TEST(AudioSampleCountFromRateAndDuration, OneHundredSample) {
-  uint32_t sampleCount =
-      AudioRequestManager::getSampleCountFromRateAndDuration(16000,
-          Nanoseconds(6250000));
+  uint32_t sampleCount = AudioRequestManager::getSampleCountFromRateAndDuration(
+      16000, Nanoseconds(6250000));
   EXPECT_EQ(sampleCount, 100);
 }
 
 TEST(AudioSampleCountFromRateAndDuration, OneThousandSample) {
-  uint32_t sampleCount =
-      AudioRequestManager::getSampleCountFromRateAndDuration(16000,
-          Nanoseconds(62500000));
+  uint32_t sampleCount = AudioRequestManager::getSampleCountFromRateAndDuration(
+      16000, Nanoseconds(62500000));
   EXPECT_EQ(sampleCount, 1000);
 }

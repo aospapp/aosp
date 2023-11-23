@@ -16,13 +16,14 @@
 
 package com.android.tradefed.targetprep;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
-import com.android.ddmlib.Log;
 import com.android.tradefed.build.DeviceBuildInfo;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.IDeviceTest;
 
@@ -34,10 +35,10 @@ import org.junit.runner.RunWith;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class DeviceSetupFuncTest implements IDeviceTest {
 
-    private static final String LOG_TAG = "DeviceSetupFuncTest";
     private DeviceSetup mDeviceSetup;
     private ITestDevice mDevice;
     private IDeviceBuildInfo mMockBuildInfo;
+    private TestInformation mStubInformation;
 
     @Override
     public void setDevice(ITestDevice device) {
@@ -53,24 +54,26 @@ public class DeviceSetupFuncTest implements IDeviceTest {
     public void setUp() throws Exception {
         mMockBuildInfo = new DeviceBuildInfo("0", "");
         mDeviceSetup = new DeviceSetup();
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mDevice);
+        context.addDeviceBuildInfo("device", mMockBuildInfo);
+        mStubInformation = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     /**
-     * Simple normal case test for {@link DeviceSetup#setUp(ITestDevice, IBuildInfo)}.
+     * Simple normal case test for {@link DeviceSetup#setUp(TestInformation)}.
      *
      * <p>Do setup and verify a few expected properties
      */
     @Test
     public void testSetup() throws Exception {
-        Log.i(LOG_TAG, "testSetup()");
-
-        // reset expected property
+        // Reset expected property
         getDevice().executeShellCommand("setprop ro.audio.silent 0");
-        mDeviceSetup.setUp(getDevice(), mMockBuildInfo);
+        mDeviceSetup.setUp(mStubInformation);
         assertTrue(getDevice().executeShellCommand("getprop ro.audio.silent").contains("1"));
         assertTrue(getDevice().executeShellCommand("getprop ro.monkey").contains("1"));
         assertTrue(getDevice().executeShellCommand("getprop ro.test_harness").contains("1"));
-        // verify root
+        // Verify root
         assertTrue(getDevice().executeShellCommand("id").contains("root"));
     }
 }

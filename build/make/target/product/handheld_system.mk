@@ -54,10 +54,9 @@ PRODUCT_PACKAGES += \
     librs_jni \
     ManagedProvisioning \
     MmsService \
-    MtpDocumentsProvider \
+    MtpService \
     MusicFX \
     NfcNci \
-    OsuLogin \
     PacProcessor \
     PrintRecommendationService \
     PrintSpooler \

@@ -20,6 +20,17 @@
 #include <vector>
 #include "include/wifikeystorehal/keystore.h"
 
+#include <ctype.h>
+#include <openssl/base.h>
+#include <openssl/bio.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define AT __func__ << ":" << __LINE__ << " "
+
 using android::hardware::keymaster::V4_0::Algorithm;
 using android::hardware::keymaster::V4_0::authorizationValue;
 using android::hardware::keymaster::V4_0::Digest;
@@ -40,6 +51,7 @@ using android::security::keymaster::OperationResult;
 using KSReturn = keystore::KeyStoreNativeReturnCode;
 
 namespace {
+
 constexpr const char kKeystoreServiceName[] = "android.security.keystore";
 constexpr int32_t UID_SELF = -1;
 
@@ -48,9 +60,51 @@ using keystore::KeystoreExportPromise;
 using keystore::KeystoreResponsePromise;
 using keystore::OperationResultPromise;
 
+NullOr<const Algorithm&> getKeyAlgorithmFromKeyCharacteristics(
+    const ::android::security::keymaster::KeyCharacteristics& characteristics) {
+    for (const auto& param : characteristics.hardwareEnforced.getParameters()) {
+        auto algo = authorizationValue(TAG_ALGORITHM, param);
+        if (algo.isOk()) return algo;
+    }
+    for (const auto& param : characteristics.softwareEnforced.getParameters()) {
+        auto algo = authorizationValue(TAG_ALGORITHM, param);
+        if (algo.isOk()) return algo;
+    }
+    return {};
+}
+
+// Helper method to convert certs in DER format to PERM format required by
+// openssl library used by supplicant.
+std::vector<uint8_t> convertCertToPem(const std::vector<uint8_t>& cert_bytes) {
+    bssl::UniquePtr<BIO> cert_bio(BIO_new_mem_buf(cert_bytes.data(), cert_bytes.size()));
+    // Check if the cert is already in PEM format, on devices which have saved
+    // credentials from previous releases when upgrading to R.
+    bssl::UniquePtr<X509> cert_pem(PEM_read_bio_X509(cert_bio.get(), nullptr, nullptr, nullptr));
+    if (cert_pem) {
+        LOG(INFO) << AT << "Certificate already in PEM format, returning";
+        return cert_bytes;
+    }
+    // Reset the bio since the pointers will be moved by |PEM_read_bio_X509|.
+    BIO_reset(cert_bio.get());
+    bssl::UniquePtr<X509> cert(d2i_X509_bio(cert_bio.get(), nullptr));
+    if (!cert) {
+        LOG(ERROR) << AT << "Could not create cert from BIO";
+        return cert_bytes;
+    }
+    bssl::UniquePtr<BIO> pem_bio(BIO_new(BIO_s_mem()));
+    if (!PEM_write_bio_X509(pem_bio.get(), cert.get())) {
+        LOG(ERROR) << AT << "Could not convert cert to PEM format";
+        return {};
+    }
+    const uint8_t* pem_bytes;
+    size_t pem_len;
+    if (!BIO_mem_contents(pem_bio.get(), &pem_bytes, &pem_len)) {
+        return {};
+    }
+    return {pem_bytes, pem_bytes + pem_len};
+}
 };  // namespace
 
-#define AT __func__ << ":" << __LINE__ << " "
 
 namespace android {
 namespace system {
@@ -75,7 +129,9 @@ Return<void> Keystore::getBlob(const hidl_string& key, getBlob_cb _hidl_cb) {
         _hidl_cb(KeystoreStatusCode::ERROR_UNKNOWN, {});
         return Void();
     }
-    _hidl_cb(KeystoreStatusCode::SUCCESS, (hidl_vec<uint8_t>)value);
+    // convert to PEM before sending it to openssl library.
+    std::vector<uint8_t> pem_cert = convertCertToPem(value);
+    _hidl_cb(KeystoreStatusCode::SUCCESS, pem_cert);
     return Void();
 }
 
@@ -120,19 +176,6 @@ Return<void> Keystore::getPublicKey(const hidl_string& keyId, getPublicKey_cb _h
     return Void();
 }
 
-static NullOr<const Algorithm&> getKeyAlgoritmFromKeyCharacteristics(
-    const ::android::security::keymaster::KeyCharacteristics& characteristics) {
-    for (const auto& param : characteristics.hardwareEnforced.getParameters()) {
-        auto algo = authorizationValue(TAG_ALGORITHM, param);
-        if (algo.isOk()) return algo;
-    }
-    for (const auto& param : characteristics.softwareEnforced.getParameters()) {
-        auto algo = authorizationValue(TAG_ALGORITHM, param);
-        if (algo.isOk()) return algo;
-    }
-    return {};
-}
-
 Return<void> Keystore::sign(const hidl_string& keyId, const hidl_vec<uint8_t>& dataToSign,
                             sign_cb _hidl_cb) {
     sp<IServiceManager> sm = defaultServiceManager();
@@ -171,7 +214,7 @@ Return<void> Keystore::sign(const hidl_string& keyId, const hidl_vec<uint8_t>& d
         return Void();
     }
 
-    auto algorithm = getKeyAlgoritmFromKeyCharacteristics(characteristics);
+    auto algorithm = getKeyAlgorithmFromKeyCharacteristics(characteristics);
     if (!algorithm.isOk()) {
         LOG(ERROR) << AT << "could not get algorithm from key characteristics";
         _hidl_cb(KeystoreStatusCode::ERROR_UNKNOWN, {});
@@ -266,9 +309,9 @@ Return<void> Keystore::sign(const hidl_string& keyId, const hidl_vec<uint8_t>& d
     promise = new OperationResultPromise();
     future = promise->get_future();
 
-    binder_result = service->finish(promise, handle, KeymasterArguments(params),
-                                    std::vector<uint8_t>() /* signature */,
-                                    std::vector<uint8_t>() /* entropy */, &error_code);
+    binder_result = service->finish(
+        promise, handle, KeymasterArguments(params), std::vector<uint8_t>() /* input */,
+        std::vector<uint8_t>() /* signature */, std::vector<uint8_t>() /* entropy */, &error_code);
     if (!binder_result.isOk()) {
         LOG(ERROR) << AT << "communication error while calling keystore";
         _hidl_cb(KeystoreStatusCode::ERROR_UNKNOWN, {});

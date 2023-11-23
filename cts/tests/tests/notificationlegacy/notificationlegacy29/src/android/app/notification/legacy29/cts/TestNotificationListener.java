@@ -37,6 +37,13 @@ public class TestNotificationListener extends NotificationListenerService {
             sNotificationListenerInstance = null;
     boolean isConnected;
 
+    public boolean checkRemovedKey(String key) {
+        for (StatusBarNotification sbn : mRemoved) {
+            if (sbn.getKey().equals(key)) return true;
+        }
+        return false;
+    }
+
     public static String getId() {
         return String.format("%s/%s", TestNotificationListener.class.getPackage().getName(),
                 TestNotificationListener.class.getName());
@@ -76,6 +83,7 @@ public class TestNotificationListener extends NotificationListenerService {
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
+        android.util.Log.v(TAG, "notification posted: " + sbn);
         if (!PKG.equals(sbn.getPackageName())) {
             return;
         }
@@ -85,9 +93,11 @@ public class TestNotificationListener extends NotificationListenerService {
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap) {
+        android.util.Log.v(TAG, "notification removed: " + sbn);
         if (!mTestPackages.contains(sbn.getPackageName())) {
             return;
         }
+        android.util.Log.v(TAG, "adding to removed: " + sbn);
         mRankingMap = rankingMap;
         mRemoved.add(sbn);
     }

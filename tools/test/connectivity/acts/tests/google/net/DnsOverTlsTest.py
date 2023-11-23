@@ -25,9 +25,15 @@ from acts import base_test
 from acts import test_runner
 from acts.controllers import adb
 from acts.test_decorators import test_tracker_info
+from acts.test_utils.net import connectivity_const as cconst
+from acts.test_utils.net import connectivity_test_utils as cutils
 from acts.test_utils.net import net_test_utils as nutils
 from acts.test_utils.net.net_test_utils import start_tcpdump
 from acts.test_utils.net.net_test_utils import stop_tcpdump
+from acts.test_utils.tel import tel_test_utils as tutils
+from acts.test_utils.tel.tel_defines import WFC_MODE_DISABLED
+from acts.test_utils.tel.tel_test_utils import get_operator_name
+from acts.test_utils.tel.tel_test_utils import set_wfc_mode
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
 from scapy.all import TCP
@@ -35,12 +41,8 @@ from scapy.all import UDP
 from scapy.all import rdpcap
 from scapy.all import Scapy_Exception
 
-DNS_QUAD9 = "dns.quad9.net"
-PRIVATE_DNS_MODE_OFF = "off"
-PRIVATE_DNS_MODE_OPPORTUNISTIC = "opportunistic"
-PRIVATE_DNS_MODE_STRICT = "hostname"
 RST = 0x04
-WLAN = "wlan0"
+SSID = wutils.WifiEnums.SSID_KEY
 
 class DnsOverTlsTest(base_test.BaseTestClass):
     """ Tests for Wifi Tethering """
@@ -49,11 +51,19 @@ class DnsOverTlsTest(base_test.BaseTestClass):
         """ Setup devices for tethering and unpack params """
 
         self.dut = self.android_devices[0]
-        nutils.verify_lte_data_and_tethering_supported(self.dut)
-        req_params = ("wifi_network_with_dns_tls", "wifi_network_no_dns_tls",
-                      "ping_hosts")
+        self.dut_b = self.android_devices[1]
+        for ad in self.android_devices:
+            nutils.verify_lte_data_and_tethering_supported(ad)
+            set_wfc_mode(self.log, ad, WFC_MODE_DISABLED)
+        req_params = ("ping_hosts", "ipv4_only_network", "ipv4_ipv6_network",)
         self.unpack_userparams(req_params)
         self.tcpdump_pid = None
+        self.private_dns_servers = [cconst.DNS_GOOGLE,
+                                    cconst.DNS_QUAD9,
+                                    cconst.DNS_CLOUDFLARE]
+
+    def teardown_test(self):
+        wutils.reset_wifi(self.dut)
 
     def on_fail(self, test_name, begin_time):
         self.dut.take_bug_report(test_name, begin_time)
@@ -89,176 +99,352 @@ class DnsOverTlsTest(base_test.BaseTestClass):
             asserts.fail("Not a valid pcap file")
         for pkt in packets:
             summary = "%s" % pkt.summary()
-            if tls and UDP in pkt and pkt[UDP].dport == 53 and \
-                "connectivitycheck.gstatic.com." not in summary and \
-                "www.google.com" not in summary:
-                asserts.fail("Found query to port 53: %s" % summary)
-            elif not tls and TCP in pkt and pkt[TCP].dport == 853 and \
-                not pkt[TCP].flags:
-                asserts.fail("Found query to port 853: %s" % summary)
+            for host in self.ping_hosts:
+                host = host.split('.')[-2]
+                if tls and UDP in pkt and pkt[UDP].dport == 53 and \
+                    host in summary:
+                      asserts.fail("Found query to port 53: %s" % summary)
+                elif not tls and TCP in pkt and pkt[TCP].dport == 853 and \
+                    not pkt[TCP].flags:
+                      asserts.fail("Found query to port 853: %s" % summary)
 
     def _verify_rst_packets(self, pcap_file):
-        """ Verify if RST packets are found in the pcap file """
+        """ Verify if RST packets are found in the pcap file
+
+        Args:
+            1. pcap_file: full path of tcpdump file
+        """
         packets = rdpcap(pcap_file)
         for pkt in packets:
-            if TCP in pkt and pkt[TCP].flags == RST:
+            if TCP in pkt and pkt[TCP].flags == RST and pkt[TCP].dport == 853:
                 asserts.fail("Found RST packets: %s" % pkt.summary())
 
-    def _test_private_dns_mode(self, network, dns_mode, use_tls,
-                               hostname = None):
-        """ Test private DNS mode """
+    def _test_private_dns_mode(self, ad, net, dns_mode, use_tls, hostname=None):
+        """ Test private DNS mode
+
+        Args:
+            1. ad: android device object
+            2. net: wifi network to connect to, LTE network if None
+            3. dns_mode: private DNS mode
+            4. use_tls: if True, the DNS packets should be encrypted
+            5. hostname: private DNS hostname to set to
+        """
+
+        # set private dns mode
+        if dns_mode:
+            cutils.set_private_dns(self.dut, dns_mode, hostname)
+
         # connect to wifi
-        wutils.reset_wifi(self.dut)
-        if network:
-            wutils.wifi_connect(self.dut, network)
-        time.sleep(1) # wait till lte network becomes active - network = None
+        if net:
+            wutils.start_wifi_connection_scan_and_ensure_network_found(
+                self.dut, net[SSID])
+            wutils.wifi_connect(self.dut, net)
 
         # start tcpdump on the device
         self._start_tcp_dump(self.dut)
 
-        # set private dns mode
-        if dns_mode == PRIVATE_DNS_MODE_OFF:
-            self.dut.droid.setPrivateDnsMode(False)
-        elif hostname:
-            self.dut.droid.setPrivateDnsMode(True, hostname)
-        else:
-            self.dut.droid.setPrivateDnsMode(True)
-        mode = self.dut.droid.getPrivateDnsMode()
-        asserts.assert_true(mode == dns_mode,
-                            "Failed to set private DNS mode to %s" % dns_mode)
-        time.sleep(2)
-
         # ping hosts should pass
         for host in self.ping_hosts:
             self.log.info("Pinging %s" % host)
-            asserts.assert_true(wutils.validate_connection(self.dut, host),
-                                "Failed to ping host %s" % host)
+            status = wutils.validate_connection(self.dut, host)
+            asserts.assert_true(status, "Failed to ping host %s" % host)
+            self.log.info("Ping successful")
 
         # stop tcpdump
         pcap_file = self._stop_tcp_dump(self.dut)
-        self.log.info("TCPDUMP file is: %s" % pcap_file)
 
         # verify DNS queries
         self._verify_dns_queries_over_tls(pcap_file, use_tls)
 
+        # reset wifi
+        wutils.reset_wifi(self.dut)
+
     """ Test Cases """
 
     @test_tracker_info(uuid="2957e61c-d333-45fb-9ff9-2250c9c8535a")
-    def test_private_dns_mode_off_wifi_no_dns_tls_server(self):
-        """ Verify private dns mode off
+    def test_private_dns_mode_off_wifi_ipv4_only_network(self):
+        """ Verify private dns mode off on ipv4 only network
 
         Steps:
             1. Set private dns mode off
-            2. Connect to wifi network. DNS/TLS server is not set
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 53
+            2. Connect to wifi network. DNS server supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 53
         """
-        self._test_private_dns_mode(self.wifi_network_no_dns_tls,
-                                    PRIVATE_DNS_MODE_OFF, False)
+        self._test_private_dns_mode(self.dut,
+                                    self.ipv4_only_network,
+                                    cconst.PRIVATE_DNS_MODE_OFF,
+                                    False)
 
     @test_tracker_info(uuid="ea036d22-25af-4df0-b6cc-0027bc1efbe9")
-    def test_private_dns_mode_off_wifi_with_dns_tls_server(self):
-        """ Verify private dns mode off
+    def test_private_dns_mode_off_wifi_ipv4_ipv6_network(self):
+        """ Verify private dns mode off on ipv4-ipv6 network
 
         Steps:
             1. Set private dns mode off
-            2. Connect to wifi network. DNS server is set to 9.9.9.9, 8.8.8.8
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 53
+            2. Connect to wifi network. DNS server supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 53
         """
-        self._test_private_dns_mode(self.wifi_network_with_dns_tls,
-                                    PRIVATE_DNS_MODE_OFF, False)
+        self._test_private_dns_mode(self.dut,
+                                    self.ipv4_ipv6_network,
+                                    cconst.PRIVATE_DNS_MODE_OFF,
+                                    False)
 
     @test_tracker_info(uuid="4227abf4-0a75-4b4d-968c-dfc63052f5db")
-    def test_private_dns_mode_opportunistic_wifi_no_dns_tls_server(self):
-        """ Verify private dns opportunistic mode
+    def test_private_dns_mode_opportunistic_wifi_ipv4_only_network(self):
+        """ Verify private dns mode opportunistic on ipv4 only network
 
         Steps:
-            1. Set private dns mode to opportunistic
-            2. Connect to wifi network. DNS/TLS server is not set
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 53
+            1. Set private dns to opportunistic mode
+            2. Connect to wifi network. DNS server supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 853 and encrypted
         """
-        self._test_private_dns_mode(self.wifi_network_no_dns_tls,
-                                    PRIVATE_DNS_MODE_OPPORTUNISTIC, False)
+        self._test_private_dns_mode(self.dut,
+                                    self.ipv4_only_network,
+                                    cconst.PRIVATE_DNS_MODE_OPPORTUNISTIC,
+                                    True)
 
     @test_tracker_info(uuid="0c97cfef-4313-4346-b05b-395de63c5c3f")
-    def test_private_dns_mode_opportunistic_wifi_with_dns_tls_server(self):
-        """ Verify private dns opportunistic mode
+    def test_private_dns_mode_opportunistic_wifi_ipv4_ipv6_network(self):
+        """ Verify private dns mode opportunistic on ipv4-ipv6 network
 
         Steps:
-            1. Set private dns mode to opportunistic
-            2. Connect to wifi network. DNS server is set to 9.9.9.9, 8.8.8.8
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 853
+            1. Set private dns to opportunistic mode
+            2. Connect to wifi network. DNS server supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 853
         """
-        self._test_private_dns_mode(self.wifi_network_with_dns_tls,
-                                    PRIVATE_DNS_MODE_OPPORTUNISTIC, True)
+        self._test_private_dns_mode(self.dut,
+                                    self.ipv4_ipv6_network,
+                                    cconst.PRIVATE_DNS_MODE_OPPORTUNISTIC,
+                                    True)
 
     @test_tracker_info(uuid="b70569f1-2613-49d0-be49-fd3464dde305")
-    def test_private_dns_mode_strict_wifi_no_dns_tls_server(self):
-        """ Verify private dns strict mode
+    def test_private_dns_mode_strict_wifi_ipv4_only_network(self):
+        """ Verify private dns mode strict on ipv4 only network
 
         Steps:
-            1. Set private dns mode to strict
-            2. Connect to wifi network. DNS/TLS server is not set
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 853
+            1. Set private dns to strict mode
+            2. Connect to wifi network. DNS server supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 853 and encrypted
         """
-        self._test_private_dns_mode(self.wifi_network_no_dns_tls,
-                                    PRIVATE_DNS_MODE_STRICT, True,
-                                    DNS_QUAD9)
+        for dns in self.private_dns_servers:
+            self._test_private_dns_mode(self.dut,
+                                        self.ipv4_only_network,
+                                        cconst.PRIVATE_DNS_MODE_STRICT,
+                                        True,
+                                        dns)
 
     @test_tracker_info(uuid="85738b52-823b-4c59-a0d5-219e2fab2929")
-    def test_private_dns_mode_strict_wifi_with_dns_tls_server(self):
-        """ Verify private dns strict mode
+    def test_private_dns_mode_strict_wifi_ipv4_ipv6_network(self):
+        """ Verify private dns mode strict on ipv4-ipv6 network
 
         Steps:
-            1. Set private dns mode to strict
-            2. Connect to wifi network. DNS server is set to 9.9.9.9, 8.8.8.8
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 853
+            1. Set private dns to strict mode
+            2. Connect to wifi network. DNS server supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 853 and encrypted
         """
-        self._test_private_dns_mode(self.wifi_network_with_dns_tls,
-                                    PRIVATE_DNS_MODE_STRICT, True,
-                                    DNS_QUAD9)
+        for dns in self.private_dns_servers:
+            self._test_private_dns_mode(self.dut,
+                                        self.ipv4_ipv6_network,
+                                        cconst.PRIVATE_DNS_MODE_STRICT,
+                                        True,
+                                        dns)
 
     @test_tracker_info(uuid="727e280a-d2bd-463f-b2a1-653d4b3f7f29")
-    def test_private_dns_mode_off_lte(self):
-        """ Verify private dns off mode
+    def test_private_dns_mode_off_vzw_carrier(self):
+        """ Verify private dns mode off on VZW network
 
         Steps:
-            1. Set private dns mode to off
-            2. Reset wifi and enable LTE on DUT
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 53
+            1. Set private dns mode off
+            2. Connect to wifi network. VZW doesn't support DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 53
         """
-        self._test_private_dns_mode(None, PRIVATE_DNS_MODE_OFF, False)
+        carrier = get_operator_name(self.log, self.dut_b)
+        asserts.skip_if(carrier != "vzw", "Carrier is not Verizon")
+        self._test_private_dns_mode(self.dut_b,
+                                    None,
+                                    cconst.PRIVATE_DNS_MODE_OFF,
+                                    False)
 
     @test_tracker_info(uuid="b16f6e2c-a24f-4efe-9003-2bfaf28b8d5e")
-    def test_private_dns_mode_opportunistic_lte(self):
-        """ Verify private dns opportunistic mode
+    def test_private_dns_mode_off_tmo_carrier(self):
+        """ Verify private dns mode off on TMO network
 
         Steps:
-            1. Set private dns mode to opportunistic mode
-            2. Reset wifi and enable LTE on DUT
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 853
+            1. Set private dns to off mode
+            2. Connect to wifi network. TMO supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 53
         """
-        self._test_private_dns_mode(None, PRIVATE_DNS_MODE_OPPORTUNISTIC, True)
+        carrier = get_operator_name(self.log, self.dut)
+        asserts.skip_if(carrier != "tmo", "Carrier is not T-mobile")
+        self._test_private_dns_mode(self.dut,
+                                    None,
+                                    cconst.PRIVATE_DNS_MODE_OFF,
+                                    False)
 
     @test_tracker_info(uuid="edfa7bfe-3e52-46b4-9d72-7c6c300b3680")
-    def test_private_dns_mode_strict_lte(self):
-        """ Verify private dns strict mode
+    def test_private_dns_mode_opportunistic_vzw_carrier(self):
+        """ Verify private dns mode opportunistic on VZW network
 
         Steps:
-            1. Set private dns mode to strict mode
-            2. Reset wifi and enable LTE on DUT
-            3. Verify ping works to differnt hostnames
-            4. Verify that all queries go to port 853
+            1. Set private dns mode opportunistic
+            2. Connect to wifi network. VZW doesn't support DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 53
         """
-        self._test_private_dns_mode(None, PRIVATE_DNS_MODE_STRICT, True,
-                                    DNS_QUAD9)
+        carrier = get_operator_name(self.log, self.dut_b)
+        asserts.skip_if(carrier != "vzw", "Carrier is not Verizon")
+        self._test_private_dns_mode(self.dut_b,
+                                    None,
+                                    cconst.PRIVATE_DNS_MODE_OPPORTUNISTIC,
+                                    False)
+
+    @test_tracker_info(uuid="41c3f2c4-11b7-4bb8-a3c9-fac63f6822f6")
+    def test_private_dns_mode_opportunistic_tmo_carrier(self):
+        """ Verify private dns mode opportunistic on TMO network
+
+        Steps:
+            1. Set private dns mode opportunistic
+            2. Connect to wifi network. TMP supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 853 and encrypted
+        """
+        carrier = get_operator_name(self.log, self.dut)
+        asserts.skip_if(carrier != "tmo", "Carrier is not T-mobile")
+        self._test_private_dns_mode(self.dut,
+                                    None,
+                                    cconst.PRIVATE_DNS_MODE_OPPORTUNISTIC,
+                                    True)
+
+    @test_tracker_info(uuid="65fd2052-f0c0-4446-b353-7ed2273e6c95")
+    def test_private_dns_mode_strict_vzw_carrier(self):
+        """ Verify private dns mode strict on VZW network
+
+        Steps:
+            1. Set private dns mode strict
+            2. Connect to wifi network. VZW doesn't support DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 853 and encrypted
+        """
+        carrier = get_operator_name(self.log, self.dut_b)
+        asserts.skip_if(carrier != "vzw", "Carrier is not Verizon")
+        for dns in self.private_dns_servers:
+            self._test_private_dns_mode(self.dut_b,
+                                        None,
+                                        cconst.PRIVATE_DNS_MODE_STRICT,
+                                        True,
+                                        dns)
+
+    @test_tracker_info(uuid="bca141f7-06c9-4e44-854e-4bdb9443b2da")
+    def test_private_dns_mode_strict_tmo_carrier(self):
+        """ Verify private dns mode strict on TMO network
+
+        Steps:
+            1. Set private dns mode strict
+            2. Connect to wifi network. TMO supports DNS/TLS
+            3. Run HTTP ping to amazon.com, facebook.com, netflix.com
+            4. Verify ping works to differnt hostnames
+            5. Verify that all queries go to port 853 and encrypted
+        """
+        carrier = get_operator_name(self.log, self.dut)
+        asserts.skip_if(carrier != "tmo", "Carrier is not T-mobile")
+        for dns in self.private_dns_servers:
+            self._test_private_dns_mode(self.dut,
+                                        None,
+                                        cconst.PRIVATE_DNS_MODE_STRICT,
+                                        True,
+                                        dns)
+
+    @test_tracker_info(uuid="7d977987-d9e3-4be1-b8fc-e5a84050ed48")
+    def test_private_dns_mode_opportunistic_connectivity_toggle_networks(self):
+        """ Verify private DNS opportunistic mode connectivity by toggling networks
+
+        Steps:
+            1. Set private DNS opportunistic mode
+            2. DUT is connected to mobile network
+            3. Verify connectivity and DNS queries going to port 853 for TMO
+               and port 53 for VZW
+            4. Switch to wifi network set with private DNS server
+            5. Verify connectivity and DNS queries going to port 853
+            6. Switch back to mobile network
+            7. Verify connectivity and DNS queries going to port 853 for TMO
+               and port 53 for VZW
+            8. Repeat steps 1-7 for TMO, VZW and different private DNS servers
+        """
+        for ad in self.android_devices:
+            carrier = get_operator_name(self.log, ad)
+            self.log.info("Carrier is: %s" % carrier)
+            use_tls = True if carrier == "tmo" else False
+            for dns in self.private_dns_servers:
+                self.log.info("Setting opportunistic private dns mode")
+                # set private dns mode
+                cutils.set_private_dns(ad, cconst.PRIVATE_DNS_MODE_OPPORTUNISTIC)
+
+                # verify dns over tls on mobile network
+                self._test_private_dns_mode(
+                    self.dut, None, None, use_tls, dns)
+
+                # verify dns over tls on wifi network
+                self._test_private_dns_mode(
+                    self.dut, self.ipv4_ipv6_network, None, True, dns)
+
+                # verify dns over tls on mobile network
+                wutils.reset_wifi(self.dut)
+                self._test_private_dns_mode(
+                    self.dut, None, None, use_tls, dns)
+
+    @test_tracker_info(uuid="bc2f228f-e288-4539-a4b9-c02968209985")
+    def test_private_dns_mode_strict_connectivity_toggle_networks(self):
+        """ Verify private DNS strict mode connectivity by toggling networks
+
+        Steps:
+            1. Set private DNS strict mode
+            2. DUT is connected to mobile network
+            3. Verify connectivity and DNS queries going to port 853
+            4. Switch to wifi network
+            5. Verify connectivity and DNS queries going to port 853
+            6. Switch back to mobile network
+            7. Verify connectivity and DNS queries going to port 853
+            8. Repeat steps 1-7 for TMO, VZW and different private DNS servers
+        """
+        for ad in self.android_devices:
+            self.log.info("Carrier is: %s" % get_operator_name(self.log, ad))
+            for dns in self.private_dns_servers:
+                self.log.info("Setting strict mode private dns: %s" % dns)
+                # set private dns mode
+                cutils.set_private_dns(ad, cconst.PRIVATE_DNS_MODE_STRICT, dns)
+
+                # verify dns over tls on mobile network
+                self._test_private_dns_mode(
+                    self.dut, None, None, True, dns)
+
+
+                # verify dns over tls on wifi network
+                self._test_private_dns_mode(
+                    self.dut, self.ipv4_ipv6_network, None, True, dns)
+
+                # verify dns over tls on mobile network
+                wutils.reset_wifi(self.dut)
+                self._test_private_dns_mode(
+                    self.dut, None, None, True, dns)
 
     @test_tracker_info(uuid="1426673a-7728-4df7-8de5-dfb3529ada62")
     def test_dns_server_link_properties_strict_mode(self):
@@ -273,15 +459,13 @@ class DnsOverTlsTest(base_test.BaseTestClass):
         self._start_tcp_dump(self.dut)
 
         # set private DNS to strict mode
-        self.dut.droid.setPrivateDnsMode(True, DNS_QUAD9)
-        mode = self.dut.droid.getPrivateDnsMode()
-        specifier = self.dut.droid.getPrivateDnsSpecifier()
-        asserts.assert_true(
-            mode == PRIVATE_DNS_MODE_STRICT and specifier == DNS_QUAD9,
-            "Failed to set private DNS strict mode")
+        cutils.set_private_dns(
+            self.dut, cconst.PRIVATE_DNS_MODE_STRICT, cconst.DNS_GOOGLE)
 
         # connect DUT to wifi network
-        wutils.wifi_connect(self.dut, self.wifi_network_no_dns_tls)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut, self.ipv4_ipv6_network[SSID])
+        wutils.wifi_connect(self.dut, self.ipv4_ipv6_network)
         for host in self.ping_hosts:
             wutils.validate_connection(self.dut, host)
 
@@ -303,16 +487,15 @@ class DnsOverTlsTest(base_test.BaseTestClass):
 
         # stop tcpdump on device
         pcap_file = self._stop_tcp_dump(self.dut)
-        self.log.info("TCPDUMP file is: %s" % pcap_file)
 
         # Verify DNS server in link properties
-        asserts.assert_true(DNS_QUAD9 in wifi_dns_servers,
+        asserts.assert_true(cconst.DNS_GOOGLE in wifi_dns_servers,
                             "Hostname not in link properties - wifi network")
-        asserts.assert_true(DNS_QUAD9 in lte_dns_servers,
+        asserts.assert_true(cconst.DNS_GOOGLE in lte_dns_servers,
                             "Hostname not in link properites - cell network")
 
     @test_tracker_info(uuid="525a6f2d-9751-474e-a004-52441091e427")
-    def dns_over_tls_no_reset_packets(self):
+    def test_dns_over_tls_no_reset_packets(self):
         """ Verify there are no TCP packets with RST flags
 
         Steps:
@@ -323,19 +506,17 @@ class DnsOverTlsTest(base_test.BaseTestClass):
         self._start_tcp_dump(self.dut)
 
         # set private DNS to opportunistic mode
-        self.dut.droid.setPrivateDnsMode(True)
-        mode = self.dut.droid.getPrivateDnsMode()
-        asserts.assert_true(mode == PRIVATE_DNS_MODE_OPPORTUNISTIC,
-                            "Failed to set private DNS opportunistic mode")
+        cutils.set_private_dns(self.dut, cconst.PRIVATE_DNS_MODE_OPPORTUNISTIC)
 
         # connect DUT to wifi network
-        wutils.wifi_connect(self.dut, self.wifi_network_with_dns_tls)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut, self.ipv4_ipv6_network[SSID])
+        wutils.wifi_connect(self.dut, self.ipv4_ipv6_network)
         for host in self.ping_hosts:
             wutils.validate_connection(self.dut, host)
 
         # stop tcpdump on device
         pcap_file = self._stop_tcp_dump(self.dut)
-        self.log.info("TCPDUMP file is: %s" % pcap_file)
 
         # check that there no RST TCP packets
         self._verify_rst_packets(pcap_file)
@@ -350,10 +531,10 @@ class DnsOverTlsTest(base_test.BaseTestClass):
         """
         invalid_hostnames = ["!%@&!*", "12093478129", "9.9.9.9", "sdkfjhasdf"]
         for hostname in invalid_hostnames:
-            self.dut.droid.setPrivateDnsMode(True, hostname)
+            cutils.set_private_dns(
+                self.dut, cconst.PRIVATE_DNS_MODE_STRICT, hostname)
             mode = self.dut.droid.getPrivateDnsMode()
             specifier = self.dut.droid.getPrivateDnsSpecifier()
-            wutils.wifi_connect(self.dut, self.wifi_network_no_dns_tls)
             asserts.assert_true(
-                mode == PRIVATE_DNS_MODE_STRICT and specifier != hostname,
+                mode == cconst.PRIVATE_DNS_MODE_STRICT and specifier != hostname,
                 "Able to set invalid private DNS strict mode")

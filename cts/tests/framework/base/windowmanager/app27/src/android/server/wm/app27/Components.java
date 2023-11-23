@@ -33,6 +33,12 @@ public class Components extends ComponentsBase {
     public static final ComponentName SDK_27_SEPARATE_PROCESS_ACTIVITY =
             component(Components.class, "SeparateProcessActivity");
 
+    public static final ComponentName SDK_27_LAUNCH_ENTER_PIP_ACTIVITY =
+            component(Components.class, "LaunchEnterPipActivity");
+
+    public static final ComponentName SDK_27_PIP_ACTIVITY =
+            component(Components.class, "PipActivity");
+
     public static final ComponentName SDK_27_HOME_ACTIVITY =
             component(Components.class, "HomeActivity");
 }

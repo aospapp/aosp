@@ -144,6 +144,8 @@ enum {
   IFLA_NEW_IFINDEX,
   IFLA_MIN_MTU,
   IFLA_MAX_MTU,
+  IFLA_PROP_LIST,
+  IFLA_ALT_IFNAME,
   __IFLA_MAX
 };
 #define IFLA_MAX (__IFLA_MAX - 1)
@@ -515,6 +517,7 @@ enum {
   IFLA_BOND_AD_USER_PORT_KEY,
   IFLA_BOND_AD_ACTOR_SYSTEM,
   IFLA_BOND_TLB_DYNAMIC_LB,
+  IFLA_BOND_PEER_NOTIF_DELAY,
   __IFLA_BOND_MAX,
 };
 #define IFLA_BOND_MAX (__IFLA_BOND_MAX - 1)
@@ -561,12 +564,16 @@ enum {
   IFLA_VF_IB_NODE_GUID,
   IFLA_VF_IB_PORT_GUID,
   IFLA_VF_VLAN_LIST,
+  IFLA_VF_BROADCAST,
   __IFLA_VF_MAX,
 };
 #define IFLA_VF_MAX (__IFLA_VF_MAX - 1)
 struct ifla_vf_mac {
   __u32 vf;
   __u8 mac[32];
+};
+struct ifla_vf_broadcast {
+  __u8 broadcast[32];
 };
 struct ifla_vf_vlan {
   __u32 vf;
@@ -726,6 +733,7 @@ enum {
 enum {
   LINK_XSTATS_TYPE_UNSPEC,
   LINK_XSTATS_TYPE_BRIDGE,
+  LINK_XSTATS_TYPE_BOND,
   __LINK_XSTATS_TYPE_MAX
 };
 #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)

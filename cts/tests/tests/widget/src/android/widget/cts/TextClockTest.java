@@ -104,6 +104,16 @@ public class TextClockTest {
             }
         }
 
+        // If the time was already set to 12, we want it to start at locale-specified
+        if (mDefaultTime1224 != null) {
+            final CountDownLatch changeDefault = registerForChanges(Settings.System.TIME_12_24);
+            mActivityRule.runOnUiThread(() -> {
+                Settings.System.putString(resolver, Settings.System.TIME_12_24, null);
+            });
+            assertTrue(changeDefault.await(1, TimeUnit.SECONDS));
+        }
+
+        // Change to 12-hour mode
         final CountDownLatch change12 = registerForChanges(Settings.System.TIME_12_24);
         mActivityRule.runOnUiThread(() -> {
             Settings.System.putInt(resolver, Settings.System.TIME_12_24, 12);
@@ -124,6 +134,7 @@ public class TextClockTest {
             return ok.value;
         });
 
+        // Change to 24-hour mode
         final CountDownLatch change24 = registerForChanges(Settings.System.TIME_12_24);
         mActivityRule.runOnUiThread(() -> {
             Settings.System.putInt(resolver, Settings.System.TIME_12_24, 24);
@@ -183,11 +194,6 @@ public class TextClockTest {
                     new ContentObserver(new Handler()) {
                         @Override
                         public void onChange(boolean selfChange) {
-                            countDownAndRemove();
-                        }
-
-                        @Override
-                        public void onChange(boolean selfChange, Uri uri, int userId) {
                             countDownAndRemove();
                         }
 

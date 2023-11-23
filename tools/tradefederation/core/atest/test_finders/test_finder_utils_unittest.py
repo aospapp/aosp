@@ -31,10 +31,13 @@ from test_finders import test_finder_utils
 CLASS_DIR = 'foo/bar/jank/src/android/jank/cts/ui'
 OTHER_DIR = 'other/dir/'
 OTHER_CLASS_NAME = 'test.java'
+CLASS_NAME3 = 'test2'
 INT_DIR1 = os.path.join(uc.TEST_DATA_DIR, 'integration_dir_testing/int_dir1')
 INT_DIR2 = os.path.join(uc.TEST_DATA_DIR, 'integration_dir_testing/int_dir2')
 INT_FILE_NAME = 'int_dir_testing'
 FIND_TWO = uc.ROOT + 'other/dir/test.java\n' + uc.FIND_ONE
+FIND_THREE = '/a/b/c.java\n/d/e/f.java\n/g/h/i.java'
+FIND_THREE_LIST = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
 VTS_XML = 'VtsAndroidTest.xml'
 VTS_BITNESS_XML = 'VtsBitnessAndroidTest.xml'
 VTS_PUSH_DIR = 'vts_push_files'
@@ -114,33 +117,94 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             test_finder_utils.split_methods('foo/bar/class.java#Method'),
             ('foo/bar/class.java', {'Method'}))
 
+    @mock.patch.object(test_finder_utils, 'has_method_in_file',
+                       return_value=False)
     @mock.patch('__builtin__.raw_input', return_value='1')
-    def test_extract_test_path(self, _):
+    def test_extract_test_path(self, _, has_method):
         """Test extract_test_dir method."""
-        path = os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')
+        paths = [os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')]
         unittest_utils.assert_strict_equal(
-            self, test_finder_utils.extract_test_path(uc.FIND_ONE), path)
-        path = os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')
+            self, test_finder_utils.extract_test_path(uc.FIND_ONE), paths)
+        paths = [os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')]
         unittest_utils.assert_strict_equal(
-            self, test_finder_utils.extract_test_path(FIND_TWO), path)
+            self, test_finder_utils.extract_test_path(FIND_TWO), paths)
+        has_method.return_value = True
+        paths = [os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')]
+        unittest_utils.assert_strict_equal(
+            self, test_finder_utils.extract_test_path(uc.FIND_ONE, 'method'), paths)
+
+    def test_has_method_in_file(self):
+        """Test has_method_in_file method."""
+        test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
+                                 'hello_world_test.cc')
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['PrintHelloWorld'])))
+        self.assertFalse(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['PrintHelloWorld1'])))
+        test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
+                                 'hello_world_test.java')
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod1'])))
+        test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
+                                 'hello_world_test.java')
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod', 'testMethod2'])))
+        test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
+                                 'hello_world_test.java')
+        self.assertFalse(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod'])))
 
     @mock.patch('__builtin__.raw_input', return_value='1')
     def test_extract_test_from_tests(self, mock_input):
         """Test method extract_test_from_tests method."""
         tests = []
         self.assertEquals(test_finder_utils.extract_test_from_tests(tests), None)
-        path = os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')
+        paths = [os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')]
         unittest_utils.assert_strict_equal(
-            self, test_finder_utils.extract_test_path(uc.FIND_ONE), path)
-        path = os.path.join(uc.ROOT, OTHER_DIR, OTHER_CLASS_NAME)
+            self, test_finder_utils.extract_test_path(uc.FIND_ONE), paths)
+        paths = [os.path.join(uc.ROOT, OTHER_DIR, OTHER_CLASS_NAME)]
         mock_input.return_value = '0'
         unittest_utils.assert_strict_equal(
-            self, test_finder_utils.extract_test_path(FIND_TWO), path)
+            self, test_finder_utils.extract_test_path(FIND_TWO), paths)
         # Test inputing out-of-range integer or a string
         mock_input.return_value = '100'
-        self.assertEquals(test_finder_utils.extract_test_from_tests(uc.CLASS_NAME), None)
+        self.assertEquals(test_finder_utils.extract_test_from_tests(
+            uc.CLASS_NAME), [])
         mock_input.return_value = 'lOO'
-        self.assertEquals(test_finder_utils.extract_test_from_tests(uc.CLASS_NAME), None)
+        self.assertEquals(test_finder_utils.extract_test_from_tests(
+            uc.CLASS_NAME), [])
+
+    @mock.patch('__builtin__.raw_input', return_value='1')
+    def test_extract_test_from_multiselect(self, mock_input):
+        """Test method extract_test_from_tests method."""
+        # selecting 'All'
+        paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
+        mock_input.return_value = '3'
+        unittest_utils.assert_strict_equal(
+            self, sorted(test_finder_utils.extract_test_from_tests(
+                FIND_THREE_LIST)), sorted(paths))
+        # multi-select
+        paths = ['/a/b/c.java', '/g/h/i.java']
+        mock_input.return_value = '0,2'
+        unittest_utils.assert_strict_equal(
+            self, sorted(test_finder_utils.extract_test_from_tests(
+                FIND_THREE_LIST)), sorted(paths))
+        # selecting a range
+        paths = ['/d/e/f.java', '/g/h/i.java']
+        mock_input.return_value = '1-2'
+        unittest_utils.assert_strict_equal(
+            self, test_finder_utils.extract_test_from_tests(FIND_THREE_LIST), paths)
+        # mixed formats
+        paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
+        mock_input.return_value = '0,1-2'
+        unittest_utils.assert_strict_equal(
+            self, sorted(test_finder_utils.extract_test_from_tests(
+                FIND_THREE_LIST)), sorted(paths))
+        # input unsupported formats, return empty
+        paths = []
+        mock_input.return_value = '?/#'
+        unittest_utils.assert_strict_equal(
+            self, test_finder_utils.extract_test_path(FIND_THREE), paths)
 
     @mock.patch('os.path.isdir')
     def test_is_equal_or_sub_dir(self, mock_isdir):
@@ -358,55 +422,105 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_search_integration_dirs(self, mock_input):
         """Test search_integration_dirs."""
         mock_input.return_value = '0'
-        path = os.path.join(uc.ROOT, INT_DIR1, INT_FILE_NAME+'.xml')
+        paths = [os.path.join(uc.ROOT, INT_DIR1, INT_FILE_NAME+'.xml')]
         int_dirs = [INT_DIR1]
         test_result = test_finder_utils.search_integration_dirs(INT_FILE_NAME, int_dirs)
-        unittest_utils.assert_strict_equal(self, test_result, path)
+        unittest_utils.assert_strict_equal(self, test_result, paths)
         int_dirs = [INT_DIR1, INT_DIR2]
         test_result = test_finder_utils.search_integration_dirs(INT_FILE_NAME, int_dirs)
-        unittest_utils.assert_strict_equal(self, test_result, path)
+        unittest_utils.assert_strict_equal(self, test_result, paths)
 
+    @mock.patch('os.path.isfile', return_value=False)
     @mock.patch('os.environ.get', return_value=uc.TEST_CONFIG_DATA_DIR)
     @mock.patch('__builtin__.raw_input', return_value='0')
-    def test_find_class_file(self, mock_input, _mock_env):
+    # pylint: disable=too-many-statements
+    def test_find_class_file(self, mock_input, _mock_env, _mock_isfile):
         """Test find_class_file."""
+        # 1. Java class(find).
         java_tmp_test_result = []
         mock_input.return_value = '0'
         java_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.java')
-        java_tmp_test_result.append(test_finder_utils.find_class_file(uc.FIND_PATH,
+        java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                       uc.FIND_PATH_TESTCASE_JAVA))
-
         mock_input.return_value = '1'
         kt_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.kt')
-        java_tmp_test_result.append(test_finder_utils.find_class_file(uc.FIND_PATH,
+        java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                       uc.FIND_PATH_TESTCASE_JAVA))
-
         self.assertTrue(java_class in java_tmp_test_result)
         self.assertTrue(kt_class in java_tmp_test_result)
 
+        # 2. Java class(read index).
         del java_tmp_test_result[:]
         mock_input.return_value = '0'
+        _mock_isfile = True
+        test_finder_utils.FIND_INDEXES['CLASS'] = uc.CLASS_INDEX
+        java_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.java')
+        java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
+                                                                      uc.FIND_PATH_TESTCASE_JAVA))
+        mock_input.return_value = '1'
+        kt_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.kt')
+        java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
+                                                                      uc.FIND_PATH_TESTCASE_JAVA))
+        self.assertTrue(java_class in java_tmp_test_result)
+        self.assertTrue(kt_class in java_tmp_test_result)
+
+        # 3. Qualified Java class(find).
+        del java_tmp_test_result[:]
+        mock_input.return_value = '0'
+        _mock_isfile = False
         java_qualified_class = '{0}.{1}'.format(uc.FIND_PATH_FOLDER, uc.FIND_PATH_TESTCASE_JAVA)
-        java_tmp_test_result.append(test_finder_utils.find_class_file(uc.FIND_PATH,
+        java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                       java_qualified_class))
         mock_input.return_value = '1'
-        java_tmp_test_result.append(test_finder_utils.find_class_file(uc.FIND_PATH,
+        java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                       java_qualified_class))
         self.assertTrue(java_class in java_tmp_test_result)
         self.assertTrue(kt_class in java_tmp_test_result)
 
+        # 4. Qualified Java class(read index).
+        del java_tmp_test_result[:]
+        mock_input.return_value = '0'
+        _mock_isfile = True
+        test_finder_utils.FIND_INDEXES['QUALIFIED_CLASS'] = uc.QCLASS_INDEX
+        java_qualified_class = '{0}.{1}'.format(uc.FIND_PATH_FOLDER, uc.FIND_PATH_TESTCASE_JAVA)
+        java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
+                                                                      java_qualified_class))
+        mock_input.return_value = '1'
+        java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
+                                                                      java_qualified_class))
+        self.assertTrue(java_class in java_tmp_test_result)
+        self.assertTrue(kt_class in java_tmp_test_result)
+
+        # 5. CC class(find).
         cc_tmp_test_result = []
+        _mock_isfile = False
         mock_input.return_value = '0'
         cpp_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cpp')
-        cc_tmp_test_result.append(test_finder_utils.find_class_file(uc.FIND_PATH,
+        cc_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                     uc.FIND_PATH_TESTCASE_CC,
                                                                     True))
         mock_input.return_value = '1'
         cc_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cc')
-        cc_tmp_test_result.append(test_finder_utils.find_class_file(uc.FIND_PATH,
+        cc_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                     uc.FIND_PATH_TESTCASE_CC,
                                                                     True))
+        self.assertTrue(cpp_class in cc_tmp_test_result)
+        self.assertTrue(cc_class in cc_tmp_test_result)
 
+        # 6. CC class(read index).
+        del cc_tmp_test_result[:]
+        mock_input.return_value = '0'
+        _mock_isfile = True
+        test_finder_utils.FIND_INDEXES['CC_CLASS'] = uc.CC_CLASS_INDEX
+        cpp_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cpp')
+        cc_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
+                                                                    uc.FIND_PATH_TESTCASE_CC,
+                                                                    True))
+        mock_input.return_value = '1'
+        cc_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cc')
+        cc_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
+                                                                    uc.FIND_PATH_TESTCASE_CC,
+                                                                    True))
         self.assertTrue(cpp_class in cc_tmp_test_result)
         self.assertTrue(cc_class in cc_tmp_test_result)
 

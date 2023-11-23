@@ -31,8 +31,7 @@ uint32_t WwanRequestManager::getCapabilities() {
   return mPlatformWwan.getCapabilities();
 }
 
-bool WwanRequestManager::requestCellInfo(Nanoapp *nanoapp,
-                                         const void *cookie) {
+bool WwanRequestManager::requestCellInfo(Nanoapp *nanoapp, const void *cookie) {
   CHRE_ASSERT(nanoapp);
 
   bool success = false;
@@ -53,7 +52,8 @@ bool WwanRequestManager::requestCellInfo(Nanoapp *nanoapp,
 void WwanRequestManager::handleCellInfoResult(chreWwanCellInfoResult *result) {
   auto callback = [](uint16_t /* eventType */, void *eventData) {
     auto *cellInfoResult = static_cast<chreWwanCellInfoResult *>(eventData);
-    EventLoopManagerSingleton::get()->getWwanRequestManager()
+    EventLoopManagerSingleton::get()
+        ->getWwanRequestManager()
         .handleCellInfoResultSync(cellInfoResult);
   };
 
@@ -65,30 +65,29 @@ void WwanRequestManager::handleCellInfoResultSync(
     chreWwanCellInfoResult *result) {
   if (mCellInfoRequestingNanoappInstanceId.has_value()) {
     result->cookie = mCellInfoRequestingNanoappCookie;
-    EventLoopManagerSingleton::get()->getEventLoop()
-        .postEvent(CHRE_EVENT_WWAN_CELL_INFO_RESULT, result,
-                   freeCellInfoResultCallback, kSystemInstanceId,
-                   mCellInfoRequestingNanoappInstanceId.value());
+    EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
+        CHRE_EVENT_WWAN_CELL_INFO_RESULT, result, freeCellInfoResultCallback,
+        mCellInfoRequestingNanoappInstanceId.value());
   } else {
     LOGE("Cell info results received unexpectedly");
   }
 }
 
-void WwanRequestManager::logStateToBuffer(char *buffer, size_t *bufferPos,
-                                          size_t bufferSize) const {
-  debugDumpPrint(buffer, bufferPos, bufferSize, "\nWWAN:\n");
+void WwanRequestManager::logStateToBuffer(DebugDumpWrapper &debugDump) const {
+  debugDump.print("\nWWAN:\n");
   if (mCellInfoRequestingNanoappInstanceId.has_value()) {
-    debugDumpPrint(buffer, bufferPos, bufferSize,
-                   " WWAN request pending nanoappId=%" PRIu32 "\n",
-                   mCellInfoRequestingNanoappInstanceId.value());
+    debugDump.print(" WWAN request pending nanoappId=%" PRIu32 "\n",
+                    mCellInfoRequestingNanoappInstanceId.value());
   }
 }
 
 void WwanRequestManager::handleFreeCellInfoResult(
     chreWwanCellInfoResult *result) {
   if (mCellInfoRequestingNanoappInstanceId.has_value()) {
-    Nanoapp *nanoapp = EventLoopManagerSingleton::get()->getEventLoop()
-        .findNanoappByInstanceId(*mCellInfoRequestingNanoappInstanceId);
+    Nanoapp *nanoapp =
+        EventLoopManagerSingleton::get()
+            ->getEventLoop()
+            .findNanoappByInstanceId(*mCellInfoRequestingNanoappInstanceId);
     if (nanoapp != nullptr) {
       nanoapp->unregisterForBroadcastEvent(CHRE_EVENT_WWAN_CELL_INFO_RESULT);
     } else {
@@ -106,7 +105,8 @@ void WwanRequestManager::handleFreeCellInfoResult(
 void WwanRequestManager::freeCellInfoResultCallback(uint16_t eventType,
                                                     void *eventData) {
   auto *result = static_cast<chreWwanCellInfoResult *>(eventData);
-  EventLoopManagerSingleton::get()->getWwanRequestManager()
+  EventLoopManagerSingleton::get()
+      ->getWwanRequestManager()
       .handleFreeCellInfoResult(result);
 }
 

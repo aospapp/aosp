@@ -32,7 +32,7 @@ class AnnotationStatisticsTest : DriverTest() {
                     0 out of 0 eligible method returns were annotated (100%)
                     0 out of 0 eligible parameters were annotated (100%)
                 """,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -127,7 +127,7 @@ class AnnotationStatisticsTest : DriverTest() {
                     )
                 )
             ),
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;

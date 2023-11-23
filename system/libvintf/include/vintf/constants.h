@@ -23,7 +23,7 @@ namespace android {
 namespace vintf {
 
 /* libvintf meta-version */
-constexpr Version kMetaVersion{1, 0};
+constexpr Version kMetaVersion{2, 0};
 
 }  // namespace vintf
 }  // namespace android

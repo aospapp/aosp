@@ -37,11 +37,14 @@ import android.util.Size;
 
 import java.util.ArrayList;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.junit.Test;
 
 /**
  * Basic tests for burst capture in RAW formats.
  */
+@RunWith(Parameterized.class)
 public class BurstCaptureRawTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "BurstCaptureRawTest";
     private static final int RAW_FORMATS[] = {
@@ -71,7 +74,7 @@ public class BurstCaptureRawTest extends Camera2SurfaceViewTestCase {
     @Test
     public void testRawSensorSize() throws Exception {
         Log.i(TAG, "Begin testRawSensorSize");
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 ArrayList<Integer> supportedRawList = new ArrayList<Integer>(RAW_FORMATS.length);
                 if (!checkCapability(id, supportedRawList, RAW_FORMATS)) {
@@ -675,7 +678,7 @@ public class BurstCaptureRawTest extends Camera2SurfaceViewTestCase {
     private void performTestRoutine(TestRoutine routine, int[] testedFormats) throws Exception
     {
         final int PREPARE_TIMEOUT_MS = 10000;
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 ArrayList<Integer> supportedRawList = new ArrayList<Integer>(RAW_FORMATS.length);
                 if (!checkCapability(id, supportedRawList, testedFormats)) {

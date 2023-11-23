@@ -22,6 +22,7 @@ import android.app.UiModeManager;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
@@ -29,8 +30,12 @@ import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
+import android.util.DisplayMetrics;
+import android.view.Display;
+import android.view.Window;
 
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
 
 /**
  * Collection of helper utils for testing preferences.
@@ -45,13 +50,17 @@ public class TestUtils {
     private final UiAutomation mAutomation;
     private int mStatusBarHeight = -1;
     private int mNavigationBarHeight = -1;
+    private Display mDisplay;
+    private Window mWindow;
 
-    TestUtils() {
+    TestUtils(ActivityTestRule<?> rule) {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getTargetContext();
         mPackageName = mContext.getPackageName();
         mDevice = UiDevice.getInstance(mInstrumentation);
         mAutomation = mInstrumentation.getUiAutomation();
+        mDisplay = rule.getActivity().getDisplay();
+        mWindow = rule.getActivity().getWindow();
     }
 
     void waitForIdle() {
@@ -75,7 +84,7 @@ public class TestUtils {
         int xToCut = isOnWatchUiMode() ? bt.getWidth() / 5 : bt.getWidth() / 20;
         int yToCut = statusBarHeight;
 
-        if (isLandscape()) {
+        if (hasVerticalNavBar()) {
             xToCut += navigationBarHeight;
         } else {
             yToCut += navigationBarHeight;
@@ -154,9 +163,12 @@ public class TestUtils {
         return mNavigationBarHeight;
     }
 
-    private boolean isLandscape() {
-        return mInstrumentation.getTargetContext().getResources().getConfiguration().orientation
-            == Configuration.ORIENTATION_LANDSCAPE;
+    private boolean hasVerticalNavBar() {
+        Rect displayFrame = new Rect();
+        mWindow.getDecorView().getWindowVisibleDisplayFrame(displayFrame);
+        DisplayMetrics dm = new DisplayMetrics();
+        mDisplay.getRealMetrics(dm);
+        return dm.heightPixels == displayFrame.bottom;
     }
 
     private UiObject2 getTextObject(String text) {

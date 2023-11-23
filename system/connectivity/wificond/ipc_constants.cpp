@@ -20,7 +20,7 @@ namespace android {
 namespace wificond {
 namespace ipc_constants {
 
-const char kServiceName[] = "wificond";
+const char kServiceName[] = "wifinl80211";
 
 }  // namespace ipc_constants
 }  // namespace wificond

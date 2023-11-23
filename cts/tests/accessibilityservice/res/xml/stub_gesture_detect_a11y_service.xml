@@ -20,7 +20,7 @@
         android:description="@string/stub_gesture_detector_a11y_service_description"
         android:accessibilityEventTypes="typeAllMask"
         android:accessibilityFeedbackType="feedbackGeneric"
-        android:accessibilityFlags="flagDefault|flagRequestTouchExplorationMode|flagReportViewIds"
+        android:accessibilityFlags="flagDefault|flagRequestTouchExplorationMode|flagReportViewIds|flagServiceHandlesDoubleTap|flagRequestMultiFingerGestures"
         android:canRequestTouchExplorationMode="true"
         android:canRetrieveWindowContent="true"
         android:canPerformGestures="true" />

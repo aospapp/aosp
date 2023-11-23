@@ -19,14 +19,9 @@
 
 #include <memory>
 #include <vector>
-#include <unordered_map>
 
 #include "perf_regs.h"
 #include "thread_tree.h"
-
-#if defined(__linux__)
-#include <unwindstack/Maps.h>
-#endif
 
 namespace simpleperf {
 struct ThreadEntry;
@@ -55,26 +50,14 @@ struct UnwindingResult {
   uint64_t stack_end;
 };
 
-#if defined(__linux__)
-class UnwindMaps : public unwindstack::Maps {
- public:
-  void UpdateMaps(const MapSet& map_set);
-
- private:
-  uint64_t version_ = 0u;
-  std::vector<const MapEntry*> entries_;
-};
-
 class OfflineUnwinder {
  public:
-  OfflineUnwinder(bool collect_stat);
+  static std::unique_ptr<OfflineUnwinder> Create(bool collect_stat);
+  virtual ~OfflineUnwinder() {}
 
-  bool UnwindCallChain(const ThreadEntry& thread, const RegSet& regs, const char* stack,
-                       size_t stack_size, std::vector<uint64_t>* ips, std::vector<uint64_t>* sps);
-
-  bool HasStat() const {
-    return collect_stat_;
-  }
+  virtual bool UnwindCallChain(const ThreadEntry& thread, const RegSet& regs, const char* stack,
+                               size_t stack_size, std::vector<uint64_t>* ips,
+                               std::vector<uint64_t>* sps) = 0;
 
   const UnwindingResult& GetUnwindingResult() const {
     return unwinding_result_;
@@ -84,26 +67,12 @@ class OfflineUnwinder {
     return is_callchain_broken_for_incomplete_jit_debug_info_;
   }
 
- private:
-  bool collect_stat_;
+ protected:
+  OfflineUnwinder() {}
+
   UnwindingResult unwinding_result_;
-  bool is_callchain_broken_for_incomplete_jit_debug_info_;
-
-  std::unordered_map<pid_t, UnwindMaps> cached_maps_;
+  bool is_callchain_broken_for_incomplete_jit_debug_info_ = false;
 };
-
-#else  // defined(__linux__)
-
-class OfflineUnwinder {
- public:
-  OfflineUnwinder(bool) {}
-  bool UnwindCallChain(const ThreadEntry&, const RegSet&, const char*, size_t,
-                       std::vector<uint64_t>*, std::vector<uint64_t>*) {
-    return false;
-  }
-};
-
-#endif  // !defined(__linux__)
 
 } // namespace simpleperf
 

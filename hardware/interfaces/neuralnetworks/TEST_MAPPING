@@ -1,26 +1,46 @@
 {
   "presubmit": [
     {
-      "name": "PresubmitHalNeuralnetworksV1_0TargetTest",
+      "name": "VtsHalNeuralnetworksV1_0TargetTest",
       "options": [
         {
-          "native-test-flag": "--hal_service_instance=android.hardware.neuralnetworks@1.0::IDevice/sample-all"
+          // Do not use any sample driver except sample-all in order to reduce
+          // testing time. The other sample drivers (fast-float, quant, etc.)
+          // are subsets of sample-all.
+          "include-filter": "-*sample_float_fast*:*sample_float_slow*:*sample_minimal*:*sample_quant*"
         }
       ]
     },
     {
-      "name": "PresubmitHalNeuralnetworksV1_1TargetTest",
+      "name": "VtsHalNeuralnetworksV1_1TargetTest",
       "options": [
         {
-          "native-test-flag": "--hal_service_instance=android.hardware.neuralnetworks@1.1::IDevice/sample-all"
+          // Do not use any sample driver except sample-all in order to reduce
+          // testing time. The other sample drivers (fast-float, quant, etc.)
+          // are subsets of sample-all.
+          "include-filter": "-*sample_float_fast*:*sample_float_slow*:*sample_minimal*:*sample_quant*"
         }
       ]
     },
     {
-      "name": "PresubmitHalNeuralnetworksV1_2TargetTest",
+      "name": "VtsHalNeuralnetworksV1_2TargetTest",
       "options": [
         {
-          "native-test-flag": "--hal_service_instance=android.hardware.neuralnetworks@1.2::IDevice/sample-all"
+          // Do not use any sample driver except sample-all in order to reduce
+          // testing time. The other sample drivers (fast-float, quant, etc.)
+          // are subsets of sample-all.
+          "include-filter": "-*sample_float_fast*:*sample_float_slow*:*sample_minimal*:*sample_quant*"
+        }
+      ]
+    },
+    {
+      "name": "VtsHalNeuralnetworksV1_3TargetTest",
+      "options": [
+        {
+          // Do not use any sample driver except sample-all in order to reduce
+          // testing time. The other sample drivers (fast-float, quant, etc.)
+          // are subsets of sample-all.
+          "include-filter": "-*sample_float_fast*:*sample_float_slow*:*sample_minimal*:*sample_quant*"
         }
       ]
     }

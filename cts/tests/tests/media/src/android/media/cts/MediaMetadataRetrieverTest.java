@@ -32,32 +32,49 @@ import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
+import android.media.MediaRecorder;
 import android.media.cts.R;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.MediaUtils;
 
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.function.Function;
 
+@Presubmit
 @SmallTest
 @RequiresDevice
 @AppModeFull(reason = "No interaction with system server")
 public class MediaMetadataRetrieverTest extends AndroidTestCase {
     private static final String TAG = "MediaMetadataRetrieverTest";
     private static final boolean SAVE_BITMAP_OUTPUT = false;
+    private static final String TEST_MEDIA_FILE = "retriever_test.3gp";
 
     protected Resources mResources;
     protected MediaMetadataRetriever mRetriever;
     private PackageManager mPackageManager;
 
+    protected static final int SLEEP_TIME = 1000;
     private static int BORDER_WIDTH = 16;
     private static Color COLOR_BLOCK =
             Color.valueOf(1.0f, 1.0f, 1.0f);
@@ -70,6 +87,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
             Color.valueOf(0.64f, 0.0f, 0.64f),
             Color.valueOf(0.64f, 0.64f, 0.0f),
     };
+    private boolean mIsAtLeastR = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R);
 
     @Override
     protected void setUp() throws Exception {
@@ -83,6 +101,10 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
     protected void tearDown() throws Exception {
         super.tearDown();
         mRetriever.release();
+        File file = new File(Environment.getExternalStorageDirectory(), TEST_MEDIA_FILE);
+        if (file.exists()) {
+            file.delete();
+        }
     }
 
     protected void setDataSourceFd(int resid) {
@@ -137,9 +159,24 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 "Test album",
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
 
+        assertNull("Album artist was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST));
+
+        assertNull("Author was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_AUTHOR));
+
+        assertNull("Composer was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER));
+
         assertEquals("Track number was other than expected",
                 "10",
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER));
+
+        assertNull("Disc number was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER));
+
+        assertNull("Compilation was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPILATION));
 
         assertEquals("Year was other than expected",
                 "2013", mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR));
@@ -148,7 +185,59 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 "19040101T000000.000Z",
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE));
 
-        assertNull("Writer was unexpected present",
+        assertEquals("Bitrate was other than expected",
+                "365018",  // = 504045 (file size in byte) * 8e6 / 11047000 (duration in us)
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE));
+
+        assertNull("Capture frame rate was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE));
+
+        assertEquals("Duration was other than expected",
+                "11047",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
+
+        assertEquals("Number of tracks was other than expected",
+                "4",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS));
+
+        assertEquals("Has audio was other than expected",
+                "yes",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));
+
+        assertEquals("Has video was other than expected",
+                "yes",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO));
+
+        assertEquals("Video frame count was other than expected",
+                "172",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT));
+
+        assertEquals("Video height was other than expected",
+                "288",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+
+        assertEquals("Video width was other than expected",
+                "352",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+
+        assertEquals("Video rotation was other than expected",
+                "0",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION));
+
+        assertEquals("Mime type was other than expected",
+                "video/mp4",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
+
+        assertNull("Location was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LOCATION));
+
+        assertNull("EXIF length was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_EXIF_LENGTH));
+
+        assertNull("EXIF offset was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_EXIF_OFFSET));
+
+        assertNull("Writer was unexpectedly present",
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_WRITER));
     }
 
@@ -166,9 +255,24 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 "Test album",
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
 
+        assertNull("Album artist was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST));
+
+        assertNull("Author was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_AUTHOR));
+
+        assertNull("Composer was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER));
+
         assertEquals("Track number was other than expected",
                 "10",
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER));
+
+        assertNull("Disc number was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER));
+
+        assertNull("Compilation was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPILATION));
 
         assertEquals("Year was other than expected",
                 "2013", mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR));
@@ -177,8 +281,136 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 "19700101T000000.000Z",
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE));
 
+        assertEquals("Bitrate was other than expected",
+                "499895",  // = 624869 (file size in byte) * 8e6 / 10000000 (duration in us)
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE));
+
+        assertNull("Capture frame rate was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE));
+
+        assertEquals("Duration was other than expected",
+                "10000",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
+
+        assertEquals("Number of tracks was other than expected",
+                "2",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS));
+
+        assertEquals("Has audio was other than expected",
+                "yes",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));
+
+        assertEquals("Has video was other than expected",
+                "yes",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO));
+
+        assertEquals("Video frame count was other than expected",
+                "240",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT));
+
+        assertEquals("Video height was other than expected",
+                "360",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+
+        assertEquals("Video width was other than expected",
+                "480",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+
+        assertEquals("Video rotation was other than expected",
+                "0",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION));
+
+        assertEquals("Mime type was other than expected",
+                "video/mp4",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
+
+        assertNull("Location was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LOCATION));
+
+        assertNull("EXIF length was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_EXIF_LENGTH));
+
+        assertNull("EXIF offset was unexpectedly present",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_EXIF_OFFSET));
+
         assertNull("Writer was unexpectedly present",
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_WRITER));
+    }
+
+    public void testID3v2Unsynchronization() {
+        setDataSourceFd(R.raw.testmp3_4);
+        assertEquals("Mime type was other than expected",
+                "audio/mpeg",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
+    }
+
+    public void testID3v240ExtHeader() {
+        setDataSourceFd(R.raw.sinesweepid3v24ext);
+        assertEquals("Mime type was other than expected",
+                "audio/mpeg",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
+        assertEquals("Title was other than expected",
+                "sinesweep",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+        assertNotNull("no album art",
+                mRetriever.getEmbeddedPicture());
+    }
+
+    public void testID3v230ExtHeader() {
+        setDataSourceFd(R.raw.sinesweepid3v23ext);
+        assertEquals("Mime type was other than expected",
+                "audio/mpeg",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
+        assertEquals("Title was other than expected",
+                "sinesweep",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+        assertNotNull("no album art",
+                mRetriever.getEmbeddedPicture());
+    }
+
+    public void testID3v230ExtHeaderBigEndian() {
+        setDataSourceFd(R.raw.sinesweepid3v23extbe);
+        assertEquals("Mime type was other than expected",
+                "audio/mpeg",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
+        assertEquals("Title was other than expected",
+                "sinesweep",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+        assertNotNull("no album art",
+                mRetriever.getEmbeddedPicture());
+    }
+
+    public void testMp4AlbumArt() {
+        setDataSourceFd(R.raw.swirl_128x128_h264_albumart);
+        assertEquals("Mime type was other than expected",
+                "video/mp4",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
+        assertNotNull("no album art",
+                mRetriever.getEmbeddedPicture());
+    }
+
+    public void testGenreParsing() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+        Object [][] genres = {
+            { R.raw.id3test0, null },
+            { R.raw.id3test1, "Country" },
+            { R.raw.id3test2, "Classic Rock, Android" },
+            { R.raw.id3test3, null },
+            { R.raw.id3test4, "Classic Rock, (Android)" },
+            { R.raw.id3test5, null },
+            { R.raw.id3test6, "Funk, Grunge, Hip-Hop" },
+            { R.raw.id3test7, null },
+            { R.raw.id3test8, "Disco" },
+            { R.raw.id3test9, "Cover" },
+            { R.raw.id3test10, "Pop, Remix" },
+            { R.raw.id3test11, "Remix" },
+        };
+        for (Object [] genre: genres) {
+            setDataSourceFd((Integer)genre[0] /* resource id */);
+            assertEquals("Unexpected genre: ",
+                    genre[1] /* genre */,
+                    mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE));
+        }
     }
 
     public void testBitsPerSampleAndSampleRate() {
@@ -194,15 +426,50 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
     }
 
-    public void testLargeAlbumArt() {
+    public void testGetEmbeddedPicture() {
         setDataSourceFd(R.raw.largealbumart);
 
         assertNotNull("couldn't retrieve album art", mRetriever.getEmbeddedPicture());
     }
 
+    public void testAlbumArtInOgg() throws Exception {
+        setDataSourceFd(R.raw.sinesweepoggalbumart);
+        assertNotNull("couldn't retrieve album art from ogg", mRetriever.getEmbeddedPicture());
+    }
+
+    public void testSetDataSourcePath() {
+        copyMeidaFile();
+        File file = new File(Environment.getExternalStorageDirectory(), TEST_MEDIA_FILE);
+        try {
+            mRetriever.setDataSource(file.getAbsolutePath());
+        } catch (Exception ex) {
+            fail("Failed setting data source with path, caught exception:" + ex);
+        }
+    }
+
+    public void testSetDataSourceUri() {
+        copyMeidaFile();
+        File file = new File(Environment.getExternalStorageDirectory(), TEST_MEDIA_FILE);
+        try {
+            Uri uri = Uri.parse(file.getAbsolutePath());
+            mRetriever.setDataSource(getContext(), uri);
+        } catch (Exception ex) {
+            fail("Failed setting data source with Uri, caught exception:" + ex);
+        }
+    }
+
     public void testSetDataSourceNullPath() {
         try {
             mRetriever.setDataSource((String)null);
+            fail("Expected IllegalArgumentException.");
+        } catch (IllegalArgumentException ex) {
+            // Expected, test passed.
+        }
+    }
+
+    public void testSetDataSourceNullUri() {
+        try {
+            mRetriever.setDataSource(getContext(), (Uri)null);
             fail("Expected IllegalArgumentException.");
         } catch (IllegalArgumentException ex) {
             // Expected, test passed.
@@ -245,51 +512,139 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
-    private void testThumbnail(int resId) {
+    private void testThumbnail(int resId, int targetWdith, int targetHeight) {
+        testThumbnail(resId, null /*outPath*/, targetWdith, targetHeight);
+    }
+
+    private void testThumbnail(int resId, String outPath, int targetWidth, int targetHeight) {
+        Stopwatch timer = new Stopwatch();
+
         if (!MediaUtils.hasCodecForResourceAndDomain(getContext(), resId, "video/")) {
             MediaUtils.skipTest("no video codecs for resource");
             return;
         }
 
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        Resources resources = getContext().getResources();
-        AssetFileDescriptor afd = resources.openRawResourceFd(resId);
+        setDataSourceFd(resId);
 
-        retriever.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+        timer.start();
+        Bitmap thumbnail = mRetriever.getFrameAtTime(-1 /* timeUs (any) */);
+        timer.end();
+        timer.printDuration("getFrameAtTime");
 
-        try {
-            afd.close();
-        } catch (IOException e) {
-            fail("Unable to open file");
+        assertNotNull(thumbnail);
+
+        // Verifies bitmap width and height.
+        assertEquals("Video width was other than expected", Integer.toString(targetWidth),
+            mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+        assertEquals("Video height was other than expected", Integer.toString(targetHeight),
+            mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+
+        // save output file if needed
+        if (outPath != null) {
+            FileOutputStream out = null;
+            try {
+                out = new FileOutputStream(outPath);
+            } catch (FileNotFoundException e) {
+                fail("Can't open output file");
+            }
+
+            thumbnail.compress(Bitmap.CompressFormat.PNG, 100, out);
+
+            try {
+                out.flush();
+                out.close();
+            } catch (IOException e) {
+                fail("Can't close file");
+            }
         }
-
-        assertNotNull(retriever.getFrameAtTime(-1 /* timeUs (any) */));
     }
 
     public void testThumbnailH264() {
-        testThumbnail(R.raw.bbb_s4_1280x720_mp4_h264_mp31_8mbps_30fps_aac_he_mono_40kbps_44100hz);
+        testThumbnail(
+                R.raw.bbb_s4_1280x720_mp4_h264_mp31_8mbps_30fps_aac_he_mono_40kbps_44100hz,
+                1280,
+                720);
     }
 
     public void testThumbnailH263() {
-        testThumbnail(R.raw.video_176x144_3gp_h263_56kbps_12fps_aac_mono_24kbps_11025hz);
+        testThumbnail(R.raw.video_176x144_3gp_h263_56kbps_12fps_aac_mono_24kbps_11025hz, 176, 144);
     }
 
     public void testThumbnailMPEG4() {
-        testThumbnail(R.raw.video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz);
+        testThumbnail(
+                R.raw.video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz,
+                1280,
+                720);
     }
 
     public void testThumbnailVP8() {
-        testThumbnail(R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz);
+        testThumbnail(
+                R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz,
+                640,
+                360);
     }
 
     public void testThumbnailVP9() {
-        testThumbnail(R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz);
+        testThumbnail(
+                R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz,
+                640,
+                360);
     }
 
     public void testThumbnailHEVC() {
-        testThumbnail(R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz);
+        testThumbnail(
+                R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz,
+                720,
+                480);
     }
 
+    public void testThumbnailVP9Hdr() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+
+        testThumbnail(R.raw.video_1280x720_vp9_hdr_static_3mbps, 1280, 720);
+    }
+
+    public void testThumbnailAV1Hdr() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+
+        testThumbnail(R.raw.video_1280x720_av1_hdr_static_3mbps, 1280, 720);
+    }
+
+    public void testThumbnailHDR10() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+
+        testThumbnail(R.raw.video_1280x720_hevc_hdr10_static_3mbps, 1280, 720);
+    }
+
+    private void testThumbnailWithRotation(int resId, int targetRotation) {
+        Stopwatch timer = new Stopwatch();
+
+        if (!MediaUtils.hasCodecForResourceAndDomain(getContext(), resId, "video/")) {
+            MediaUtils.skipTest("no video codecs for resource");
+            return;
+        }
+
+        setDataSourceFd(resId);
+
+        assertEquals("Video rotation was other than expected", Integer.toString(targetRotation),
+            mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION));
+
+        timer.start();
+        Bitmap thumbnail = mRetriever.getFrameAtTime(-1 /* timeUs (any) */);
+        timer.end();
+        timer.printDuration("getFrameAtTime");
+
+        verifyVideoFrameRotation(thumbnail, targetRotation);
+    }
+
+    public void testThumbnailWithRotation() {
+        int[] resIds = {R.raw.video_h264_mpeg4_rotate_0, R.raw.video_h264_mpeg4_rotate_90,
+                R.raw.video_h264_mpeg4_rotate_180, R.raw.video_h264_mpeg4_rotate_270};
+        int[] targetRotations = {0, 90, 180, 270};
+        for (int i = 0; i < resIds.length; i++) {
+            testThumbnailWithRotation(resIds[i], targetRotations[i]);
+        }
+    }
 
     /**
      * The following tests verifies MediaMetadataRetriever.getFrameAtTime behavior.
@@ -331,27 +686,59 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
     }
 
     public void testGetFrameAtTimePreviousSyncEditList() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
                 { 2000000, 60 }, { 2433334, 60 }, { 2533334, 60 }, { 2933334, 60 }, { 3133334, 90}};
         testGetFrameAtTimeEditList(OPTION_PREVIOUS_SYNC, testCases);
     }
 
     public void testGetFrameAtTimeNextSyncEditList() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
                 { 2000000, 60 }, { 2433334, 90 }, { 2533334, 90 }, { 2933334, 90 }, { 3133334, 120}};
         testGetFrameAtTimeEditList(OPTION_NEXT_SYNC, testCases);
     }
 
     public void testGetFrameAtTimeClosestSyncEditList() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
                 { 2000000, 60 }, { 2433334, 60 }, { 2533334, 90 }, { 2933334, 90 }, { 3133334, 90}};
         testGetFrameAtTimeEditList(OPTION_CLOSEST_SYNC, testCases);
     }
 
     public void testGetFrameAtTimeClosestEditList() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
                 { 2000000, 60 }, { 2433335, 73 }, { 2533333, 76 }, { 2949334, 88 }, { 3117334, 94}};
         testGetFrameAtTimeEditList(OPTION_CLOSEST, testCases);
+    }
+
+    public void testGetFrameAtTimePreviousSyncEmptyNormalEditList() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+        int[][] testCases = {
+                { 2133000, 60 }, { 2566334, 60 }, { 2666334, 60 }, { 3100000, 60 }, { 3266000, 90}};
+        testGetFrameAtTimeEmptyNormalEditList(OPTION_PREVIOUS_SYNC, testCases);
+    }
+
+    public void testGetFrameAtTimeNextSyncEmptyNormalEditList() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+        int[][] testCases = {{ 2000000, 60 }, { 2133000, 60 }, { 2566334, 90 }, { 3100000, 90 },
+                { 3200000, 120}};
+        testGetFrameAtTimeEmptyNormalEditList(OPTION_NEXT_SYNC, testCases);
+    }
+
+    public void testGetFrameAtTimeClosestSyncEmptyNormalEditList() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+        int[][] testCases = {
+                { 2133000, 60 }, { 2566334, 60 }, { 2666000, 90 }, { 3133000, 90 }, { 3200000, 90}};
+        testGetFrameAtTimeEmptyNormalEditList(OPTION_CLOSEST_SYNC, testCases);
+    }
+
+    public void testGetFrameAtTimeClosestEmptyNormalEditList() {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+        int[][] testCases = {
+                { 2133000, 60 }, { 2566000, 73 }, { 2666000, 76 }, { 3066001, 88 }, { 3255000, 94}};
+        testGetFrameAtTimeEmptyNormalEditList(OPTION_CLOSEST, testCases);
     }
 
     private void testGetFrameAtTime(int option, int[][] testCases) {
@@ -365,10 +752,30 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
     }
 
     private void testGetFrameAtTimeEditList(int option, int[][] testCases) {
+        MediaMetadataRetriever.BitmapParams params = new MediaMetadataRetriever.BitmapParams();
+        params.setPreferredConfig(Bitmap.Config.ARGB_8888);
+
         testGetFrameAtEditList(testCases, (r) -> {
             List<Bitmap> bitmaps = new ArrayList<>();
             for (int i = 0; i < testCases.length; i++) {
-                bitmaps.add(r.getFrameAtTime(testCases[i][0], option));
+                Bitmap bitmap = r.getFrameAtTime(testCases[i][0], option, params);
+                assertEquals(Bitmap.Config.ARGB_8888, params.getActualConfig());
+                bitmaps.add(bitmap);
+            }
+            return bitmaps;
+        });
+    }
+
+    private void testGetFrameAtTimeEmptyNormalEditList(int option, int[][] testCases) {
+        MediaMetadataRetriever.BitmapParams params = new MediaMetadataRetriever.BitmapParams();
+        params.setPreferredConfig(Bitmap.Config.ARGB_8888);
+
+        testGetFrameAtEmptyNormalEditList(testCases, (r) -> {
+            List<Bitmap> bitmaps = new ArrayList<>();
+            for (int i = 0; i < testCases.length; i++) {
+                Bitmap bitmap = r.getFrameAtTime(testCases[i][0], option, params);
+                assertEquals(Bitmap.Config.ARGB_8888, params.getActualConfig());
+                bitmaps.add(bitmap);
             }
             return bitmaps;
         });
@@ -422,56 +829,35 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
     private void testGetFrameAt(int[][] testCases,
             Function<MediaMetadataRetriever, List<Bitmap> > bitmapRetriever) {
-        int resId = R.raw.binary_counter_320x240_30fps_600frames;
-        if (!MediaUtils.hasCodecForResourceAndDomain(getContext(), resId, "video/")
-            && mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-            MediaUtils.skipTest("no video codecs for resource on watch");
-            return;
-        }
-
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        Resources resources = getContext().getResources();
-        AssetFileDescriptor afd = resources.openRawResourceFd(resId);
-
-        retriever.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-        try {
-            afd.close();
-        } catch (IOException e) {
-            fail("Unable to close file");
-        }
-
-        List<Bitmap> bitmaps = bitmapRetriever.apply(retriever);
-
-        for (int i = 0; i < testCases.length; i++) {
-            verifyVideoFrame(bitmaps.get(i), testCases[i]);
-        }
-        retriever.release();
+        testGetFrameAt(R.raw.binary_counter_320x240_30fps_600frames,
+                testCases, bitmapRetriever);
     }
 
     private void testGetFrameAtEditList(int[][] testCases,
             Function<MediaMetadataRetriever, List<Bitmap> > bitmapRetriever) {
-        int resId = R.raw.binary_counter_320x240_30fps_600frames_editlist;
+        testGetFrameAt(R.raw.binary_counter_320x240_30fps_600frames_editlist,
+                testCases, bitmapRetriever);
+    }
+
+    private void testGetFrameAtEmptyNormalEditList(int[][] testCases,
+            Function<MediaMetadataRetriever, List<Bitmap> > bitmapRetriever) {
+        testGetFrameAt(R.raw.binary_counter_320x240_30fps_600frames_empty_normal_editlist_entries,
+                testCases, bitmapRetriever);
+    }
+    private void testGetFrameAt(int resId, int[][] testCases,
+            Function<MediaMetadataRetriever, List<Bitmap> > bitmapRetriever) {
         if (!MediaUtils.hasCodecForResourceAndDomain(getContext(), resId, "video/")
             && mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             MediaUtils.skipTest("no video codecs for resource on watch");
             return;
         }
 
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        Resources resources = getContext().getResources();
-        AssetFileDescriptor afd = resources.openRawResourceFd(resId);
-        retriever.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-        try {
-            afd.close();
-        } catch (IOException e) {
-            fail("Unable to close file");
-        }
+        setDataSourceFd(resId);
 
-        List<Bitmap> bitmaps = bitmapRetriever.apply(retriever);
+        List<Bitmap> bitmaps = bitmapRetriever.apply(mRetriever);
         for (int i = 0; i < testCases.length; i++) {
             verifyVideoFrame(bitmaps.get(i), testCases[i]);
         }
-        retriever.release();
     }
 
     private void verifyVideoFrame(Bitmap bitmap, int[] testCase) {
@@ -488,9 +874,92 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    private void verifyVideoFrameRotation(Bitmap bitmap, int targetRotation) {
+        try {
+            assertTrue("Failed to get bitmap for " + targetRotation + " degrees", bitmap != null);
+            assertTrue("Frame incorrect for " + targetRotation + " degrees",
+                CodecUtils.VerifyFrameRotationFromBitmap(bitmap, targetRotation));
+
+            if (SAVE_BITMAP_OUTPUT) {
+                CodecUtils.saveBitmapToFile(bitmap, "test_rotation_" + targetRotation + ".jpg");
+            }
+        } catch (Exception e) {
+            fail("Exception getting bitmap: " + e);
+        }
+    }
+
     /**
      * The following tests verifies MediaMetadataRetriever.getScaledFrameAtTime behavior.
      */
+    public void testGetScaledFrameAtTimeWithInvalidResolutions() {
+        int[] resIds = {R.raw.binary_counter_320x240_30fps_600frames,
+                R.raw.binary_counter_320x240_30fps_600frames_editlist,
+                R.raw.bbb_s4_1280x720_mp4_h264_mp31_8mbps_30fps_aac_he_mono_40kbps_44100hz,
+                R.raw.video_176x144_3gp_h263_56kbps_12fps_aac_mono_24kbps_11025hz,
+                R.raw.video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz,
+                R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz,
+                R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz,
+                R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz,
+                R.raw.video_1280x720_vp9_hdr_static_3mbps,
+                R.raw.video_1280x720_av1_hdr_static_3mbps,
+                R.raw.video_1280x720_hevc_hdr10_static_3mbps};
+        int[][] resolutions = {{0, 120}, {-1, 0}, {-1, 120}, {140, -1}, {-1, -1}};
+        int[] options =
+                {OPTION_CLOSEST, OPTION_CLOSEST_SYNC, OPTION_NEXT_SYNC, OPTION_PREVIOUS_SYNC};
+
+        for (int resId : resIds) {
+            if (!MediaUtils.hasCodecForResourceAndDomain(getContext(), resId, "video/")
+                    && mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+                MediaUtils.skipTest("no video codecs for resource on watch");
+                continue;
+            }
+
+            setDataSourceFd(resId);
+
+            for (int i = 0; i < resolutions.length; i++) {
+                int width = resolutions[i][0];
+                int height = resolutions[i][1];
+                for (int option : options) {
+                    try {
+                        Bitmap bitmap = mRetriever.getScaledFrameAtTime(
+                                2066666 /*timeUs*/, option, width, height);
+                        fail("Failed to receive exception");
+                    } catch (IllegalArgumentException e) {
+                        // Expect exception
+                    }
+                }
+            }
+        }
+    }
+
+    private void testGetScaledFrameAtTime(int scaleToWidth, int scaleToHeight,
+            int expectedWidth, int expectedHeight, Bitmap.Config config) {
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+        MediaMetadataRetriever.BitmapParams params = null;
+        Bitmap bitmap = null;
+        if (config != null) {
+            params = new MediaMetadataRetriever.BitmapParams();
+            params.setPreferredConfig(config);
+            bitmap = mRetriever.getScaledFrameAtTime(
+                    2066666 /*timeUs */, OPTION_CLOSEST, scaleToWidth, scaleToHeight, params);
+        } else {
+            bitmap = mRetriever.getScaledFrameAtTime(
+                    2066666 /*timeUs */, OPTION_CLOSEST, scaleToWidth, scaleToHeight);
+        }
+        if (bitmap == null) {
+            fail("Failed to get scaled bitmap");
+        }
+        if (SAVE_BITMAP_OUTPUT) {
+            CodecUtils.saveBitmapToFile(bitmap, String.format("test_%dx%d.jpg",
+                    expectedWidth, expectedHeight));
+        }
+        if (config != null) {
+            assertEquals("Actual config is wrong", config, params.getActualConfig());
+        }
+        assertEquals("Bitmap width is wrong", expectedWidth, bitmap.getWidth());
+        assertEquals("Bitmap height is wrong", expectedHeight, bitmap.getHeight());
+    }
+
     public void testGetScaledFrameAtTime() {
         int resId = R.raw.binary_counter_320x240_30fps_600frames;
         if (!MediaUtils.hasCodecForResourceAndDomain(getContext(), resId, "video/")
@@ -499,175 +968,26 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
             return;
         }
 
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        Resources resources = getContext().getResources();
-        AssetFileDescriptor afd = resources.openRawResourceFd(resId);
-
-        retriever.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-        try {
-            afd.close();
-        } catch (IOException e) {
-            fail("Unable to close file");
-        }
-
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                    2066666 /*timeUs*/ , OPTION_CLOSEST, 0 /*width*/, 120 /*height*/);
-            fail("Failed to receive exception");
-        } catch (IllegalArgumentException e) {
-            // Expect exception
-        }
-
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                    2066666 /*timeUs*/ , OPTION_CLOSEST, -1 /*width*/, 0 /*height*/);
-            fail("Failed to receive exception");
-        } catch (IllegalArgumentException e) {
-            // Expect exception
-        }
-
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                    2066666 /*timeUs*/ , OPTION_CLOSEST, -1 /*width*/, 120 /*height*/);
-            fail("Failed to receive exception");
-        } catch (IllegalArgumentException e) {
-            // Expect exception
-        }
-
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                2066666 /*timeUs */, OPTION_CLOSEST, 140 /*width*/, -1 /*height*/);
-            fail("Failed to receive exception");
-        } catch (IllegalArgumentException e) {
-            // Expect exception
-        }
-
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                2066666 /*timeUs */, OPTION_CLOSEST, -1 /*width*/, -1 /*height*/);
-            fail("Failed to receive exception");
-        } catch (IllegalArgumentException e) {
-            // Expect exception
-        }
+        setDataSourceFd(resId);
+        MediaMetadataRetriever.BitmapParams params = new MediaMetadataRetriever.BitmapParams();
 
         // Test desided size of 160 x 120. Return should be 160 x 120
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                2066666 /*timeUs */, OPTION_CLOSEST, 160 /*width*/, 120 /*height*/);
-            if (bitmap == null) {
-                fail("Failed to get scaled bitmap");
-            }
-            if (SAVE_BITMAP_OUTPUT) {
-                CodecUtils.saveBitmapToFile(bitmap, "test_160x120" + ".jpg");
-            }
-
-            if (bitmap.getWidth() != 160 /* width */) {
-                fail("Bitmap width is " + bitmap.getWidth() + "Expect: 160");
-            }
-            if (bitmap.getHeight() != 120 /* height */) {
-                fail("Bitmap height is " + bitmap.getHeight() + "Expect: 120");
-            }
-
-        } catch (Exception e) {
-            fail("Exception getting bitmap: " + e);
-        }
+        testGetScaledFrameAtTime(160, 120, 160, 120, Bitmap.Config.ARGB_8888);
 
         // Test scaled up bitmap to 640 x 480. Return should be 640 x 480
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                2066666 /*timeUs */, OPTION_CLOSEST, 640 /*width*/, 480 /*height*/);
-            if (bitmap == null) {
-                fail("Failed to get scaled bitmap");
-            }
-            if (SAVE_BITMAP_OUTPUT) {
-                CodecUtils.saveBitmapToFile(bitmap, "test_640x480" + ".jpg");
-            }
-
-            if (bitmap.getWidth() != 640 /* width */) {
-                fail("Bitmap width is " + bitmap.getWidth() + "Expect: 640");
-            }
-            if (bitmap.getHeight() != 480 /* height */) {
-                fail("Bitmap height is " + bitmap.getHeight() + "Expect: 480");
-            }
-
-        } catch (Exception e) {
-            fail("Exception getting bitmap: " + e);
-        }
+        testGetScaledFrameAtTime(640, 480, 640, 480, Bitmap.Config.ARGB_8888);
 
         // Test scaled up bitmap to 320 x 120. Return should be 160 x 120
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                2066666 /*timeUs */, OPTION_CLOSEST, 320 /*width*/, 120 /*height*/);
-            if (bitmap == null) {
-                fail("Failed to get scaled bitmap");
-            }
-            if (SAVE_BITMAP_OUTPUT) {
-                CodecUtils.saveBitmapToFile(bitmap, "test_320x120" + ".jpg");
-            }
-
-            if (bitmap.getWidth() != 160 /* width */) {
-                fail("Bitmap width is " + bitmap.getWidth() + "Expect: 160");
-            }
-            if (bitmap.getHeight() != 120 /* height */) {
-                fail("Bitmap height is " + bitmap.getHeight() + "Expect: 120");
-            }
-
-        } catch (Exception e) {
-            fail("Exception getting bitmap: " + e);
-        }
+        testGetScaledFrameAtTime(320, 120, 160, 120, Bitmap.Config.RGB_565);
 
         // Test scaled up bitmap to 160 x 240. Return should be 160 x 120
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                2066666 /*timeUs */, OPTION_CLOSEST, 160 /*width*/, 240 /*height*/);
-            if (bitmap == null) {
-                fail("Failed to get scaled bitmap");
-            }
-            if (SAVE_BITMAP_OUTPUT) {
-                CodecUtils.saveBitmapToFile(bitmap, "test_160x240" + ".jpg");
-            }
-
-            if (bitmap.getWidth() != 160 /* width */) {
-                fail("Bitmap width is " + bitmap.getWidth() + "Expect: 160");
-            }
-            if (bitmap.getHeight() != 120 /* height */) {
-                fail("Bitmap height is " + bitmap.getHeight() + "Expect: 120");
-            }
-
-        } catch (Exception e) {
-            fail("Exception getting bitmap: " + e);
-        }
+        testGetScaledFrameAtTime(160, 240, 160, 120, Bitmap.Config.RGB_565);
 
         // Test scaled the video with aspect ratio
         resId = R.raw.binary_counter_320x240_720x240_30fps_600frames;
-        afd = resources.openRawResourceFd(resId);
+        setDataSourceFd(resId);
 
-        retriever.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-        try {
-            afd.close();
-        } catch (IOException e) {
-            fail("Unable to close file");
-        }
-        try {
-            Bitmap bitmap = retriever.getScaledFrameAtTime(
-                2066666 /*timeUs */, OPTION_CLOSEST, 330 /*width*/, 240 /*height*/);
-            if (bitmap == null) {
-                fail("Failed to get scaled bitmap");
-            }
-            if (SAVE_BITMAP_OUTPUT) {
-                CodecUtils.saveBitmapToFile(bitmap, "test_330x240" + ".jpg");
-            }
-
-            if (bitmap.getWidth() != 330 /* width */) {
-                fail("Bitmap width is " + bitmap.getWidth() + "Expect: 330");
-            }
-            if (bitmap.getHeight() != 110 /* height */) {
-                fail("Bitmap height is " + bitmap.getHeight() + "Expect: 110");
-            }
-
-        } catch (Exception e) {
-            fail("Exception getting bitmap: " + e);
-        }
+        testGetScaledFrameAtTime(330, 240, 330, 110, null);
     }
 
     public void testGetImageAtIndex() throws Exception {
@@ -701,37 +1021,32 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
             int resId, int width, int height, int rotation,
             int imageCount, int primary, boolean useGrid, boolean checkColor)
                     throws Exception {
-        MediaMetadataRetriever retriever = null;
+        Stopwatch timer = new Stopwatch();
         MediaExtractor extractor = null;
         AssetFileDescriptor afd = null;
         InputStream inputStream = null;
 
         try {
-            retriever = new MediaMetadataRetriever();
-
-            Resources resources = getContext().getResources();
-            afd = resources.openRawResourceFd(resId);
-
-            retriever.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            setDataSourceFd(resId);
 
             // Verify image related meta keys.
-            String hasImage = retriever.extractMetadata(
+            String hasImage = mRetriever.extractMetadata(
                     MediaMetadataRetriever.METADATA_KEY_HAS_IMAGE);
             assertTrue("No images found in resId " + resId, "yes".equals(hasImage));
             assertEquals("Wrong width", width,
-                    Integer.parseInt(retriever.extractMetadata(
+                    Integer.parseInt(mRetriever.extractMetadata(
                             MediaMetadataRetriever.METADATA_KEY_IMAGE_WIDTH)));
             assertEquals("Wrong height", height,
-                    Integer.parseInt(retriever.extractMetadata(
+                    Integer.parseInt(mRetriever.extractMetadata(
                             MediaMetadataRetriever.METADATA_KEY_IMAGE_HEIGHT)));
             assertEquals("Wrong rotation", rotation,
-                    Integer.parseInt(retriever.extractMetadata(
+                    Integer.parseInt(mRetriever.extractMetadata(
                             MediaMetadataRetriever.METADATA_KEY_IMAGE_ROTATION)));
             assertEquals("Wrong image count", imageCount,
-                    Integer.parseInt(retriever.extractMetadata(
+                    Integer.parseInt(mRetriever.extractMetadata(
                             MediaMetadataRetriever.METADATA_KEY_IMAGE_COUNT)));
             assertEquals("Wrong primary index", primary,
-                    Integer.parseInt(retriever.extractMetadata(
+                    Integer.parseInt(mRetriever.extractMetadata(
                             MediaMetadataRetriever.METADATA_KEY_IMAGE_PRIMARY)));
 
             if (checkColor) {
@@ -740,7 +1055,10 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 // Also check the position of the color block, which should move left-to-right
                 // with the index.
                 for (int imageIndex = 0; imageIndex < imageCount; imageIndex++) {
-                    bitmap = retriever.getImageAtIndex(imageIndex);
+                    timer.start();
+                    bitmap = mRetriever.getImageAtIndex(imageIndex);
+                    timer.end();
+                    timer.printDuration("getImageAtIndex");
 
                     for (int barIndex = 0; barIndex < COLOR_BARS.length; barIndex++) {
                         Rect r = getColorBarRect(barIndex, width, height);
@@ -759,7 +1077,12 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
                 // Check the color block position on the primary image.
                 Rect r = getColorBlockRect(primary, width, height);
-                bitmap = retriever.getPrimaryImage();
+
+                timer.start();
+                bitmap = mRetriever.getPrimaryImage();
+                timer.end();
+                timer.printDuration("getPrimaryImage");
+
                 assertTrue("Color block for primary image doesn't match",
                         approxEquals(COLOR_BLOCK, Color.valueOf(
                                 bitmap.getPixel(r.centerX(), height - r.centerY()))));
@@ -778,6 +1101,8 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
             // Check the grid configuration related keys.
             if (useGrid) {
                 extractor = new MediaExtractor();
+                Resources resources = getContext().getResources();
+                afd = resources.openRawResourceFd(resId);
                 extractor.setDataSource(
                         afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
                 MediaFormat format = extractor.getTrackFormat(0);
@@ -793,9 +1118,6 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         } catch (IOException e) {
             fail("Unable to open file");
         } finally {
-            if (retriever != null) {
-                retriever.release();
-            }
             if (extractor != null) {
                 extractor.release();
             }
@@ -805,6 +1127,75 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
             if (inputStream != null) {
                 inputStream.close();
             }
+        }
+    }
+
+    private void copyMeidaFile() {
+        InputStream inputStream = null;
+        FileOutputStream outputStream = null;
+        String outputPath = new File(
+            Environment.getExternalStorageDirectory(), TEST_MEDIA_FILE).getAbsolutePath();
+        try {
+            inputStream = getContext().getResources().openRawResource(R.raw.testvideo);
+            outputStream = new FileOutputStream(outputPath);
+            copy(inputStream, outputStream);
+        } catch (Exception e) {
+
+        }finally {
+            closeQuietly(inputStream);
+            closeQuietly(outputStream);
+        }
+    }
+
+    private int copy(InputStream in, OutputStream out) throws IOException {
+        int total = 0;
+        byte[] buffer = new byte[8192];
+        int c;
+        while ((c = in.read(buffer)) != -1) {
+            total += c;
+            out.write(buffer, 0, c);
+        }
+        return total;
+    }
+
+    private void closeQuietly(Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (RuntimeException rethrown) {
+                throw rethrown;
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private class Stopwatch {
+        private long startTimeMs;
+        private long endTimeMs;
+        private boolean isStartCalled;
+
+        public Stopwatch() {
+            startTimeMs = endTimeMs = 0;
+            isStartCalled = false;
+        }
+
+        public void start() {
+            startTimeMs = System.currentTimeMillis();
+            isStartCalled = true;
+        }
+
+        public void end() {
+            endTimeMs = System.currentTimeMillis();
+            if (!isStartCalled) {
+                Log.e(TAG, "Error: end() must be called after start()!");
+                return;
+            }
+            isStartCalled = false;
+        }
+
+        public void printDuration(String functionName) {
+            long duration = endTimeMs - startTimeMs;
+            Log.i(TAG, String.format("%s() took %d ms.", functionName, duration));
         }
     }
 }

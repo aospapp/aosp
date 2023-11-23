@@ -18,6 +18,8 @@ package com.android.compatibility.common.util;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.INativeDevice;
+import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.TargetSetupError;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -26,6 +28,10 @@ import java.nio.charset.StandardCharsets;
 
 /** Host-side specific utilities for backup and restore tests. */
 public class BackupHostSideUtils {
+    private static final int USER_SYSTEM = 0;
+    // This is Settings.Secure.USER_SETUP_COMPLETE
+    private static final String USER_SETUP_COMPLETE = "user_setup_complete";
+
     /** Create a new {@link BackupUtils} instance. */
     public static BackupUtils createBackupUtils(INativeDevice device) {
         return new BackupUtils() {
@@ -39,5 +45,18 @@ public class BackupHostSideUtils {
                 }
             }
         };
+    }
+
+    public static void checkSetupComplete(ITestDevice device)
+            throws TargetSetupError, DeviceNotAvailableException {
+        if (!isSetupCompleteSettingForSystemUser(device))
+            throw new TargetSetupError(
+                    "Backup tests cannot be run:Setup not completed for system user",
+                    device.getDeviceDescriptor());
+    }
+
+    private static boolean isSetupCompleteSettingForSystemUser(ITestDevice device)
+            throws DeviceNotAvailableException {
+        return device.getSetting(USER_SYSTEM, "secure", USER_SETUP_COMPLETE).equals("1");
     }
 }

@@ -18,9 +18,11 @@ package android.autofillservice.cts;
 
 import static android.autofillservice.cts.UiBot.PORTRAIT;
 import static android.provider.Settings.Secure.AUTOFILL_SERVICE;
+import static android.provider.Settings.Secure.SELECTED_INPUT_METHOD_SUBTYPE;
 import static android.provider.Settings.Secure.USER_SETUP_COMPLETE;
 import static android.service.autofill.FillEventHistory.Event.TYPE_AUTHENTICATION_SELECTED;
 import static android.service.autofill.FillEventHistory.Event.TYPE_CONTEXT_COMMITTED;
+import static android.service.autofill.FillEventHistory.Event.TYPE_DATASETS_SHOWN;
 import static android.service.autofill.FillEventHistory.Event.TYPE_DATASET_AUTHENTICATION_SELECTED;
 import static android.service.autofill.FillEventHistory.Event.TYPE_DATASET_SELECTED;
 import static android.service.autofill.FillEventHistory.Event.TYPE_SAVE_SHOWN;
@@ -31,24 +33,30 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
 import android.app.assist.AssistStructure.WindowNode;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.icu.util.Calendar;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.Settings;
 import android.service.autofill.FieldClassification;
 import android.service.autofill.FieldClassification.Match;
 import android.service.autofill.FillContext;
 import android.service.autofill.FillEventHistory;
+import android.service.autofill.InlinePresentation;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
+import android.util.Size;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStructure.HtmlInfo;
@@ -57,9 +65,12 @@ import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillManager.AutofillCallback;
 import android.view.autofill.AutofillValue;
 import android.webkit.WebView;
+import android.widget.RemoteViews;
+import android.widget.inline.InlinePresentationSpec;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.autofill.inline.v1.InlineSuggestionUi;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.BitmapUtils;
@@ -97,6 +108,7 @@ public final class Helper {
     public static final String ID_OUTPUT = "output";
     public static final String ID_STATIC_TEXT = "static_text";
     public static final String ID_EMPTY = "empty";
+    public static final String ID_CANCEL_FILL = "cancel_fill";
 
     public static final String NULL_DATASET_ID = null;
 
@@ -548,11 +560,19 @@ public final class Helper {
     /**
      * Asserts the values of a text-based node whose string come from resoruces.
      */
-    public static ViewNode assertTextFromResouces(AssistStructure structure, String resourceId,
+    public static ViewNode assertTextFromResources(AssistStructure structure, String resourceId,
             String expectedValue, boolean isAutofillable, String expectedTextIdEntry) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         assertText(node, expectedValue, isAutofillable);
         assertThat(node.getTextIdEntry()).isEqualTo(expectedTextIdEntry);
+        return node;
+    }
+
+    public static ViewNode assertHintFromResources(AssistStructure structure, String resourceId,
+            String expectedValue, String expectedHintIdEntry) {
+        final ViewNode node = findNodeByResourceId(structure, resourceId);
+        assertThat(node.getHint()).isEqualTo(expectedValue);
+        assertThat(node.getHintIdEntry()).isEqualTo(expectedHintIdEntry);
         return node;
     }
 
@@ -896,7 +916,18 @@ public final class Helper {
             @NonNull String serviceName) {
         if (isAutofillServiceEnabled(serviceName)) return;
 
+        // Sets the setting synchronously. Note that the config itself is sets synchronously but
+        // launch of the service is asynchronous after the config is updated.
         SettingsUtils.syncSet(context, AUTOFILL_SERVICE, serviceName);
+
+        // Waits until the service is actually enabled.
+        try {
+            Timeouts.CONNECTION_TIMEOUT.run("Enabling Autofill service", () -> {
+                return isAutofillServiceEnabled(serviceName) ? serviceName : null;
+            });
+        } catch (Exception e) {
+            throw new AssertionError("Enabling Autofill service failed.");
+        }
     }
 
     /**
@@ -1139,7 +1170,7 @@ public final class Helper {
      * @param value the only value expected in the client state bundle
      */
     public static void assertFillEventForSaveShown(@NonNull FillEventHistory.Event event,
-            @NonNull String datasetId, @NonNull String key, @NonNull String value) {
+            @Nullable String datasetId, @NonNull String key, @NonNull String value) {
         assertFillEvent(event, TYPE_SAVE_SHOWN, datasetId, key, value, null);
     }
 
@@ -1151,8 +1182,31 @@ public final class Helper {
      * @param datasetId dataset set id expected in the event
      */
     public static void assertFillEventForSaveShown(@NonNull FillEventHistory.Event event,
-            @NonNull String datasetId) {
+            @Nullable String datasetId) {
         assertFillEvent(event, TYPE_SAVE_SHOWN, datasetId, null, null, null);
+    }
+
+    /**
+     * Asserts the content of a
+     * {@link android.service.autofill.FillEventHistory.Event#TYPE_DATASETS_SHOWN} event.
+     *
+     * @param event event to be asserted
+     * @param key the only key expected in the client state bundle
+     * @param value the only value expected in the client state bundle
+     */
+    public static void assertFillEventForDatasetShown(@NonNull FillEventHistory.Event event,
+            @NonNull String key, @NonNull String value) {
+        assertFillEvent(event, TYPE_DATASETS_SHOWN, NULL_DATASET_ID, key, value, null);
+    }
+
+    /**
+     * Asserts the content of a
+     * {@link android.service.autofill.FillEventHistory.Event#TYPE_DATASETS_SHOWN} event.
+     *
+     * @param event event to be asserted
+     */
+    public static void assertFillEventForDatasetShown(@NonNull FillEventHistory.Event event) {
+        assertFillEvent(event, TYPE_DATASETS_SHOWN, NULL_DATASET_ID, null, null, null);
     }
 
     /**
@@ -1263,6 +1317,20 @@ public final class Helper {
             if (expectedHint.equals(actualHint)) return true;
         }
         return false;
+    }
+
+    public static Bundle newClientState(String key, String value) {
+        final Bundle clientState = new Bundle();
+        clientState.putString(key, value);
+        return clientState;
+    }
+
+    public static void assertAuthenticationClientState(String where, Bundle data,
+            String expectedKey, String expectedValue) {
+        assertWithMessage("no client state on %s", where).that(data).isNotNull();
+        final String extraValue = data.getString(expectedKey);
+        assertWithMessage("invalid value for %s on %s", expectedKey, where)
+                .that(extraValue).isEqualTo(expectedValue);
     }
 
     /**
@@ -1445,6 +1513,45 @@ public final class Helper {
      */
     public static void disallowOverlays() {
         ShellUtils.setOverlayPermissions(MY_PACKAGE, false);
+    }
+
+    public static RemoteViews createPresentation(String message) {
+        final RemoteViews presentation = new RemoteViews(getContext()
+                .getPackageName(), R.layout.list_item);
+        presentation.setTextViewText(R.id.text1, message);
+        return presentation;
+    }
+
+    public static InlinePresentation createInlinePresentation(String message) {
+        final PendingIntent dummyIntent =
+                PendingIntent.getActivity(getContext(), 0, new Intent(), 0);
+        return createInlinePresentation(message, dummyIntent, false);
+    }
+
+    public static InlinePresentation createInlinePresentation(String message,
+            PendingIntent attribution) {
+        return createInlinePresentation(message, attribution, false);
+    }
+
+    public static InlinePresentation createPinnedInlinePresentation(String message) {
+        final PendingIntent dummyIntent =
+                PendingIntent.getActivity(getContext(), 0, new Intent(), 0);
+        return createInlinePresentation(message, dummyIntent, true);
+    }
+
+    private static InlinePresentation createInlinePresentation(@NonNull String message,
+            @NonNull PendingIntent attribution, boolean pinned) {
+        return new InlinePresentation(
+                InlineSuggestionUi.newContentBuilder(attribution)
+                        .setTitle(message).build().getSlice(),
+                new InlinePresentationSpec.Builder(new Size(100, 100), new Size(400, 100))
+                        .build(), /* pinned= */ pinned);
+    }
+
+    public static void mockSwitchInputMethod(@NonNull Context context) throws Exception {
+        final ContentResolver cr = context.getContentResolver();
+        final int subtype = Settings.Secure.getInt(cr, SELECTED_INPUT_METHOD_SUBTYPE);
+        Settings.Secure.putInt(cr, SELECTED_INPUT_METHOD_SUBTYPE, subtype);
     }
 
     private Helper() {

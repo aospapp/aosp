@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.util;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.build.IBuildInfo;
@@ -78,5 +79,11 @@ public class SystemUtilTest {
                 .thenReturn(null);
         List<File> testCasesDirs = new ArrayList<File>(SystemUtil.getExternalTestCasesDirs());
         assertEquals(0, testCasesDirs.size());
+    }
+
+    /** Make sure that getting Java binary path works in the current execution evnironment */
+    @Test
+    public void testGetRunningJavaBinaryPath() {
+        assertNotNull(SystemUtil.getRunningJavaBinaryPath());
     }
 }

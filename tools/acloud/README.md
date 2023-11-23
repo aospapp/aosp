@@ -29,9 +29,6 @@ $ lunch aosp_cf_x86_phone-userdebug
 
 You should now be able to call acloud from anywhere.
 
-> If you're a googler, please check https://goto.google.com/acloud-googler-setup
-> to ensure a smooth setup experience.
-
 ### **Basic Usage**
 
 Acloud commands take the following form:
@@ -45,6 +42,7 @@ Available commands:
 * [delete](#delete)
 * [reconnect](#reconnect)
 * [setup](#setup)
+* [pull](#pull)
 
 #### **create**
 
@@ -58,20 +56,21 @@ a locally built image or an image from the Android Build servers.
 Here's a quick cheat-sheet for the 4 use cases:
 
 * Remote instance using an Android Build image (LKGB (Last Known Good Build)
-for cuttlefish phone target in the branch of your repo)
+for cuttlefish phone target in the branch of your repo, default aosp master
+if we can't determine it)
 
 > $ acloud create
 
-* Remote instance using a locally built image (use `m dist` to build the image)
+* Remote instance using a locally built image (use `m` to build the image)
 
-> $ acloud create --local-image [local-image-path]
+> $ acloud create --local-image [optional local-image-path]
 
 * Local instance using an Android Build image (LKGB for cuttlefish phone
 target in the branch of your repo)
 
 > $ acloud create --local-instance
 
-* Local instance using a locally built image (use `m dist` to build the image)
+* Local instance using a locally built image (use `m` to build the image)
 
 > $ acloud create --local-instance --local-image
 
@@ -99,10 +98,16 @@ creates a ssh tunnel to enable adb and vnc connection to the instance. For the
 local instance, acloud will just invoke the vnc client. If you don't want
 autoconnect, you can pass in `--no-autoconnect`
 
+* `--unlock`: This can unlock screen after invoke the vnc client.
+
 * `--hw-property`: This is a string where you can specify the different
 properties of the AVD. You can specify the cpu, resolution, dpi, memory,and/or
 disk in a key:value format like so:
 `cpu:2,resolution:1280x700,dpi:160,memory:2g,disk:2g`
+
+* `--reuse-gce`: 'cuttlefish only' This can help users use their own instance.
+Reusing specific gce instance if `--reuse-gce` [instance-name] is provided.
+Select one gce instance to reuse if `--reuse-gce` is provided.
 
 The full list of options are available via `--help`
 
@@ -165,6 +170,27 @@ Cheatsheet:
 * Reconnect a specific instance
 
 > $ acloud reconnect --instance-names [instance-name]
+
+
+### **pull**
+
+Pull will provide all log files to download or show in screen. It is helpful
+to debug about AVD boot up fail or AVD has abnromal behaviors.
+
+Cheatsheet:
+
+* Pull logs from a sole instance or prompt user to choose one to pull if where
+are more than one active instances.
+
+> $ acloud pull
+
+* Pull logs from the specific instance.
+
+> $ acloud pull --instance-name "instance-name"
+
+* Pull a specific log file from a specific instance
+
+> $ acloud pull --instance-name "instance-name" --file-name "file-name"
 
 
 #### **setup**

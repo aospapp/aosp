@@ -67,6 +67,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.TimeZone;
 
+import com.android.compatibility.common.util.PollingCheck;
+
 /**
  * This test case must run with hardware. It can't be tested in emulator
  */
@@ -75,6 +77,7 @@ public class CameraTest extends Assert {
     private static final String TAG = "CameraTest";
     private static final String PACKAGE = "android.hardware.cts";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
+    private String mRecordingPath = null;
     private String mJpegPath = null;
     private byte[] mJpegData;
 
@@ -124,6 +127,7 @@ public class CameraTest extends Assert {
     private final ConditionVariable mPreviewDone = new ConditionVariable();
     private final ConditionVariable mFocusDone = new ConditionVariable();
     private final ConditionVariable mSnapshotDone = new ConditionVariable();
+    private int[] mCameraIds;
 
     Camera mCamera;
     boolean mIsExternalCamera;
@@ -134,6 +138,11 @@ public class CameraTest extends Assert {
 
     @Before
     public void setUp() throws Exception {
+        // Some of the tests run on the UI thread. In case some of the operations take a long time to complete,
+        // wait for window to receive focus. This ensure that the focus event from input flinger has been handled,
+        // and avoids getting ANR.
+        PollingCheck.waitFor(mActivityRule.getActivity()::hasWindowFocus);
+        mCameraIds = CameraUtils.deriveCameraIdsUnderTest();
     }
 
     @After
@@ -149,31 +158,50 @@ public class CameraTest extends Assert {
      * receive the callback messages.
      */
     private void initializeMessageLooper(final int cameraId) throws IOException {
+        LooperInfo looperInfo = new LooperInfo();
+        initializeMessageLooper(cameraId, mErrorCallback, looperInfo);
+        mIsExternalCamera = looperInfo.isExternalCamera;
+        mCamera = looperInfo.camera;
+        mLooper = looperInfo.looper;
+    }
+
+    private final class LooperInfo {
+        Camera camera = null;
+        Looper looper = null;
+        boolean isExternalCamera = false;
+    };
+
+    /*
+     * Initializes the message looper so that the Camera object can
+     * receive the callback messages.
+     */
+    private void initializeMessageLooper(final int cameraId, final ErrorCallback errorCallback,
+            LooperInfo looperInfo) throws IOException {
         final ConditionVariable startDone = new ConditionVariable();
         final CameraCtsActivity activity = mActivityRule.getActivity();
         new Thread() {
             @Override
             public void run() {
-                Log.v(TAG, "start loopRun");
+                Log.v(TAG, "start loopRun for cameraId " + cameraId);
                 // Set up a looper to be used by camera.
                 Looper.prepare();
                 // Save the looper so that we can terminate this thread
                 // after we are done with it.
-                mLooper = Looper.myLooper();
+                looperInfo.looper = Looper.myLooper();
                 try {
-                    mIsExternalCamera = CameraUtils.isExternal(
+                    looperInfo.isExternalCamera = CameraUtils.isExternal(
                             activity.getApplicationContext(), cameraId);
                 } catch (Exception e) {
                     Log.e(TAG, "Unable to query external camera!" + e);
                 }
 
                 try {
-                    mCamera = Camera.open(cameraId);
-                    mCamera.setErrorCallback(mErrorCallback);
+                    looperInfo.camera = Camera.open(cameraId);
+                    looperInfo.camera.setErrorCallback(errorCallback);
                 } catch (RuntimeException e) {
-                    Log.e(TAG, "Fail to open camera." + e);
+                    Log.e(TAG, "Fail to open camera id " + cameraId + ": " + e);
                 }
-                Log.v(TAG, "camera is opened");
+                Log.v(TAG, "camera" + cameraId + " is opened");
                 startDone.open();
                 Looper.loop(); // Blocks forever until Looper.quit() is called.
                 if (VERBOSE) Log.v(TAG, "initializeMessageLooper: quit.");
@@ -185,14 +213,14 @@ public class CameraTest extends Assert {
             Log.v(TAG, "initializeMessageLooper: start timeout");
             fail("initializeMessageLooper: start timeout");
         }
-        assertNotNull("Fail to open camera.", mCamera);
-        mCamera.setPreviewDisplay(activity.getSurfaceView().getHolder());
-
+        assertNotNull("Fail to open camera " + cameraId, looperInfo.camera);
+        looperInfo.camera.setPreviewDisplay(activity.getSurfaceView().getHolder());
         File parent = activity.getPackageManager().isInstantApp()
                 ? activity.getFilesDir()
                 : activity.getExternalFilesDir(null);
 
         mJpegPath = parent.getPath() + "/test.jpg";
+        mRecordingPath = parent.getPath() + "/test_video.mp4";
     }
 
     /*
@@ -206,21 +234,33 @@ public class CameraTest extends Assert {
      * Terminates the message looper thread, optionally allowing evict error
      */
     private void terminateMessageLooper(boolean allowEvict) throws Exception {
-        mLooper.quit();
+        LooperInfo looperInfo = new LooperInfo();
+        looperInfo.camera = mCamera;
+        looperInfo.looper = mLooper;
+        terminateMessageLooper(allowEvict, mCameraErrorCode, looperInfo);
+        mCamera = null;
+    }
+
+    /*
+     * Terminates the message looper thread, optionally allowing evict error
+     */
+    private void terminateMessageLooper(final boolean allowEvict, final int errorCode,
+            final LooperInfo looperInfo) throws Exception {
+        looperInfo.looper.quit();
         // Looper.quit() is asynchronous. The looper may still has some
         // preview callbacks in the queue after quit is called. The preview
         // callback still uses the camera object (setHasPreviewCallback).
         // After camera is released, RuntimeException will be thrown from
         // the method. So we need to join the looper thread here.
-        mLooper.getThread().join();
-        mCamera.release();
-        mCamera = null;
+        looperInfo.looper.getThread().join();
+        looperInfo.camera.release();
+        looperInfo.camera = null;
         if (allowEvict) {
             assertTrue("Got unexpected camera error callback.",
-                    (NO_ERROR == mCameraErrorCode ||
-                    Camera.CAMERA_ERROR_EVICTED == mCameraErrorCode));
+                    (NO_ERROR == errorCode ||
+                    Camera.CAMERA_ERROR_EVICTED == errorCode));
         } else {
-            assertEquals("Got camera error callback.", NO_ERROR, mCameraErrorCode);
+            assertEquals("Got camera error callback.", NO_ERROR, errorCode);
         }
     }
 
@@ -340,6 +380,15 @@ public class CameraTest extends Assert {
         }
     }
 
+    // parent independent version of TestErrorCallback
+    private static final class TestErrorCallbackI implements ErrorCallback {
+        private int mCameraErrorCode = NO_ERROR;
+        public void onError(int error, Camera camera) {
+            Log.e(TAG, "Got camera error=" + error);
+            mCameraErrorCode = error;
+        }
+    }
+
     private final class AutoFocusCallback
             implements android.hardware.Camera.AutoFocusCallback {
         public void onAutoFocus(boolean success, Camera camera) {
@@ -408,8 +457,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testTakePicture() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             initializeMessageLooper(id);
             mCamera.startPreview();
@@ -454,8 +502,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testPreviewCallback() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testPreviewCallbackByCamera(id);
         }
@@ -509,8 +556,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testStabilizationOneShotPreviewCallback() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testStabilizationOneShotPreviewCallbackByCamera(id);
         }
@@ -535,8 +581,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testSetOneShotPreviewCallback() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testSetOneShotPreviewCallbackByCamera(id);
         }
@@ -559,8 +604,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testSetPreviewDisplay() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testSetPreviewDisplayByCamera(id);
         }
@@ -603,8 +647,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testDisplayOrientation() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testDisplayOrientationByCamera(id);
         }
@@ -642,8 +685,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testParameters() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testParametersByCamera(id);
         }
@@ -866,8 +908,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testJpegThumbnailSize() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             initializeMessageLooper(id);
             testJpegThumbnailSizeByCamera(false, 0, 0);
@@ -940,8 +981,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testJpegExif() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             initializeMessageLooper(id);
             testJpegExifByCamera(false);
@@ -1011,9 +1051,9 @@ public class CameraTest extends Assert {
     }
 
     /**
-     * Sanity check of some extra exif tags.
+     * Correctness check of some extra exif tags.
      * <p>
-     * Sanity check some extra exif tags without asserting the check failures
+     * Check some extra exif tags without asserting the check failures
      * immediately. When a failure is detected, the failure cause is logged,
      * the rest of the tests are still executed. The caller can assert with the
      * failure cause based on the returned test status.
@@ -1233,8 +1273,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testLockUnlock() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testLockUnlockByCamera(id);
         }
@@ -1338,7 +1377,7 @@ public class CameraTest extends Assert {
             recorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
             recorder.setVideoSize(size.width, size.height);
-            recorder.setOutputFile("/dev/null");
+            recorder.setOutputFile(mRecordingPath);
             recorder.setPreviewDisplay(holder.getSurface());
             recorder.prepare();
             recorder.start();
@@ -1385,7 +1424,7 @@ public class CameraTest extends Assert {
             recorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
             recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
             recorder.setProfile(profile);
-            recorder.setOutputFile("/dev/null");
+            recorder.setOutputFile(mRecordingPath);
             recorder.setPreviewDisplay(holder.getSurface());
             recorder.prepare();
             recorder.start();
@@ -1426,8 +1465,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testPreviewCallbackWithBuffer() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testPreviewCallbackWithBufferByCamera(id);
         }
@@ -1524,8 +1562,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testImmediateZoom() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testImmediateZoomByCamera(id);
         }
@@ -1596,8 +1633,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testSmoothZoom() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testSmoothZoomByCamera(id);
         }
@@ -1722,8 +1758,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testFocusDistances() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testFocusDistancesByCamera(id);
         }
@@ -1831,8 +1866,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testCancelAutofocus() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testCancelAutofocusByCamera(id);
         }
@@ -1913,6 +1947,11 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testMultipleCameras() throws Exception {
+        if (CameraUtils.mOverrideCameraId != null) {
+            // A single camera is being tested. Skip.
+            return;
+        }
+
         int nCameras = Camera.getNumberOfCameras();
         Log.v(TAG, "total " + nCameras + " cameras");
         assertTrue(nCameras >= 0);
@@ -1976,8 +2015,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test(timeout=60*60*1000) // timeout = 60 mins for long running tests
     public void testPreviewPictureSizesCombination() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testPreviewPictureSizesCombinationByCamera(id);
         }
@@ -2093,8 +2131,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testPreviewFpsRange() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testPreviewFpsRangeByCamera(id);
         }
@@ -2322,8 +2359,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testSceneMode() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testSceneModeByCamera(id);
         }
@@ -2423,8 +2459,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testInvalidParameters() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testInvalidParametersByCamera(id);
         }
@@ -2478,8 +2513,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testGetParameterDuringFocus() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testGetParameterDuringFocusByCamera(id);
         }
@@ -2514,8 +2548,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testPreviewFormats() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testPreviewFormatsByCamera(id);
         }
@@ -2539,6 +2572,11 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testMultiCameraRelease() throws Exception {
+        if (CameraUtils.mOverrideCameraId != null) {
+            // A single camera is being tested. Skip.
+            return;
+        }
+
         // Verify that multiple cameras exist, and that they can be opened at the same time
         if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Checking pre-conditions.");
         int nCameras = Camera.getNumberOfCameras();
@@ -2561,54 +2599,53 @@ public class CameraTest extends Assert {
         testCamera0.release();
         testCamera1.release();
 
-        // Start first camera
-        if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Opening camera 0");
-        initializeMessageLooper(0);
-        SimplePreviewStreamCb callback0 = new SimplePreviewStreamCb(0);
-        mCamera.setPreviewCallback(callback0);
+        LooperInfo looperInfo0 = new LooperInfo();
+        LooperInfo looperInfo1 = new LooperInfo();
+
+        ConditionVariable previewDone0 = new ConditionVariable();
+        ConditionVariable previewDone1 = new ConditionVariable();
+        // Open both cameras camera
+        if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Opening cameras 0 and 1");
+        TestErrorCallbackI errorCallback0 = new TestErrorCallbackI();
+        TestErrorCallbackI errorCallback1 = new TestErrorCallbackI();
+        initializeMessageLooper(0, errorCallback0, looperInfo0);
+        initializeMessageLooper(1, errorCallback1, looperInfo1);
+
+        SimplePreviewStreamCbI callback0 = new SimplePreviewStreamCbI(0, previewDone0);
+        looperInfo0.camera.setPreviewCallback(callback0);
         if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Starting preview on camera 0");
-        mCamera.startPreview();
+        looperInfo0.camera.startPreview();
         // Run preview for a bit
         for (int f = 0; f < 100; f++) {
-            mPreviewDone.close();
+            previewDone0.close();
             assertTrue("testMultiCameraRelease: First camera preview timed out on frame " + f + "!",
-                       mPreviewDone.block( WAIT_FOR_COMMAND_TO_COMPLETE));
+                       previewDone0.block( WAIT_FOR_COMMAND_TO_COMPLETE));
         }
         if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Stopping preview on camera 0");
-        mCamera.stopPreview();
-        // Save message looper and camera to deterministically release them, instead
-        // of letting GC do it at some point.
-        Camera firstCamera = mCamera;
-        Looper firstLooper = mLooper;
-        //terminateMessageLooper(); // Intentionally not calling this
-        // Preview surface should be released though!
-        mCamera.setPreviewDisplay(null);
+        looperInfo0.camera.stopPreview();
 
-        // Start second camera without releasing the first one (will
-        // set mCamera and mLooper to new objects)
-        if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Opening camera 1");
-        initializeMessageLooper(1);
-        SimplePreviewStreamCb callback1 = new SimplePreviewStreamCb(1);
-        mCamera.setPreviewCallback(callback1);
+        // Preview surface should be released though!
+        looperInfo0.camera.setPreviewDisplay(null);
+
+        SimplePreviewStreamCbI callback1 = new SimplePreviewStreamCbI(1, previewDone1);
+        looperInfo1.camera.setPreviewCallback(callback1);
         if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Starting preview on camera 1");
-        mCamera.startPreview();
-        // Run preview for a bit - GC of first camera instance should not impact the second's
-        // operation.
+        looperInfo1.camera.startPreview();
         for (int f = 0; f < 100; f++) {
-            mPreviewDone.close();
+            previewDone1.close();
             assertTrue("testMultiCameraRelease: Second camera preview timed out on frame " + f + "!",
-                       mPreviewDone.block( WAIT_FOR_COMMAND_TO_COMPLETE));
+                       previewDone1.block( WAIT_FOR_COMMAND_TO_COMPLETE));
             if (f == 50) {
                 // Release first camera mid-preview, should cause no problems
                 if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Releasing camera 0");
-                firstCamera.release();
+                looperInfo0.camera.release();
             }
         }
-        if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Stopping preview on camera 0");
-        mCamera.stopPreview();
+        if (VERBOSE) Log.v(TAG, "testMultiCameraRelease: Stopping preview on camera 1");
+        looperInfo1.camera.stopPreview();
 
-        firstLooper.quit();
-        terminateMessageLooper(true/*allowEvict*/);
+        looperInfo0.looper.quit();
+        terminateMessageLooper(true, errorCallback1.mCameraErrorCode, looperInfo1);
     }
 
     // This callback just signals on the condition variable, making it useful for checking that
@@ -2625,11 +2662,25 @@ public class CameraTest extends Assert {
         }
     }
 
+    // Parent independent version of SimplePreviewStreamCb
+    private static final class SimplePreviewStreamCbI
+            implements android.hardware.Camera.PreviewCallback {
+        private int mId;
+        private ConditionVariable mPreviewDone = null;
+        public SimplePreviewStreamCbI(int id, ConditionVariable previewDone) {
+            mId = id;
+            mPreviewDone = previewDone;
+        }
+        public void onPreviewFrame(byte[] data, android.hardware.Camera camera) {
+            if (VERBOSE) Log.v(TAG, "Preview frame callback, id " + mId + ".");
+            mPreviewDone.open();
+        }
+    }
+
     @UiThreadTest
     @Test
     public void testFocusAreas() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
 
             initializeMessageLooper(id);
@@ -2648,8 +2699,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testMeteringAreas() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             initializeMessageLooper(id);
             Parameters parameters = mCamera.getParameters();
@@ -2785,8 +2835,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testJpegCallbackStartPreview() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testJpegCallbackStartPreviewByCamera(id);
         }
@@ -2815,8 +2864,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testRecordingHint() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testRecordingHintByCamera(id);
         }
@@ -2875,7 +2923,7 @@ public class CameraTest extends Assert {
             recorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
             recorder.setVideoSize(size.width, size.height);
-            recorder.setOutputFile("/dev/null");
+            recorder.setOutputFile(mRecordingPath);
             recorder.setPreviewDisplay(holder.getSurface());
             recorder.prepare();
             recorder.start();
@@ -2896,7 +2944,7 @@ public class CameraTest extends Assert {
             recorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
             recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
             recorder.setProfile(profile);
-            recorder.setOutputFile("/dev/null");
+            recorder.setOutputFile(mRecordingPath);
             recorder.setPreviewDisplay(holder.getSurface());
             recorder.prepare();
             recorder.start();
@@ -2911,8 +2959,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testAutoExposureLock() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             initializeMessageLooper(id);
             Parameters parameters = mCamera.getParameters();
@@ -2928,8 +2975,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testAutoWhiteBalanceLock() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             initializeMessageLooper(id);
             Parameters parameters = mCamera.getParameters();
@@ -2945,8 +2991,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void test3ALockInteraction() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             initializeMessageLooper(id);
             Parameters parameters = mCamera.getParameters();
@@ -3170,8 +3215,7 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test
     public void testFaceDetection() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testFaceDetectionByCamera(id);
         }
@@ -3297,10 +3341,10 @@ public class CameraTest extends Assert {
     @UiThreadTest
     @Test(timeout=60*60*1000) // timeout = 60 mins for long running tests
     public void testVideoSnapshot() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
-            testVideoSnapshotByCamera(id);
+            testVideoSnapshotByCamera(id, /*recordingHint*/false);
+            testVideoSnapshotByCamera(id, /*recordingHint*/true);
         }
     }
 
@@ -3316,7 +3360,7 @@ public class CameraTest extends Assert {
         CamcorderProfile.QUALITY_QVGA,
     };
 
-    private void testVideoSnapshotByCamera(int cameraId) throws Exception {
+    private void testVideoSnapshotByCamera(int cameraId, boolean recordingHint) throws Exception {
         initializeMessageLooper(cameraId);
         Camera.Parameters parameters = mCamera.getParameters();
         terminateMessageLooper();
@@ -3344,6 +3388,7 @@ public class CameraTest extends Assert {
                 }
             }
             parameters.setPictureSize(biggestSize.width, biggestSize.height);
+            parameters.setRecordingHint(recordingHint);
 
             mCamera.setParameters(parameters);
             mCamera.startPreview();
@@ -3354,7 +3399,7 @@ public class CameraTest extends Assert {
                 recorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
                 recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
                 recorder.setProfile(profile);
-                recorder.setOutputFile("/dev/null");
+                recorder.setOutputFile(mRecordingPath);
                 recorder.setPreviewDisplay(holder.getSurface());
                 recorder.prepare();
                 recorder.start();
@@ -3376,8 +3421,7 @@ public class CameraTest extends Assert {
 
     @Test
     public void testPreviewCallbackWithPicture() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testPreviewCallbackWithPictureByCamera(id);
         }
@@ -3436,8 +3480,7 @@ public class CameraTest extends Assert {
 
     @Test
     public void testEnableShutterSound() throws Exception {
-        int nCameras = Camera.getNumberOfCameras();
-        for (int id = 0; id < nCameras; id++) {
+        for (int id : mCameraIds) {
             Log.v(TAG, "Camera id=" + id);
             testEnableShutterSoundByCamera(id);
         }

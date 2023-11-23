@@ -43,10 +43,8 @@ public class CtsRoleManagerAdapter {
 
     private static final String TAG = CtsRoleManagerAdapter.class.getSimpleName();
     private static final String ROLE_COMPANION_APP = "android.app.role.CALL_COMPANION";
-    private static final String ROLE_CAR_MODE_DIALER_APP = "android.app.role.CAR_MODE_DIALER";
     private static final String COMMAND_ADD_OR_REMOVE_CALL_COMPANION_APP =
             "telecom add-or-remove-call-companion-app";
-    private static final String COMMAND_SET_AUTO_MODE_APP = "telecom set-test-auto-mode-app";
 
     private Context mContext;
     private RoleManager mRoleManager;
@@ -80,37 +78,6 @@ public class CtsRoleManagerAdapter {
                     COMMAND_ADD_OR_REMOVE_CALL_COMPANION_APP, packageName, 0);
             executeShellCommand(mInstrumentation, command);
             removeRoleHolderFromMap(ROLE_COMPANION_APP, packageName);
-        }
-    }
-
-    public void addAutomotiveRoleHolder(String packageName)
-            throws Exception {
-        if (mRoleManager != null) {
-            addRoleHolder(ROLE_CAR_MODE_DIALER_APP, packageName);
-        } else {
-            String command = String.format("%s %s",
-                    COMMAND_SET_AUTO_MODE_APP, packageName);
-            executeShellCommand(mInstrumentation, command);
-            addRoleHolderToMap(ROLE_CAR_MODE_DIALER_APP, packageName);
-        }
-    }
-
-    public void removeAutomotiveRoleHolder(String packageName) throws Exception {
-        if (mRoleManager != null) {
-            removeRoleHolder(ROLE_CAR_MODE_DIALER_APP, packageName);
-        } else {
-            removeRoleHolderFromMap(ROLE_CAR_MODE_DIALER_APP, packageName);
-
-            // Reset the car mode ui to rest of automotive apps assigned. If no other automotive
-            // apps are available, set car mode ui back to null.
-            if (mRoleHolders.containsKey(ROLE_CAR_MODE_DIALER_APP)) {
-                String nextPackage = getRoleHolders(ROLE_CAR_MODE_DIALER_APP).get(0);
-                String command = String.format("%s %s",
-                        COMMAND_SET_AUTO_MODE_APP, nextPackage);
-                executeShellCommand(mInstrumentation, command);
-            } else {
-                executeShellCommand(mInstrumentation, COMMAND_SET_AUTO_MODE_APP);
-            }
         }
     }
 

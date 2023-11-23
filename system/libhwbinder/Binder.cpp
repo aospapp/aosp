@@ -22,7 +22,7 @@
 #include <hwbinder/IInterface.h>
 #include <hwbinder/Parcel.h>
 
-#include <sched.h>
+#include <linux/sched.h>
 #include <stdio.h>
 
 namespace android {
@@ -252,5 +252,5 @@ bool BpHwRefBase::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
 
 // ---------------------------------------------------------------------------
 
-}; // namespace hardware
-}; // namespace android
+} // namespace hardware
+} // namespace android

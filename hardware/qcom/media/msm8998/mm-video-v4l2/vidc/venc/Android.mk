@@ -133,7 +133,7 @@ LOCAL_SRC_FILES   += src/omx_video_encoder.cpp
 LOCAL_SRC_FILES   += src/video_encoder_device_v4l2.cpp
 
 # Allow implicit fallthrough in omx_video_encoder.cpp:2322 until it is fixed.
-LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
+LOCAL_CFLAGS += -Wno-implicit-fallthrough
 
 include $(BUILD_SHARED_LIBRARY)
 

@@ -44,7 +44,7 @@ public class Extension implements java.security.cert.Extension {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public Extension(sun.security.x509.Extension ext) {
         throw new RuntimeException("Stub!");
     }
@@ -61,7 +61,7 @@ public class Extension implements java.security.cert.Extension {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void encode(sun.security.util.DerOutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -70,7 +70,7 @@ public class Extension implements java.security.cert.Extension {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.util.ObjectIdentifier getExtensionId() {
         throw new RuntimeException("Stub!");
     }

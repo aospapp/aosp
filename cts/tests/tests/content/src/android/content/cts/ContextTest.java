@@ -16,6 +16,12 @@
 
 package android.content.cts;
 
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
+import android.app.Activity;
+import android.app.AppOpsManager;
+import android.app.Instrumentation;
+import android.app.WallpaperManager;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -55,6 +61,8 @@ import android.util.Xml;
 import android.view.WindowManager;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.ShellIdentityUtils;
+import com.android.compatibility.common.util.SystemUtil;
 import com.android.cts.IBinderPermissionTestService;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -569,6 +577,110 @@ public class ContextTest extends AndroidTestCase {
         assertNull(resultExtras.getString(KEY_REMOVED));
     }
 
+    public void testSendOrderedBroadcastWithAppOp() {
+        // we use a HighPriorityBroadcastReceiver because the final receiver should get the
+        // broadcast only at the end.
+        final ResultReceiver receiver = new HighPriorityBroadcastReceiver();
+        final ResultReceiver finalReceiver = new ResultReceiver();
+
+        AppOpsManager aom =
+                (AppOpsManager) getContextUnderTest().getSystemService(Context.APP_OPS_SERVICE);
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(aom,
+                (appOpsMan) -> appOpsMan.setUidMode(AppOpsManager.OPSTR_READ_CELL_BROADCASTS,
+                Process.myUid(), AppOpsManager.MODE_ALLOWED));
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+
+        mContext.sendOrderedBroadcast(
+                new Intent(ResultReceiver.MOCK_ACTION),
+                null, // permission
+                AppOpsManager.OPSTR_READ_CELL_BROADCASTS,
+                finalReceiver,
+                null, // scheduler
+                0, // initial code
+                null, //initial data
+                null); // initial extras
+
+        new PollingCheck(BROADCAST_TIMEOUT){
+            @Override
+            protected boolean check() {
+                return receiver.hasReceivedBroadCast()
+                        && !finalReceiver.hasReceivedBroadCast();
+            }
+        }.run();
+
+        synchronized (receiver) {
+            receiver.notify();
+        }
+
+        new PollingCheck(BROADCAST_TIMEOUT){
+            @Override
+            protected boolean check() {
+                // ensure that first receiver has received broadcast before final receiver
+                return receiver.hasReceivedBroadCast()
+                        && finalReceiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    public void testSendOrderedBroadcastWithAppOp_NotGranted() {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        AppOpsManager aom =
+                (AppOpsManager) getContextUnderTest().getSystemService(Context.APP_OPS_SERVICE);
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(aom,
+                (appOpsMan) -> appOpsMan.setUidMode(AppOpsManager.OPSTR_READ_CELL_BROADCASTS,
+                        Process.myUid(), AppOpsManager.MODE_ERRORED));
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+
+        mContext.sendOrderedBroadcast(
+                new Intent(ResultReceiver.MOCK_ACTION),
+                null, // permission
+                AppOpsManager.OPSTR_READ_CELL_BROADCASTS,
+                null, // final receiver
+                null, // scheduler
+                0, // initial code
+                null, //initial data
+                null); // initial extras
+
+        boolean broadcastNeverSent = false;
+        try {
+            new PollingCheck(BROADCAST_TIMEOUT) {
+                @Override
+                protected boolean check() {
+                    return receiver.hasReceivedBroadCast();
+                }
+
+                public void runWithInterruption() throws InterruptedException {
+                    if (check()) {
+                        return;
+                    }
+
+                    long timeout = BROADCAST_TIMEOUT;
+                    while (timeout > 0) {
+                        try {
+                            Thread.sleep(50 /* time slice */);
+                        } catch (InterruptedException e) {
+                            fail("unexpected InterruptedException");
+                        }
+
+                        if (check()) {
+                            return;
+                        }
+
+                        timeout -= 50; // time slice
+                    }
+                    throw new InterruptedException();
+                }
+            }.runWithInterruption();
+        } catch (InterruptedException e) {
+            broadcastNeverSent = true;
+        }
+
+        assertTrue(broadcastNeverSent);
+    }
+
     public void testRegisterReceiver1() throws InterruptedException {
         final FilteredReceiver broadcastReceiver = new FilteredReceiver();
         final IntentFilter filter = new IntentFilter(MOCK_ACTION1);
@@ -631,7 +743,49 @@ public class ContextTest extends AndroidTestCase {
         mContext.unregisterReceiver(broadcastReceiver);
     }
 
+    public void testRegisterReceiverForAllUsers() throws InterruptedException {
+        FilteredReceiver broadcastReceiver = new FilteredReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(MOCK_ACTION1);
+
+        // Test registerReceiverForAllUsers without permission: verify SecurityException.
+        try {
+            mContext.registerReceiverForAllUsers(broadcastReceiver, filter, null, null);
+            fail("testRegisterReceiverForAllUsers: "
+                    + "SecurityException expected on registerReceiverForAllUsers");
+        } catch (SecurityException se) {
+            // expected
+        }
+
+        // Test registerReceiverForAllUsers with permission.
+        try {
+            ShellIdentityUtils.invokeMethodWithShellPermissions(
+                    mContext,
+                    (ctx) -> ctx.registerReceiverForAllUsers(broadcastReceiver, filter, null, null)
+            );
+        } catch (SecurityException se) {
+            fail("testRegisterReceiverForAllUsers: SecurityException not expected");
+        }
+
+        // Test unwanted intent(action = MOCK_ACTION2)
+        broadcastReceiver.reset();
+        waitForFilteredIntent(mContext, MOCK_ACTION2);
+        assertFalse(broadcastReceiver.hadReceivedBroadCast1());
+        assertFalse(broadcastReceiver.hadReceivedBroadCast2());
+
+        // Send wanted intent(action = MOCK_ACTION1)
+        broadcastReceiver.reset();
+        waitForFilteredIntent(mContext, MOCK_ACTION1);
+        assertTrue(broadcastReceiver.hadReceivedBroadCast1());
+        assertEquals(broadcastReceiver.getSendingUser(), Process.myUserHandle());
+        assertFalse(broadcastReceiver.hadReceivedBroadCast2());
+
+        mContext.unregisterReceiver(broadcastReceiver);
+    }
+
     public void testAccessWallpaper() throws IOException, InterruptedException {
+        if (!isWallpaperSupported()) return;
+
         // set Wallpaper by context#setWallpaper(Bitmap)
         Bitmap bitmap = Bitmap.createBitmap(20, 30, Bitmap.Config.RGB_565);
         // Test getWallpaper
@@ -751,16 +905,87 @@ public class ContextTest extends AndroidTestCase {
         assertNotNull(mContext.getPackageResourcePath());
     }
 
-    public void testStartActivity() {
+    public void testStartActivityWithActivityNotFound() {
         Intent intent = new Intent(mContext, ContextCtsActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             mContext.startActivity(intent);
-            fail("Test startActivity should thow a ActivityNotFoundException here.");
+            fail("Test startActivity should throw a ActivityNotFoundException here.");
         } catch (ActivityNotFoundException e) {
             // Because ContextWrapper is a wrapper class, so no need to test
             // the details of the function's performance. Getting a result
             // from the wrapped class is enough for testing.
+        }
+    }
+
+    public void testStartActivities() throws Exception {
+        final Intent[] intents = {
+                new Intent().setComponent(new ComponentName(mContext,
+                        AvailableIntentsActivity.class)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                new Intent().setComponent(new ComponentName(mContext,
+                        ImageCaptureActivity.class)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        };
+
+        final Instrumentation.ActivityMonitor firstMonitor = getInstrumentation()
+                .addMonitor(AvailableIntentsActivity.class.getName(), null /* result */,
+                        false /* block */);
+        final Instrumentation.ActivityMonitor secondMonitor = getInstrumentation()
+                .addMonitor(ImageCaptureActivity.class.getName(), null /* result */,
+                        false /* block */);
+
+        mContext.startActivities(intents);
+
+        Activity firstActivity = getInstrumentation().waitForMonitorWithTimeout(firstMonitor, 5000);
+        assertNotNull(firstActivity);
+
+        Activity secondActivity = getInstrumentation().waitForMonitorWithTimeout(secondMonitor,
+                5000);
+        assertNotNull(secondActivity);
+    }
+
+    public void testStartActivityAsUser() {
+        try (ActivitySession activitySession = new ActivitySession()) {
+            Intent intent = new Intent(mContext, AvailableIntentsActivity.class);
+
+            activitySession.assertActivityLaunched(intent.getComponent().getClassName(),
+                    () -> SystemUtil.runWithShellPermissionIdentity(() ->
+                            mContext.startActivityAsUser(intent, UserHandle.CURRENT)));
+        }
+    }
+
+    public void testStartActivity()  {
+        try (ActivitySession activitySession = new ActivitySession()) {
+            Intent intent = new Intent(mContext, AvailableIntentsActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            activitySession.assertActivityLaunched(intent.getComponent().getClassName(),
+                    () -> mContext.startActivity(intent));
+        }
+    }
+
+    /**
+     * Helper class to launch / close test activity.
+     */
+    private class ActivitySession implements AutoCloseable {
+        private Activity mTestActivity;
+        private static final int ACTIVITY_LAUNCH_TIMEOUT = 5000;
+
+        void assertActivityLaunched(String activityClassName, Runnable activityStarter) {
+            final Instrumentation.ActivityMonitor monitor = getInstrumentation()
+                    .addMonitor(activityClassName, null /* result */,
+                            false /* block */);
+            activityStarter.run();
+            // Wait for activity launch with timeout.
+            mTestActivity = getInstrumentation().waitForMonitorWithTimeout(monitor,
+                    ACTIVITY_LAUNCH_TIMEOUT);
+            assertNotNull(mTestActivity);
+        }
+
+        @Override
+        public void close() {
+            if (mTestActivity != null) {
+                mTestActivity.finishAndRemoveTask();
+            }
         }
     }
 
@@ -778,6 +1003,15 @@ public class ContextTest extends AndroidTestCase {
         }) {
             assertEquals(user, mContext
                     .createPackageContextAsUser(getValidPackageName(), 0, user).getUser());
+        }
+    }
+
+    public void testCreateContextAsUser() throws Exception {
+        for (UserHandle user : new UserHandle[] {
+                android.os.Process.myUserHandle(),
+                UserHandle.ALL, UserHandle.CURRENT, UserHandle.SYSTEM
+        }) {
+            assertEquals(user, mContext.createContextAsUser(user, 0).getUser());
         }
     }
 
@@ -858,6 +1092,8 @@ public class ContextTest extends AndroidTestCase {
     }
 
     public void testGetWallpaperDesiredMinimumHeightAndWidth() {
+        if (!isWallpaperSupported()) return;
+
         int height = mContext.getWallpaperDesiredMinimumHeight();
         int width = mContext.getWallpaperDesiredMinimumWidth();
 
@@ -1178,6 +1414,64 @@ public class ContextTest extends AndroidTestCase {
         }.run();
     }
 
+    /** The receiver should get the broadcast if it has all the permissions. */
+    public void testSendBroadcastWithMultiplePermissions_receiverHasAllPermissions()
+            throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+
+        mContext.sendBroadcastWithMultiplePermissions(
+                new Intent(ResultReceiver.MOCK_ACTION),
+                new String[] { // this test APK has both these permissions
+                        android.Manifest.permission.ACCESS_WIFI_STATE,
+                        android.Manifest.permission.ACCESS_NETWORK_STATE,
+                });
+
+        new PollingCheck(BROADCAST_TIMEOUT) {
+            @Override
+            protected boolean check() {
+                return receiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    /** The receiver should not get the broadcast if it does not have all the permissions. */
+    public void testSendBroadcastWithMultiplePermissions_receiverHasSomePermissions()
+            throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+
+        mContext.sendBroadcastWithMultiplePermissions(
+                new Intent(ResultReceiver.MOCK_ACTION),
+                new String[] { // this test APK only has ACCESS_WIFI_STATE
+                        android.Manifest.permission.ACCESS_WIFI_STATE,
+                        android.Manifest.permission.NETWORK_STACK,
+                });
+
+        Thread.sleep(BROADCAST_TIMEOUT);
+        assertFalse(receiver.hasReceivedBroadCast());
+    }
+
+    /** The receiver should not get the broadcast if it has none of the permissions. */
+    public void testSendBroadcastWithMultiplePermissions_receiverHasNoPermissions()
+            throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+
+        mContext.sendBroadcastWithMultiplePermissions(
+                new Intent(ResultReceiver.MOCK_ACTION),
+                new String[] { // this test APK has neither of these permissions
+                        android.Manifest.permission.NETWORK_SETTINGS,
+                        android.Manifest.permission.NETWORK_STACK,
+                });
+
+        Thread.sleep(BROADCAST_TIMEOUT);
+        assertFalse(receiver.hasReceivedBroadCast());
+    }
+
     public void testEnforceCallingOrSelfUriPermission() {
         try {
             Uri uri = Uri.parse("content://ctstest");
@@ -1378,4 +1672,7 @@ public class ContextTest extends AndroidTestCase {
         }
     }
 
+    private boolean isWallpaperSupported() {
+        return WallpaperManager.getInstance(mContext).isWallpaperSupported();
+    }
 }

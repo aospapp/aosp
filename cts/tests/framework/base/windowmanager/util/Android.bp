@@ -12,7 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-java_test {
+filegroup {
+    name: "cts-wm-app-util",
+    srcs: [
+        "src/android/server/wm/ActivityLauncher.java",
+        "src/android/server/wm/CommandSession.java",
+        "src/android/server/wm/ComponentNameUtils.java",
+        "src/android/server/wm/TestJournalProvider.java",
+        "src/android/server/wm/TestLogClient.java",
+        ":cts-wm-components",
+    ],
+}
+
+java_test_helper_library {
     name: "cts-wm-util",
 
     srcs: [

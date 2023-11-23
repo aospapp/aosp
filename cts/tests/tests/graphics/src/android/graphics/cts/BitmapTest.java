@@ -33,9 +33,12 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
 import android.graphics.ColorSpace.Named;
+import android.graphics.ImageDecoder;
+import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Picture;
+import android.graphics.Shader;
 import android.hardware.HardwareBuffer;
 import android.os.Debug;
 import android.os.Parcel;
@@ -46,8 +49,8 @@ import android.view.Surface;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.BitmapUtils;
 import com.android.compatibility.common.util.ColorUtils;
 import com.android.compatibility.common.util.WidgetTestUtils;
 
@@ -57,17 +60,23 @@ import org.junit.runner.RunWith;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
 @SmallTest
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnitParamsRunner.class)
 public class BitmapTest {
     // small alpha values cause color values to be pre-multiplied down, losing accuracy
     private static final int PREMUL_COLOR = Color.argb(2, 255, 254, 253);
@@ -129,9 +138,103 @@ public class BitmapTest {
         mBitmap.compress(CompressFormat.JPEG, 101, new ByteArrayOutputStream());
     }
 
+    private static Object[] compressFormats() {
+        return CompressFormat.values();
+    }
+
     @Test
-    public void testCompress() {
-        assertTrue(mBitmap.compress(CompressFormat.JPEG, 50, new ByteArrayOutputStream()));
+    @Parameters(method = "compressFormats")
+    public void testCompress(CompressFormat format) {
+        assertTrue(mBitmap.compress(format, 50, new ByteArrayOutputStream()));
+    }
+
+    private Bitmap decodeBytes(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        ImageDecoder.Source src = ImageDecoder.createSource(buffer);
+        try {
+            return ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+        } catch (IOException e) {
+            fail("Failed to decode with " + e);
+            return null;
+        }
+    }
+
+    // There are three color components and
+    // each should be within a square difference of 15 * 15.
+    private static final int MSE_MARGIN = 3 * (15 * 15);
+
+    @Test
+    public void testCompressWebpLossy() {
+        // For qualities < 100, WEBP performs a lossy decode.
+        byte[] last = null;
+        Bitmap lastBitmap = null;
+        for (int quality : new int[] { 25, 50, 80, 99 }) {
+            ByteArrayOutputStream webp = new ByteArrayOutputStream();
+            assertTrue(mBitmap.compress(CompressFormat.WEBP, quality, webp));
+            byte[] webpCompressed = webp.toByteArray();
+
+
+            ByteArrayOutputStream webpLossy = new ByteArrayOutputStream();
+            assertTrue(mBitmap.compress(CompressFormat.WEBP_LOSSY, quality, webpLossy));
+            byte[] webpLossyCompressed = webpLossy.toByteArray();
+
+            assertTrue("Compression did not match at quality " + quality,
+                    Arrays.equals(webpCompressed, webpLossyCompressed));
+
+            Bitmap result = decodeBytes(webpCompressed);
+            if (last != null) {
+                // Higher quality will generally result in a larger file.
+                assertTrue(webpCompressed.length > last.length);
+                if (!BitmapUtils.compareBitmapsMse(lastBitmap, result, MSE_MARGIN, true, false)) {
+                    fail("Bad comparison for quality " + quality);
+                }
+            }
+            last = webpCompressed;
+            lastBitmap = result;
+        }
+    }
+
+    @Test
+    @Parameters({ "0", "50", "80", "99", "100" })
+    public void testCompressWebpLossless(int quality) {
+        ByteArrayOutputStream webp = new ByteArrayOutputStream();
+        assertTrue(mBitmap.compress(CompressFormat.WEBP_LOSSLESS, quality, webp));
+        byte[] webpCompressed = webp.toByteArray();
+        Bitmap result = decodeBytes(webpCompressed);
+
+        assertTrue("WEBP_LOSSLESS did not losslessly compress at quality " + quality,
+                BitmapUtils.compareBitmaps(mBitmap, result));
+    }
+
+    @Test
+    public void testCompressWebp100MeansLossless() {
+        ByteArrayOutputStream webp = new ByteArrayOutputStream();
+        assertTrue(mBitmap.compress(CompressFormat.WEBP, 100, webp));
+        byte[] webpCompressed = webp.toByteArray();
+        Bitmap result = decodeBytes(webpCompressed);
+        assertTrue("WEBP_LOSSLESS did not losslessly compress at quality 100",
+                BitmapUtils.compareBitmaps(mBitmap, result));
+    }
+
+    @Test
+    @Parameters(method = "compressFormats")
+    public void testCompressAlpha8Fails(CompressFormat format) {
+        Bitmap bitmap = Bitmap.createBitmap(1, 1, Config.ALPHA_8);
+        assertFalse("Incorrectly compressed ALPHA_8 to " + format,
+                bitmap.compress(format, 50, new ByteArrayOutputStream()));
+
+        if (format == CompressFormat.WEBP) {
+            // Skip the native test, since the NDK just has equivalents for
+            // WEBP_LOSSY and WEBP_LOSSLESS.
+            return;
+        }
+
+        byte[] storage = new byte[16 * 1024];
+        OutputStream stream = new ByteArrayOutputStream();
+        assertFalse("Incorrectly compressed ALPHA_8 with the NDK to " + format,
+                nCompress(bitmap, nativeCompressFormat(format), 50, stream, storage));
     }
 
     @Test(expected=IllegalStateException.class)
@@ -1591,6 +1694,36 @@ public class BitmapTest {
         p.recycle();
     }
 
+    /**
+     * Although not specified as required behavior, it's something that some apps appear
+     * to rely upon when sending bitmaps between themselves
+     */
+    @Test
+    public void testWriteToParcelPreserveMutability() {
+        Bitmap source = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        assertTrue(source.isMutable());
+        Parcel p = Parcel.obtain();
+        source.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        Bitmap result = Bitmap.CREATOR.createFromParcel(p);
+        p.recycle();
+        assertTrue(result.isMutable());
+    }
+
+    @Test
+    public void testWriteToParcelPreserveImmutability() {
+        // Kinda silly way to create an immutable bitmap but it works
+        Bitmap source = Bitmap.createBitmap(100, 100, Config.ARGB_8888)
+                .copy(Config.ARGB_8888, false);
+        assertFalse(source.isMutable());
+        Parcel p = Parcel.obtain();
+        source.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        Bitmap result = Bitmap.CREATOR.createFromParcel(p);
+        p.recycle();
+        assertFalse(result.isMutable());
+    }
+
     @Test
     public void testWriteHwBitmapToParcel() {
         mBitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot, HARDWARE_OPTIONS);
@@ -1956,10 +2089,16 @@ public class BitmapTest {
     @Test
     public void testNdkAccessAfterRecycle() {
         Bitmap bitmap = Bitmap.createBitmap(10, 20, Config.RGB_565);
+        Bitmap hardware = bitmap.copy(Config.HARDWARE, false);
         nValidateBitmapInfo(bitmap, 10, 20, true);
+        nValidateBitmapInfo(hardware, 10, 20, true);
+
         bitmap.recycle();
+        hardware.recycle();
+
         nValidateBitmapInfo(bitmap, 10, 20, true);
-        nValidateNdkAccessAfterRecycle(bitmap);
+        nValidateBitmapInfo(hardware, 10, 20, true);
+        nValidateNdkAccessFails(bitmap);
     }
 
     @Test
@@ -2022,15 +2161,15 @@ public class BitmapTest {
         Debug.MemoryInfo meminfoStart = new Debug.MemoryInfo();
         Debug.MemoryInfo meminfoEnd = new Debug.MemoryInfo();
         int fdCount = -1;
+        // Do a warmup to reach steady-state memory usage
+        for (int i = 0; i < 50; i++) {
+            test.run();
+        }
+        runGcAndFinalizersSync();
+        Debug.getMemoryInfo(meminfoStart);
+        fdCount = getFdCount();
+        // Now run the test
         for (int i = 0; i < 2000; i++) {
-            if (i == 4) {
-                // Not really the "start" but by having done a couple
-                // we've fully initialized any state that may be required,
-                // so memory usage should be stable now
-                runGcAndFinalizersSync();
-                Debug.getMemoryInfo(meminfoStart);
-                fdCount = getFdCount();
-            }
             if (i % 100 == 5) {
                 assertNotLeaking(i, meminfoStart, meminfoEnd);
                 final int curFdCount = getFdCount();
@@ -2105,13 +2244,14 @@ public class BitmapTest {
             surface.unlockCanvasAndPost(canvas);
             bitmap.recycle();
         });
+        renderTarget.destroy();
     }
 
     @Test
     public void testWrapHardwareBufferHoldsReference() {
         Bitmap bitmap;
         // Create hardware-buffer and wrap it in a Bitmap
-        try (HardwareBuffer hwBuffer = createTestBuffer(128, 128, false)) {
+        try (HardwareBuffer hwBuffer = createTestBuffer(128, 128, true)) {
             // Fill buffer with colors (x, y, 42, 255)
             nFillRgbaHwBuffer(hwBuffer);
             bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.SRGB));
@@ -2161,6 +2301,341 @@ public class BitmapTest {
         }
     }
 
+    @Test
+    public void testNdkFormats() {
+        for (ConfigToFormat pair : CONFIG_TO_FORMAT) {
+            Bitmap bm = Bitmap.createBitmap(10, 10, pair.config);
+            assertNotNull(bm);
+            int nativeFormat = nGetFormat(bm);
+            assertEquals("Config: " + pair.config, pair.format, nativeFormat);
+        }
+    }
+
+    @Test
+    public void testNdkFormatsHardware() {
+        for (ConfigToFormat pair : CONFIG_TO_FORMAT) {
+            Bitmap bm = Bitmap.createBitmap(10, 10, pair.config);
+            bm = bm.copy(Bitmap.Config.HARDWARE, false);
+
+            // ALPHA_8 is not supported in HARDWARE.
+            if (bm == null) {
+                assertEquals(Bitmap.Config.ALPHA_8, pair.config);
+                continue;
+            }
+            assertNotEquals(Bitmap.Config.ALPHA_8, pair.config);
+
+            int nativeFormat = nGetFormat(bm);
+            if (pair.config == Bitmap.Config.RGBA_F16) {
+                // It is possible the system does not support RGBA_F16 in HARDWARE.
+                // In that case, it will fall back to ARGB_8888.
+                assertTrue(nativeFormat == ANDROID_BITMAP_FORMAT_RGBA_8888
+                        || nativeFormat == ANDROID_BITMAP_FORMAT_RGBA_F16);
+            } else {
+                assertEquals("Config: " + pair.config, pair.format, nativeFormat);
+            }
+        }
+    }
+
+    @Test
+    public void testNullBitmapNdk() {
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
+        nTestNullBitmap(bitmap);
+    }
+
+    private Object[] parametersForTestNdkInfo() {
+        return new Object[] {
+            new Object[] { Config.ALPHA_8,   ANDROID_BITMAP_FORMAT_A_8  },
+            new Object[] { Config.ARGB_8888, ANDROID_BITMAP_FORMAT_RGBA_8888 },
+            new Object[] { Config.RGB_565,   ANDROID_BITMAP_FORMAT_RGB_565 },
+            new Object[] { Config.RGBA_F16,  ANDROID_BITMAP_FORMAT_RGBA_F16 },
+        };
+    }
+
+    @Test
+    @Parameters(method = "parametersForTestNdkInfo")
+    public void testNdkInfo(Config config, final int expectedFormat) {
+        // Arbitrary width and height.
+        final int width = 13;
+        final int height = 7;
+        boolean[] trueFalse = new boolean[] { true, false };
+        for (boolean hasAlpha : trueFalse) {
+            for (boolean premultiplied : trueFalse) {
+                Bitmap bm = Bitmap.createBitmap(width, height, config, hasAlpha);
+                bm.setPremultiplied(premultiplied);
+                nTestInfo(bm, expectedFormat, width, height, bm.hasAlpha(),
+                        bm.isPremultiplied(), false);
+                Bitmap hwBitmap = bm.copy(Bitmap.Config.HARDWARE, false);
+                if (config == Bitmap.Config.ALPHA_8) {
+                    // ALPHA_8 is not supported in HARDWARE. b/141480329
+                    assertNull(hwBitmap);
+                } else {
+                    assertNotNull(hwBitmap);
+
+                    // Some devices do not support F16 + HARDWARE. These fall back to 8888, and can
+                    // be identified by their use of SRGB instead of EXTENDED_SRGB.
+                    int tempExpectedFormat = expectedFormat;
+                    if (config == Config.RGBA_F16 && hwBitmap.getColorSpace() == ColorSpace.get(
+                            ColorSpace.Named.SRGB)) {
+                        tempExpectedFormat = ANDROID_BITMAP_FORMAT_RGBA_8888;
+                    }
+                    nTestInfo(hwBitmap, tempExpectedFormat, width, height, hwBitmap.hasAlpha(),
+                            hwBitmap.isPremultiplied(), true);
+                    hwBitmap.recycle();
+                }
+                bm.recycle();
+            }
+        }
+    }
+
+    @Test
+    public void testNdkDataSpaceF16Extended() {
+        // In RGBA_F16 we force EXTENDED in these cases.
+        for (ColorSpace colorSpace : new ColorSpace[] {
+                ColorSpace.get(Named.SRGB),
+                ColorSpace.get(Named.EXTENDED_SRGB),
+        }) {
+            Bitmap bm = Bitmap.createBitmap(10, 10, Config.RGBA_F16, false, colorSpace);
+            assertNotNull(bm);
+
+            assertEquals(ColorSpace.get(Named.EXTENDED_SRGB), bm.getColorSpace());
+            assertEquals(DataSpace.ADATASPACE_SCRGB, nGetDataSpace(bm));
+        }
+
+        for (ColorSpace colorSpace : new ColorSpace[] {
+                ColorSpace.get(Named.LINEAR_SRGB),
+                ColorSpace.get(Named.LINEAR_EXTENDED_SRGB),
+        }) {
+            Bitmap bm = Bitmap.createBitmap(10, 10, Config.RGBA_F16, false, colorSpace);
+            assertNotNull(bm);
+
+            assertEquals(ColorSpace.get(Named.LINEAR_EXTENDED_SRGB), bm.getColorSpace());
+            assertEquals(DataSpace.ADATASPACE_SCRGB_LINEAR, nGetDataSpace(bm));
+        }
+    }
+
+    @Test
+    public void testNdkDataSpaceNonExtended() {
+        // In 565 and 8888, these force non-extended.
+        for (ColorSpace colorSpace : new ColorSpace[] {
+                ColorSpace.get(Named.SRGB),
+                ColorSpace.get(Named.EXTENDED_SRGB),
+        }) {
+            for (Config c: new Config[] { Config.ARGB_8888, Config.RGB_565 }) {
+                Bitmap bm = Bitmap.createBitmap(10, 10, c, false, colorSpace);
+                assertNotNull(bm);
+
+                assertEquals(ColorSpace.get(Named.SRGB), bm.getColorSpace());
+                assertEquals(DataSpace.ADATASPACE_SRGB, nGetDataSpace(bm));
+            }
+        }
+
+        for (ColorSpace colorSpace : new ColorSpace[] {
+                ColorSpace.get(Named.LINEAR_SRGB),
+                ColorSpace.get(Named.LINEAR_EXTENDED_SRGB),
+        }) {
+            for (Config c: new Config[] { Config.ARGB_8888, Config.RGB_565 }) {
+                Bitmap bm = Bitmap.createBitmap(10, 10, c, false, colorSpace);
+                assertNotNull(bm);
+
+                assertEquals(ColorSpace.get(Named.LINEAR_SRGB), bm.getColorSpace());
+                assertEquals(DataSpace.ADATASPACE_SRGB_LINEAR, nGetDataSpace(bm));
+            }
+        }
+    }
+
+    @Test
+    public void testNdkDataSpace() {
+        // DataSpace.ADATASPACEs that do not depend on the Config.
+        for (ColorSpace colorSpace : new ColorSpace[] {
+                // These have corresponding DataSpace.ADATASPACEs that are independent of the Config
+                ColorSpace.get(Named.DISPLAY_P3),
+                ColorSpace.get(Named.BT2020),
+                ColorSpace.get(Named.ADOBE_RGB),
+                ColorSpace.get(Named.BT709),
+                ColorSpace.get(Named.DCI_P3),
+
+                // These have no public ADATASPACE.
+                ColorSpace.get(Named.ACES),
+                ColorSpace.get(Named.ACESCG),
+                ColorSpace.get(Named.NTSC_1953),
+                ColorSpace.get(Named.PRO_PHOTO_RGB),
+                ColorSpace.get(Named.SMPTE_C),
+        }) {
+            for (Config c: new Config[] { Config.ARGB_8888, Config.RGB_565, Config.RGBA_F16 }) {
+                Bitmap bm = Bitmap.createBitmap(10, 10, c, false, colorSpace);
+                assertNotNull(bm);
+
+                int dataSpace = nGetDataSpace(bm);
+                assertEquals("Bitmap with " + c + " and " + bm.getColorSpace()
+                        + " has unexpected data space", DataSpace.fromColorSpace(colorSpace),
+                        dataSpace);
+            }
+        }
+    }
+
+    @Test
+    public void testNdkDataSpaceAlpha8() {
+        // ALPHA_8 doesn't support ColorSpaces
+        Bitmap bm = Bitmap.createBitmap(10, 10, Config.ALPHA_8);
+        assertNotNull(bm);
+        assertNull(bm.getColorSpace());
+        int dataSpace = nGetDataSpace(bm);
+        assertEquals(DataSpace.ADATASPACE_UNKNOWN, dataSpace);
+    }
+
+    @Test
+    public void testNdkDataSpaceNullBitmap() {
+        assertEquals(DataSpace.ADATASPACE_UNKNOWN, nGetDataSpace(null));
+    }
+
+    private static native int nGetDataSpace(Bitmap bm);
+
+    // These match the NDK APIs.
+    private static final int ANDROID_BITMAP_COMPRESS_FORMAT_JPEG = 0;
+    private static final int ANDROID_BITMAP_COMPRESS_FORMAT_PNG = 1;
+    private static final int ANDROID_BITMAP_COMPRESS_FORMAT_WEBP_LOSSY = 3;
+    private static final int ANDROID_BITMAP_COMPRESS_FORMAT_WEBP_LOSSLESS = 4;
+
+    private int nativeCompressFormat(CompressFormat format) {
+        switch (format) {
+            case JPEG:
+                return ANDROID_BITMAP_COMPRESS_FORMAT_JPEG;
+            case PNG:
+                return ANDROID_BITMAP_COMPRESS_FORMAT_PNG;
+            case WEBP_LOSSY:
+                return ANDROID_BITMAP_COMPRESS_FORMAT_WEBP_LOSSY;
+            case WEBP_LOSSLESS:
+                return ANDROID_BITMAP_COMPRESS_FORMAT_WEBP_LOSSLESS;
+            default:
+                fail("format " + format + " has no corresponding native compress format!");
+                return -1;
+        }
+    }
+
+    private static Object[] parametersForNdkCompress() {
+        // Skip WEBP, which has no corresponding native compress format.
+        Object[] formats = new Object[] {
+                CompressFormat.JPEG,
+                CompressFormat.PNG,
+                CompressFormat.WEBP_LOSSY,
+                CompressFormat.WEBP_LOSSLESS,
+        };
+        // These are the ColorSpaces with corresponding ADataSpaces
+        Object[] colorSpaces = new Object[] {
+                ColorSpace.get(Named.SRGB),
+                ColorSpace.get(Named.EXTENDED_SRGB),
+                ColorSpace.get(Named.LINEAR_SRGB),
+                ColorSpace.get(Named.LINEAR_EXTENDED_SRGB),
+
+                ColorSpace.get(Named.DISPLAY_P3),
+                ColorSpace.get(Named.DCI_P3),
+                ColorSpace.get(Named.BT2020),
+                ColorSpace.get(Named.BT709),
+                ColorSpace.get(Named.ADOBE_RGB),
+        };
+
+        Object[] configs = new Object[] {
+                Config.ARGB_8888,
+                Config.RGB_565,
+                Config.RGBA_F16,
+        };
+
+        return crossProduct(formats, colorSpaces, configs);
+    }
+
+    private static Object[] crossProduct(Object[] a, Object[] b, Object[] c) {
+        final int length = a.length * b.length * c.length;
+        Object[] ret = new Object[length];
+        for (int i = 0; i < a.length; i++) {
+            for (int j = 0; j < b.length; j++) {
+                for (int k = 0; k < c.length; k++) {
+                    int index = i * (b.length * c.length) + j * c.length + k;
+                    assertNull(ret[index]);
+                    ret[index] = new Object[] { a[i], b[j], c[k] };
+                }
+            }
+        }
+        return ret;
+    }
+
+    private static boolean isSrgb(ColorSpace cs) {
+        return cs == ColorSpace.get(Named.SRGB)
+                || cs == ColorSpace.get(Named.EXTENDED_SRGB)
+                || cs == ColorSpace.get(Named.LINEAR_SRGB)
+                || cs == ColorSpace.get(Named.LINEAR_EXTENDED_SRGB);
+    }
+
+    @Test
+    @Parameters(method = "parametersForNdkCompress")
+    public void testNdkCompress(CompressFormat format, ColorSpace cs, Config config)
+            throws IOException {
+        // Verify that ndk compress behaves the same as Bitmap#compress
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, config, true /* hasAlpha */, cs);
+        assertNotNull(bitmap);
+
+        {
+            // Use different colors and alphas.
+            Canvas canvas = new Canvas(bitmap);
+            long color0 = Color.pack(0, 0, 1, 1, cs);
+            long color1 = Color.pack(1, 0, 0, 0, cs);
+            LinearGradient gradient = new LinearGradient(0, 0, 10, 10, color0, color1,
+                    Shader.TileMode.CLAMP);
+            Paint paint = new Paint();
+            paint.setShader(gradient);
+            canvas.drawPaint(paint);
+        }
+
+        byte[] storage = new byte[16 * 1024];
+        for (int quality : new int[] { 50, 80, 100 }) {
+            byte[] expected = null;
+            try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+                assertTrue("Failed to encode a Bitmap with " + cs + " to " + format + " at quality "
+                        + quality + " from Java API", bitmap.compress(format, quality, stream));
+                expected = stream.toByteArray();
+            }
+
+            try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+                boolean success = nCompress(bitmap, nativeCompressFormat(format),
+                        quality, stream, storage);
+                assertTrue("Failed to encode pixels with " + cs + " to " + format + " at quality "
+                        + quality + " from NDK API", success);
+                byte[] actual = stream.toByteArray();
+
+                if (isSrgb(cs)) {
+                    if (!Arrays.equals(expected, actual)) {
+                        fail("NDK compression did not match for " + cs + " and format " + format
+                                + " at quality " + quality);
+                    }
+                } else {
+                    // The byte arrays will match exactly for SRGB and its variants, because those
+                    // are treated specially. For the others, there are some small differences
+                    // between Skia's and ColorSpace's values that result in the ICC profiles being
+                    // written slightly differently. They should still look the same, though.
+                    Bitmap expectedBitmap = decodeBytes(expected);
+                    Bitmap actualBitmap = decodeBytes(actual);
+                    boolean matched = BitmapUtils.compareBitmapsMse(expectedBitmap, actualBitmap,
+                              5, true, false);
+                    expectedBitmap.recycle();
+                    actualBitmap.recycle();
+                    assertTrue("NDK compression did not match for " + cs + " and format " + format
+                                + " at quality " + quality, matched);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testNdkCompressBadParameter() throws IOException {
+        try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            nTestNdkCompressBadParameter(mBitmap, stream, new byte[16 * 1024]);
+        }
+    }
+
+    private static native boolean nCompress(Bitmap bitmap, int format, int quality,
+            OutputStream stream, byte[] storage);
+    private static native void nTestNdkCompressBadParameter(Bitmap bitmap,
+            OutputStream stream, byte[] storage);
+
     private void strictModeTest(Runnable runnable) {
         StrictMode.ThreadPolicy originalPolicy = StrictMode.getThreadPolicy();
         StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
@@ -2177,13 +2652,39 @@ public class BitmapTest {
 
     private static native void nValidateBitmapInfo(Bitmap bitmap, int width, int height,
             boolean is565);
-    private static native void nValidateNdkAccessAfterRecycle(Bitmap bitmap);
+    private static native void nValidateNdkAccessFails(Bitmap bitmap);
 
     private static native void nFillRgbaHwBuffer(HardwareBuffer hwBuffer);
+    private static native void nTestNullBitmap(Bitmap bitmap);
 
-    private static final int ANDROID_BITMAP_FORMAT_RGBA_8888 = 1;
+    static final int ANDROID_BITMAP_FORMAT_RGBA_8888 = 1;
     private static final int ANDROID_BITMAP_FORMAT_RGB_565 = 4;
-    private static native int nGetFormat(Bitmap bitmap);
+    private static final int ANDROID_BITMAP_FORMAT_A_8 = 8;
+    private static final int ANDROID_BITMAP_FORMAT_RGBA_F16 = 9;
+
+    private static class ConfigToFormat {
+        public final Config config;
+        public final int format;
+
+        ConfigToFormat(Config c, int f) {
+            this.config = c;
+            this.format = f;
+        }
+    }
+
+    private static final ConfigToFormat[] CONFIG_TO_FORMAT = new ConfigToFormat[] {
+        new ConfigToFormat(Bitmap.Config.ARGB_8888, ANDROID_BITMAP_FORMAT_RGBA_8888),
+        // ARGB_4444 is deprecated, and createBitmap converts to 8888.
+        new ConfigToFormat(Bitmap.Config.ARGB_4444, ANDROID_BITMAP_FORMAT_RGBA_8888),
+        new ConfigToFormat(Bitmap.Config.RGB_565, ANDROID_BITMAP_FORMAT_RGB_565),
+        new ConfigToFormat(Bitmap.Config.ALPHA_8, ANDROID_BITMAP_FORMAT_A_8),
+        new ConfigToFormat(Bitmap.Config.RGBA_F16, ANDROID_BITMAP_FORMAT_RGBA_F16),
+    };
+
+    static native int nGetFormat(Bitmap bitmap);
+
+    private static native void nTestInfo(Bitmap bm, int androidBitmapFormat, int width, int height,
+            boolean hasAlpha, boolean premultiplied, boolean hardware);
 
     private static HardwareBuffer createTestBuffer(int width, int height, boolean cpuAccess) {
         long usage = HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE;

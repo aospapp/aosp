@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef _MEMORY_REPLAY_NATIVE_INFO_H
-#define _MEMORY_REPLAY_NATIVE_INFO_H
+#pragma once
 
-// This function is not re-entrant.
-void GetNativeInfo(int smaps_fd, size_t* pss_bytes, size_t* va_bytes);
+void NativeGetInfo(int smaps_fd, size_t* rss_bytes, size_t* va_bytes);
 
-// This function is not re-entrant.
-void PrintNativeInfo(const char* preamble);
+void NativePrintInfo(const char* preamble);
 
-#endif // _MEMORY_REPLAY_NATIVE_INFO_H
+// Does not support any floating point specifiers.
+void NativePrintf(const char* fmt, ...) __printflike(1, 2);
+
+// Fill buffer as if %0.2f was chosen for value / divisor.
+void NativeFormatFloat(char* buffer, size_t buffer_len, uint64_t value, uint64_t divisor);

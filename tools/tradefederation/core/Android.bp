@@ -21,6 +21,7 @@ java_defaults {
       "-XDandroidCompatible=false",
       "-Xep:ArrayToString:ERROR",
       "-Xep:BoxedPrimitiveConstructor:ERROR",
+      "-Xep:CatchFail:ERROR",
       "-Xep:ConstantField:ERROR",
       "-Xep:DeadException:ERROR",
       "-Xep:EqualsIncompatibleType:ERROR",
@@ -29,6 +30,7 @@ java_defaults {
       "-Xep:GetClassOnClass:ERROR",
       "-Xep:IdentityBinaryExpression:ERROR",
       "-Xep:JUnit3TestNotRun:ERROR",
+      "-Xep:JUnit4TestNotRun:ERROR",
       "-Xep:JUnit4ClassUsedInJUnit3:ERROR",
       "-Xep:JUnitAmbiguousTestClass:ERROR",
       "-Xep:MissingFail:ERROR",
@@ -44,6 +46,8 @@ java_defaults {
       "-Xep:SelfEquals:ERROR",
       "-Xep:SizeGreaterThanOrEqualsZero:ERROR",
       "-Xep:TryFailThrowable:ERROR",
+      "-Xep:UnnecessaryParentheses:ERROR",
+      "-Xep:UseCorrectAssertInTests:ERROR",
     ],
   },
 }
@@ -73,25 +77,71 @@ java_library_host {
     ],
 }
 
+python_library_host {
+    name: "tradefed-protos-py",
+    pkg_path: "atest",
+    srcs: ["proto/**/*.proto"],
+    libs: [
+        "libprotobuf-python",
+    ],
+    proto: {
+        include_dirs: ["external/protobuf/src"],
+    },
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: true,
+        },
+    },
+}
+
+// Main Target to build tradefed jar
 java_library_host {
     name: "tradefed",
     defaults: ["tradefed_defaults"],
-    srcs: [
-        "src/**/*.java",
-        "clearcut_client/**/*.java",
-    ],
     java_resource_dirs: [
         "res",
     ],
-    openjdk9: {
-        javacflags: [
-            "--add-modules=java.xml.bind",
-        ],
-    },
     static_libs: [
+        "tradefed-lib-core",
+        "tradefed-test-framework",
+    ],
+    manifest: "MANIFEST.mf",
+}
+
+// Tradefed build target without the test framework statically linked
+java_library_host {
+    name: "tradefed-no-fwk",
+    defaults: ["tradefed_defaults"],
+    java_resource_dirs: [
+        "res",
+    ],
+    static_libs: [
+        "tradefed-lib-core",
+    ],
+    libs: [
+        "tradefed-test-framework",
+    ],
+    manifest: "MANIFEST.mf",
+}
+
+java_library_host {
+    name: "tradefed-lib-core",
+    defaults: ["tradefed_defaults"],
+    srcs: [
+        "src/**/*.java",
+        "global_configuration/**/*.java",
+    ],
+    static_libs: [
+        "tradefed-common-util",
+        "tradefed-clearcut-client",
+        "tradefed-result-interfaces",
+        "tradefed-device-build-interfaces",
+        "tradefed-invocation-interfaces",
         "protobuf-java-util-prebuilt-jar",
         "aoa-helper",
-        "commons-compress-prebuilt",
         "error_prone_annotations-2.0.18",
         "google-api-java-client-min-repackaged",
         "google-api-services-compute",
@@ -100,21 +150,19 @@ java_library_host {
         "guice",
         "jacoco-cli",
         "jline-1.0",
-        "junit",
         "junit-params",
         "kxml2-2.3.0",
         "libprotobuf-java-full",
-        "longevity-host-lib",
-        "perfetto_config-full",
         "platform-test-annotations",
-        "test-composers",
+        "snakeyaml",
         "tf-remote-client",
         "tradefed-protos",
+        "tradefed-isolation-protos",
+        "tradefed-lite",
     ],
     libs: [
         "loganalysis",
     ],
-    manifest: "MANIFEST.mf",
 }
 
 // Turn off various doclava warnings when generating
@@ -163,4 +211,29 @@ droiddoc_host {
           "-package " +
           "-devsite ",
     create_stubs: false,
+}
+
+sh_binary_host {
+    name: "tradefed.sh",
+    src: "tradefed.sh",
+}
+
+sh_binary_host {
+    name: "tradefed_win",
+    src: "tradefed_win.bat",
+}
+
+sh_binary_host {
+    name: "script_help.sh",
+    src: "script_help.sh",
+}
+
+sh_binary_host {
+    name: "run_tf_cmd.sh",
+    src: "run_tf_cmd.sh",
+}
+
+sh_binary_host {
+    name: "atest_tradefed.sh",
+    src: "atest_tradefed.sh",
 }

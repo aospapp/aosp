@@ -17,22 +17,27 @@
 package com.android.tradefed.targetprep;
 
 import com.android.ddmlib.IDevice;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.StubDevice;
+import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
 import com.android.tradefed.util.BinaryState;
 import com.android.tradefed.util.MultiMap;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,7 +49,7 @@ import java.util.Map;
  * <p>Should be performed <strong>after</strong> a new build is flashed.
  */
 @OptionClass(alias = "device-setup")
-public class DeviceSetup extends BaseTargetPreparer implements ITargetCleaner {
+public class DeviceSetup extends BaseTargetPreparer {
 
     // Networking
     @Option(name = "airplane-mode",
@@ -89,7 +94,7 @@ public class DeviceSetup extends BaseTargetPreparer implements ITargetCleaner {
     protected String mWifiPsk = null;
 
     @Option(name = "wifi-ssid-to-psk", description = "A map of wifi SSIDs to passwords.")
-    protected Map<String, String> mWifiSsidToPsk = new HashMap<>();
+    protected Map<String, String> mWifiSsidToPsk = new LinkedHashMap<>();
 
     @Option(name = "wifi-watchdog",
             description = "Turn wifi watchdog on or off")
@@ -307,10 +312,13 @@ public class DeviceSetup extends BaseTargetPreparer implements ITargetCleaner {
     protected boolean mSetTestHarness = true;
     // setprop ro.monkey 1
     // setprop ro.test_harness 1
+    // setprop persist.sys.test_harness 1
 
-    @Option(name = "disable-dalvik-verifier",
-            description = "Disable the dalvik verifier on device. Allows package-private " +
-            "framework tests to run.")
+    @Option(
+            name = "disable-dalvik-verifier",
+            description =
+                    "Disable the dalvik verifier on device. Allows package-private "
+                            + "framework tests to run.")
     protected boolean mDisableDalvikVerifier = false;
     // setprop dalvik.vm.dexopt-flags v=n
 
@@ -411,16 +419,15 @@ public class DeviceSetup extends BaseTargetPreparer implements ITargetCleaner {
 
     private static final String PERSIST_PREFIX = "persist.";
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) throws DeviceNotAvailableException,
-            TargetSetupError {
-        if (isDisabled()) {
-            return;
-        }
+    public ITestDevice getDevice(TestInformation testInfo) {
+        return testInfo.getDevice();
+    }
 
+    /** {@inheritDoc} */
+    @Override
+    public void setUp(TestInformation testInfo)
+            throws DeviceNotAvailableException, BuildError, TargetSetupError {
+        ITestDevice device = getDevice(testInfo);
         CLog.i("Performing setup on %s", device.getSerialNumber());
 
         if (device.getOptions().isEnableAdbRoot() && !device.enableAdbRoot()) {
@@ -453,14 +460,12 @@ public class DeviceSetup extends BaseTargetPreparer implements ITargetCleaner {
         device.clearErrorDialogs();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
+        ITestDevice device = testInfo.getDevice();
         // ignore tearDown if it's a stub device, since there is no real device to clean.
-        if (isDisabled() || device.getIDevice() instanceof StubDevice) {
+        if (device.getIDevice() instanceof StubDevice) {
             return;
         }
 
@@ -679,9 +684,11 @@ public class DeviceSetup extends BaseTargetPreparer implements ITargetCleaner {
         }
 
         if (mSetTestHarness) {
-            // set both ro.monkey and ro.test_harness, for compatibility with older platforms
+            // set both ro.monkey, ro.test_harness, persist.sys.test_harness, for compatibility with
+            // older platforms
             mSetProps.put("ro.monkey", "1");
             mSetProps.put("ro.test_harness", "1");
+            mSetProps.put("persist.sys.test_harness", "1");
         }
 
         if (mDisableDalvikVerifier) {
@@ -887,23 +894,33 @@ public class DeviceSetup extends BaseTargetPreparer implements ITargetCleaner {
             CLog.d("Skipping connect wifi due to force-skip-run-commands");
             return;
         }
+        if (mWifiSsid == null && mWifiSsidToPsk.isEmpty()) {
+            return;
+        }
 
-        if (mWifiSsid != null && device.connectToWifiNetwork(mWifiSsid, mWifiPsk)) {
+        String wifiPsk = Strings.emptyToNull(mWifiPsk);
+        if (mWifiSsid != null && device.connectToWifiNetwork(mWifiSsid, wifiPsk)) {
+            InvocationMetricLogger.addInvocationMetrics(
+                    InvocationMetricKey.WIFI_AP_NAME, mWifiSsid);
             return;
         }
         for (Map.Entry<String, String> ssidToPsk : mWifiSsidToPsk.entrySet()) {
-            String psk = "".equals(ssidToPsk.getValue()) ? null : ssidToPsk.getValue();
+            String psk = Strings.emptyToNull(ssidToPsk.getValue());
             if (device.connectToWifiNetwork(ssidToPsk.getKey(), psk)) {
+                InvocationMetricLogger.addInvocationMetrics(
+                        InvocationMetricKey.WIFI_AP_NAME, ssidToPsk.getKey());
                 return;
             }
         }
+
         // Error message does not acknowledge mWifiSsidToPsk for parity with existing monitoring.
         if (mWifiSsid != null || !mWifiSsidToPsk.isEmpty()) {
             throw new TargetSetupError(
                     String.format(
                             "Failed to connect to wifi network %s on %s",
                             mWifiSsid, device.getSerialNumber()),
-                    device.getDeviceDescriptor());
+                    device.getDeviceDescriptor(),
+                    InfraErrorIdentifier.WIFI_FAILED_CONNECT);
         }
     }
 

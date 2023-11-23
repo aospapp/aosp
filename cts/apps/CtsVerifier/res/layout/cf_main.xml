@@ -91,7 +91,7 @@
                 android:id="@+id/next_button"
                 android:layout_height="wrap_content"
                 android:layout_width="wrap_content"
-                android:text="@string/cf_next_button" />
+                android:text="@string/next_button_text" />
 
         </LinearLayout>
 

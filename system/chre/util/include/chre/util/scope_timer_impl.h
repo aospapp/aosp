@@ -26,8 +26,8 @@ ScopeTimer::ScopeTimer(const char *name)
 
 ScopeTimer::~ScopeTimer() {
   Nanoseconds stopTime = SystemTime::getMonotonicTime();
-  LOGD("ScopeTimer '%s' took %" PRIu64 "ns",
-       mName, (stopTime - mStartTime).toRawNanoseconds());
+  LOGD("ScopeTimer '%s' took %" PRIu64 "ns", mName,
+       (stopTime - mStartTime).toRawNanoseconds());
 }
 
 }  // namespace chre

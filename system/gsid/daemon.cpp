@@ -14,26 +14,52 @@
 // limitations under the License.
 //
 
-#include "gsi_service.h"
-
 #include <getopt.h>
 
+#include <iostream>
 #include <string>
 
 #include <android-base/logging.h>
+#include <binder/BinderService.h>
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
+#include <libgsi/libgsi.h>
+#include <libgsi/libgsid.h>
+
+#include "gsi_service.h"
 
 using android::ProcessState;
 using android::sp;
 using namespace std::literals;
 
+static int DumpDeviceMapper() {
+    auto service = android::gsi::GetGsiService();
+    if (!service) {
+        std::cerr << "Could not start IGsiService.\n";
+        return 1;
+    }
+    std::string output;
+    auto status = service->dumpDeviceMapperDevices(&output);
+    if (!status.isOk()) {
+        std::cerr << "Could not dump device-mapper devices: " << status.exceptionMessage().c_str()
+                  << "\n";
+        return 1;
+    }
+    std::cout << output;
+    return 0;
+}
+
 int main(int argc, char** argv) {
     android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
 
-    if (argc > 1 && argv[1] == "run-startup-tasks"s) {
-        android::gsi::GsiService::RunStartupTasks();
-        exit(0);
+    if (argc > 1) {
+        if (argv[1] == "run-startup-tasks"s) {
+            android::gsi::GsiService::RunStartupTasks();
+            exit(0);
+        } else if (argv[1] == "dump-device-mapper"s) {
+            int rc = DumpDeviceMapper();
+            exit(rc);
+        }
     }
 
     android::gsi::GsiService::Register();

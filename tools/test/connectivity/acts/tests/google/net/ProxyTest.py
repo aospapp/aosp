@@ -19,7 +19,6 @@ from acts.test_decorators import test_tracker_info
 from acts.test_utils.net.net_test_utils import start_tcpdump
 from acts.test_utils.net.net_test_utils import stop_tcpdump
 from acts.test_utils.wifi import wifi_test_utils as wutils
-from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 
 from scapy.all import IP
@@ -30,24 +29,20 @@ from scapy.all import rdpcap
 from scapy.all import Scapy_Exception
 
 
-class ProxyTest(WifiBaseTest):
+class ProxyTest(base_test.BaseTestClass):
     """ Network proxy tests """
 
     def setup_class(self):
         """ Setup devices for tests and unpack params """
         self.dut = self.android_devices[0]
         req_params = ("proxy_pac", "proxy_server",
-                      "proxy_port", "bypass_host", "non_bypass_host")
-        opt_params = ["reference_networks", "wpa_networks",]
-        self.unpack_userparams(req_param_names=req_params,
-                               opt_param_names=opt_params)
-        if "AccessPoint" in self.user_params:
-            self.legacy_configure_ap_and_start(wpa_network=True)
-        asserts.assert_true(len(self.reference_networks) > 0,
-                            "Need at least one reference network with psk.")
-        self.wifi_network = self.reference_networks[0]["2g"]
+                      "proxy_port", "bypass_host", "non_bypass_host",
+                      "wifi_network")
+        self.unpack_userparams(req_param_names=req_params,)
         wutils.wifi_test_device_init(self.dut)
         wutils.wifi_toggle_state(self.dut, True)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut, self.wifi_network["SSID"])
         wutils.wifi_connect(self.dut, self.wifi_network)
         self.tcpdump_pid = None
         self.proxy_port = int(self.proxy_port)

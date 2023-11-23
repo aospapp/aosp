@@ -48,7 +48,7 @@ LOCAL_SYSTEM_SHARED_LIBRARIES := libc.bootstrap libm.bootstrap libdl.bootstrap
 LOCAL_CXX_STL := libc++_static
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests mts
 
 LOCAL_CTS_TEST_PACKAGE := android.bionic
 

@@ -17,7 +17,7 @@
     <option name="log-level" value="verbose" />
     <!-- this config belong to example-suite3 suite -->
     <option name="test-suite-tag" value="example-suite3" />
-    <test class="com.android.tradefed.testtype.suite.TfSuiteRunner">
+    <test class="com.android.tradefed.testtype.suite.TfSuiteRunnerTest$TestTfSuiteRunner">
         <option name="suite-config-prefix" value="suite" />
         <!-- it runs example-suite2 suite -->
         <option name="run-suite-tag" value="example-suite2" />

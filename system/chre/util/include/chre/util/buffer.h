@@ -36,7 +36,7 @@ namespace chre {
  * pointer and size into a simple struct, but with the added benefit of type
  * safety.
  */
-template<typename ElementType>
+template <typename ElementType>
 class Buffer : private BufferBase {
  public:
   static_assert(std::is_trivial<ElementType>::value,

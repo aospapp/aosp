@@ -26,7 +26,7 @@
 
 package java.security.spec;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ECParameterSpec implements java.security.spec.AlgorithmParameterSpec {

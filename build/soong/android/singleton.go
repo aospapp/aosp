@@ -16,7 +16,6 @@ package android
 
 import (
 	"github.com/google/blueprint"
-	"github.com/google/blueprint/pathtools"
 )
 
 // SingletonContext
@@ -37,6 +36,12 @@ type SingletonContext interface {
 	Variable(pctx PackageContext, name, value string)
 	Rule(pctx PackageContext, name string, params blueprint.RuleParams, argNames ...string) blueprint.Rule
 	Build(pctx PackageContext, params BuildParams)
+
+	// Phony creates a Make-style phony rule, a rule with no commands that can depend on other
+	// phony rules or real files.  Phony can be called on the same name multiple times to add
+	// additional dependencies.
+	Phony(name string, deps ...Path)
+
 	RequireNinjaVersion(major, minor, micro int)
 
 	// SetNinjaBuildDir sets the value of the top-level "builddir" Ninja variable
@@ -52,6 +57,10 @@ type SingletonContext interface {
 	VisitAllModulesBlueprint(visit func(blueprint.Module))
 	VisitAllModules(visit func(Module))
 	VisitAllModulesIf(pred func(Module) bool, visit func(Module))
+
+	VisitDirectDeps(module Module, visit func(Module))
+	VisitDirectDepsIf(module Module, pred func(Module) bool, visit func(Module))
+
 	// Deprecated: use WalkDeps instead to support multiple dependency tags on the same module
 	VisitDepsDepthFirst(module Module, visit func(Module))
 	// Deprecated: use WalkDeps instead to support multiple dependency tags on the same module
@@ -70,8 +79,6 @@ type SingletonContext interface {
 	// builder whenever a file matching the pattern as added or removed, without rerunning if a
 	// file that does not match the pattern is added to a searched directory.
 	GlobWithDeps(pattern string, excludes []string) ([]string, error)
-
-	Fs() pathtools.FileSystem
 }
 
 type singletonAdaptor struct {
@@ -127,6 +134,18 @@ func (s *singletonContextAdaptor) Variable(pctx PackageContext, name, value stri
 }
 
 func (s *singletonContextAdaptor) Rule(pctx PackageContext, name string, params blueprint.RuleParams, argNames ...string) blueprint.Rule {
+	if s.Config().UseRemoteBuild() {
+		if params.Pool == nil {
+			// When USE_GOMA=true or USE_RBE=true are set and the rule is not supported by goma/RBE, restrict
+			// jobs to the local parallelism value
+			params.Pool = localPool
+		} else if params.Pool == remotePool {
+			// remotePool is a fake pool used to identify rule that are supported for remoting. If the rule's
+			// pool is the remotePool, replace with nil so that ninja runs it at NINJA_REMOTE_NUM_JOBS
+			// parallelism.
+			params.Pool = nil
+		}
+	}
 	rule := s.SingletonContext.Rule(pctx.PackageContext, name, params, argNames...)
 	if s.Config().captureBuild {
 		s.ruleParams[rule] = params
@@ -141,6 +160,10 @@ func (s *singletonContextAdaptor) Build(pctx PackageContext, params BuildParams)
 	bparams := convertBuildParams(params)
 	s.SingletonContext.Build(pctx.PackageContext, bparams)
 
+}
+
+func (s *singletonContextAdaptor) Phony(name string, deps ...Path) {
+	addPhony(s.Config(), name, deps...)
 }
 
 func (s *singletonContextAdaptor) SetNinjaBuildDir(pctx PackageContext, value string) {
@@ -185,6 +208,14 @@ func (s *singletonContextAdaptor) VisitAllModules(visit func(Module)) {
 
 func (s *singletonContextAdaptor) VisitAllModulesIf(pred func(Module) bool, visit func(Module)) {
 	s.SingletonContext.VisitAllModulesIf(predAdaptor(pred), visitAdaptor(visit))
+}
+
+func (s *singletonContextAdaptor) VisitDirectDeps(module Module, visit func(Module)) {
+	s.SingletonContext.VisitDirectDeps(module, visitAdaptor(visit))
+}
+
+func (s *singletonContextAdaptor) VisitDirectDepsIf(module Module, pred func(Module) bool, visit func(Module)) {
+	s.SingletonContext.VisitDirectDepsIf(module, predAdaptor(pred), visitAdaptor(visit))
 }
 
 func (s *singletonContextAdaptor) VisitDepsDepthFirst(module Module, visit func(Module)) {

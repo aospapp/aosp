@@ -38,6 +38,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <media/msm_media_info.h>
+#include <gralloc_priv.h>
 
 #undef LOG_TAG
 #define LOG_TAG "C2DColorConvert"
@@ -337,6 +338,8 @@ void* C2DColorConverter::getDummySurfaceDef(ColorConvertFormat format, size_t wi
     } else {
         C2D_RGB_SURFACE_DEF * surfaceDef = new C2D_RGB_SURFACE_DEF;
         surfaceDef->format = getC2DFormat(format);
+        if (mFlags & private_handle_t::PRIV_FLAGS_UBWC_ALIGNED)
+            surfaceDef->format |= C2D_FORMAT_UBWC_COMPRESSED;
         surfaceDef->width = width;
         surfaceDef->height = height;
         surfaceDef->buffer = (void *)0xaaaaaaaa;

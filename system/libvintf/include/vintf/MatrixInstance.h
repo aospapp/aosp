@@ -21,6 +21,7 @@
 
 #include <hidl-util/FqInstance.h>
 
+#include "HalFormat.h"
 #include "VersionRange.h"
 
 namespace android {
@@ -36,13 +37,15 @@ class MatrixInstance {
 
     using VersionType = VersionRange;
     // fqInstance.version is ignored. Version range is provided separately.
-    MatrixInstance(FqInstance&& fqInstance, VersionRange&& range, bool optional, bool isRegex);
-    MatrixInstance(const FqInstance fqInstance, const VersionRange& range, bool optional,
+    MatrixInstance(HalFormat format, FqInstance&& fqInstance, VersionRange&& range, bool optional,
                    bool isRegex);
+    MatrixInstance(HalFormat format, const FqInstance fqInstance, const VersionRange& range,
+                   bool optional, bool isRegex);
     const std::string& package() const;
     const VersionRange& versionRange() const;
     const std::string& interface() const;
     bool optional() const;
+    HalFormat format() const;
 
     bool isSatisfiedBy(const FqInstance& provided) const;
 
@@ -59,7 +62,20 @@ class MatrixInstance {
 
     bool isRegex() const;
 
+    // Return a human-readable description of the interface.
+    // Version is replaced by replaceVersion.
+    // e.g. android.hardware.foo@1.0::IFoo (HIDL),
+    //      android.hardware.foo.IFoo (AIDL)
+    std::string interfaceDescription(Version replaceVersion) const;
+
+    // Return a human-readable description of the instance.
+    // Version is replaced by replaceVersion.
+    // e.g. android.hardware.foo@1.0::IFoo/default (HIDL),
+    //      android.hardware.foo.IFoo/default (AIDL)
+    std::string description(Version replaceVersion) const;
+
    private:
+    HalFormat mFormat = HalFormat::HIDL;
     FqInstance mFqInstance;
     VersionRange mRange;
     bool mOptional = false;

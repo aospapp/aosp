@@ -156,7 +156,7 @@ public class GceSshTunnelMonitorTest {
         mockDevice.setFastbootEnabled(false);
         doReturn(null).when(mMockRunUtil).runCmdInBackground(Mockito.anyList());
         EasyMock.replay(mockDevice);
-        mMonitor.createSshTunnel(mockDevice, mHost.getHostText(), mHost.getPortOrDefault(5555));
+        mMonitor.createSshTunnel(mockDevice, mHost.getHost(), mHost.getPortOrDefault(5555));
         EasyMock.verify(mockDevice);
         assertNotNull(
                 mMockBuildInfo.getBuildAttributes().get(GceSshTunnelMonitor.VIRTUAL_DEVICE_SERIAL));

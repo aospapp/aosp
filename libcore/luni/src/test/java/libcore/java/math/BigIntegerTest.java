@@ -195,4 +195,35 @@ public class BigIntegerTest extends junit.framework.TestCase {
         assertEquals("-9223372036854775808", negV.toString());
         assertEquals( "9223372036854775808", posV.toString());
     }
+
+    private void try_gcd_variants(BigInteger arg1, BigInteger arg2, BigInteger result)
+            throws Exception {
+        // Test both argument orders, and all 4 combinations of negation.
+        assertEquals(arg1.gcd(arg2), result);
+        assertEquals(arg2.gcd(arg1), result);
+        assertEquals(arg1.negate().gcd(arg2), result);
+        assertEquals(arg2.gcd(arg1.negate()), result);
+        assertEquals(arg1.gcd(arg2.negate()), result);
+        assertEquals(arg2.negate().gcd(arg1), result);
+        assertEquals(arg1.negate().gcd(arg2.negate()), result);
+        assertEquals(arg2.negate().gcd(arg1.negate()), result);
+    }
+
+    /**
+     * Test gcd(), with emphasis on arguments of very different size.
+     */
+    public void test_gcd() throws Exception {
+        BigInteger two = BigInteger.valueOf(2); // BigInteger.TWO added in OpenJDK 9
+        BigInteger three = BigInteger.valueOf(3);
+        try_gcd_variants(BigInteger.TEN, two, two);
+        try_gcd_variants(BigInteger.TEN, BigInteger.TEN, BigInteger.TEN);
+        try_gcd_variants(BigInteger.TEN, BigInteger.ZERO, BigInteger.TEN);
+        try_gcd_variants(BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO);
+        BigInteger large = three.shiftLeft(500);
+        try_gcd_variants(large, three, three);
+        try_gcd_variants(large, large, large);
+        try_gcd_variants(large, two, two);
+        try_gcd_variants(large, BigInteger.valueOf(5), BigInteger.ONE);
+        try_gcd_variants(large, BigInteger.ZERO, large);
+    }
 }

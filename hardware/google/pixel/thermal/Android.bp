@@ -17,14 +17,11 @@ cc_binary {
     "utils/thermal_files.cpp",
     "utils/thermal_watcher.cpp",
   ],
-  static_libs: [
-    "libjsoncpp",
-  ],
   shared_libs: [
     "libbase",
     "libcutils",
     "libhidlbase",
-    "libhidltransport",
+    "libjsoncpp",
     "libutils",
     "android.hardware.thermal@1.0",
     "android.hardware.thermal@2.0",
@@ -42,6 +39,15 @@ cc_binary {
     "clang-analyzer-security*",
   ],
   tidy_flags: [
-      "-warnings-as-errors=android-*,clang-analyzer-security*,cert-*"
+    "-warnings-as-errors=android-*,clang-analyzer-security*,cert-*"
+  ],
+}
+
+sh_binary {
+  name: "thermal_logd",
+  src: "init.thermal.logging.sh",
+  vendor: true,
+  init_rc: [
+    "pixel-thermal-logd.rc",
   ],
 }

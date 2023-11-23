@@ -15,6 +15,7 @@
 #
 
 import base64
+import io
 import os.path
 import zipfile
 
@@ -22,7 +23,8 @@ import common
 import test_utils
 from sign_target_files_apks import (
     CheckApkAndApexKeysAvailable, EditTags, GetApkFileInfo, ReadApexKeysInfo,
-    ReplaceCerts, ReplaceVerityKeyId, RewriteProps)
+    ReplaceCerts, ReplaceVerityKeyId, RewriteAvbProps, RewriteProps,
+    WriteOtacerts)
 
 
 class SignTargetFilesApksTest(test_utils.ReleaseToolsTestCase):
@@ -33,9 +35,13 @@ class SignTargetFilesApksTest(test_utils.ReleaseToolsTestCase):
   <signer signature="{}"><seinfo value="media"/></signer>
 </policy>"""
 
+  # Note that we test one apex with the partition tag, and another without to
+  # make sure that new OTA tools can process an older target files package that
+  # does not include the partition tag.
+
   # pylint: disable=line-too-long
-  APEX_KEYS_TXT = """name="apex.apexd_test.apex" public_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package.avbpubkey" private_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package.pem" container_certificate="build/target/product/security/testkey.x509.pem" container_private_key="build/target/product/security/testkey.pk8"
-name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.avbpubkey" private_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.pem" container_certificate="build/target/product/security/testkey.x509.pem" container_private_key="build/target/product/security/testkey.pk8"
+  APEX_KEYS_TXT = """name="apex.apexd_test.apex" public_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package.avbpubkey" private_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package.pem" container_certificate="build/make/target/product/security/testkey.x509.pem" container_private_key="build/make/target/product/security/testkey.pk8" partition="system"
+name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.avbpubkey" private_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.pem" container_certificate="build/make/target/product/security/testkey.x509.pem" container_private_key="build/make/target/product/security/testkey.pk8"
 """
 
   def setUp(self):
@@ -50,6 +56,40 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
 
     # Tags are sorted.
     self.assertEqual(EditTags('xyz,abc,dev-keys,xyz'), ('abc,release-keys,xyz'))
+
+  def test_RewriteAvbProps(self):
+    misc_info = {
+      'avb_boot_add_hash_footer_args':
+          ('--prop com.android.build.boot.os_version:R '
+           '--prop com.android.build.boot.security_patch:2019-09-05'),
+      'avb_system_add_hashtree_footer_args':
+          ('--prop com.android.build.system.os_version:R '
+           '--prop com.android.build.system.security_patch:2019-09-05 '
+           '--prop com.android.build.system.fingerprint:'
+           'Android/aosp_taimen/taimen:R/QT/foo:userdebug/test-keys'),
+      'avb_vendor_add_hashtree_footer_args':
+          ('--prop com.android.build.vendor.os_version:R '
+           '--prop com.android.build.vendor.security_patch:2019-09-05 '
+           '--prop com.android.build.vendor.fingerprint:'
+           'Android/aosp_taimen/taimen:R/QT/foo:userdebug/dev-keys'),
+    }
+    expected_dict = {
+      'avb_boot_add_hash_footer_args':
+          ('--prop com.android.build.boot.os_version:R '
+           '--prop com.android.build.boot.security_patch:2019-09-05'),
+      'avb_system_add_hashtree_footer_args':
+          ('--prop com.android.build.system.os_version:R '
+           '--prop com.android.build.system.security_patch:2019-09-05 '
+           '--prop com.android.build.system.fingerprint:'
+           'Android/aosp_taimen/taimen:R/QT/foo:userdebug/release-keys'),
+      'avb_vendor_add_hashtree_footer_args':
+          ('--prop com.android.build.vendor.os_version:R '
+           '--prop com.android.build.vendor.security_patch:2019-09-05 '
+           '--prop com.android.build.vendor.fingerprint:'
+           'Android/aosp_taimen/taimen:R/QT/foo:userdebug/release-keys'),
+    }
+    RewriteAvbProps(misc_info)
+    self.assertDictEqual(expected_dict, misc_info)
 
   def test_RewriteProps(self):
     props = (
@@ -70,10 +110,10 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
          'ro.product.build.fingerprint=foo/bar/release-keys'),
         ('ro.product.build.thumbprint=foo/bar/dev-keys',
          'ro.product.build.thumbprint=foo/bar/release-keys'),
-        ('ro.product_services.build.fingerprint=foo/bar/test-keys',
-         'ro.product_services.build.fingerprint=foo/bar/release-keys'),
-        ('ro.product_services.build.thumbprint=foo/bar/test-keys',
-         'ro.product_services.build.thumbprint=foo/bar/release-keys'),
+        ('ro.system_ext.build.fingerprint=foo/bar/test-keys',
+         'ro.system_ext.build.fingerprint=foo/bar/release-keys'),
+        ('ro.system_ext.build.thumbprint=foo/bar/test-keys',
+         'ro.system_ext.build.thumbprint=foo/bar/release-keys'),
         ('# comment line 1', '# comment line 1'),
         ('ro.bootimage.build.fingerprint=foo/bar/dev-keys',
          'ro.bootimage.build.fingerprint=foo/bar/release-keys'),
@@ -91,8 +131,8 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
          'ro.odm.build.tags=release-keys'),
         ('ro.product.build.tags=dev-keys',
          'ro.product.build.tags=release-keys'),
-        ('ro.product_services.build.tags=dev-keys',
-         'ro.product_services.build.tags=release-keys'),
+        ('ro.system_ext.build.tags=dev-keys',
+         'ro.system_ext.build.tags=release-keys'),
         ('# comment line 2', '# comment line 2'),
         ('ro.build.display.id=OPR6.170623.012 dev-keys',
          'ro.build.display.id=OPR6.170623.012'),
@@ -136,7 +176,7 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
       ReplaceVerityKeyId(input_zip, output_zip, cert_file)
 
     with zipfile.ZipFile(output_file) as output_zip:
-      self.assertEqual(BOOT_CMDLINE1, output_zip.read('BOOT/cmdline'))
+      self.assertEqual(BOOT_CMDLINE1, output_zip.read('BOOT/cmdline').decode())
 
     # Test with the second certificate.
     cert_file = os.path.join(self.testdata_dir, 'testkey.x509.pem')
@@ -146,7 +186,7 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
       ReplaceVerityKeyId(input_zip, output_zip, cert_file)
 
     with zipfile.ZipFile(output_file) as output_zip:
-      self.assertEqual(BOOT_CMDLINE2, output_zip.read('BOOT/cmdline'))
+      self.assertEqual(BOOT_CMDLINE2, output_zip.read('BOOT/cmdline').decode())
 
   def test_ReplaceVerityKeyId_no_veritykeyid(self):
     BOOT_CMDLINE = (
@@ -164,7 +204,7 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
       ReplaceVerityKeyId(input_zip, output_zip, None)
 
     with zipfile.ZipFile(output_file) as output_zip:
-      self.assertEqual(BOOT_CMDLINE, output_zip.read('BOOT/cmdline'))
+      self.assertEqual(BOOT_CMDLINE, output_zip.read('BOOT/cmdline').decode())
 
   def test_ReplaceCerts(self):
     cert1_path = os.path.join(self.testdata_dir, 'platform.x509.pem')
@@ -235,6 +275,22 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
         cert2_path[:-9] : 'non-existent',
     }
     self.assertEqual(output_xml, ReplaceCerts(input_xml))
+
+  def test_WriteOtacerts(self):
+    certs = [
+        os.path.join(self.testdata_dir, 'platform.x509.pem'),
+        os.path.join(self.testdata_dir, 'media.x509.pem'),
+        os.path.join(self.testdata_dir, 'testkey.x509.pem'),
+    ]
+    entry_name = 'SYSTEM/etc/security/otacerts.zip'
+    output_file = common.MakeTempFile(suffix='.zip')
+    with zipfile.ZipFile(output_file, 'w') as output_zip:
+      WriteOtacerts(output_zip, entry_name, certs)
+    with zipfile.ZipFile(output_file) as input_zip:
+      self.assertIn(entry_name, input_zip.namelist())
+      otacerts_file = io.BytesIO(input_zip.read(entry_name))
+      with zipfile.ZipFile(otacerts_file) as otacerts_zip:
+        self.assertEqual(3, len(otacerts_zip.namelist()))
 
   def test_CheckApkAndApexKeysAvailable(self):
     input_file = common.MakeTempFile(suffix='.zip')
@@ -419,10 +475,10 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
     self.assertEqual({
         'apex.apexd_test.apex': (
             'system/apex/apexd/apexd_testdata/com.android.apex.test_package.pem',
-            'build/target/product/security/testkey'),
+            'build/make/target/product/security/testkey'),
         'apex.apexd_test_different_app.apex': (
             'system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.pem',
-            'build/target/product/security/testkey'),
+            'build/make/target/product/security/testkey'),
         }, keys_info)
 
   def test_ReadApexKeysInfo_mismatchingContainerKeys(self):
@@ -431,8 +487,9 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
         'name="apex.apexd_test_different_app2.apex" '
         'public_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.avbpubkey" '
         'private_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.pem" '
-        'container_certificate="build/target/product/security/testkey.x509.pem" '
-        'container_private_key="build/target/product/security/testkey2.pk8"')
+        'container_certificate="build/make/target/product/security/testkey.x509.pem" '
+        'container_private_key="build/make/target/product/security/testkey2.pk8" '
+        'partition="system"')
     target_files = common.MakeTempFile(suffix='.zip')
     with zipfile.ZipFile(target_files, 'w') as target_files_zip:
       target_files_zip.writestr('META/apexkeys.txt', apex_keys)
@@ -445,8 +502,8 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
     apex_keys = self.APEX_KEYS_TXT + (
         'name="apex.apexd_test_different_app2.apex" '
         'public_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.avbpubkey" '
-        'container_certificate="build/target/product/security/testkey.x509.pem" '
-        'container_private_key="build/target/product/security/testkey.pk8"')
+        'container_certificate="build/make/target/product/security/testkey.x509.pem" '
+        'container_private_key="build/make/target/product/security/testkey.pk8"')
     target_files = common.MakeTempFile(suffix='.zip')
     with zipfile.ZipFile(target_files, 'w') as target_files_zip:
       target_files_zip.writestr('META/apexkeys.txt', apex_keys)
@@ -457,10 +514,10 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
     self.assertEqual({
         'apex.apexd_test.apex': (
             'system/apex/apexd/apexd_testdata/com.android.apex.test_package.pem',
-            'build/target/product/security/testkey'),
+            'build/make/target/product/security/testkey'),
         'apex.apexd_test_different_app.apex': (
             'system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.pem',
-            'build/target/product/security/testkey'),
+            'build/make/target/product/security/testkey'),
         }, keys_info)
 
   def test_ReadApexKeysInfo_missingPayloadPublicKey(self):
@@ -468,8 +525,8 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
     apex_keys = self.APEX_KEYS_TXT + (
         'name="apex.apexd_test_different_app2.apex" '
         'private_key="system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.pem" '
-        'container_certificate="build/target/product/security/testkey.x509.pem" '
-        'container_private_key="build/target/product/security/testkey.pk8"')
+        'container_certificate="build/make/target/product/security/testkey.x509.pem" '
+        'container_private_key="build/make/target/product/security/testkey.pk8"')
     target_files = common.MakeTempFile(suffix='.zip')
     with zipfile.ZipFile(target_files, 'w') as target_files_zip:
       target_files_zip.writestr('META/apexkeys.txt', apex_keys)
@@ -480,10 +537,33 @@ name="apex.apexd_test_different_app.apex" public_key="system/apex/apexd/apexd_te
     self.assertEqual({
         'apex.apexd_test.apex': (
             'system/apex/apexd/apexd_testdata/com.android.apex.test_package.pem',
-            'build/target/product/security/testkey'),
+            'build/make/target/product/security/testkey'),
         'apex.apexd_test_different_app.apex': (
             'system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.pem',
-            'build/target/product/security/testkey'),
+            'build/make/target/product/security/testkey'),
+        }, keys_info)
+
+  def test_ReadApexKeysInfo_presignedKeys(self):
+    apex_keys = self.APEX_KEYS_TXT + (
+        'name="apex.apexd_test_different_app2.apex" '
+        'private_key="PRESIGNED" '
+        'public_key="PRESIGNED" '
+        'container_certificate="PRESIGNED" '
+        'container_private_key="PRESIGNED"')
+    target_files = common.MakeTempFile(suffix='.zip')
+    with zipfile.ZipFile(target_files, 'w') as target_files_zip:
+      target_files_zip.writestr('META/apexkeys.txt', apex_keys)
+
+    with zipfile.ZipFile(target_files) as target_files_zip:
+      keys_info = ReadApexKeysInfo(target_files_zip)
+
+    self.assertEqual({
+        'apex.apexd_test.apex': (
+            'system/apex/apexd/apexd_testdata/com.android.apex.test_package.pem',
+            'build/make/target/product/security/testkey'),
+        'apex.apexd_test_different_app.apex': (
+            'system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.pem',
+            'build/make/target/product/security/testkey'),
         }, keys_info)
 
   def test_ReadApexKeysInfo_presignedKeys(self):

@@ -27,6 +27,7 @@ java_library {
         "statsdprotolite",
         "androidx.test.runner",
         "guava",
+        "ub-uiautomator",
     ],
 
     platform_apis: true,

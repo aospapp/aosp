@@ -31,6 +31,8 @@ using std::unique_ptr;
 using std::vector;
 
 class AidlDefinedType;
+class AidlEnumDeclaration;
+class AidlInterface;
 class AidlTypeSpecifier;
 
 namespace android {
@@ -58,11 +60,24 @@ class AidlTypenames final {
   const AidlDefinedType* TryGetDefinedType(const string& type_name) const;
   pair<string, bool> ResolveTypename(const string& type_name) const;
   bool CanBeOutParameter(const AidlTypeSpecifier& type) const;
-
+  bool IsIgnorableImport(const string& import) const;
+  // Returns the AidlEnumDeclaration of the given type, or nullptr if the type
+  // is not an AidlEnumDeclaration;
+  const AidlEnumDeclaration* GetEnumDeclaration(const AidlTypeSpecifier& type) const;
+  // Returns the AidlInterface of the given type, or nullptr if the type
+  // is not an AidlInterface;
+  const AidlInterface* GetInterface(const AidlTypeSpecifier& type) const;
   // Iterates over all defined and then preprocessed types
   void IterateTypes(const std::function<void(const AidlDefinedType&)>& body) const;
 
  private:
+  struct DefinedImplResult {
+    DefinedImplResult(const AidlDefinedType* type, const bool from_preprocessed)
+        : type(type), from_preprocessed(from_preprocessed) {}
+    const AidlDefinedType* type;
+    const bool from_preprocessed;
+  };
+  DefinedImplResult TryGetDefinedTypeImpl(const string& type_name) const;
   map<string, unique_ptr<AidlDefinedType>> defined_types_;
   map<string, unique_ptr<AidlDefinedType>> preprocessed_types_;
 };

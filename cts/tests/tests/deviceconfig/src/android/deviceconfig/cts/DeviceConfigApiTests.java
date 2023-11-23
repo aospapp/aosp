@@ -39,6 +39,7 @@ import org.junit.runner.RunWith;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public final class DeviceConfigApiTests {
@@ -95,7 +96,12 @@ public final class DeviceConfigApiTests {
      * Nullify properties in DeviceConfig API after completion of every test.
      */
     @After
-    public void cleanUp() {
+    public void cleanUp() throws Exception {
+        // first wait to make sure callbacks for SetProperties/SetProperty
+        // invoked in the test methods got emitted. So that the callbacks
+        // won't interfere with setPropertiesAndAssertSuccessfulChange invoked
+        // in nullifyProperty.
+        TimeUnit.MILLISECONDS.sleep(WAIT_FOR_PROPERTY_CHANGE_TIMEOUT_MILLIS);
         nullifyProperty(NAMESPACE1, KEY1);
         nullifyProperty(NAMESPACE2, KEY1);
         nullifyProperty(NAMESPACE1, KEY2);
@@ -120,7 +126,7 @@ public final class DeviceConfigApiTests {
      * Checks that getting property which does not exist returns null.
      */
     @Test
-    public void getProperty_empty() {
+    public void testGetProperty_empty() {
         String result = DeviceConfig.getProperty(EMPTY_NAMESPACE, KEY1);
         assertNull("Request for non existant flag name in DeviceConfig API should return null "
                 + "while " + result + " was returned", result);
@@ -130,7 +136,7 @@ public final class DeviceConfigApiTests {
      * Checks that setting and getting property from the same namespace return correct value.
      */
     @Test
-    public void setAndGetProperty_sameNamespace() {
+    public void testSetAndGetProperty_sameNamespace() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, VALUE1, /*makeDefault=*/false);
         String result = DeviceConfig.getProperty(NAMESPACE1, KEY1);
         assertEquals("Value read from DeviceConfig API does not match written value.", VALUE1,
@@ -138,21 +144,50 @@ public final class DeviceConfigApiTests {
     }
 
     /**
+     * Checks that setting and getting properties from the same namespace return correct values.
+     */
+    @Test
+    public void testSetAndGetProperties_sameNamespace() throws Exception {
+        Properties properties = new Properties.Builder(NAMESPACE1)
+                .setString(KEY1, VALUE1).setInt(KEY2, VALID_INT).build();
+        assertEquals(DEFAULT_VALUE, DeviceConfig.getString(NAMESPACE1, KEY1, DEFAULT_VALUE));
+        assertEquals(DEFAULT_INT, DeviceConfig.getInt(NAMESPACE1, KEY2, DEFAULT_INT));
+        DeviceConfig.setProperties(properties);
+
+        assertEquals(VALUE1, DeviceConfig.getString(NAMESPACE1, KEY1, DEFAULT_VALUE));
+        assertEquals(VALID_INT, DeviceConfig.getInt(NAMESPACE1, KEY2, DEFAULT_INT));
+    }
+
+    /**
      * Checks that setting a property in one namespace does not set the same property in a different
      * namespace.
      */
     @Test
-    public void setAndGetProperty_differentNamespace() {
+    public void testSetAndGetProperty_differentNamespace() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, VALUE1, /*makeDefault=*/false);
         String result = DeviceConfig.getProperty(NAMESPACE2, KEY1);
         assertNull("Value for same keys written to different namespaces must not clash", result);
     }
 
     /**
+     * Checks that setting properties in one namespace does not set the same properties in a
+     * different namespace.
+     */
+    @Test
+    public void testSetAndGetProperties_differentNamespace() throws Exception {
+        Properties properties = new Properties.Builder(NAMESPACE1)
+                .setString(KEY1, VALUE1).setInt(KEY2, VALID_INT).build();
+        DeviceConfig.setProperties(properties);
+
+        assertEquals(DEFAULT_VALUE, DeviceConfig.getString(NAMESPACE2, KEY1, DEFAULT_VALUE));
+        assertEquals(DEFAULT_INT, DeviceConfig.getInt(NAMESPACE2, KEY2, DEFAULT_INT));
+    }
+
+    /**
      * Checks that different namespaces can keep different values for the same key.
      */
     @Test
-    public void setAndGetProperty_multipleNamespaces() {
+    public void testSetAndGetProperty_multipleNamespaces() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, VALUE1, /*makeDefault=*/false);
         DeviceConfig.setProperty(NAMESPACE2, KEY1, VALUE2, /*makeDefault=*/false);
         String result = DeviceConfig.getProperty(NAMESPACE1, KEY1);
@@ -164,10 +199,29 @@ public final class DeviceConfigApiTests {
     }
 
     /**
+     * Checks that different namespaces can keep different values for the same keys.
+     */
+    @Test
+    public void testSetAndGetProperties_multipleNamespaces() throws Exception {
+        int VALID_INT2 = VALID_INT + 2;
+        Properties properties1 = new Properties.Builder(NAMESPACE1)
+                .setString(KEY1, VALUE1).setInt(KEY2, VALID_INT).build();
+        Properties properties2 = new Properties.Builder(NAMESPACE2)
+                .setString(KEY1, VALUE2).setInt(KEY2, VALID_INT2).build();
+        DeviceConfig.setProperties(properties1);
+        DeviceConfig.setProperties(properties2);
+
+        assertEquals(VALUE1, DeviceConfig.getString(NAMESPACE1, KEY1, DEFAULT_VALUE));
+        assertEquals(VALID_INT, DeviceConfig.getInt(NAMESPACE1, KEY2, DEFAULT_INT));
+        assertEquals(VALUE2, DeviceConfig.getString(NAMESPACE2, KEY1, DEFAULT_VALUE));
+        assertEquals(VALID_INT2, DeviceConfig.getInt(NAMESPACE2, KEY2, DEFAULT_INT));
+    }
+
+    /**
      * Checks that saving value twice keeps the last value.
      */
     @Test
-    public void setAndGetProperty_overrideValue() {
+    public void testSetAndGetProperty_overrideValue() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, VALUE1, /*makeDefault=*/false);
         DeviceConfig.setProperty(NAMESPACE1, KEY1, VALUE2, /*makeDefault=*/false);
         String result = DeviceConfig.getProperty(NAMESPACE1, KEY1);
@@ -176,10 +230,27 @@ public final class DeviceConfigApiTests {
     }
 
     /**
+     * Checks that saving values twice keeps the last values.
+     */
+    @Test
+    public void testSetAndGetProperties_overrideValue() throws Exception {
+        int VALID_INT2 = VALID_INT + 2;
+        Properties properties1 = new Properties.Builder(NAMESPACE1)
+                .setString(KEY1, VALUE1).setInt(KEY2, VALID_INT).build();
+        Properties properties2 = new Properties.Builder(NAMESPACE1)
+                .setString(KEY1, VALUE2).setInt(KEY2, VALID_INT2).build();
+        DeviceConfig.setProperties(properties1);
+        DeviceConfig.setProperties(properties2);
+
+        assertEquals(VALUE2, DeviceConfig.getString(NAMESPACE1, KEY1, DEFAULT_VALUE));
+        assertEquals(VALID_INT2, DeviceConfig.getInt(NAMESPACE1, KEY2, DEFAULT_INT));
+    }
+
+    /**
      * Checks that getString() for null property returns default value.
      */
     @Test
-    public void getString_empty() {
+    public void testGetString_empty() {
         final String result = DeviceConfig.getString(NAMESPACE1, KEY1, DEFAULT_VALUE);
         assertEquals("DeviceConfig.getString() must return default value if property is null",
                 DEFAULT_VALUE, result);
@@ -189,7 +260,7 @@ public final class DeviceConfigApiTests {
      * Checks that getString() for null property returns default value even if it is null.
      */
     @Test
-    public void getString_nullDefault() {
+    public void testGetString_nullDefault() {
         final String result = DeviceConfig.getString(NAMESPACE1, KEY1, null);
         assertEquals("DeviceConfig.getString() must return default value if property is null",
                 null, result);
@@ -199,7 +270,7 @@ public final class DeviceConfigApiTests {
      * Checks that getString() returns string saved in property.
      */
     @Test
-    public void getString_nonEmpty() {
+    public void testGetString_nonEmpty() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, VALUE1, /*makeDefault=*/false);
 
         final String result = DeviceConfig.getString(NAMESPACE1, KEY1, DEFAULT_VALUE);
@@ -211,7 +282,7 @@ public final class DeviceConfigApiTests {
      * Checks that getString() fails with NullPointerException when called with null namespace.
      */
     @Test
-    public void getString_nullNamespace() {
+    public void testGetString_nullNamespace() {
         try {
             DeviceConfig.getString(null, KEY1, DEFAULT_VALUE);
             fail("DeviceConfig.getString() with null namespace must result in "
@@ -225,7 +296,7 @@ public final class DeviceConfigApiTests {
      * Checks that getString() fails with NullPointerException when called with null key.
      */
     @Test
-    public void getString_nullName() {
+    public void testGetString_nullName() {
         try {
             DeviceConfig.getString(NAMESPACE1, null, DEFAULT_VALUE);
             fail("DeviceConfig.getString() with null name must result in NullPointerException");
@@ -238,7 +309,7 @@ public final class DeviceConfigApiTests {
      * Checks that getBoolean() for null property returns default value.
      */
     @Test
-    public void getBoolean_empty() {
+    public void testGetBoolean_empty() {
         final boolean result = DeviceConfig.getBoolean(NAMESPACE1, KEY1, DEFAULT_BOOLEAN_TRUE);
         assertEquals("DeviceConfig.getBoolean() must return default value if property is null",
                 DEFAULT_BOOLEAN_TRUE, result);
@@ -248,7 +319,7 @@ public final class DeviceConfigApiTests {
      * Checks that getBoolean() returns boolean representation of string saved in property.
      */
     @Test
-    public void getBoolean_valid() {
+    public void testGetBoolean_valid() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, String.valueOf(BOOLEAN_TRUE),
                 /*makeDefault=*/false);
 
@@ -261,7 +332,7 @@ public final class DeviceConfigApiTests {
      * Checks that getBoolean() returns false for any invalid property value.
      */
     @Test
-    public void getBoolean_invalid() {
+    public void testGetBoolean_invalid() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, INVALID_BOOLEAN, /*makeDefault=*/false);
 
         final boolean result = DeviceConfig.getBoolean(NAMESPACE1, KEY1, DEFAULT_BOOLEAN_TRUE);
@@ -274,7 +345,7 @@ public final class DeviceConfigApiTests {
      * Checks that getBoolean() fails with NullPointerException when called with null namespace.
      */
     @Test
-    public void getBoolean_nullNamespace() {
+    public void testGetBoolean_nullNamespace() {
         try {
             DeviceConfig.getBoolean(null, KEY1, DEFAULT_BOOLEAN_TRUE);
             fail("DeviceConfig.getBoolean() with null namespace must result in "
@@ -288,7 +359,7 @@ public final class DeviceConfigApiTests {
      * Checks that getBoolean() fails with NullPointerException when called with null name.
      */
     @Test
-    public void getBoolean_nullName() {
+    public void testGetBoolean_nullName() {
         try {
             DeviceConfig.getBoolean(NAMESPACE1, null, DEFAULT_BOOLEAN_TRUE);
             fail("DeviceConfig.getBoolean() with null name must result in NullPointerException");
@@ -301,7 +372,7 @@ public final class DeviceConfigApiTests {
      * Checks that getInt() for null property returns default value.
      */
     @Test
-    public void getInt_empty() {
+    public void testGetInt_empty() {
         final int result = DeviceConfig.getInt(NAMESPACE1, KEY1, DEFAULT_INT);
         assertEquals("DeviceConfig.getInt() must return default value if property is null",
                 DEFAULT_INT, result);
@@ -311,7 +382,7 @@ public final class DeviceConfigApiTests {
      * Checks that getInt() returns integer representation of string saved in property.
      */
     @Test
-    public void getInt_valid() {
+    public void testGetInt_valid() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, String.valueOf(VALID_INT),
                 /*makeDefault=*/false);
 
@@ -324,7 +395,7 @@ public final class DeviceConfigApiTests {
      * Checks that getInt() returns default value if property is not well-formed integer value.
      */
     @Test
-    public void getInt_invalid() {
+    public void testGetInt_invalid() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, INVALID_INT, /*makeDefault=*/false);
 
         final int result = DeviceConfig.getInt(NAMESPACE1, KEY1, DEFAULT_INT);
@@ -337,7 +408,7 @@ public final class DeviceConfigApiTests {
      * Checks that getInt() fails with NullPointerException when called with null namespace.
      */
     @Test
-    public void getInt_nullNamespace() {
+    public void testGetInt_nullNamespace() {
         try {
             DeviceConfig.getInt(null, KEY1, VALID_INT);
             fail("DeviceConfig.getInt() with null namespace must result in NullPointerException");
@@ -350,7 +421,7 @@ public final class DeviceConfigApiTests {
      * Checks that getInt() fails with NullPointerException when called with null name.
      */
     @Test
-    public void getInt_nullName() {
+    public void testGetInt_nullName() {
         try {
             DeviceConfig.getInt(NAMESPACE1, null, VALID_INT);
             fail("DeviceConfig.getInt() with null name must result in NullPointerException");
@@ -363,7 +434,7 @@ public final class DeviceConfigApiTests {
      * Checks that getLong() for null property returns default value.
      */
     @Test
-    public void getLong_empty() {
+    public void testGetLong_empty() {
         final long result = DeviceConfig.getLong(NAMESPACE1, KEY1, DEFAULT_LONG);
         assertEquals("DeviceConfig.getLong() must return default value if property is null",
                 DEFAULT_LONG, result);
@@ -373,7 +444,7 @@ public final class DeviceConfigApiTests {
      * Checks that getLong() returns long representation of string saved in property.
      */
     @Test
-    public void getLong_valid() {
+    public void testGetLong_valid() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, String.valueOf(VALID_LONG),
                 /*makeDefault=*/false);
 
@@ -386,7 +457,7 @@ public final class DeviceConfigApiTests {
      * Checks that getLong() returns default value if property is not well-formed long value.
      */
     @Test
-    public void getLong_invalid() {
+    public void testGetLong_invalid() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, INVALID_LONG, /*makeDefault=*/false);
 
         final long result = DeviceConfig.getLong(NAMESPACE1, KEY1, DEFAULT_LONG);
@@ -399,7 +470,7 @@ public final class DeviceConfigApiTests {
      * Checks that getLong() fails with NullPointerException when called with null namespace.
      */
     @Test
-    public void getLong_nullNamespace() {
+    public void testGetLong_nullNamespace() {
         try {
             DeviceConfig.getLong(null, KEY1, DEFAULT_LONG);
             fail("DeviceConfig.getLong() with null namespace must result in "
@@ -413,7 +484,7 @@ public final class DeviceConfigApiTests {
      * Checks that getLong() fails with NullPointerException when called with null name.
      */
     @Test
-    public void getLong_nullName() {
+    public void testGetLong_nullName() {
         try {
             DeviceConfig.getLong(NAMESPACE1, null, 0);
             fail("DeviceConfig.getLong() with null name must result in NullPointerException");
@@ -426,7 +497,7 @@ public final class DeviceConfigApiTests {
      * Checks that getFloat() for null property returns default value.
      */
     @Test
-    public void getFloat_empty() {
+    public void testGetFloat_empty() {
         final float result = DeviceConfig.getFloat(NAMESPACE1, KEY1, DEFAULT_FLOAT);
         assertEquals("DeviceConfig.getFloat() must return default value if property is null",
                 DEFAULT_FLOAT, result, 0.0);
@@ -436,7 +507,7 @@ public final class DeviceConfigApiTests {
      * Checks that getFloat() returns float representation of string saved in property.
      */
     @Test
-    public void getFloat_valid() {
+    public void testGetFloat_valid() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, String.valueOf(VALID_FLOAT),
                 /*makeDefault=*/false);
 
@@ -449,7 +520,7 @@ public final class DeviceConfigApiTests {
      * Checks that getFloat() returns default value if property is not well-formed float value.
      */
     @Test
-    public void getFloat_invalid() {
+    public void testGetFloat_invalid() {
         DeviceConfig.setProperty(NAMESPACE1, KEY1, INVALID_FLOAT, /*makeDefault=*/false);
 
         final float result = DeviceConfig.getFloat(NAMESPACE1, KEY1, DEFAULT_FLOAT);
@@ -462,7 +533,7 @@ public final class DeviceConfigApiTests {
      * Checks that getFloat() fails with NullPointerException when called with null namespace.
      */
     @Test
-    public void getFloat_nullNamespace() {
+    public void testGetFloat_nullNamespace() {
         try {
             DeviceConfig.getFloat(null, KEY1, DEFAULT_FLOAT);
             fail("DeviceConfig.getFloat() with null namespace must result in "
@@ -476,7 +547,7 @@ public final class DeviceConfigApiTests {
      * Checks that getFloat() fails with NullPointerException when called with null name.
      */
     @Test
-    public void getFloat_nullName() {
+    public void testGetFloat_nullName() {
         try {
             DeviceConfig.getFloat(NAMESPACE1, null, DEFAULT_FLOAT);
             fail("DeviceConfig.getFloat() with null name must result in NullPointerException");
@@ -489,7 +560,7 @@ public final class DeviceConfigApiTests {
      * Checks that setProperty() fails with NullPointerException when called with null namespace.
      */
     @Test
-    public void setProperty_nullNamespace() {
+    public void testSetProperty_nullNamespace() {
         try {
             DeviceConfig.setProperty(null, KEY1, DEFAULT_VALUE, /*makeDefault=*/false);
             fail("DeviceConfig.setProperty() with null namespace must result in "
@@ -503,7 +574,7 @@ public final class DeviceConfigApiTests {
      * Checks that setProperty() fails with NullPointerException when called with null name.
      */
     @Test
-    public void setProperty_nullName() {
+    public void testSetProperty_nullName() {
         try {
             DeviceConfig.setProperty(NAMESPACE1, null, DEFAULT_VALUE, /*makeDefault=*/false);
             fail("DeviceConfig.setProperty() with null name must result in NullPointerException");
@@ -516,7 +587,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getString() for null property returns default value.
      */
     @Test
-    public void getPropertiesString_empty() {
+    public void testGetPropertiesString_empty() {
         setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, VALUE1);
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, null);
@@ -530,7 +601,7 @@ public final class DeviceConfigApiTests {
      * null.
      */
     @Test
-    public void getPropertiesString_nullDefault() {
+    public void testGetPropertiesString_nullDefault() {
         setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, DEFAULT_VALUE);
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, null);
@@ -543,7 +614,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getString() returns string saved in property.
      */
     @Test
-    public void getPropertiesString_nonEmpty() {
+    public void testGetPropertiesString_nonEmpty() {
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, VALUE1);
 
@@ -556,7 +627,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getBoolean() for null property returns default value.
      */
     @Test
-    public void getPropertiesBoolean_empty() {
+    public void testGetPropertiesBoolean_empty() {
         setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(BOOLEAN_TRUE));
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, null);
@@ -570,7 +641,7 @@ public final class DeviceConfigApiTests {
      * property.
      */
     @Test
-    public void getPropertiesBoolean_valid() {
+    public void testGetPropertiesBoolean_valid() {
         final Properties properties = setPropertiesAndAssertSuccessfulChange(
                 NAMESPACE1, KEY1, String.valueOf(BOOLEAN_TRUE));
         final boolean result = properties.getBoolean(KEY1, DEFAULT_BOOLEAN_FALSE);
@@ -583,7 +654,7 @@ public final class DeviceConfigApiTests {
      * value.
      */
     @Test
-    public void getPropertiesBoolean_invalid() {
+    public void testGetPropertiesBoolean_invalid() {
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, INVALID_BOOLEAN);
 
@@ -597,7 +668,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getInt() for null property returns default value.
      */
     @Test
-    public void getPropertiesInt_empty() {
+    public void testGetPropertiesInt_empty() {
         setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(VALID_INT));
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, null);
@@ -611,7 +682,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getInt() returns integer representation of string saved in property.
      */
     @Test
-    public void getPropertiesInt_valid() {
+    public void testGetPropertiesInt_valid() {
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(VALID_INT));
 
@@ -625,7 +696,7 @@ public final class DeviceConfigApiTests {
      * value.
      */
     @Test
-    public void getPropertiesInt_invalid() {
+    public void testGetPropertiesInt_invalid() {
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, INVALID_INT);
 
@@ -639,7 +710,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getLong() for null property returns default value.
      */
     @Test
-    public void getPropertiesLong_empty() {
+    public void testGetPropertiesLong_empty() {
         setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(VALID_LONG));
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, null);
@@ -653,7 +724,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getLong() returns long representation of string saved in property.
      */
     @Test
-    public void getPropertiesLong_valid() {
+    public void testGetPropertiesLong_valid() {
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(VALID_LONG));
 
@@ -667,7 +738,7 @@ public final class DeviceConfigApiTests {
      * value.
      */
     @Test
-    public void getPropertiesLong_invalid() {
+    public void testGetPropertiesLong_invalid() {
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, INVALID_LONG);
 
@@ -681,7 +752,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getFloat() for null property returns default value.
      */
     @Test
-    public void getPropertiesFloat_empty() {
+    public void testGetPropertiesFloat_empty() {
         setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(VALID_FLOAT));
         final Properties properties =
                 setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, null);
@@ -694,7 +765,7 @@ public final class DeviceConfigApiTests {
      * Checks that Properties.getFloat() returns float representation of string saved in property.
      */
     @Test
-    public void getPropertiesFloat_valid() {
+    public void testGetPropertiesFloat_valid() {
         final Properties properties = setPropertiesAndAssertSuccessfulChange(
                 NAMESPACE1, KEY1, String.valueOf(VALID_FLOAT));
 
@@ -708,7 +779,7 @@ public final class DeviceConfigApiTests {
      * value.
      */
     @Test
-    public void getPropertiesFloat_invalid() {
+    public void testGetPropertiesFloat_invalid() {
         final Properties properties = setPropertiesAndAssertSuccessfulChange(
                 NAMESPACE1, KEY1, INVALID_FLOAT);
 
@@ -720,11 +791,22 @@ public final class DeviceConfigApiTests {
 
     /**
      * Test that properties listener is successfully registered and provides callbacks on value
-     * change.
+     * change when DeviceConfig.setProperty is called.
      */
     @Test
-    public void testPropertiesListener() {
+    public void testPropertiesListener_setProperty() {
         setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, VALUE1);
+    }
+
+    /**
+     * Test that properties listener is successfully registered and provides callbacks on value
+     * change when DeviceConfig.setProperties is called.
+     */
+    @Test
+    public void testPropertiesListener_setProperties() throws Exception {
+        Properties properties = new Properties.Builder(NAMESPACE1)
+                .setString(KEY1, VALUE1).setInt(KEY2, VALID_INT).build();
+        setPropertiesAndAssertSuccessfulChange(properties);
     }
 
     /**
@@ -953,6 +1035,26 @@ public final class DeviceConfigApiTests {
         return propertiesUpdate.properties;
     }
 
+    private Properties setPropertiesAndAssertSuccessfulChange(Properties properties)
+            throws Exception {
+        final List<PropertyUpdate> receivedUpdates = new ArrayList<>();
+        OnPropertiesChangedListener changeListener
+                = createOnPropertiesChangedListener(receivedUpdates);
+        DeviceConfig.addOnPropertiesChangedListener(
+                properties.getNamespace(), EXECUTOR, changeListener);
+
+        DeviceConfig.setProperties(properties);
+        waitForListenerUpdateOrTimeout(receivedUpdates, 1);
+        DeviceConfig.removeOnPropertiesChangedListener(changeListener);
+
+        assertEquals("Failed to receive update to OnPropertiesChangedListener",
+                1, receivedUpdates.size());
+        PropertyUpdate propertiesUpdate = receivedUpdates.get(0);
+        propertiesUpdate.assertEqual(properties);
+
+        return propertiesUpdate.properties;
+    }
+
     private void nullifyProperty(String namespace, String key) {
         if (DeviceConfig.getString(namespace, key, null) != null) {
             setPropertiesAndAssertSuccessfulChange(namespace, key, null);
@@ -965,36 +1067,33 @@ public final class DeviceConfigApiTests {
     }
 
     private static class PropertyUpdate {
-        String namespace;
-        String name;
-        String value;
         Properties properties;
 
-        PropertyUpdate(String namespace, String name, String value) {
-            this.name = name;
-            this.namespace = namespace;
-            this.value = value;
-            this.properties = null;
-        }
-
         PropertyUpdate(Properties properties) {
-            if (properties.getKeyset().size() != 1) {
-                fail("Unexpected properties size.");
-            }
-            this.namespace = properties.getNamespace();
-            this.name = properties.getKeyset().iterator().next();
-            this.value = properties.getString(this.name, null);
             this.properties = properties;
         }
 
         void assertEqual(String namespace, String name, String value) {
-            assertEquals("Listener received update for unexpected namespace",
-                    namespace, this.namespace);
-            assertEquals("Listener received update for unexpected property",
-                    this.name, name);
-            assertEquals("Listener received update with unexpected value",
-                    this.value, value);
+            Properties properties =
+                    new Properties.Builder(namespace).setString(name, value).build();
+            assertEqual(properties);
         }
 
+        void assertEqual(Properties expected) {
+            assertEquals(expected.getNamespace(), properties.getNamespace());
+            assertEquals(expected.getKeyset().size(), properties.getKeyset().size());
+            for (String key : properties.getKeyset()) {
+                assertEquals(expected.getString(key, DEFAULT_VALUE),
+                        properties.getString(key, DEFAULT_VALUE));
+                assertEquals(expected.getBoolean(key, DEFAULT_BOOLEAN_FALSE),
+                        properties.getBoolean(key, DEFAULT_BOOLEAN_FALSE));
+                assertEquals(expected.getInt(key, DEFAULT_INT),
+                        properties.getInt(key, DEFAULT_INT));
+                assertEquals(expected.getFloat(key, DEFAULT_FLOAT),
+                        properties.getFloat(key, DEFAULT_FLOAT), 0);
+                assertEquals(expected.getLong(key, DEFAULT_LONG),
+                        properties.getLong(key, DEFAULT_LONG));
+            }
+        }
     }
 }

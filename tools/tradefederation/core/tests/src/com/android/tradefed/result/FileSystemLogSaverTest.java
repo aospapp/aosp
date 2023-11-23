@@ -21,7 +21,7 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
-import com.android.tradefed.invoker.ShardMasterResultForwarder;
+import com.android.tradefed.invoker.ShardMainResultForwarder;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
 
@@ -260,14 +260,13 @@ public class FileSystemLogSaverTest {
         OptionSetter setter = new OptionSetter(saver);
         setter.setOptionValue("log-file-path", mReportDir.getAbsolutePath());
         saver.invocationStarted(mContext);
-        ShardMasterResultForwarder master =
-                new ShardMasterResultForwarder(
-                        new ArrayList<ITestInvocationListener>(), shardCount);
+        ShardMainResultForwarder main =
+                new ShardMainResultForwarder(new ArrayList<ITestInvocationListener>(), shardCount);
         for (int i = 0; i < shardCount; i++) {
-            master.invocationStarted(mContext);
+            main.invocationStarted(mContext);
         }
         for (int i = 0; i < shardCount; i++) {
-            master.invocationEnded(5);
+            main.invocationEnded(5);
         }
         // only one folder is created under the hierarchy: branch/buildid/testtag/<inv_ folders>
         assertEquals(1, mReportDir.list().length);

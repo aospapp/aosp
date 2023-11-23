@@ -15,9 +15,10 @@
  */
 package com.android.compatibility.common.tradefed.targetprep;
 
-import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -31,16 +32,26 @@ import com.android.tradefed.targetprep.TargetSetupError;
  */
 public final class BuildFingerPrintPreparer extends BaseTargetPreparer {
 
+    /**
+     * These 3 options cannot really be injected directly, but are needed to be copied during retry
+     * and sharding.
+     */
+    @Option(name = "expected-fingerprint")
     private String mExpectedFingerprint = null;
+
+    @Option(name = "expected-vendor-fingerprint")
     private String mExpectedVendorFingerprint = null;
+
+    @Option(name = "unaltered-fingerprint")
     private String mUnalteredFingerprint = null;
 
     private String mFingerprintProperty = "ro.build.fingerprint";
     private String mVendorFingerprintProperty = "ro.vendor.build.fingerprint";
 
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+    public void setUp(TestInformation testInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        ITestDevice device = testInfo.getDevice();
         if (mExpectedFingerprint == null) {
             throw new TargetSetupError("build fingerprint shouldn't be null",
                     device.getDeviceDescriptor());
@@ -54,17 +65,22 @@ public final class BuildFingerPrintPreparer extends BaseTargetPreparer {
             if (!compare.equals(currentBuildFingerprint)) {
                 throw new TargetSetupError(
                         String.format(
-                                "Device build fingerprint must match %s. Found '%s' instead.",
+                                "Device build fingerprint must match '%s'. Found '%s' instead.",
                                 compare, currentBuildFingerprint),
                         device.getDeviceDescriptor());
             }
             if (mExpectedVendorFingerprint != null) {
                 String currentBuildVendorFingerprint =
                         device.getProperty(mVendorFingerprintProperty);
+                // Replace by empty string if null to do a proper comparison.
+                if (currentBuildVendorFingerprint == null) {
+                    currentBuildVendorFingerprint = "";
+                }
                 if (!mExpectedVendorFingerprint.equals(currentBuildVendorFingerprint)) {
                     throw new TargetSetupError(
                             String.format(
-                                    "Device vendor build fingerprint must match %s - found %s instead.",
+                                    "Device vendor build fingerprint must match '%s'. Found '%s' "
+                                            + "instead.",
                                     mExpectedVendorFingerprint, currentBuildVendorFingerprint),
                             device.getDeviceDescriptor());
                 }

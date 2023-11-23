@@ -31,6 +31,7 @@ import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.cts.ImageViewCtsActivity;
 import android.graphics.cts.R;
+import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Handler;
@@ -76,6 +77,12 @@ public class IconTest {
     }
 
     @Test
+    public void testAdaptiveBitmapIcon() {
+        verifyAdaptiveIconValidity(Icon.createWithAdaptiveBitmap(
+                Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)));
+    }
+
+    @Test
     public void testDataIcon() {
         byte[] data = new byte[4];
         data[0] = data[1] = data[2] = data[3] = (byte)255;
@@ -94,6 +101,22 @@ public class IconTest {
             verifyIconValidity(Icon.createWithContentUri(Uri.fromFile(file)));
 
             verifyIconValidity(Icon.createWithContentUri(file.toURI().toString()));
+        } finally {
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testAdaptiveFileIcon() throws IOException {
+        File file = new File(mActivity.getFilesDir(), "testimage.jpg");
+        try {
+            writeSampleImage(file);
+            assertTrue(file.exists());
+
+            verifyAdaptiveIconValidity(Icon.createWithAdaptiveBitmapContentUri(Uri.fromFile(file)));
+
+            verifyAdaptiveIconValidity(
+                    Icon.createWithAdaptiveBitmapContentUri(file.toURI().toString()));
         } finally {
             file.delete();
         }
@@ -141,6 +164,13 @@ public class IconTest {
     }
 
     @Test
+    public void testAdaptiveBitmapIcon_getType() {
+        Icon icon = Icon.createWithAdaptiveBitmap(
+                Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888));
+        assertEquals(Icon.TYPE_ADAPTIVE_BITMAP, icon.getType());
+    }
+
+    @Test
     public void testDataIcon_getType() {
         byte[] data = new byte[4];
         data[0] = data[1] = data[2] = data[3] = (byte) 255;
@@ -166,6 +196,26 @@ public class IconTest {
 
             icon = Icon.createWithContentUri(file.toURI().toString());
             assertEquals(Icon.TYPE_URI, icon.getType());
+            assertEquals(filePath, icon.getUri().getPath());
+        } finally {
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testAdaptiveFileIcon_getType() throws IOException {
+        File file = new File(mActivity.getFilesDir(), "testimage.jpg");
+        try {
+            writeSampleImage(file);
+            assertTrue(file.exists());
+            String filePath = file.toURI().getPath();
+
+            Icon icon = Icon.createWithAdaptiveBitmapContentUri(Uri.fromFile(file));
+            assertEquals(Icon.TYPE_URI_ADAPTIVE_BITMAP, icon.getType());
+            assertEquals(filePath, icon.getUri().getPath());
+
+            icon = Icon.createWithAdaptiveBitmapContentUri(file.toURI().toString());
+            assertEquals(Icon.TYPE_URI_ADAPTIVE_BITMAP, icon.getType());
             assertEquals(filePath, icon.getUri().getPath());
         } finally {
             file.delete();
@@ -211,5 +261,10 @@ public class IconTest {
         assertNotNull(icon.loadDrawable(mActivity));
 
         parcel.recycle();
+    }
+
+    private void verifyAdaptiveIconValidity(Icon icon) {
+        verifyIconValidity(icon);
+        assertTrue(icon.loadDrawable(mActivity) instanceof AdaptiveIconDrawable);
     }
 }

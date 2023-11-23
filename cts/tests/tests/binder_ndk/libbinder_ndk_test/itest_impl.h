@@ -23,10 +23,13 @@
 
 #include "utilities.h"
 
-using IEmpty = ::aidl::test_package::IEmpty;
-using RegularPolygon = ::aidl::test_package::RegularPolygon;
-using Foo = ::aidl::test_package::Foo;
 using Bar = ::aidl::test_package::Bar;
+using ByteEnum = ::aidl::test_package::ByteEnum;
+using Foo = ::aidl::test_package::Foo;
+using IEmpty = ::aidl::test_package::IEmpty;
+using IntEnum = ::aidl::test_package::IntEnum;
+using LongEnum = ::aidl::test_package::LongEnum;
+using RegularPolygon = ::aidl::test_package::RegularPolygon;
 
 class MyTest : public ::aidl::test_package::BnTest,
                public ThisShouldBeDestroyed {
@@ -128,6 +131,18 @@ class MyTest : public ::aidl::test_package::BnTest,
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
+  ::ndk::ScopedAStatus RepeatByteEnum(ByteEnum in_value, ByteEnum* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+  ::ndk::ScopedAStatus RepeatIntEnum(IntEnum in_value, IntEnum* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+  ::ndk::ScopedAStatus RepeatLongEnum(LongEnum in_value, LongEnum* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
   ::ndk::ScopedAStatus RepeatBinder(const ::ndk::SpAIBinder& in_value,
                                     ::ndk::SpAIBinder* _aidl_return) override {
     *_aidl_return = in_value;
@@ -157,6 +172,19 @@ class MyTest : public ::aidl::test_package::BnTest,
     _aidl_return->set(dup(in_value.get()));
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
+
+  ::ndk::ScopedAStatus RepeatFdArray(
+      const std::vector<::ndk::ScopedFileDescriptor>& in_input,
+      std::vector<::ndk::ScopedFileDescriptor>* out_repeated,
+      std::vector<::ndk::ScopedFileDescriptor>* _aidl_return) override {
+    out_repeated->clear();
+    for (auto& fd : in_input) {
+      out_repeated->emplace_back(dup(fd.get()));
+      _aidl_return->emplace_back(dup(fd.get()));
+    }
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
   ::ndk::ScopedAStatus RepeatNullableFd(
       const ::ndk::ScopedFileDescriptor& in_value,
       ::ndk::ScopedFileDescriptor* _aidl_return) override {
@@ -176,6 +204,11 @@ class MyTest : public ::aidl::test_package::BnTest,
   }
   ::ndk::ScopedAStatus RepeatPolygon(const RegularPolygon& in_value,
                                      RegularPolygon* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+  ::ndk::ScopedAStatus RepeatNullablePolygon(const std::optional<RegularPolygon>& in_value,
+                                             std::optional<RegularPolygon>* _aidl_return) override {
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
@@ -234,6 +267,27 @@ class MyTest : public ::aidl::test_package::BnTest,
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
+  ::ndk::ScopedAStatus RepeatByteEnumArray(const std::vector<ByteEnum>& in_value,
+                                           std::vector<ByteEnum>* out_repeated,
+                                           std::vector<ByteEnum>* _aidl_return) override {
+    *out_repeated = in_value;
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+  ::ndk::ScopedAStatus RepeatIntEnumArray(const std::vector<IntEnum>& in_value,
+                                          std::vector<IntEnum>* out_repeated,
+                                          std::vector<IntEnum>* _aidl_return) override {
+    *out_repeated = in_value;
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+  ::ndk::ScopedAStatus RepeatLongEnumArray(const std::vector<LongEnum>& in_value,
+                                           std::vector<LongEnum>* out_repeated,
+                                           std::vector<LongEnum>* _aidl_return) override {
+    *out_repeated = in_value;
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
   ::ndk::ScopedAStatus RepeatStringArray(
       const std::vector<std::string>& in_value,
       std::vector<std::string>* out_repeated,
@@ -249,6 +303,37 @@ class MyTest : public ::aidl::test_package::BnTest,
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
+
+  ::ndk::ScopedAStatus Repeat2StringList(const std::vector<std::string>& in_input,
+                                         std::vector<std::string>* out_repeated,
+                                         std::vector<std::string>* _aidl_return) override {
+    *out_repeated = std::vector<std::string>();
+    *_aidl_return = std::vector<std::string>();
+    for (int i = 0; i < 2; i++) {
+      for (auto& s : in_input) {
+        out_repeated->emplace_back(s);
+        _aidl_return->emplace_back(s);
+      }
+    }
+
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
+  ::ndk::ScopedAStatus Repeat2RegularPolygonList(
+      const std::vector<::aidl::test_package::RegularPolygon>& in_input,
+      std::vector<::aidl::test_package::RegularPolygon>* out_repeated,
+      std::vector<::aidl::test_package::RegularPolygon>* _aidl_return) override {
+    *out_repeated = std::vector<::aidl::test_package::RegularPolygon>();
+    *_aidl_return = std::vector<::aidl::test_package::RegularPolygon>();
+    for (int i = 0; i < 2; i++) {
+      for (auto& s : in_input) {
+        out_repeated->emplace_back(s);
+        _aidl_return->emplace_back(s);
+      }
+    }
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
   ::ndk::ScopedAStatus RepeatNullableBooleanArray(
       const std::optional<std::vector<bool>>& in_value,
       std::optional<std::vector<bool>>* _aidl_return) override {
@@ -291,6 +376,24 @@ class MyTest : public ::aidl::test_package::BnTest,
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
+  ::ndk::ScopedAStatus RepeatNullableByteEnumArray(
+      const std::optional<std::vector<ByteEnum>>& in_value,
+      std::optional<std::vector<ByteEnum>>* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+  ::ndk::ScopedAStatus RepeatNullableIntEnumArray(
+      const std::optional<std::vector<IntEnum>>& in_value,
+      std::optional<std::vector<IntEnum>>* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+  ::ndk::ScopedAStatus RepeatNullableLongEnumArray(
+      const std::optional<std::vector<LongEnum>>& in_value,
+      std::optional<std::vector<LongEnum>>* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
   ::ndk::ScopedAStatus RepeatNullableStringArray(
       const std::optional<std::vector<std::optional<std::string>>>& in_value,
       std::optional<std::vector<std::optional<std::string>>>* _aidl_return) {
@@ -306,6 +409,22 @@ class MyTest : public ::aidl::test_package::BnTest,
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
+
+#ifdef USING_VERSION_1
+  ::ndk::ScopedAStatus RepeatStringNullableLater(const std::string& in_value,
+                                                 std::string* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+#else
+  ::ndk::ScopedAStatus RepeatStringNullableLater(
+      const std::optional<std::string>& in_value,
+      std::optional<std::string>* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+#endif
+
 #ifndef USING_VERSION_1
   // All methods added from now on should be within this macro
   ::ndk::ScopedAStatus NewMethodThatReturns10(int32_t* _aidl_return) override {

@@ -92,8 +92,14 @@ static void check_hw_feature_supported(pid_t child, HwFeature feature) {
                        feature == HwFeature::Watchpoint ? NT_ARM_HW_WATCH : NT_ARM_HW_BREAK, &iov);
   if (result == -1) {
     ASSERT_EQ(EINVAL, errno);
+    GTEST_SKIP() << "Hardware support missing";
+  } else if ((dreg_state.dbg_info & 0xff) == 0) {
+    if (feature == HwFeature::Watchpoint) {
+      GTEST_SKIP() << "Kernel reports zero hardware watchpoints";
+    } else {
+      GTEST_SKIP() << "Kernel reports zero hardware breakpoints";
+    }
   }
-  if ((dreg_state.dbg_info & 0xff) == 0) GTEST_SKIP() << "hardware support missing";
 #else
   // We assume watchpoints and breakpoints are always supported on x86.
   UNUSED(child);
@@ -176,6 +182,9 @@ static void run_watchpoint_test(std::function<void(T&)> child_func, size_t offse
   ASSERT_EQ(SIGSTOP, WSTOPSIG(status)) << "Status was: " << status;
 
   check_hw_feature_supported(child, HwFeature::Watchpoint);
+  if (::testing::Test::IsSkipped()) {
+    return;
+  }
 
   set_watchpoint(child, uintptr_t(untag_address(&data)) + offset, size);
 
@@ -224,6 +233,10 @@ TEST(sys_ptrace, watchpoint_stress) {
     if (!CPU_ISSET(cpu, &available_cpus)) continue;
 
     run_watchpoint_stress<uint8_t>(cpu);
+    if (::testing::Test::IsSkipped()) {
+      // Only check first case, since all others would skip for same reason.
+      return;
+    }
     run_watchpoint_stress<uint16_t>(cpu);
     run_watchpoint_stress<uint32_t>(cpu);
 #if defined(__LP64__)
@@ -244,9 +257,6 @@ static void watchpoint_imprecise_child(Uint128_t& data) {
   asm volatile("stm %0, { r0, r1, r2, r3 }" : : "r"(&data));
 #elif defined(__aarch64__)
   asm volatile("stp x0, x1, %0" : : "m"(data));
-#elif defined(__mips__)
-// TODO
-  UNUSED(data);
 #endif
 }
 
@@ -343,6 +353,9 @@ TEST(sys_ptrace, hardware_breakpoint) {
   ASSERT_EQ(SIGSTOP, WSTOPSIG(status)) << "Status was: " << status;
 
   check_hw_feature_supported(child, HwFeature::Breakpoint);
+  if (::testing::Test::IsSkipped()) {
+    return;
+  }
 
   set_breakpoint(child);
 

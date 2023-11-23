@@ -21,21 +21,20 @@ from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
 from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
 from acts.test_utils.coex.coex_test_utils import connect_dev_to_headset
 from acts.test_utils.coex.coex_test_utils import disconnect_headset_from_dev
-from acts.test_utils.coex.coex_constants import AUDIO_ROUTE_BLUETOOTH
-from acts.test_utils.coex.coex_constants import AUDIO_ROUTE_SPEAKER
 from acts.test_utils.coex.coex_test_utils import initiate_disconnect_from_hf
 from acts.test_utils.coex.coex_test_utils import pair_and_connect_headset
+from acts.test_utils.tel.tel_defines import AUDIO_ROUTE_BLUETOOTH
+from acts.test_utils.tel.tel_defines import AUDIO_ROUTE_SPEAKER
+
 from acts.test_utils.tel.tel_test_utils import hangup_call
 from acts.test_utils.tel.tel_voice_utils import set_audio_route
 
 
 class CoexHfpStressTest(CoexBaseTest):
 
-    def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
-
     def setup_class(self):
         CoexBaseTest.setup_class(self)
+
         req_params = ["iterations"]
         self.unpack_userparams(req_params)
 

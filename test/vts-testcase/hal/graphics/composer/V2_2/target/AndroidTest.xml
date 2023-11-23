@@ -24,7 +24,7 @@
         <option name="test-module-name" value="VtsHalGraphicsComposerV2_2Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalGraphicsComposerV2_2TargetTest/VtsHalGraphicsComposerV2_2TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalGraphicsComposerV2_2TargetTest/VtsHalGraphicsComposerV2_2TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="test-timeout" value="1m"/>
     </test>

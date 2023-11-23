@@ -17,6 +17,9 @@ package com.android.tradefed.targetprep;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -31,12 +34,17 @@ public class RebootTargetPreparerTest {
     private RebootTargetPreparer mRebootTargetPreparer;
     private ITestDevice mMockDevice;
     private IBuildInfo mMockBuildInfo;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
         mRebootTargetPreparer = new RebootTargetPreparer();
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mMockDevice);
+        context.addDeviceBuildInfo("device", mMockBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     @Test
@@ -45,7 +53,7 @@ public class RebootTargetPreparerTest {
         EasyMock.expectLastCall().once();
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
-        mRebootTargetPreparer.setUp(mMockDevice, mMockBuildInfo);
+        mRebootTargetPreparer.setUp(mTestInfo);
         EasyMock.verify(mMockDevice, mMockBuildInfo);
     }
 }

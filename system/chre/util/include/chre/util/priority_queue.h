@@ -29,7 +29,8 @@ namespace chre {
  * An implementation of a priority queue. This allows for efficient lookup of
  * the highest priority element as defined by the CompareFunction.
  */
-template<typename ElementType, typename CompareFunction = std::less<ElementType>>
+template <typename ElementType,
+          typename CompareFunction = std::less<ElementType>>
 class PriorityQueue : public NonCopyable {
  public:
   /**
@@ -43,7 +44,7 @@ class PriorityQueue : public NonCopyable {
    *
    * @param compare The comparator that returns true if left < right.
    */
-  PriorityQueue(const CompareFunction& compare);
+  PriorityQueue(const CompareFunction &compare);
 
   /**
    * Returns the current number of elements in the queue.
@@ -75,7 +76,7 @@ class PriorityQueue : public NonCopyable {
    * @param element The element to push onto the queue.
    * @return true if the element was pushed successfully.
    */
-  bool push(const ElementType& element);
+  bool push(const ElementType &element);
 
   /**
    * Constructs an element onto the the queue. All iterators and references are
@@ -83,8 +84,8 @@ class PriorityQueue : public NonCopyable {
    *
    * @param args The arguments to the constructor of ElementType
    */
-  template<typename... Args>
-  bool emplace(Args&&... args);
+  template <typename... Args>
+  bool emplace(Args &&... args);
 
   /*
    * Obtains a const element of the queue given an index. It is illegal to
@@ -96,7 +97,7 @@ class PriorityQueue : public NonCopyable {
    * @param index The index of the element.
    * @return The element.
    */
-  ElementType& operator[](size_t index);
+  ElementType &operator[](size_t index);
 
   /*
    * Obtains a const element of the queue given an index. It is illegal to
@@ -108,7 +109,7 @@ class PriorityQueue : public NonCopyable {
    * @param index The index of the element.
    * @return The element.
    */
-  const ElementType& operator[](size_t index) const;
+  const ElementType &operator[](size_t index) const;
 
   /**
    * Obtains the top element of the queue. It is illegal to do this when the
@@ -118,7 +119,7 @@ class PriorityQueue : public NonCopyable {
    *
    * @return The element.
    */
-  ElementType& top();
+  ElementType &top();
 
   /**
    * Obtains the top element of the queue. It is illegal to do this when the
@@ -128,7 +129,7 @@ class PriorityQueue : public NonCopyable {
    *
    * @return The element.
    */
-  const ElementType& top() const;
+  const ElementType &top() const;
 
   /**
    * Removes the top element from the queue if the queue is not empty. All
@@ -149,23 +150,26 @@ class PriorityQueue : public NonCopyable {
   /**
    * Random-access iterator that points to some element in the container.
    */
-  typedef ElementType* iterator;
-  typedef const ElementType* const_iterator;
+  typedef ElementType *iterator;
+  typedef const ElementType *const_iterator;
 
   /**
    * @return A random-access iterator to the beginning.
    */
   typename PriorityQueue<ElementType, CompareFunction>::iterator begin();
-  typename PriorityQueue<ElementType, CompareFunction>::const_iterator begin() const;
-  typename PriorityQueue<ElementType, CompareFunction>::const_iterator cbegin() const;
+  typename PriorityQueue<ElementType, CompareFunction>::const_iterator begin()
+      const;
+  typename PriorityQueue<ElementType, CompareFunction>::const_iterator cbegin()
+      const;
 
   /**
    * @return A random-access iterator to the end.
    */
   typename PriorityQueue<ElementType, CompareFunction>::iterator end();
-  typename PriorityQueue<ElementType, CompareFunction>::const_iterator end() const;
-  typename PriorityQueue<ElementType, CompareFunction>::const_iterator cend() const;
-
+  typename PriorityQueue<ElementType, CompareFunction>::const_iterator end()
+      const;
+  typename PriorityQueue<ElementType, CompareFunction>::const_iterator cend()
+      const;
 
  private:
   //! The dynamic vector that serves as the underlying container.

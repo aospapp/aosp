@@ -16,11 +16,17 @@
 
 package android.assist.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.fail;
+
 import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.util.Log;
+
+import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -31,16 +37,14 @@ public class AssistantContentViewTest extends AssistTestBase {
     private Bundle mBundle;
 
     @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         mActionLatchReceiver = new AssistantReceiver();
         startTestActivity(Utils.VERIFY_CONTENT_VIEW);
     }
 
     @Override
-    public void tearDown() throws Exception {
+    protected void customTearDown() throws Exception {
         mBundle = null;
-        super.tearDown();
     }
 
     private void waitForContentView() throws Exception {
@@ -50,6 +54,7 @@ public class AssistantContentViewTest extends AssistTestBase {
         }
     }
 
+    @Test
     public void testAssistantContentViewDimens() throws Exception {
         if (mActivityManager.isLowRamDevice()) {
           Log.d(TAG, "Not running assist tests on low-RAM device.");
@@ -62,8 +67,8 @@ public class AssistantContentViewTest extends AssistTestBase {
         int height = mBundle.getInt(Utils.EXTRA_CONTENT_VIEW_HEIGHT, 0);
         int width = mBundle.getInt(Utils.EXTRA_CONTENT_VIEW_WIDTH, 0);
         Point displayPoint = mBundle.getParcelable(Utils.EXTRA_DISPLAY_POINT);
-        assertEquals(displayPoint.y, height);
-        assertEquals(displayPoint.x, width);
+        assertThat(height).isEqualTo(displayPoint.y);
+        assertThat(width).isEqualTo(displayPoint.x);
     }
 
     private class AssistantReceiver extends ActionLatchReceiver {

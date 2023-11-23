@@ -36,7 +36,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             15:c8:bd:65:47:5c:af:b8:97:00:5e:e4:06:d2:bc:9d
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=TW, O=Chunghwa Telecom Co., Ltd., OU=ePKI Root Certification Authority
         Validity
             Not Before: Dec 20 02:31:27 2004 GMT
@@ -44,7 +44,7 @@ Certificate:
         Subject: C=TW, O=Chunghwa Telecom Co., Ltd., OU=ePKI Root Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:e1:25:0f:ee:8d:db:88:33:75:67:cd:ad:1f:7d:
                     3a:4e:6d:9d:d3:2f:14:f3:63:74:cb:01:21:6a:37:

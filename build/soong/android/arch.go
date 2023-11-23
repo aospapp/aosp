@@ -22,8 +22,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 )
+
+const COMMON_VARIANT = "common"
 
 var (
 	archTypeList []ArchType
@@ -36,7 +39,7 @@ var (
 	X86_64 = newArch("x86_64", "lib64")
 
 	Common = ArchType{
-		Name: "common",
+		Name: COMMON_VARIANT,
 	}
 )
 
@@ -527,7 +530,6 @@ type Arch struct {
 	CpuVariant   string
 	Abi          []string
 	ArchFeatures []string
-	Native       bool
 }
 
 func (a Arch) String() string {
@@ -555,6 +557,10 @@ func newArch(name, multilib string) ArchType {
 	}
 	archTypeList = append(archTypeList, archType)
 	return archType
+}
+
+func ArchTypeList() []ArchType {
+	return append([]ArchType(nil), archTypeList...)
 }
 
 func (a ArchType) String() string {
@@ -590,7 +596,7 @@ var BuildOs = func() OsType {
 }()
 
 var (
-	osTypeList      []OsType
+	OsTypeList      []OsType
 	commonTargetMap = make(map[string]Target)
 
 	NoOsType    OsType
@@ -600,6 +606,10 @@ var (
 	Windows     = NewOsType("windows", HostCross, true)
 	Android     = NewOsType("android", Device, false)
 	Fuchsia     = NewOsType("fuchsia", Device, false)
+
+	// A pseudo OSType for a common os variant, which is OSType agnostic and which
+	// has dependencies on all the OS variants.
+	CommonOS = NewOsType("common_os", Generic, false)
 
 	osArchTypeMap = map[OsType][]ArchType{
 		Linux:       []ArchType{X86, X86_64},
@@ -662,7 +672,7 @@ func NewOsType(name string, class OsClass, defDisabled bool) OsType {
 
 		DefaultDisabled: defDisabled,
 	}
-	osTypeList = append(osTypeList, os)
+	OsTypeList = append(OsTypeList, os)
 
 	if _, found := commonTargetMap[name]; found {
 		panic(fmt.Errorf("Found Os type duplicate during OsType registration: %q", name))
@@ -674,7 +684,7 @@ func NewOsType(name string, class OsClass, defDisabled bool) OsType {
 }
 
 func osByName(name string) OsType {
-	for _, os := range osTypeList {
+	for _, os := range OsTypeList {
 		if os.Name == name {
 			return os
 		}
@@ -683,13 +693,150 @@ func osByName(name string) OsType {
 	return NoOsType
 }
 
+type NativeBridgeSupport bool
+
+const (
+	NativeBridgeDisabled NativeBridgeSupport = false
+	NativeBridgeEnabled  NativeBridgeSupport = true
+)
+
 type Target struct {
-	Os   OsType
-	Arch Arch
+	Os                       OsType
+	Arch                     Arch
+	NativeBridge             NativeBridgeSupport
+	NativeBridgeHostArchName string
+	NativeBridgeRelativePath string
 }
 
 func (target Target) String() string {
-	return target.Os.String() + "_" + target.Arch.String()
+	return target.OsVariation() + "_" + target.ArchVariation()
+}
+
+func (target Target) OsVariation() string {
+	return target.Os.String()
+}
+
+func (target Target) ArchVariation() string {
+	var variation string
+	if target.NativeBridge {
+		variation = "native_bridge_"
+	}
+	variation += target.Arch.String()
+
+	return variation
+}
+
+func (target Target) Variations() []blueprint.Variation {
+	return []blueprint.Variation{
+		{Mutator: "os", Variation: target.OsVariation()},
+		{Mutator: "arch", Variation: target.ArchVariation()},
+	}
+}
+
+func osMutator(mctx BottomUpMutatorContext) {
+	var module Module
+	var ok bool
+	if module, ok = mctx.Module().(Module); !ok {
+		return
+	}
+
+	base := module.base()
+
+	if !base.ArchSpecific() {
+		return
+	}
+
+	osClasses := base.OsClassSupported()
+
+	var moduleOSList []OsType
+
+	for _, os := range OsTypeList {
+		supportedClass := false
+		for _, osClass := range osClasses {
+			if os.Class == osClass {
+				supportedClass = true
+			}
+		}
+		if !supportedClass {
+			continue
+		}
+
+		if len(mctx.Config().Targets[os]) == 0 {
+			continue
+		}
+
+		moduleOSList = append(moduleOSList, os)
+	}
+
+	if len(moduleOSList) == 0 {
+		base.Disable()
+		return
+	}
+
+	osNames := make([]string, len(moduleOSList))
+
+	for i, os := range moduleOSList {
+		osNames[i] = os.String()
+	}
+
+	createCommonOSVariant := base.commonProperties.CreateCommonOSVariant
+	if createCommonOSVariant {
+		// A CommonOS variant was requested so add it to the list of OS's variants to
+		// create. It needs to be added to the end because it needs to depend on the
+		// the other variants in the list returned by CreateVariations(...) and inter
+		// variant dependencies can only be created from a later variant in that list to
+		// an earlier one. That is because variants are always processed in the order in
+		// which they are returned from CreateVariations(...).
+		osNames = append(osNames, CommonOS.Name)
+		moduleOSList = append(moduleOSList, CommonOS)
+	}
+
+	modules := mctx.CreateVariations(osNames...)
+	for i, m := range modules {
+		m.base().commonProperties.CompileOS = moduleOSList[i]
+		m.base().setOSProperties(mctx)
+	}
+
+	if createCommonOSVariant {
+		// A CommonOS variant was requested so add dependencies from it (the last one in
+		// the list) to the OS type specific variants.
+		last := len(modules) - 1
+		commonOSVariant := modules[last]
+		commonOSVariant.base().commonProperties.CommonOSVariant = true
+		for _, module := range modules[0:last] {
+			// Ignore modules that are enabled. Note, this will only avoid adding
+			// dependencies on OsType variants that are explicitly disabled in their
+			// properties. The CommonOS variant will still depend on disabled variants
+			// if they are disabled afterwards, e.g. in archMutator if
+			if module.Enabled() {
+				mctx.AddInterVariantDependency(commonOsToOsSpecificVariantTag, commonOSVariant, module)
+			}
+		}
+	}
+}
+
+// Identifies the dependency from CommonOS variant to the os specific variants.
+type commonOSTag struct{ blueprint.BaseDependencyTag }
+
+var commonOsToOsSpecificVariantTag = commonOSTag{}
+
+// Get the OsType specific variants for the current CommonOS variant.
+//
+// The returned list will only contain enabled OsType specific variants of the
+// module referenced in the supplied context. An empty list is returned if there
+// are no enabled variants or the supplied context is not for an CommonOS
+// variant.
+func GetOsSpecificVariantsOfCommonOSVariant(mctx BaseModuleContext) []Module {
+	var variants []Module
+	mctx.VisitDirectDeps(func(m Module) {
+		if mctx.OtherModuleDependencyTag(m) == commonOsToOsSpecificVariantTag {
+			if m.Enabled() {
+				variants = append(variants, m)
+			}
+		}
+	})
+
+	return variants
 }
 
 // archMutator splits a module into a variant for each Target requested by the module.  Target selection
@@ -698,10 +845,10 @@ func (target Target) String() string {
 //    - The HostOrDeviceSupported value passed in to InitAndroidArchModule by the module type factory, which selects
 //      whether the module type can compile for host, device or both.
 //    - The host_supported and device_supported properties on the module.
-// If host is supported for the module, the Host and HostCross OsClasses are  are selected.  If device is supported
+// If host is supported for the module, the Host and HostCross OsClasses are selected.  If device is supported
 // for the module, the Device OsClass is selected.
 // Within each selected OsClass, the multilib selection is determined by:
-//    - The compile_multilib property if it set (which may be overriden by target.android.compile_multlib or
+//    - The compile_multilib property if it set (which may be overridden by target.android.compile_multilib or
 //      target.host.compile_multilib).
 //    - The default multilib passed to InitAndroidArchModule if compile_multilib was not set.
 // Valid multilib values include:
@@ -729,74 +876,85 @@ func archMutator(mctx BottomUpMutatorContext) {
 		return
 	}
 
-	var moduleTargets []Target
-	moduleMultiTargets := make(map[int][]Target)
-	primaryModules := make(map[int]bool)
-	osClasses := base.OsClassSupported()
+	os := base.commonProperties.CompileOS
+	if os == CommonOS {
+		// Make sure that the target related properties are initialized for the
+		// CommonOS variant.
+		addTargetProperties(module, commonTargetMap[os.Name], nil, true)
 
-	for _, os := range osTypeList {
-		supportedClass := false
-		for _, osClass := range osClasses {
-			if os.Class == osClass {
-				supportedClass = true
-			}
-		}
-		if !supportedClass {
-			continue
-		}
-
-		osTargets := mctx.Config().Targets[os]
-		if len(osTargets) == 0 {
-			continue
-		}
-
-		// only the primary arch in the recovery partition
-		if os == Android && module.InstallInRecovery() {
-			osTargets = []Target{osTargets[0]}
-		}
-
-		prefer32 := false
-		if base.prefer32 != nil {
-			prefer32 = base.prefer32(mctx, base, os.Class)
-		}
-
-		multilib, extraMultilib := decodeMultilib(base, os.Class)
-		targets, err := decodeMultilibTargets(multilib, osTargets, prefer32)
-		if err != nil {
-			mctx.ModuleErrorf("%s", err.Error())
-		}
-
-		var multiTargets []Target
-		if extraMultilib != "" {
-			multiTargets, err = decodeMultilibTargets(extraMultilib, osTargets, prefer32)
-			if err != nil {
-				mctx.ModuleErrorf("%s", err.Error())
-			}
-		}
-
-		if len(targets) > 0 {
-			primaryModules[len(moduleTargets)] = true
-			moduleMultiTargets[len(moduleTargets)] = multiTargets
-			moduleTargets = append(moduleTargets, targets...)
-		}
-	}
-
-	if len(moduleTargets) == 0 {
-		base.commonProperties.Enabled = boolPtr(false)
+		// Do not create arch specific variants for the CommonOS variant.
 		return
 	}
 
-	targetNames := make([]string, len(moduleTargets))
+	osTargets := mctx.Config().Targets[os]
+	image := base.commonProperties.ImageVariation
+	// Filter NativeBridge targets unless they are explicitly supported
+	// Skip creating native bridge variants for vendor modules
+	if os == Android &&
+		!(Bool(base.commonProperties.Native_bridge_supported) && image == CoreVariation) {
 
-	for i, target := range moduleTargets {
-		targetNames[i] = target.String()
+		var targets []Target
+		for _, t := range osTargets {
+			if !t.NativeBridge {
+				targets = append(targets, t)
+			}
+		}
+
+		osTargets = targets
+	}
+
+	// only the primary arch in the ramdisk / recovery partition
+	if os == Android && (module.InstallInRecovery() || module.InstallInRamdisk()) {
+		osTargets = []Target{osTargets[0]}
+	}
+
+	prefer32 := false
+	if base.prefer32 != nil {
+		prefer32 = base.prefer32(mctx, base, os.Class)
+	}
+
+	multilib, extraMultilib := decodeMultilib(base, os.Class)
+	targets, err := decodeMultilibTargets(multilib, osTargets, prefer32)
+	if err != nil {
+		mctx.ModuleErrorf("%s", err.Error())
+	}
+
+	var multiTargets []Target
+	if extraMultilib != "" {
+		multiTargets, err = decodeMultilibTargets(extraMultilib, osTargets, prefer32)
+		if err != nil {
+			mctx.ModuleErrorf("%s", err.Error())
+		}
+	}
+
+	if image == RecoveryVariation {
+		primaryArch := mctx.Config().DevicePrimaryArchType()
+		targets = filterToArch(targets, primaryArch)
+		multiTargets = filterToArch(multiTargets, primaryArch)
+	}
+
+	if len(targets) == 0 {
+		base.Disable()
+		return
+	}
+
+	targetNames := make([]string, len(targets))
+
+	for i, target := range targets {
+		targetNames[i] = target.ArchVariation()
 	}
 
 	modules := mctx.CreateVariations(targetNames...)
 	for i, m := range modules {
-		m.(Module).base().SetTarget(moduleTargets[i], moduleMultiTargets[i], primaryModules[i])
+		addTargetProperties(m, targets[i], multiTargets, i == 0)
 		m.(Module).base().setArchProperties(mctx)
 	}
+}
+
+func addTargetProperties(m Module, target Target, multiTargets []Target, primaryTarget bool) {
+	m.base().commonProperties.CompileTarget = target
+	m.base().commonProperties.CompileMultiTargets = multiTargets
+	m.base().commonProperties.CompilePrimary = primaryTarget
 }
 
 func decodeMultilib(base *ModuleBase, class OsClass) (multilib, extraMultilib string) {
@@ -825,154 +983,41 @@ func decodeMultilib(base *ModuleBase, class OsClass) (multilib, extraMultilib st
 	}
 }
 
-func filterArchStructFields(fields []reflect.StructField) (filteredFields []reflect.StructField, filtered bool) {
-	for _, field := range fields {
-		if !proptools.HasTag(field, "android", "arch_variant") {
-			filtered = true
-			continue
+func filterToArch(targets []Target, arch ArchType) []Target {
+	for i := 0; i < len(targets); i++ {
+		if targets[i].Arch.ArchType != arch {
+			targets = append(targets[:i], targets[i+1:]...)
+			i--
 		}
-
-		// The arch_variant field isn't necessary past this point
-		// Instead of wasting space, just remove it. Go also has a
-		// 16-bit limit on structure name length. The name is constructed
-		// based on the Go source representation of the structure, so
-		// the tag names count towards that length.
-		//
-		// TODO: handle the uncommon case of other tags being involved
-		if field.Tag == `android:"arch_variant"` {
-			field.Tag = ""
-		}
-
-		// Recurse into structs
-		switch field.Type.Kind() {
-		case reflect.Struct:
-			var subFiltered bool
-			field.Type, subFiltered = filterArchStruct(field.Type)
-			filtered = filtered || subFiltered
-			if field.Type == nil {
-				continue
-			}
-		case reflect.Ptr:
-			if field.Type.Elem().Kind() == reflect.Struct {
-				nestedType, subFiltered := filterArchStruct(field.Type.Elem())
-				filtered = filtered || subFiltered
-				if nestedType == nil {
-					continue
-				}
-				field.Type = reflect.PtrTo(nestedType)
-			}
-		case reflect.Interface:
-			panic("Interfaces are not supported in arch_variant properties")
-		}
-
-		filteredFields = append(filteredFields, field)
 	}
-
-	return filteredFields, filtered
+	return targets
 }
 
-// filterArchStruct takes a reflect.Type that is either a sturct or a pointer to a struct, and returns a reflect.Type
-// that only contains the fields in the original type that have an `android:"arch_variant"` struct tag, and a bool
-// that is true if the new struct type has fewer fields than the original type.  If there are no fields in the
-// original type with the struct tag it returns nil and true.
-func filterArchStruct(prop reflect.Type) (filteredProp reflect.Type, filtered bool) {
-	var fields []reflect.StructField
-
-	ptr := prop.Kind() == reflect.Ptr
-	if ptr {
-		prop = prop.Elem()
-	}
-
-	for i := 0; i < prop.NumField(); i++ {
-		fields = append(fields, prop.Field(i))
-	}
-
-	filteredFields, filtered := filterArchStructFields(fields)
-
-	if len(filteredFields) == 0 {
-		return nil, true
-	}
-
-	if !filtered {
-		if ptr {
-			return reflect.PtrTo(prop), false
-		}
-		return prop, false
-	}
-
-	ret := reflect.StructOf(filteredFields)
-	if ptr {
-		ret = reflect.PtrTo(ret)
-	}
-
-	return ret, true
+type archPropTypeDesc struct {
+	arch, multilib, target reflect.Type
 }
 
-// filterArchStruct takes a reflect.Type that is either a sturct or a pointer to a struct, and returns a list of
-// reflect.Type that only contains the fields in the original type that have an `android:"arch_variant"` struct tag,
-// and a bool that is true if the new struct type has fewer fields than the original type.  If there are no fields in
-// the original type with the struct tag it returns nil and true.  Each returned struct type will have a maximum of
-// 10 top level fields in it to attempt to avoid hitting the reflect.StructOf name length limit, although the limit
-// can still be reached with a single struct field with many fields in it.
-func filterArchStructSharded(prop reflect.Type) (filteredProp []reflect.Type, filtered bool) {
-	var fields []reflect.StructField
-
-	ptr := prop.Kind() == reflect.Ptr
-	if ptr {
-		prop = prop.Elem()
-	}
-
-	for i := 0; i < prop.NumField(); i++ {
-		fields = append(fields, prop.Field(i))
-	}
-
-	fields, filtered = filterArchStructFields(fields)
-	if !filtered {
-		if ptr {
-			return []reflect.Type{reflect.PtrTo(prop)}, false
-		}
-		return []reflect.Type{prop}, false
-	}
-
-	if len(fields) == 0 {
-		return nil, true
-	}
-
-	shards := shardFields(fields, 10)
-
-	for _, shard := range shards {
-		s := reflect.StructOf(shard)
-		if ptr {
-			s = reflect.PtrTo(s)
-		}
-		filteredProp = append(filteredProp, s)
-	}
-
-	return filteredProp, true
+type archPropRoot struct {
+	Arch, Multilib, Target interface{}
 }
 
-func shardFields(fields []reflect.StructField, shardSize int) [][]reflect.StructField {
-	ret := make([][]reflect.StructField, 0, (len(fields)+shardSize-1)/shardSize)
-	for len(fields) > shardSize {
-		ret = append(ret, fields[0:shardSize])
-		fields = fields[shardSize:]
-	}
-	if len(fields) > 0 {
-		ret = append(ret, fields)
-	}
-	return ret
-}
+// createArchPropTypeDesc takes a reflect.Type that is either a struct or a pointer to a struct, and
+// returns lists of reflect.Types that contains the arch-variant properties inside structs for each
+// arch, multilib and target property.
+func createArchPropTypeDesc(props reflect.Type) []archPropTypeDesc {
+	// Each property struct shard will be nested many times under the runtime generated arch struct,
+	// which can hit the limit of 64kB for the name of runtime generated structs.  They are nested
+	// 97 times now, which may grow in the future, plus there is some overhead for the containing
+	// type.  This number may need to be reduced if too many are added, but reducing it too far
+	// could cause problems if a single deeply nested property no longer fits in the name.
+	const maxArchTypeNameSize = 500
 
-// createArchType takes a reflect.Type that is either a struct or a pointer to a struct, and returns a list of
-// reflect.Type that contains the arch-variant properties inside structs for each architecture, os, target, multilib,
-// etc.
-func createArchType(props reflect.Type) []reflect.Type {
-	propShards, _ := filterArchStructSharded(props)
+	propShards, _ := proptools.FilterPropertyStructSharded(props, maxArchTypeNameSize, filterArchStruct)
 	if len(propShards) == 0 {
 		return nil
 	}
 
-	var ret []reflect.Type
+	var ret []archPropTypeDesc
 	for _, props := range propShards {
 
 		variantFields := func(names []string) []reflect.StructField {
@@ -1025,8 +1070,9 @@ func createArchType(props reflect.Type) []reflect.Type {
 			"Not_windows",
 			"Arm_on_x86",
 			"Arm_on_x86_64",
+			"Native_bridge",
 		}
-		for _, os := range osTypeList {
+		for _, os := range OsTypeList {
 			targets = append(targets, os.Field)
 
 			for _, archType := range osArchTypeMap[os] {
@@ -1048,22 +1094,40 @@ func createArchType(props reflect.Type) []reflect.Type {
 		}
 
 		targetType := reflect.StructOf(variantFields(targets))
-		ret = append(ret, reflect.StructOf([]reflect.StructField{
-			{
-				Name: "Arch",
-				Type: archType,
-			},
-			{
-				Name: "Multilib",
-				Type: multilibType,
-			},
-			{
-				Name: "Target",
-				Type: targetType,
-			},
-		}))
+
+		ret = append(ret, archPropTypeDesc{
+			arch:     reflect.PtrTo(archType),
+			multilib: reflect.PtrTo(multilibType),
+			target:   reflect.PtrTo(targetType),
+		})
 	}
 	return ret
+}
+
+func filterArchStruct(field reflect.StructField, prefix string) (bool, reflect.StructField) {
+	if proptools.HasTag(field, "android", "arch_variant") {
+		// The arch_variant field isn't necessary past this point
+		// Instead of wasting space, just remove it. Go also has a
+		// 16-bit limit on structure name length. The name is constructed
+		// based on the Go source representation of the structure, so
+		// the tag names count towards that length.
+
+		androidTag := field.Tag.Get("android")
+		values := strings.Split(androidTag, ",")
+
+		if string(field.Tag) != `android:"`+strings.Join(values, ",")+`"` {
+			panic(fmt.Errorf("unexpected tag format %q", field.Tag))
+		}
+		// these tags don't need to be present in the runtime generated struct type.
+		values = RemoveListFromList(values, []string{"arch_variant", "variant_prepend", "path"})
+		if len(values) > 0 {
+			panic(fmt.Errorf("unknown tags %q in field %q", values, prefix+field.Name))
+		}
+
+		field.Tag = ""
+		return true, field
+	}
+	return false, field
 }
 
 var archPropTypeMap OncePer
@@ -1089,12 +1153,16 @@ func InitArchModule(m Module) {
 		}
 
 		archPropTypes := archPropTypeMap.Once(NewCustomOnceKey(t), func() interface{} {
-			return createArchType(t)
-		}).([]reflect.Type)
+			return createArchPropTypeDesc(t)
+		}).([]archPropTypeDesc)
 
 		var archProperties []interface{}
 		for _, t := range archPropTypes {
-			archProperties = append(archProperties, reflect.New(t).Interface())
+			archProperties = append(archProperties, &archPropRoot{
+				Arch:     reflect.Zero(t.arch).Interface(),
+				Multilib: reflect.Zero(t.multilib).Interface(),
+				Target:   reflect.Zero(t.target).Interface(),
+			})
 		}
 		base.archProperties = append(base.archProperties, archProperties)
 		m.AddProperties(archProperties...)
@@ -1105,8 +1173,15 @@ func InitArchModule(m Module) {
 
 var variantReplacer = strings.NewReplacer("-", "_", ".", "_")
 
-func (a *ModuleBase) appendProperties(ctx BottomUpMutatorContext,
+func (m *ModuleBase) appendProperties(ctx BottomUpMutatorContext,
 	dst interface{}, src reflect.Value, field, srcPrefix string) reflect.Value {
+
+	if src.Kind() == reflect.Ptr {
+		if src.IsNil() {
+			return src
+		}
+		src = src.Elem()
+	}
 
 	src = src.FieldByName(field)
 	if !src.IsValid() {
@@ -1142,89 +1217,19 @@ func (a *ModuleBase) appendProperties(ctx BottomUpMutatorContext,
 	return ret
 }
 
-// Rewrite the module's properties structs to contain arch-specific values.
-func (a *ModuleBase) setArchProperties(ctx BottomUpMutatorContext) {
-	arch := a.Arch()
-	os := a.Os()
+// Rewrite the module's properties structs to contain os-specific values.
+func (m *ModuleBase) setOSProperties(ctx BottomUpMutatorContext) {
+	os := m.commonProperties.CompileOS
 
-	for i := range a.generalProperties {
-		genProps := a.generalProperties[i]
-		if a.archProperties[i] == nil {
+	for i := range m.generalProperties {
+		genProps := m.generalProperties[i]
+		if m.archProperties[i] == nil {
 			continue
 		}
-		for _, archProperties := range a.archProperties[i] {
+		for _, archProperties := range m.archProperties[i] {
 			archPropValues := reflect.ValueOf(archProperties).Elem()
 
-			archProp := archPropValues.FieldByName("Arch")
-			multilibProp := archPropValues.FieldByName("Multilib")
-			targetProp := archPropValues.FieldByName("Target")
-
-			var field string
-			var prefix string
-
-			// Handle arch-specific properties in the form:
-			// arch: {
-			//     arm64: {
-			//         key: value,
-			//     },
-			// },
-			t := arch.ArchType
-
-			if arch.ArchType != Common {
-				field := proptools.FieldNameForProperty(t.Name)
-				prefix := "arch." + t.Name
-				archStruct := a.appendProperties(ctx, genProps, archProp, field, prefix)
-
-				// Handle arch-variant-specific properties in the form:
-				// arch: {
-				//     variant: {
-				//         key: value,
-				//     },
-				// },
-				v := variantReplacer.Replace(arch.ArchVariant)
-				if v != "" {
-					field := proptools.FieldNameForProperty(v)
-					prefix := "arch." + t.Name + "." + v
-					a.appendProperties(ctx, genProps, archStruct, field, prefix)
-				}
-
-				// Handle cpu-variant-specific properties in the form:
-				// arch: {
-				//     variant: {
-				//         key: value,
-				//     },
-				// },
-				if arch.CpuVariant != arch.ArchVariant {
-					c := variantReplacer.Replace(arch.CpuVariant)
-					if c != "" {
-						field := proptools.FieldNameForProperty(c)
-						prefix := "arch." + t.Name + "." + c
-						a.appendProperties(ctx, genProps, archStruct, field, prefix)
-					}
-				}
-
-				// Handle arch-feature-specific properties in the form:
-				// arch: {
-				//     feature: {
-				//         key: value,
-				//     },
-				// },
-				for _, feature := range arch.ArchFeatures {
-					field := proptools.FieldNameForProperty(feature)
-					prefix := "arch." + t.Name + "." + feature
-					a.appendProperties(ctx, genProps, archStruct, field, prefix)
-				}
-
-				// Handle multilib-specific properties in the form:
-				// multilib: {
-				//     lib32: {
-				//         key: value,
-				//     },
-				// },
-				field = proptools.FieldNameForProperty(t.Multilib)
-				prefix = "multilib." + t.Multilib
-				a.appendProperties(ctx, genProps, multilibProp, field, prefix)
-			}
+			targetProp := archPropValues.FieldByName("Target").Elem()
 
 			// Handle host-specific properties in the form:
 			// target: {
@@ -1233,9 +1238,9 @@ func (a *ModuleBase) setArchProperties(ctx BottomUpMutatorContext) {
 			//     },
 			// },
 			if os.Class == Host || os.Class == HostCross {
-				field = "Host"
-				prefix = "target.host"
-				a.appendProperties(ctx, genProps, targetProp, field, prefix)
+				field := "Host"
+				prefix := "target.host"
+				m.appendProperties(ctx, genProps, targetProp, field, prefix)
 			}
 
 			// Handle target OS generalities of the form:
@@ -1243,32 +1248,17 @@ func (a *ModuleBase) setArchProperties(ctx BottomUpMutatorContext) {
 			//     bionic: {
 			//         key: value,
 			//     },
-			//     bionic_x86: {
-			//         key: value,
-			//     },
 			// }
 			if os.Linux() {
-				field = "Linux"
-				prefix = "target.linux"
-				a.appendProperties(ctx, genProps, targetProp, field, prefix)
-
-				if arch.ArchType != Common {
-					field = "Linux_" + arch.ArchType.Name
-					prefix = "target.linux_" + arch.ArchType.Name
-					a.appendProperties(ctx, genProps, targetProp, field, prefix)
-				}
+				field := "Linux"
+				prefix := "target.linux"
+				m.appendProperties(ctx, genProps, targetProp, field, prefix)
 			}
 
 			if os.Bionic() {
-				field = "Bionic"
-				prefix = "target.bionic"
-				a.appendProperties(ctx, genProps, targetProp, field, prefix)
-
-				if arch.ArchType != Common {
-					field = "Bionic_" + t.Name
-					prefix = "target.bionic_" + t.Name
-					a.appendProperties(ctx, genProps, targetProp, field, prefix)
-				}
+				field := "Bionic"
+				prefix := "target.bionic"
+				m.appendProperties(ctx, genProps, targetProp, field, prefix)
 			}
 
 			// Handle target OS properties in the form:
@@ -1279,36 +1269,18 @@ func (a *ModuleBase) setArchProperties(ctx BottomUpMutatorContext) {
 			//     not_windows: {
 			//         key: value,
 			//     },
-			//     linux_glibc_x86: {
-			//         key: value,
-			//     },
-			//     linux_glibc_arm: {
-			//         key: value,
-			//     },
 			//     android {
 			//         key: value,
 			//     },
-			//     android_arm {
-			//         key: value,
-			//     },
-			//     android_x86 {
-			//         key: value,
-			//     },
 			// },
-			field = os.Field
-			prefix = "target." + os.Name
-			a.appendProperties(ctx, genProps, targetProp, field, prefix)
-
-			if arch.ArchType != Common {
-				field = os.Field + "_" + t.Name
-				prefix = "target." + os.Name + "_" + t.Name
-				a.appendProperties(ctx, genProps, targetProp, field, prefix)
-			}
+			field := os.Field
+			prefix := "target." + os.Name
+			m.appendProperties(ctx, genProps, targetProp, field, prefix)
 
 			if (os.Class == Host || os.Class == HostCross) && os != Windows {
 				field := "Not_windows"
 				prefix := "target.not_windows"
-				a.appendProperties(ctx, genProps, targetProp, field, prefix)
+				m.appendProperties(ctx, genProps, targetProp, field, prefix)
 			}
 
 			// Handle 64-bit device properties in the form:
@@ -1328,20 +1300,155 @@ func (a *ModuleBase) setArchProperties(ctx BottomUpMutatorContext) {
 				if ctx.Config().Android64() {
 					field := "Android64"
 					prefix := "target.android64"
-					a.appendProperties(ctx, genProps, targetProp, field, prefix)
+					m.appendProperties(ctx, genProps, targetProp, field, prefix)
 				} else {
 					field := "Android32"
 					prefix := "target.android32"
-					a.appendProperties(ctx, genProps, targetProp, field, prefix)
+					m.appendProperties(ctx, genProps, targetProp, field, prefix)
+				}
+			}
+		}
+	}
+}
+
+// Rewrite the module's properties structs to contain arch-specific values.
+func (m *ModuleBase) setArchProperties(ctx BottomUpMutatorContext) {
+	arch := m.Arch()
+	os := m.Os()
+
+	for i := range m.generalProperties {
+		genProps := m.generalProperties[i]
+		if m.archProperties[i] == nil {
+			continue
+		}
+		for _, archProperties := range m.archProperties[i] {
+			archPropValues := reflect.ValueOf(archProperties).Elem()
+
+			archProp := archPropValues.FieldByName("Arch").Elem()
+			multilibProp := archPropValues.FieldByName("Multilib").Elem()
+			targetProp := archPropValues.FieldByName("Target").Elem()
+
+			// Handle arch-specific properties in the form:
+			// arch: {
+			//     arm64: {
+			//         key: value,
+			//     },
+			// },
+			t := arch.ArchType
+
+			if arch.ArchType != Common {
+				field := proptools.FieldNameForProperty(t.Name)
+				prefix := "arch." + t.Name
+				archStruct := m.appendProperties(ctx, genProps, archProp, field, prefix)
+
+				// Handle arch-variant-specific properties in the form:
+				// arch: {
+				//     variant: {
+				//         key: value,
+				//     },
+				// },
+				v := variantReplacer.Replace(arch.ArchVariant)
+				if v != "" {
+					field := proptools.FieldNameForProperty(v)
+					prefix := "arch." + t.Name + "." + v
+					m.appendProperties(ctx, genProps, archStruct, field, prefix)
 				}
 
+				// Handle cpu-variant-specific properties in the form:
+				// arch: {
+				//     variant: {
+				//         key: value,
+				//     },
+				// },
+				if arch.CpuVariant != arch.ArchVariant {
+					c := variantReplacer.Replace(arch.CpuVariant)
+					if c != "" {
+						field := proptools.FieldNameForProperty(c)
+						prefix := "arch." + t.Name + "." + c
+						m.appendProperties(ctx, genProps, archStruct, field, prefix)
+					}
+				}
+
+				// Handle arch-feature-specific properties in the form:
+				// arch: {
+				//     feature: {
+				//         key: value,
+				//     },
+				// },
+				for _, feature := range arch.ArchFeatures {
+					field := proptools.FieldNameForProperty(feature)
+					prefix := "arch." + t.Name + "." + feature
+					m.appendProperties(ctx, genProps, archStruct, field, prefix)
+				}
+
+				// Handle multilib-specific properties in the form:
+				// multilib: {
+				//     lib32: {
+				//         key: value,
+				//     },
+				// },
+				field = proptools.FieldNameForProperty(t.Multilib)
+				prefix = "multilib." + t.Multilib
+				m.appendProperties(ctx, genProps, multilibProp, field, prefix)
+			}
+
+			// Handle combined OS-feature and arch specific properties in the form:
+			// target: {
+			//     bionic_x86: {
+			//         key: value,
+			//     },
+			// }
+			if os.Linux() && arch.ArchType != Common {
+				field := "Linux_" + arch.ArchType.Name
+				prefix := "target.linux_" + arch.ArchType.Name
+				m.appendProperties(ctx, genProps, targetProp, field, prefix)
+			}
+
+			if os.Bionic() && arch.ArchType != Common {
+				field := "Bionic_" + t.Name
+				prefix := "target.bionic_" + t.Name
+				m.appendProperties(ctx, genProps, targetProp, field, prefix)
+			}
+
+			// Handle combined OS and arch specific properties in the form:
+			// target: {
+			//     linux_glibc_x86: {
+			//         key: value,
+			//     },
+			//     linux_glibc_arm: {
+			//         key: value,
+			//     },
+			//     android_arm {
+			//         key: value,
+			//     },
+			//     android_x86 {
+			//         key: value,
+			//     },
+			// },
+			if arch.ArchType != Common {
+				field := os.Field + "_" + t.Name
+				prefix := "target." + os.Name + "_" + t.Name
+				m.appendProperties(ctx, genProps, targetProp, field, prefix)
+			}
+
+			// Handle arm on x86 properties in the form:
+			// target {
+			//     arm_on_x86 {
+			//         key: value,
+			//     },
+			//     arm_on_x86_64 {
+			//         key: value,
+			//     },
+			// },
+			// TODO(ccross): is this still necessary with native bridge?
+			if os.Class == Device {
 				if (arch.ArchType == X86 && (hasArmAbi(arch) ||
 					hasArmAndroidArch(ctx.Config().Targets[Android]))) ||
 					(arch.ArchType == Arm &&
 						hasX86AndroidArch(ctx.Config().Targets[Android])) {
 					field := "Arm_on_x86"
 					prefix := "target.arm_on_x86"
-					a.appendProperties(ctx, genProps, targetProp, field, prefix)
+					m.appendProperties(ctx, genProps, targetProp, field, prefix)
 				}
 				if (arch.ArchType == X86_64 && (hasArmAbi(arch) ||
 					hasArmAndroidArch(ctx.Config().Targets[Android]))) ||
@@ -1349,7 +1456,12 @@ func (a *ModuleBase) setArchProperties(ctx BottomUpMutatorContext) {
 						hasX8664AndroidArch(ctx.Config().Targets[Android])) {
 					field := "Arm_on_x86_64"
 					prefix := "target.arm_on_x86_64"
-					a.appendProperties(ctx, genProps, targetProp, field, prefix)
+					m.appendProperties(ctx, genProps, targetProp, field, prefix)
+				}
+				if os == Android && m.Target().NativeBridge == NativeBridgeEnabled {
+					field := "Native_bridge"
+					prefix := "target.native_bridge"
+					m.appendProperties(ctx, genProps, targetProp, field, prefix)
 				}
 			}
 		}
@@ -1378,7 +1490,9 @@ func decodeTargetProductVariables(config *config) (map[OsType][]Target, error) {
 	targets := make(map[OsType][]Target)
 	var targetErr error
 
-	addTarget := func(os OsType, archName string, archVariant, cpuVariant *string, abi []string) {
+	addTarget := func(os OsType, archName string, archVariant, cpuVariant *string, abi []string,
+		nativeBridgeEnabled NativeBridgeSupport, nativeBridgeHostArchName *string,
+		nativeBridgeRelativePath *string) {
 		if targetErr != nil {
 			return
 		}
@@ -1388,11 +1502,21 @@ func decodeTargetProductVariables(config *config) (map[OsType][]Target, error) {
 			targetErr = err
 			return
 		}
+		nativeBridgeRelativePathStr := String(nativeBridgeRelativePath)
+		nativeBridgeHostArchNameStr := String(nativeBridgeHostArchName)
+
+		// Use guest arch as relative install path by default
+		if nativeBridgeEnabled && nativeBridgeRelativePathStr == "" {
+			nativeBridgeRelativePathStr = arch.ArchType.String()
+		}
 
 		targets[os] = append(targets[os],
 			Target{
-				Os:   os,
-				Arch: arch,
+				Os:                       os,
+				Arch:                     arch,
+				NativeBridge:             nativeBridgeEnabled,
+				NativeBridgeHostArchName: nativeBridgeHostArchNameStr,
+				NativeBridgeRelativePath: nativeBridgeRelativePathStr,
 			})
 	}
 
@@ -1400,14 +1524,14 @@ func decodeTargetProductVariables(config *config) (map[OsType][]Target, error) {
 		return nil, fmt.Errorf("No host primary architecture set")
 	}
 
-	addTarget(BuildOs, *variables.HostArch, nil, nil, nil)
+	addTarget(BuildOs, *variables.HostArch, nil, nil, nil, NativeBridgeDisabled, nil, nil)
 
 	if variables.HostSecondaryArch != nil && *variables.HostSecondaryArch != "" {
-		addTarget(BuildOs, *variables.HostSecondaryArch, nil, nil, nil)
+		addTarget(BuildOs, *variables.HostSecondaryArch, nil, nil, nil, NativeBridgeDisabled, nil, nil)
 	}
 
 	if Bool(config.Host_bionic) {
-		addTarget(LinuxBionic, "x86_64", nil, nil, nil)
+		addTarget(LinuxBionic, "x86_64", nil, nil, nil, NativeBridgeDisabled, nil, nil)
 	}
 
 	if String(variables.CrossHost) != "" {
@@ -1420,10 +1544,10 @@ func decodeTargetProductVariables(config *config) (map[OsType][]Target, error) {
 			return nil, fmt.Errorf("No cross-host primary architecture set")
 		}
 
-		addTarget(crossHostOs, *variables.CrossHostArch, nil, nil, nil)
+		addTarget(crossHostOs, *variables.CrossHostArch, nil, nil, nil, NativeBridgeDisabled, nil, nil)
 
 		if variables.CrossHostSecondaryArch != nil && *variables.CrossHostSecondaryArch != "" {
-			addTarget(crossHostOs, *variables.CrossHostSecondaryArch, nil, nil, nil)
+			addTarget(crossHostOs, *variables.CrossHostSecondaryArch, nil, nil, nil, NativeBridgeDisabled, nil, nil)
 		}
 	}
 
@@ -1434,17 +1558,30 @@ func decodeTargetProductVariables(config *config) (map[OsType][]Target, error) {
 		}
 
 		addTarget(target, *variables.DeviceArch, variables.DeviceArchVariant,
-			variables.DeviceCpuVariant, variables.DeviceAbi)
+			variables.DeviceCpuVariant, variables.DeviceAbi, NativeBridgeDisabled, nil, nil)
 
 		if variables.DeviceSecondaryArch != nil && *variables.DeviceSecondaryArch != "" {
 			addTarget(Android, *variables.DeviceSecondaryArch,
 				variables.DeviceSecondaryArchVariant, variables.DeviceSecondaryCpuVariant,
-				variables.DeviceSecondaryAbi)
+				variables.DeviceSecondaryAbi, NativeBridgeDisabled, nil, nil)
+		}
 
-			deviceArches := targets[Android]
-			if deviceArches[0].Arch.ArchType.Multilib == deviceArches[1].Arch.ArchType.Multilib {
-				deviceArches[1].Arch.Native = false
-			}
+		if variables.NativeBridgeArch != nil && *variables.NativeBridgeArch != "" {
+			addTarget(Android, *variables.NativeBridgeArch,
+				variables.NativeBridgeArchVariant, variables.NativeBridgeCpuVariant,
+				variables.NativeBridgeAbi, NativeBridgeEnabled, variables.DeviceArch,
+				variables.NativeBridgeRelativePath)
+		}
+
+		if variables.DeviceSecondaryArch != nil && *variables.DeviceSecondaryArch != "" &&
+			variables.NativeBridgeSecondaryArch != nil && *variables.NativeBridgeSecondaryArch != "" {
+			addTarget(Android, *variables.NativeBridgeSecondaryArch,
+				variables.NativeBridgeSecondaryArchVariant,
+				variables.NativeBridgeSecondaryCpuVariant,
+				variables.NativeBridgeSecondaryAbi,
+				NativeBridgeEnabled,
+				variables.DeviceSecondaryArch,
+				variables.NativeBridgeSecondaryRelativePath)
 		}
 	}
 
@@ -1457,18 +1594,13 @@ func decodeTargetProductVariables(config *config) (map[OsType][]Target, error) {
 
 // hasArmAbi returns true if arch has at least one arm ABI
 func hasArmAbi(arch Arch) bool {
-	for _, abi := range arch.Abi {
-		if strings.HasPrefix(abi, "arm") {
-			return true
-		}
-	}
-	return false
+	return PrefixInList(arch.Abi, "arm")
 }
 
-// hasArmArch returns true if targets has at least arm Android arch
+// hasArmArch returns true if targets has at least non-native_bridge arm Android arch
 func hasArmAndroidArch(targets []Target) bool {
 	for _, target := range targets {
-		if target.Os == Android && target.Arch.ArchType == Arm {
+		if target.Os == Android && target.Arch.ArchType == Arm && target.NativeBridge == NativeBridgeDisabled {
 			return true
 		}
 	}
@@ -1558,7 +1690,16 @@ func getMegaDeviceConfig() []archConfig {
 
 func getNdkAbisConfig() []archConfig {
 	return []archConfig{
-		{"arm", "armv7-a", "", []string{"armeabi"}},
+		{"arm", "armv7-a", "", []string{"armeabi-v7a"}},
+		{"arm64", "armv8-a", "", []string{"arm64-v8a"}},
+		{"x86", "", "", []string{"x86"}},
+		{"x86_64", "", "", []string{"x86_64"}},
+	}
+}
+
+func getAmlAbisConfig() []archConfig {
+	return []archConfig{
+		{"arm", "armv7-a", "", []string{"armeabi-v7a"}},
 		{"arm64", "armv8-a", "", []string{"arm64-v8a"}},
 		{"x86", "", "", []string{"x86"}},
 		{"x86_64", "", "", []string{"x86_64"}},
@@ -1574,7 +1715,7 @@ func decodeArchSettings(os OsType, archConfigs []archConfig) ([]Target, error) {
 		if err != nil {
 			return nil, err
 		}
-		arch.Native = false
+
 		ret = append(ret, Target{
 			Os:   Android,
 			Arch: arch,
@@ -1603,7 +1744,6 @@ func decodeArch(os OsType, arch string, archVariant, cpuVariant *string, abi []s
 		ArchVariant: stringPtr(archVariant),
 		CpuVariant:  stringPtr(cpuVariant),
 		Abi:         abi,
-		Native:      true,
 	}
 
 	if a.ArchVariant == a.ArchType.Name || a.ArchVariant == "generic" {
@@ -1644,6 +1784,8 @@ func filterMultilibTargets(targets []Target, multilib string) []Target {
 	return ret
 }
 
+// Return the set of Os specific common architecture targets for each Os in a list of
+// targets.
 func getCommonTargets(targets []Target) []Target {
 	var ret []Target
 	set := make(map[string]bool)

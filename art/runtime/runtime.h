@@ -27,10 +27,10 @@
 #include <memory>
 #include <vector>
 
-#include "base/file_utils.h"
 #include "base/locks.h"
 #include "base/macros.h"
 #include "base/mem_map.h"
+#include "base/string_view_cpp20.h"
 #include "deoptimization_kind.h"
 #include "dex/dex_file_types.h"
 #include "experimental_flags.h"
@@ -38,10 +38,13 @@
 #include "gc_root.h"
 #include "instrumentation.h"
 #include "jdwp_provider.h"
+#include "jni/jni_id_manager.h"
+#include "jni_id_type.h"
 #include "obj_ptr.h"
 #include "offsets.h"
 #include "process_state.h"
 #include "quick/quick_method_frame_info.h"
+#include "reflective_value_visitor.h"
 #include "runtime_stats.h"
 
 namespace art {
@@ -84,6 +87,7 @@ class ArtMethod;
 enum class CalleeSaveType: uint32_t;
 class ClassLinker;
 class CompilerCallbacks;
+class Dex2oatImageTest;
 class DexFile;
 enum class InstructionSet;
 class InternTable;
@@ -123,6 +127,9 @@ class Runtime {
   // Creates and initializes a new runtime.
   static bool Create(const RuntimeOptions& raw_options, bool ignore_unrecognized)
       SHARED_TRYLOCK_FUNCTION(true, Locks::mutator_lock_);
+
+  bool EnsurePluginLoaded(const char* plugin_name, std::string* error_msg);
+  bool EnsurePerfettoPlugin(std::string* error_msg);
 
   // IsAotCompiler for compilers that don't have a running runtime. Only dex2oat currently.
   bool IsAotCompiler() const {
@@ -164,12 +171,25 @@ class Runtime {
     return is_zygote_;
   }
 
+  bool IsPrimaryZygote() const {
+    return is_primary_zygote_;
+  }
+
   bool IsSystemServer() const {
     return is_system_server_;
   }
 
-  void SetSystemServer(bool value) {
-    is_system_server_ = value;
+  void SetAsSystemServer() {
+    is_system_server_ = true;
+    is_zygote_ = false;
+    is_primary_zygote_ = false;
+  }
+
+  void SetAsZygoteChild(bool is_system_server, bool is_zygote) {
+    // System server should have been set earlier in SetAsSystemServer.
+    CHECK_EQ(is_system_server_, is_system_server);
+    is_zygote_ = is_zygote;
+    is_primary_zygote_ = false;
   }
 
   bool IsExplicitGcDisabled() const {
@@ -192,10 +212,6 @@ class Runtime {
 
   const std::string& GetImageLocation() const {
     return image_location_;
-  }
-
-  bool IsUsingApexBootImageLocation() const {
-    return is_using_apex_boot_image_location_;
   }
 
   // Starts a runtime, which may cause threads to be started and code to run.
@@ -274,6 +290,10 @@ class Runtime {
 
   ClassLinker* GetClassLinker() const {
     return class_linker_;
+  }
+
+  jni::JniIdManager* GetJniIdManager() const {
+    return jni_id_manager_.get();
   }
 
   size_t GetDefaultStackSize() const {
@@ -376,6 +396,17 @@ class Runtime {
   void SweepSystemWeaks(IsMarkedVisitor* visitor)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Walk all reflective objects and visit their targets as well as any method/fields held by the
+  // runtime threads that are marked as being reflective.
+  void VisitReflectiveTargets(ReflectiveValueVisitor* visitor) REQUIRES(Locks::mutator_lock_);
+  // Helper for visiting reflective targets with lambdas for both field and method reflective
+  // targets.
+  template <typename FieldVis, typename MethodVis>
+  void VisitReflectiveTargets(FieldVis&& fv, MethodVis&& mv) REQUIRES(Locks::mutator_lock_) {
+    FunctionReflectiveValueVisitor frvv(fv, mv);
+    VisitReflectiveTargets(&frvv);
+  }
+
   // Returns a special method that calls into a trampoline for runtime method resolution
   ArtMethod* GetResolutionMethod();
 
@@ -402,7 +433,7 @@ class Runtime {
     imt_conflict_method_ = nullptr;
   }
 
-  void FixupConflictTables();
+  void FixupConflictTables() REQUIRES_SHARED(Locks::mutator_lock_);
   void SetImtConflictMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
   void SetImtUnimplementedMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -442,7 +473,7 @@ class Runtime {
 
   ArtMethod* CreateCalleeSaveMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  int32_t GetStat(int kind);
+  uint64_t GetStat(int kind);
 
   RuntimeStats* GetStats() {
     return &stats_;
@@ -466,6 +497,10 @@ class Runtime {
     return jit_.get();
   }
 
+  jit::JitCodeCache* GetJitCodeCache() const {
+    return jit_code_cache_.get();
+  }
+
   // Returns true if JIT compilations are enabled. GetJit() will be not null in this case.
   bool UseJitCompilation() const;
 
@@ -474,6 +509,7 @@ class Runtime {
   void InitNonZygoteOrPostFork(
       JNIEnv* env,
       bool is_system_server,
+      bool is_child_zygote,
       NativeBridgeAction action,
       const char* isa,
       bool profile_system_server = false);
@@ -491,7 +527,6 @@ class Runtime {
 
   // Transaction support.
   bool IsActiveTransaction() const;
-  void EnterTransactionMode();
   void EnterTransactionMode(bool strict, mirror::Class* root);
   void ExitTransactionMode();
   void RollbackAllTransactions() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -565,6 +600,14 @@ class Runtime {
     return core_platform_api_policy_;
   }
 
+  void SetTestApiEnforcementPolicy(hiddenapi::EnforcementPolicy policy) {
+    test_api_policy_ = policy;
+  }
+
+  hiddenapi::EnforcementPolicy GetTestApiEnforcementPolicy() const {
+    return test_api_policy_;
+  }
+
   void SetHiddenApiExemptions(const std::vector<std::string>& exemptions) {
     hidden_api_exemptions_ = exemptions;
   }
@@ -633,6 +676,19 @@ class Runtime {
     return target_sdk_version_;
   }
 
+  void SetDisabledCompatChanges(const std::set<uint64_t>& disabled_changes) {
+    disabled_compat_changes_ = disabled_changes;
+  }
+
+  std::set<uint64_t> GetDisabledCompatChanges() const {
+    return disabled_compat_changes_;
+  }
+
+  bool isChangeEnabled(uint64_t change_id) const {
+    // TODO(145743810): add an up call to java to log to statsd
+    return disabled_compat_changes_.count(change_id) == 0;
+  }
+
   uint32_t GetZygoteMaxFailedBoots() const {
     return zygote_max_failed_boots_;
   }
@@ -670,6 +726,14 @@ class Runtime {
     return is_java_debuggable_;
   }
 
+  void SetProfileableFromShell(bool value) {
+    is_profileable_from_shell_ = value;
+  }
+
+  bool IsProfileableFromShell() const {
+    return is_profileable_from_shell_;
+  }
+
   void SetJavaDebuggable(bool value);
 
   // Deoptimize the boot image, called for Java debuggable apps.
@@ -682,6 +746,8 @@ class Runtime {
   void SetNativeDebuggable(bool value) {
     is_native_debuggable_ = value;
   }
+
+  void SetSignalHookDebuggable(bool value);
 
   bool AreNonStandardExitsEnabled() const {
     return non_standard_exits_enabled_;
@@ -716,10 +782,24 @@ class Runtime {
   }
 
   // Called from class linker.
-  void SetSentinel(mirror::Object* sentinel) REQUIRES_SHARED(Locks::mutator_lock_);
+  void SetSentinel(ObjPtr<mirror::Object> sentinel) REQUIRES_SHARED(Locks::mutator_lock_);
   // For testing purpose only.
   // TODO: Remove this when this is no longer needed (b/116087961).
   GcRoot<mirror::Object> GetSentinel() REQUIRES_SHARED(Locks::mutator_lock_);
+
+
+  // Use a sentinel for marking entries in a table that have been cleared.
+  // This helps diagnosing in case code tries to wrongly access such
+  // entries.
+  static mirror::Class* GetWeakClassSentinel() {
+    return reinterpret_cast<mirror::Class*>(0xebadbeef);
+  }
+
+  // Helper for the GC to process a weak class in a table.
+  static void ProcessWeakClass(GcRoot<mirror::Class>* root_ptr,
+                               IsMarkedVisitor* visitor,
+                               mirror::Class* update)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Create a normal LinearAlloc or low 4gb version if we are 64 bit AOT compiler.
   LinearAlloc* CreateLinearAlloc();
@@ -831,6 +911,18 @@ class Runtime {
     return jdwp_provider_;
   }
 
+  JniIdType GetJniIdType() const {
+    return jni_ids_indirection_;
+  }
+
+  bool CanSetJniIdType() const {
+    return GetJniIdType() == JniIdType::kSwapablePointer;
+  }
+
+  // Changes the JniIdType to the given type. Only allowed if CanSetJniIdType(). All threads must be
+  // suspended to call this function.
+  void SetJniIdType(JniIdType t);
+
   uint32_t GetVerifierLoggingThresholdMs() const {
     return verifier_logging_threshold_ms_;
   }
@@ -865,6 +957,10 @@ class Runtime {
     load_app_image_startup_cache_ = enabled;
   }
 
+  // Reset the startup completed status so that we can call NotifyStartupCompleted again. Should
+  // only be used for testing.
+  void ResetStartupCompleted();
+
   // Notify the runtime that application startup is considered completed. Only has effect for the
   // first call.
   void NotifyStartupCompleted();
@@ -875,6 +971,17 @@ class Runtime {
   gc::space::ImageSpaceLoadingOrder GetImageSpaceLoadingOrder() const {
     return image_space_loading_order_;
   }
+
+  bool IsVerifierMissingKThrowFatal() const {
+    return verifier_missing_kthrow_fatal_;
+  }
+
+  bool IsPerfettoHprofEnabled() const {
+    return perfetto_hprof_enabled_;
+  }
+
+  // Return true if we should load oat files as executable or not.
+  bool GetOatFilesExecutable() const;
 
  private:
   static void InitPlatformSignalHandlers();
@@ -945,6 +1052,7 @@ class Runtime {
 
   CompilerCallbacks* compiler_callbacks_;
   bool is_zygote_;
+  bool is_primary_zygote_;
   bool is_system_server_;
   bool must_relocate_;
   bool is_concurrent_gc_enabled_;
@@ -955,7 +1063,6 @@ class Runtime {
   std::vector<std::string> compiler_options_;
   std::vector<std::string> image_compiler_options_;
   std::string image_location_;
-  bool is_using_apex_boot_image_location_;
 
   std::vector<std::string> boot_class_path_;
   std::vector<std::string> boot_class_path_locations_;
@@ -996,6 +1103,8 @@ class Runtime {
   ClassLinker* class_linker_;
 
   SignalCatcher* signal_catcher_;
+
+  std::unique_ptr<jni::JniIdManager> jni_id_manager_;
 
   std::unique_ptr<JavaVMExt> java_vm_;
 
@@ -1073,6 +1182,9 @@ class Runtime {
   // Specifies target SDK version to allow workarounds for certain API levels.
   uint32_t target_sdk_version_;
 
+  // A set of disabled compat changes for the running app, all other changes are enabled.
+  std::set<uint64_t> disabled_compat_changes_;
+
   // Implicit checks flags.
   bool implicit_null_checks_;       // NullPointer checks are implicit.
   bool implicit_so_checks_;         // StackOverflow checks are implicit.
@@ -1111,6 +1223,8 @@ class Runtime {
   // Whether Java code needs to be debuggable.
   bool is_java_debuggable_;
 
+  bool is_profileable_from_shell_ = false;
+
   // The maximum number of failed boots we allow before pruning the dalvik cache
   // and trying again. This option is only inspected when we're running as a
   // zygote.
@@ -1143,6 +1257,9 @@ class Runtime {
 
   // Whether access checks on core platform API should be performed.
   hiddenapi::EnforcementPolicy core_platform_api_policy_;
+
+  // Whether access checks on test API should be performed.
+  hiddenapi::EnforcementPolicy test_api_policy_;
 
   // List of signature prefixes of methods that have been removed from the blacklist, and treated
   // as if whitelisted.
@@ -1180,6 +1297,14 @@ class Runtime {
   // The jdwp provider we were configured with.
   JdwpProvider jdwp_provider_;
 
+  // True if jmethodID and jfieldID are opaque Indices. When false (the default) these are simply
+  // pointers. This is set by -Xopaque-jni-ids:{true,false}.
+  JniIdType jni_ids_indirection_;
+
+  // Set to false in cases where we want to directly control when jni-id
+  // indirection is changed. This is intended only for testing JNI id swapping.
+  bool automatically_set_jni_ids_indirection_;
+
   // Saved environment.
   class EnvSnapshot {
    public:
@@ -1214,10 +1339,15 @@ class Runtime {
   gc::space::ImageSpaceLoadingOrder image_space_loading_order_ =
       gc::space::ImageSpaceLoadingOrder::kSystemFirst;
 
+  bool verifier_missing_kthrow_fatal_;
+  bool perfetto_hprof_enabled_;
+
   // Note: See comments on GetFaultMessage.
   friend std::string GetFaultMessageForAbortLogging();
+  friend class Dex2oatImageTest;
   friend class ScopedThreadPoolUsage;
   friend class OatFileAssistantTest;
+  class NotifyStartupCompletedTask;
 
   DISALLOW_COPY_AND_ASSIGN(Runtime);
 };

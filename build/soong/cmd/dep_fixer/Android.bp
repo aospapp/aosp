@@ -14,10 +14,6 @@
 
 blueprint_go_binary {
     name: "dep_fixer",
-    deps: ["androidmk-parser"],
-    srcs: [
-        "main.go",
-        "deps.go",
-    ],
-    testSrcs: ["deps_test.go"],
+    deps: ["soong-makedeps"],
+    srcs: ["main.go"],
 }

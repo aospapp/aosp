@@ -48,8 +48,8 @@ DEFAULT_IRAT_DURATION = 60
 
 
 class TelWifiDataTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
 
         self.stress_test_number = self.get_stress_test_number()
 
@@ -85,6 +85,7 @@ class TelWifiDataTest(TelephonyBaseTest):
         ad = self.android_devices[0]
         toggle_airplane_mode(self.log, ad, False)
         if not ensure_network_generation(self.log, ad, GEN_4G,
+                                         MAX_WAIT_TIME_NW_SELECTION,
                                          NETWORK_SERVICE_DATA):
             return False
 

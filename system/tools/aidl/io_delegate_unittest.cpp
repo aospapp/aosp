@@ -42,5 +42,5 @@ TEST(IoDelegateTest, CurrentlyInfersLinuxAbsolutePath) {
   EXPECT_EQ(absolute_path[0], '/');
 }
 
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

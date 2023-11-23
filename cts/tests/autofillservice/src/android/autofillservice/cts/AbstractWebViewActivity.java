@@ -22,10 +22,10 @@ import android.widget.EditText;
 
 abstract class AbstractWebViewActivity extends AbstractAutoFillActivity {
 
-    static final String FAKE_DOMAIN = "y.u.no.real.server";
+    public static final String FAKE_DOMAIN = "y.u.no.real.server";
 
-    static final String HTML_NAME_USERNAME = "username";
-    static final String HTML_NAME_PASSWORD = "password";
+    public static final String HTML_NAME_USERNAME = "username";
+    public static final String HTML_NAME_PASSWORD = "password";
 
     protected MyWebView mWebView;
 

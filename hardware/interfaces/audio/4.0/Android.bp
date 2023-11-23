@@ -3,6 +3,8 @@
 hidl_interface {
     name: "android.hardware.audio@4.0",
     root: "android.hardware",
+    // TODO(b/153609531): remove when no longer needed.
+    native_bridge_supported: true,
     vndk: {
         enabled: true,
     },
@@ -24,4 +26,3 @@ hidl_interface {
     gen_java: false,
     gen_java_constants: true,
 }
-

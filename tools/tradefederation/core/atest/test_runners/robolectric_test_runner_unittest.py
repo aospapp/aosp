@@ -66,11 +66,9 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
 
         json_event_data = json.dumps(event_data)
         data = '%s %s\n\n' %(event_name, json_event_data)
-        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=False)
-        robo_proc = subprocess.Popen("echo '%s' >> %s && sleep %s"
-                                     %(data,
-                                       event_file.name,
-                                       str(self.polling_time)), shell=True)
+        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
+        subprocess.call("echo '%s' -n >> %s" %(data, event_file.name), shell=True)
+        robo_proc = subprocess.Popen("sleep %s" %str(self.polling_time * 2), shell=True)
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
         calls = [mock.call.process_event(event_name, event_data)]
         mock_pe.assert_has_calls(calls)
@@ -105,11 +103,8 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
                               'at FailureStrategy.fail(FailureStrategy.java:20)\n'}
         data = '%s %s\n\n'%(event_name, json.dumps(event_data))
         event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
-        robo_proc = subprocess.Popen("echo '%s' >> %s && sleep %s"
-                                     %(data,
-                                       event_file.name,
-                                       str(self.polling_time)),
-                                     shell=True)
+        subprocess.call("echo '%s' -n >> %s" %(data, event_file.name), shell=True)
+        robo_proc = subprocess.Popen("sleep %s" %str(self.polling_time * 2), shell=True)
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
         calls = [mock.call.process_event(event_name, event_data)]
         mock_pe.assert_has_calls(calls)
@@ -135,15 +130,12 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
                             'testName':'someTestName2'}),
             ('TEST_RUN_ENDED', {}),
             ('TEST_MODULE_ENDED', {'foo': 'bar'}),]
-        data_data = ''
+        data = ''
         for event in events:
-            data_data += '%s %s\n\n'%(event[0], json.dumps(event[1]))
+            data += '%s %s\n\n'%(event[0], json.dumps(event[1]))
 
-        robo_proc = subprocess.Popen("echo '%s' >> %s && sleep %s"
-                                     %(data_data,
-                                       event_file.name,
-                                       str(self.polling_time)),
-                                     shell=True)
+        subprocess.call("echo '%s' -n >> %s" %(data, event_file.name), shell=True)
+        robo_proc = subprocess.Popen("sleep %s" %str(self.polling_time * 2), shell=True)
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
         calls = [mock.call.process_event(name, data) for name, data in events]
         mock_pe.assert_has_calls(calls)

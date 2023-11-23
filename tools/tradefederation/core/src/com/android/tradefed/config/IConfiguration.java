@@ -16,32 +16,32 @@
 
 package com.android.tradefed.config;
 
+import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildProvider;
 import com.android.tradefed.command.ICommandOptions;
-import com.android.tradefed.config.ConfigurationDef.OptionDef;
 import com.android.tradefed.device.IDeviceRecovery;
 import com.android.tradefed.device.IDeviceSelection;
 import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.device.metric.IMetricCollector;
-import com.android.tradefed.device.metric.target.DeviceSideCollectorSpecification;
 import com.android.tradefed.log.ILeveledLogOutput;
 import com.android.tradefed.postprocessor.IPostProcessor;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.retry.IRetryDecision;
 import com.android.tradefed.suite.checker.ISystemStatusChecker;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.coverage.CoverageOptions;
 import com.android.tradefed.util.keystore.IKeyStoreClient;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Configuration information for a TradeFederation invocation.
@@ -111,6 +111,9 @@ public interface IConfiguration {
      */
     public ILogSaver getLogSaver();
 
+    /** Returns the {@link IRetryDecision} used for the invocation. */
+    public IRetryDecision getRetryDecision();
+
     /**
      * Gets the {@link IMultiTargetPreparer}s from the configuration.
      *
@@ -140,12 +143,6 @@ public interface IConfiguration {
     public List<IPostProcessor> getPostProcessors();
 
     /**
-     * Gets the {@link DeviceSideCollectorSpecification} driving the device/target-side
-     * specification of the collectors and their options.
-     */
-    public DeviceSideCollectorSpecification getDeviceSideCollectorsSpec();
-
-    /**
      * Gets the {@link ICommandOptions} to use from the configuration.
      *
      * @return the {@link ICommandOptions} provided in the configuration.
@@ -161,6 +158,13 @@ public interface IConfiguration {
      * @return the {@link IDeviceSelection} provided in the configuration.
      */
     public IDeviceSelection getDeviceRequirements();
+
+    /**
+     * Gets the {@link CoverageOptions} to use from the configuration.
+     *
+     * @return the {@link CoverageOptions} provided in the configuration.
+     */
+    public CoverageOptions getCoverageOptions();
 
     /**
      * Generic interface to get the configuration object with the given type name.
@@ -260,6 +264,17 @@ public interface IConfiguration {
     public IConfiguration clone();
 
     /**
+     * Create a base clone from {@link #clone()} then deep clone the list of given config object.
+     *
+     * @param objectToDeepClone The list of configuration object to deep clone.
+     * @param client The keystore client.
+     * @return The partially deep cloned config.
+     * @throws ConfigurationException
+     */
+    public IConfiguration partialDeepClone(List<String> objectToDeepClone, IKeyStoreClient client)
+            throws ConfigurationException;
+
+    /**
      * Replace the current {@link IBuildProvider} in the configuration.
      *
      * @param provider the new {@link IBuildProvider}
@@ -272,6 +287,13 @@ public interface IConfiguration {
      * @param logger
      */
     public void setLogOutput(ILeveledLogOutput logger);
+
+    /**
+     * Set the {@link IRetryDecision}, replacing any existing value.
+     *
+     * @param decisionRetry
+     */
+    public void setRetryDecision(IRetryDecision decisionRetry);
 
     /**
      * Set the {@link ILogSaver}, replacing any existing value.
@@ -396,9 +418,6 @@ public interface IConfiguration {
     /** Set the list of {@link IMetricCollector}s, replacing any existing values. */
     public void setDeviceMetricCollectors(List<IMetricCollector> collectors);
 
-    /** Set the {@link DeviceSideCollectorSpecification}, replacing any existing values. */
-    public void setDeviceSideCollectorSpec(DeviceSideCollectorSpecification deviceCollectorSpec);
-
     /** Set the list of {@link IPostProcessor}s, replacing any existing values. */
     public void setPostProcessors(List<IPostProcessor> processors);
 
@@ -420,6 +439,9 @@ public interface IConfiguration {
      * Set the {@link TestDeviceOptions}, replacing any existing values
      */
     public void setDeviceOptions(TestDeviceOptions deviceOptions);
+
+    /** Set the {@link CoverageOptions}, replacing any existing values. */
+    public void setCoverageOptions(CoverageOptions coverageOptions);
 
     /**
      * Generic method to set the config object with the given name, replacing any existing value.
@@ -480,50 +502,6 @@ public interface IConfiguration {
             throws ConfigurationException;
 
     /**
-     * Returns a JSON representation of this configuration.
-     * <p/>
-     * The return value is a JSONArray containing JSONObjects to represent each configuration
-     * object. Each configuration object entry has the following structure:
-     * <pre>
-     * {@code
-     *   &#123;
-     *     "alias": "device-unavail-email",
-     *     "name": "result_reporter",
-     *     "class": "com.android.tradefed.result.DeviceUnavailEmailResultReporter",
-     *     "options": [ ... ]
-     *   &#125;
-     * }
-     * </pre>
-     * The "options" entry is a JSONArray containing JSONObjects to represent each @Option annotated
-     * field. Each option entry has the following structure:
-     * <pre>
-     * {@code
-     *   &#123;
-     *     "updateRule": "LAST",
-     *     "isTimeVal": false,
-     *     "source": "google\/template\/reporters\/asit",
-     *     "importance": "IF_UNSET",
-     *     "description": "The envelope-sender address to use for the messages.",
-     *     "mandatory": false,
-     *     "name": "sender",
-     *     "javaClass": "java.lang.String",
-     *     "value": "tffail@google.com"
-     *   &#125;
-     * }
-     * </pre>
-     * Most of the values come from the @Option annotation. 'javaClass' is the name of the
-     * underlying java class for this option. 'value' is a JSON representation of the field's
-     * current value. 'source' is the set of config names which set the field's value. For regular
-     * objects or Collections, 'source' is a JSONArray containing each contributing config's name.
-     * For map fields, sources for each key are tracked individually and stored in a JSONObject.
-     * Each key / value pair in the JSONObject corresponds to a key in the map and an array of its
-     * source configurations.
-     *
-     * @throws JSONException
-     */
-    public JSONArray getJsonCommandUsage() throws JSONException;
-
-    /**
      * Validate option values.
      * <p/>
      * Currently this will just validate that all mandatory options have been set
@@ -533,17 +511,24 @@ public interface IConfiguration {
     public void validateOptions() throws ConfigurationException;
 
     /**
-     * Validate option values.
+     * Resolve options of {@link File} pointing to a remote location. This requires {@link
+     * #cleanConfigurationData()} to be called to clean up the files.
      *
-     * <p>Currently this will just validate that all mandatory options have been set
-     *
-     * @param download Whether or not to download the files associated to a remote path
-     * @throws ConfigurationException if config is not valid
+     * @param resolver the {@link DynamicRemoteFileResolver} to resolve the files
+     * @throws BuildRetrievalError
+     * @throws ConfigurationException
      */
-    public void validateOptions(boolean download) throws ConfigurationException;
+    public void resolveDynamicOptions(DynamicRemoteFileResolver resolver)
+            throws ConfigurationException, BuildRetrievalError;
 
     /** Delete any files that was downloaded to resolved Option fields of remote files. */
-    public void cleanDynamicOptionFiles();
+    public void cleanConfigurationData();
+
+    /** Add files that must be cleaned during {@link #cleanConfigurationData()} */
+    public void addFilesToClean(Set<File> toBeCleaned);
+
+    /** Get the list of files that will be cleaned during {@link #cleanConfigurationData()} */
+    public Set<File> getFilesToClean();
 
     /**
      * Sets the command line used to create this {@link IConfiguration}.
@@ -594,6 +579,9 @@ public interface IConfiguration {
      * @throws IOException
      */
     public void dumpXml(
-            PrintWriter output, List<String> excludeFilters, boolean printDeprecatedOptions)
+            PrintWriter output,
+            List<String> excludeFilters,
+            boolean printDeprecatedOptions,
+            boolean printUnchangedOptions)
             throws IOException;
 }

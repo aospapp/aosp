@@ -17,8 +17,11 @@ package com.android.tradefed.testtype.suite;
 
 import com.android.annotations.VisibleForTesting;
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.DynamicRemoteFileResolver;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.IDeviceConfiguration;
@@ -26,6 +29,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.DeviceProperties;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.NullDevice;
 import com.android.tradefed.device.StubDevice;
@@ -34,6 +38,9 @@ import com.android.tradefed.device.metric.CollectorHelper;
 import com.android.tradefed.device.metric.IMetricCollector;
 import com.android.tradefed.device.metric.IMetricCollectorReceiver;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
 import com.android.tradefed.invoker.shard.token.ITokenRequest;
 import com.android.tradefed.invoker.shard.token.TokenProperty;
 import com.android.tradefed.log.ITestLogger;
@@ -42,6 +49,8 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ITestLoggerReceiver;
 import com.android.tradefed.result.ResultForwarder;
+import com.android.tradefed.retry.IRetryDecision;
+import com.android.tradefed.retry.RetryStrategy;
 import com.android.tradefed.suite.checker.ISystemStatusChecker;
 import com.android.tradefed.suite.checker.ISystemStatusCheckerReceiver;
 import com.android.tradefed.suite.checker.StatusCheckerResult;
@@ -52,7 +61,6 @@ import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
-import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IReportNotExecuted;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
@@ -66,6 +74,9 @@ import com.android.tradefed.util.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -80,6 +91,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Abstract class used to run Test Suite. This class provide the base of how the Suite will be run.
@@ -88,7 +100,6 @@ import java.util.Set;
 public abstract class ITestSuite
         implements IRemoteTest,
                 IDeviceTest,
-                IMultiDeviceTest,
                 IBuildReceiver,
                 ISystemStatusCheckerReceiver,
                 IShardableTest,
@@ -98,30 +109,8 @@ public abstract class ITestSuite
                 IMetricCollectorReceiver,
                 IConfigurationReceiver,
                 IReportNotExecuted,
-                ITokenRequest {
-
-    /** The Retry Strategy to be used when re-running some tests. */
-    public enum RetryStrategy {
-        /** Rerun all the tests for the number of attempts specified. */
-        ITERATIONS,
-        /**
-         * Rerun all the tests until the max count is reached or a failure occurs whichever come
-         * first.
-         */
-        RERUN_UNTIL_FAILURE,
-        /**
-         * Rerun all the test case failures until passed or the max number of attempts specified.
-         */
-        RETRY_TEST_CASE_FAILURE,
-        /** Rerun all the test run failures until passed or the max number of attempts specified. */
-        RETRY_TEST_RUN_FAILURE,
-        /**
-         * Rerun all the test run and test cases failures until passed or the max number of attempts
-         * specified. Test run failures are rerun in priority (a.k.a. if a run failure and a test
-         * case failure occur, the run failure is rerun).
-         */
-        RETRY_ANY_FAILURE,
-    }
+                ITokenRequest,
+                ITestLoggerReceiver {
 
     public static final String SKIP_SYSTEM_STATUS_CHECKER = "skip-system-status-check";
     public static final String RUNNER_WHITELIST = "runner-whitelist";
@@ -132,9 +121,13 @@ public abstract class ITestSuite
     public static final String SKIP_HOST_ARCH_CHECK = "skip-host-arch-check";
     public static final String PRIMARY_ABI_RUN = "primary-abi-only";
     public static final String PARAMETER_KEY = "parameter";
+    public static final String MAINLINE_PARAMETER_KEY = "mainline-param";
+    public static final String ACTIVE_MAINLINE_PARAMETER_KEY = "active-mainline-parameter";
     public static final String TOKEN_KEY = "token";
     public static final String MODULE_METADATA_INCLUDE_FILTER = "module-metadata-include-filter";
     public static final String MODULE_METADATA_EXCLUDE_FILTER = "module-metadata-exclude-filter";
+    public static final String RANDOM_SEED = "random-seed";
+    public static final String REBOOT_BEFORE_TEST = "reboot-before-test";
 
     private static final String PRODUCT_CPU_ABI_KEY = "ro.product.cpu.abi";
 
@@ -178,9 +171,11 @@ public abstract class ITestSuite
     @Option(name = "reboot-per-module", description = "Reboot the device before every module run.")
     private boolean mRebootPerModule = false;
 
-    @Option(name = "reboot-at-last-retry",
-        description = "Reboot the device at the last intra-module retry")
-    private boolean mRebootAtLastRetry = false;
+    @Option(
+        name = REBOOT_BEFORE_TEST,
+        description = "Reboot the device before the test suite starts."
+    )
+    private boolean mRebootBeforeTest = false;
 
     @Option(name = "skip-all-system-status-check",
             description = "Whether all system status check between modules should be skipped")
@@ -203,16 +198,14 @@ public abstract class ITestSuite
     )
     private boolean mReportSystemChecker = false;
 
-    @Deprecated
     @Option(
         name = "random-order",
         description = "Whether randomizing the order of the modules to be ran or not."
     )
     private boolean mRandomOrder = false;
 
-    @Deprecated
     @Option(
-        name = "random-seed",
+        name = RANDOM_SEED,
         description = "Seed to randomize the order of the modules."
     )
     private long mRandomSeed = -1;
@@ -283,6 +276,13 @@ public abstract class ITestSuite
     private Set<String> mAllowedPreparers = new HashSet<>();
 
     @Option(
+        name = "enable-module-dynamic-download",
+        description =
+                "Whether or not to allow the downloading of dynamic @option files at module level."
+    )
+    private boolean mEnableDynamicDownload = false;
+
+    @Option(
         name = "intra-module-sharding",
         description = "Whether or not to allow intra-module sharding."
     )
@@ -294,13 +294,8 @@ public abstract class ITestSuite
     )
     private boolean mIsolatedModule = false;
 
-    @Option(
-        name = "reboot-before-test",
-        description = "Reboot the device before the test suite starts."
-    )
-    private boolean mRebootBeforeTest = false;
-
-    // [Options relate to module retry and intra-module retry][
+    /** @deprecated to be deleted when next version is deployed */
+    @Deprecated
     @Option(
         name = "max-testcase-run-count",
         description =
@@ -309,14 +304,17 @@ public abstract class ITestSuite
     )
     private int mMaxRunLimit = 1;
 
+    /** @deprecated to be deleted when next version is deployed */
+    @Deprecated
     @Option(
         name = "retry-strategy",
         description =
                 "The retry strategy to be used when re-running some tests with "
                         + "--max-testcase-run-count"
     )
-    private RetryStrategy mRetryStrategy = RetryStrategy.RETRY_TEST_CASE_FAILURE;
+    private RetryStrategy mRetryStrategy = RetryStrategy.NO_RETRY;
 
+    // [Options relate to module retry and intra-module retry][
     @Option(
         name = "merge-attempts",
         description = "Whether or not to use the merge the results of the different attempts."
@@ -326,7 +324,6 @@ public abstract class ITestSuite
 
     private ITestDevice mDevice;
     private IBuildInfo mBuildInfo;
-    private Map<ITestDevice, IBuildInfo> mDeviceInfos;
     private List<ISystemStatusChecker> mSystemStatusCheckers;
     private IInvocationContext mContext;
     private List<IMetricCollector> mMetricCollectors;
@@ -342,6 +339,20 @@ public abstract class ITestSuite
 
     // Current modules to run, null if not started to run yet.
     private List<ModuleDefinition> mRunModules = null;
+    private ModuleDefinition mModuleInProgress = null;
+    // Logger to be used to files.
+    private ITestLogger mCurrentLogger = null;
+    // Whether or not we are currently in split
+    private boolean mIsSplitting = false;
+
+    private boolean mDisableAutoRetryTimeReporting = false;
+
+    private DynamicRemoteFileResolver mDynamicResolver = new DynamicRemoteFileResolver();
+
+    @VisibleForTesting
+    void setDynamicResolver(DynamicRemoteFileResolver resolver) {
+        mDynamicResolver = resolver;
+    }
 
     /**
      * Get the current Guice {@link Injector} from the invocation. It should allow us to continue
@@ -377,10 +388,22 @@ public abstract class ITestSuite
      */
     private ITestSuite createInstance() {
         try {
-            return this.getClass().newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
+            return this.getClass().getDeclaredConstructor().newInstance();
+        } catch (InstantiationException
+                | IllegalAccessException
+                | InvocationTargetException
+                | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public File getTestsDir() throws FileNotFoundException {
+        IBuildInfo build = getBuildInfo();
+        if (build instanceof IDeviceBuildInfo) {
+            return ((IDeviceBuildInfo) build).getTestsDir();
+        }
+        // TODO: handle multi build?
+        throw new FileNotFoundException("Could not found a tests dir folder.");
     }
 
     private LinkedHashMap<String, IConfiguration> loadAndFilter() {
@@ -392,6 +415,7 @@ public abstract class ITestSuite
         // Apply our guice scope to all modules objects
         applyGuiceInjection(runConfig);
 
+        Set<String> moduleNames = new HashSet<>();
         LinkedHashMap<String, IConfiguration> filteredConfig = new LinkedHashMap<>();
         for (Entry<String, IConfiguration> config : runConfig.entrySet()) {
             if (!mModuleMetadataIncludeFilter.isEmpty()
@@ -411,10 +435,61 @@ public abstract class ITestSuite
                 continue;
             }
             filterPreparers(config.getValue(), mAllowedPreparers);
+
+            // Copy the CoverageOptions from the main configuration to the module configuration.
+            if (mMainConfiguration != null) {
+                config.getValue().setCoverageOptions(mMainConfiguration.getCoverageOptions());
+            }
+
             filteredConfig.put(config.getKey(), config.getValue());
+            moduleNames.add(config.getValue().getConfigurationDescription().getModuleName());
         }
+
+        if (mBuildInfo != null
+                && mBuildInfo.getRemoteFiles() != null
+                && mBuildInfo.getRemoteFiles().size() > 0) {
+            stageTestArtifacts(mDevice, moduleNames);
+        }
+
         runConfig.clear();
         return filteredConfig;
+    }
+
+    /** Helper to download all artifacts for the given modules. */
+    private void stageTestArtifacts(ITestDevice device, Set<String> modules) {
+        CLog.i(String.format("Start to stage test artifacts for %d modules.", modules.size()));
+        long startTime = System.currentTimeMillis();
+        // Include the file if its path contains a folder name matching any of the module.
+        String moduleRegex =
+                modules.stream()
+                        .map(m -> String.format("/%s/", m))
+                        .collect(Collectors.joining("|"));
+        List<String> includeFilters = Arrays.asList(moduleRegex);
+        // Ignore config file as it's part of config zip artifact that's staged already.
+        List<String> excludeFilters = Arrays.asList("[.]config$");
+        mDynamicResolver.setDevice(device);
+        mDynamicResolver.addExtraArgs(
+                mMainConfiguration.getCommandOptions().getDynamicDownloadArgs());
+        for (File remoteFile : mBuildInfo.getRemoteFiles()) {
+            try {
+                mDynamicResolver.resolvePartialDownloadZip(
+                        getTestsDir(), remoteFile.toString(), includeFilters, excludeFilters);
+            } catch (BuildRetrievalError | FileNotFoundException e) {
+                CLog.e(
+                        String.format(
+                                "Failed to download partial zip from %s for modules: %s",
+                                remoteFile, String.join(", ", modules)));
+                CLog.e(e);
+                throw new RuntimeException(e);
+            }
+        }
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        InvocationMetricLogger.addInvocationMetrics(
+                InvocationMetricKey.STAGE_TESTS_TIME, elapsedTime);
+        CLog.i(
+                String.format(
+                        "Staging test artifacts for %d modules finished in %s.",
+                        modules.size(), TimeUtil.formatElapsedTime(elapsedTime)));
     }
 
     /** Helper that creates and returns the list of {@link ModuleDefinition} to be executed. */
@@ -424,7 +499,6 @@ public abstract class ITestSuite
             // If we are sharded and already know what to run then we just do it.
             runModules.add(mDirectModule);
             mDirectModule.setDevice(mDevice);
-            mDirectModule.setDeviceInfos(mDeviceInfos);
             mDirectModule.setBuild(mBuildInfo);
             return runModules;
         }
@@ -447,8 +521,10 @@ public abstract class ITestSuite
                             preparersPerDevice,
                             config.getValue().getMultiTargetPreparers(),
                             config.getValue());
+            if (mDisableAutoRetryTimeReporting) {
+                module.disableAutoRetryReportingTime();
+            }
             module.setDevice(mDevice);
-            module.setDeviceInfos(mDeviceInfos);
             module.setBuild(mBuildInfo);
             runModules.add(module);
         }
@@ -479,6 +555,7 @@ public abstract class ITestSuite
         }
         CLog.i("Randomizing all the modules with seed: %s", randomSeed);
         Collections.shuffle(runModules, new Random(randomSeed));
+        mBuildInfo.addBuildAttribute(RANDOM_SEED, String.valueOf(randomSeed));
     }
 
     private void checkClassLoad(Set<String> classes, String type) {
@@ -518,7 +595,9 @@ public abstract class ITestSuite
 
     /** Generic run method for all test loaded from {@link #loadTests()}. */
     @Override
-    public final void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public final void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        mCurrentLogger = listener;
         // Load and check the module checkers, runners and preparers in black and whitelist
         checkClassLoad(mSystemStatusCheckBlacklist, SKIP_SYSTEM_STATUS_CHECKER);
         checkClassLoad(mAllowedRunners, RUNNER_WHITELIST);
@@ -585,17 +664,22 @@ public abstract class ITestSuite
                             .addDeviceBuildInfo(deviceName, mContext.getBuildInfo(deviceName));
                 }
                 listener.testModuleStarted(module.getModuleInvocationContext());
+                mModuleInProgress = module;
                 // Trigger module start on module level listener too
                 new ResultForwarder(moduleListeners)
                         .testModuleStarted(module.getModuleInvocationContext());
+                TestInformation moduleInfo =
+                        TestInformation.createModuleTestInfo(
+                                testInfo, module.getModuleInvocationContext());
                 try {
-                    runSingleModule(module, listener, moduleListeners, failureListener);
+                    runSingleModule(module, moduleInfo, listener, moduleListeners, failureListener);
                 } finally {
                     // Trigger module end on module level listener too
                     new ResultForwarder(moduleListeners).testModuleEnded();
                     // clear out module invocation context since we are now done with module
                     // execution
                     listener.testModuleEnded();
+                    mModuleInProgress = null;
                 }
                 // Module isolation routine
                 moduleIsolation(mContext, listener);
@@ -650,6 +734,7 @@ public abstract class ITestSuite
      * Helper method that handle running a single module logic.
      *
      * @param module The {@link ModuleDefinition} to be ran.
+     * @param moduleInfo The {@link TestInformation} for the module.
      * @param listener The {@link ITestInvocationListener} where to report results
      * @param moduleListeners The {@link ITestInvocationListener}s that runs at the module level.
      * @param failureListener special listener that we add to collect information on failures.
@@ -657,12 +742,13 @@ public abstract class ITestSuite
      */
     private void runSingleModule(
             ModuleDefinition module,
+            TestInformation moduleInfo,
             ITestInvocationListener listener,
             List<ITestInvocationListener> moduleListeners,
             TestFailureListener failureListener)
             throws DeviceNotAvailableException {
         if (mRebootPerModule) {
-            if ("user".equals(mDevice.getProperty("ro.build.type"))) {
+            if ("user".equals(mDevice.getProperty(DeviceProperties.BUILD_TYPE))) {
                 CLog.e(
                         "reboot-per-module should only be used during development, "
                                 + "this is a\" user\" build device");
@@ -682,13 +768,29 @@ public abstract class ITestSuite
         module.setMetricCollectors(CollectorHelper.cloneCollectors(mMetricCollectors));
         // Pass the main invocation logSaver
         module.setLogSaver(mMainConfiguration.getLogSaver());
-        // Pass the retry strategy to the module
-        module.setRetryStrategy(mRetryStrategy, mMergeAttempts);
-        // Pass the reboot strategy at the last intra-module retry to the module
-        module.setRebootAtLastRetry(mRebootAtLastRetry);
 
+        IRetryDecision decision = mMainConfiguration.getRetryDecision();
+        // Pass whether we should merge the attempts of not
+        if (mMergeAttempts
+                && decision.getMaxRetryCount() > 1
+                && !RetryStrategy.NO_RETRY.equals(decision.getRetryStrategy())) {
+            CLog.d("Overriding '--merge-attempts' to false for auto-retry.");
+            mMergeAttempts = false;
+        }
+        module.setMergeAttemps(mMergeAttempts);
+        // Pass the retry decision to be used.
+        module.setRetryDecision(decision);
+
+        module.setEnableDynamicDownload(mEnableDynamicDownload);
+        module.addDynamicDownloadArgs(
+                mMainConfiguration.getCommandOptions().getDynamicDownloadArgs());
         // Actually run the module
-        module.run(listener, moduleListeners, failureListener, mMaxRunLimit);
+        module.run(
+                moduleInfo,
+                listener,
+                moduleListeners,
+                failureListener,
+                getConfiguration().getRetryDecision().getMaxRetryCount());
 
         if (!mSkipAllSystemStatusCheck) {
             runPostModuleCheck(module.getId(), mSystemStatusCheckers, mDevice, listener);
@@ -814,66 +916,83 @@ public abstract class ITestSuite
                 System.currentTimeMillis() - startTime, new HashMap<String, Metric>());
     }
 
+    /** Returns true if we are currently in {@link #split(int)}. */
+    public boolean isSplitting() {
+        return mIsSplitting;
+    }
+
     /** {@inheritDoc} */
     @Override
-    public Collection<IRemoteTest> split(int shardCountHint) {
-        if (shardCountHint <= 1 || mIsSharded) {
+    public Collection<IRemoteTest> split(Integer shardCountHint, TestInformation testInfo) {
+        if (shardCountHint == null || shardCountHint <= 1 || mIsSharded) {
             // cannot shard or already sharded
             return null;
         }
+        // TODO: Replace by relying on testInfo directly
+        setBuild(testInfo.getBuildInfo());
+        setDevice(testInfo.getDevice());
+        setInvocationContext(testInfo.getContext());
 
-        LinkedHashMap<String, IConfiguration> runConfig = loadAndFilter();
-        if (runConfig.isEmpty()) {
-            CLog.i("No config were loaded. Nothing to run.");
-            return null;
+        mIsSplitting = true;
+        try {
+            LinkedHashMap<String, IConfiguration> runConfig = loadAndFilter();
+            if (runConfig.isEmpty()) {
+                CLog.i("No config were loaded. Nothing to run.");
+                return null;
+            }
+            injectInfo(runConfig, testInfo);
+
+            // We split individual tests on double the shardCountHint to provide better average.
+            // The test pool mechanism prevent this from creating too much overhead.
+            List<ModuleDefinition> splitModules =
+                    ModuleSplitter.splitConfiguration(
+                            testInfo,
+                            runConfig,
+                            shardCountHint,
+                            mShouldMakeDynamicModule,
+                            mIntraModuleSharding);
+            runConfig.clear();
+            runConfig = null;
+
+            // Clean up the parent that will get sharded: It is fine to clean up before copying the
+            // options, because the sharded module is already created/populated so there is no need
+            // to carry these extra data.
+            cleanUpSuiteSetup();
+
+            // create an association of one ITestSuite <=> one ModuleDefinition as the smallest
+            // execution unit supported.
+            List<IRemoteTest> splitTests = new ArrayList<>();
+            for (ModuleDefinition m : splitModules) {
+                ITestSuite suite = createInstance();
+                OptionCopier.copyOptionsNoThrow(this, suite);
+                suite.mIsSharded = true;
+                suite.mDirectModule = m;
+                splitTests.add(suite);
+            }
+            // return the list of ITestSuite with their ModuleDefinition assigned
+            return splitTests;
+        } finally {
+            // Done splitting at that point
+            mIsSplitting = false;
         }
-        injectInfo(runConfig);
-
-        // We split individual tests on double the shardCountHint to provide better average.
-        // The test pool mechanism prevent this from creating too much overhead.
-        List<ModuleDefinition> splitModules =
-                ModuleSplitter.splitConfiguration(
-                        runConfig, shardCountHint, mShouldMakeDynamicModule, mIntraModuleSharding);
-        runConfig.clear();
-        runConfig = null;
-
-        // Clean up the parent that will get sharded: It is fine to clean up before copying the
-        // options, because the sharded module is already created/populated so there is no need
-        // to carry these extra data.
-        cleanUpSuiteSetup();
-
-        // create an association of one ITestSuite <=> one ModuleDefinition as the smallest
-        // execution unit supported.
-        List<IRemoteTest> splitTests = new ArrayList<>();
-        for (ModuleDefinition m : splitModules) {
-            ITestSuite suite = createInstance();
-            OptionCopier.copyOptionsNoThrow(this, suite);
-            suite.mIsSharded = true;
-            suite.mDirectModule = m;
-            splitTests.add(suite);
-        }
-        // return the list of ITestSuite with their ModuleDefinition assigned
-        return splitTests;
     }
 
     /**
      * Inject {@link ITestDevice} and {@link IBuildInfo} to the {@link IRemoteTest}s in the config
      * before sharding since they may be needed.
      */
-    private void injectInfo(LinkedHashMap<String, IConfiguration> runConfig) {
+    private void injectInfo(
+            LinkedHashMap<String, IConfiguration> runConfig, TestInformation testInfo) {
         for (IConfiguration config : runConfig.values()) {
             for (IRemoteTest test : config.getTests()) {
                 if (test instanceof IBuildReceiver) {
-                    ((IBuildReceiver) test).setBuild(mBuildInfo);
+                    ((IBuildReceiver) test).setBuild(testInfo.getBuildInfo());
                 }
                 if (test instanceof IDeviceTest) {
-                    ((IDeviceTest) test).setDevice(mDevice);
-                }
-                if (test instanceof IMultiDeviceTest) {
-                    ((IMultiDeviceTest) test).setDeviceInfos(mDeviceInfos);
+                    ((IDeviceTest) test).setDevice(testInfo.getDevice());
                 }
                 if (test instanceof IInvocationContextReceiver) {
-                    ((IInvocationContextReceiver) test).setInvocationContext(mContext);
+                    ((IInvocationContextReceiver) test).setInvocationContext(testInfo.getContext());
                 }
                 if (test instanceof ITestCollector) {
                     ((ITestCollector) test).setCollectTestsOnly(mCollectTestsOnly);
@@ -914,12 +1033,6 @@ public abstract class ITestSuite
      */
     public IBuildInfo getBuildInfo() {
         return mBuildInfo;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
-        mDeviceInfos = deviceInfos;
     }
 
     /** Set the value of mPrimaryAbiRun */
@@ -964,9 +1077,21 @@ public abstract class ITestSuite
         mContext = invocationContext;
     }
 
-    /** Set the max number of run attempt for each module. */
-    public final void setMaxRunLimit(int maxRunLimit) {
-        mMaxRunLimit = maxRunLimit;
+    /**
+     * Returns the invocation context.
+     */
+    public IInvocationContext getInvocationContext() {
+        return mContext;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setTestLogger(ITestLogger testLogger) {
+        mCurrentLogger = testLogger;
+    }
+
+    public ITestLogger getCurrentTestLogger() {
+        return mCurrentLogger;
     }
 
     /** {@inheritDoc} */
@@ -988,6 +1113,11 @@ public abstract class ITestSuite
         mMainConfiguration = configuration;
     }
 
+    /** Returns the invocation {@link IConfiguration}. */
+    public final IConfiguration getConfiguration() {
+        return mMainConfiguration;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void reportNotExecuted(ITestInvocationListener listener) {
@@ -1004,6 +1134,16 @@ public abstract class ITestSuite
         }
         if (runModules == null) {
             runModules = createExecutionList();
+        }
+
+        if (mModuleInProgress != null) {
+            // TODO: Ensure in-progress data make sense
+            String inProgressMessage =
+                    String.format(
+                            "Module %s was interrupted after starting. Results might not be "
+                                    + "accurate or complete.",
+                            mModuleInProgress.getId());
+            mModuleInProgress.reportNotExecuted(listener, inProgressMessage);
         }
 
         while (!runModules.isEmpty()) {
@@ -1155,6 +1295,11 @@ public abstract class ITestSuite
         return mInjector;
     }
 
+    /** Sets reboot-before-test to true. */
+    public final void enableRebootBeforeTest() {
+        mRebootBeforeTest = true;
+    }
+
     /**
      * Apply the metadata filter to the config and see if the config should run.
      *
@@ -1259,5 +1404,14 @@ public abstract class ITestSuite
             return false;
         }
         return true;
+    }
+
+    void disableAutoRetryTimeReporting() {
+        mDisableAutoRetryTimeReporting = true;
+    }
+
+    @VisibleForTesting
+    void setModuleInProgress(ModuleDefinition moduleInProgress) {
+        mModuleInProgress = moduleInProgress;
     }
 }

@@ -125,8 +125,8 @@ static void ipv4_loopback(benchmark::State& state, const bool waitBetweenRuns) {
         }
 
         if (waitBetweenRuns) {
-            latencies[iterations] = stopwatch.timeTaken() * 1e6L;
-            state.SetIterationTime(latencies[iterations] / 1e9L);
+            latencies[iterations] = stopwatch.timeTakenUs();
+            state.SetIterationTime(static_cast<double>(latencies[iterations]) / 1.0e6L);
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             ++iterations;
         }
@@ -182,8 +182,8 @@ static void ipv6_loopback(benchmark::State& state, const bool waitBetweenRuns) {
         }
 
         if (waitBetweenRuns) {
-            latencies[iterations] = stopwatch.timeTaken() * 1e6L;
-            state.SetIterationTime(latencies[iterations] / 1e9L);
+            latencies[iterations] = stopwatch.timeTakenUs();
+            state.SetIterationTime(static_cast<double>(latencies[iterations]) / 1.0e6L);
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             ++iterations;
         }

@@ -16,17 +16,20 @@
 
 package com.android.server.cts.device.statsd;
 
-import com.android.server.cts.device.statsd.AtomTests;
-
 import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
+import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
+import android.app.usage.NetworkStatsManager;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.net.ConnectivityManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.RemoteException;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -44,6 +47,8 @@ public class StatsdCtsForegroundActivity extends Activity {
     public static final String ACTION_SHOW_APPLICATION_OVERLAY = "action.show_application_overlay";
     public static final String ACTION_SHOW_NOTIFICATION = "action.show_notification";
     public static final String ACTION_CRASH = "action.crash";
+    public static final String ACTION_CREATE_CHANNEL_GROUP = "action.create_channel_group";
+    public static final String ACTION_POLL_NETWORK_STATS = "action.poll_network_stats";
 
     public static final int SLEEP_OF_ACTION_SLEEP_WHILE_TOP = 2_000;
     public static final int SLEEP_OF_ACTION_SHOW_APPLICATION_OVERLAY = 2_000;
@@ -80,6 +85,12 @@ public class StatsdCtsForegroundActivity extends Activity {
                 break;
             case ACTION_CRASH:
                 doCrash();
+                break;
+            case ACTION_CREATE_CHANNEL_GROUP:
+                doCreateChannelGroup();
+                break;
+            case ACTION_POLL_NETWORK_STATS:
+                doPollNetworkStats();
                 break;
             default:
                 Log.e(TAG, "Intent had invalid action " + action);
@@ -135,15 +146,17 @@ public class StatsdCtsForegroundActivity extends Activity {
 
     private void doShowNotification() {
         final int notificationId = R.layout.activity_main;
-        final String notificationChannel = "StatsdCtsChannel";
+        final String notificationChannelId = "StatsdCtsChannel";
 
         NotificationManager nm = getSystemService(NotificationManager.class);
-        nm.createNotificationChannel(new NotificationChannel(notificationChannel, "Statsd Cts",
-                NotificationManager.IMPORTANCE_DEFAULT));
+        NotificationChannel channel = new NotificationChannel(notificationChannelId, "Statsd Cts",
+                NotificationManager.IMPORTANCE_DEFAULT);
+        channel.setDescription("Statsd Cts Channel");
+        nm.createNotificationChannel(channel);
 
         nm.notify(
                 notificationId,
-                new Notification.Builder(this, notificationChannel)
+                new Notification.Builder(this, notificationChannelId)
                         .setSmallIcon(android.R.drawable.stat_notify_chat)
                         .setContentTitle("StatsdCts")
                         .setContentText("StatsdCts")
@@ -152,8 +165,37 @@ public class StatsdCtsForegroundActivity extends Activity {
         finish();
     }
 
+    private void doCreateChannelGroup() {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        NotificationChannelGroup channelGroup = new NotificationChannelGroup("StatsdCtsGroup",
+                "Statsd Cts Group");
+        channelGroup.setDescription("StatsdCtsGroup Description");
+        nm.createNotificationChannelGroup(channelGroup);
+        finish();
+    }
+
+    // Trigger force poll on NetworkStatsService to make sure the service get most updated network
+    // stats from lower layer on subsequent verifications.
+    private void doPollNetworkStats() {
+        final NetworkStatsManager nsm =
+                (NetworkStatsManager) getSystemService(Context.NETWORK_STATS_SERVICE);
+
+        // While the flag of force polling is the only important thing needed when making binder
+        // call to service, the type, parameters and returned result of the query here do not
+        // matter.
+        try {
+            nsm.setPollForce(true);
+            nsm.querySummaryForUser(ConnectivityManager.TYPE_WIFI, null, Long.MIN_VALUE,
+                    Long.MAX_VALUE);
+        } catch (RemoteException e) {
+            Log.e(TAG, "doPollNetworkStats failed with " + e);
+        } finally {
+            finish();
+        }
+    }
+
     @SuppressWarnings("ConstantOverflow")
     private void doCrash() {
-        Log.e(TAG, "About to crash the app with 1/0 " + (long)1/0);
+        Log.e(TAG, "About to crash the app with 1/0 " + (long) 1 / 0);
     }
 }

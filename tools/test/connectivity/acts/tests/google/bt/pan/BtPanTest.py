@@ -32,8 +32,8 @@ import time
 
 
 class BtPanTest(BluetoothBaseTest):
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.pan_dut = self.android_devices[0]
         self.panu_dut = self.android_devices[1]
 

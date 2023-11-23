@@ -784,3 +784,201 @@ func TestRewriteAndroidTest(t *testing.T) {
 		})
 	}
 }
+
+func TestRewriteAndroidAppImport(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{
+			name: "android_app_import apk",
+			in: `
+				android_app_import {
+					name: "foo",
+					srcs: ["package.apk"],
+				}
+			`,
+			out: `
+				android_app_import {
+					name: "foo",
+					apk: "package.apk",
+				}
+			`,
+		},
+		{
+			name: "android_app_import presigned",
+			in: `
+				android_app_import {
+					name: "foo",
+					apk: "package.apk",
+					certificate: "PRESIGNED",
+				}
+			`,
+			out: `
+				android_app_import {
+					name: "foo",
+					apk: "package.apk",
+					presigned: true,
+
+				}
+			`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runPass(t, test.in, test.out, func(fixer *Fixer) error {
+				return rewriteAndroidAppImport(fixer)
+			})
+		})
+	}
+}
+
+func TestRemoveEmptyLibDependencies(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{
+			name: "remove sole shared lib",
+			in: `
+				cc_library {
+					name: "foo",
+					shared_libs: ["libhwbinder"],
+				}
+			`,
+			out: `
+				cc_library {
+					name: "foo",
+
+				}
+			`,
+		},
+		{
+			name: "remove a shared lib",
+			in: `
+				cc_library {
+					name: "foo",
+					shared_libs: [
+						"libhwbinder",
+						"libfoo",
+						"libhidltransport",
+					],
+				}
+			`,
+			out: `
+				cc_library {
+					name: "foo",
+					shared_libs: [
+
+						"libfoo",
+
+					],
+				}
+			`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runPass(t, test.in, test.out, func(fixer *Fixer) error {
+				return removeEmptyLibDependencies(fixer)
+			})
+		})
+	}
+}
+
+func TestRemoveHidlInterfaceTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{
+			name: "remove types",
+			in: `
+				hidl_interface {
+					name: "foo@1.0",
+					types: ["ParcelFooBar"],
+				}
+			`,
+			out: `
+				hidl_interface {
+					name: "foo@1.0",
+
+				}
+			`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runPass(t, test.in, test.out, func(fixer *Fixer) error {
+				return removeHidlInterfaceTypes(fixer)
+			})
+		})
+	}
+}
+
+func TestRemoveSoongConfigBoolVariable(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{
+			name: "remove bool",
+			in: `
+				soong_config_module_type {
+					name: "foo",
+					variables: ["bar", "baz"],
+				}
+
+				soong_config_bool_variable {
+					name: "bar",
+				}
+
+				soong_config_string_variable {
+					name: "baz",
+				}
+			`,
+			out: `
+				soong_config_module_type {
+					name: "foo",
+					variables: [
+						"baz"
+					],
+					bool_variables: ["bar"],
+				}
+
+				soong_config_string_variable {
+					name: "baz",
+				}
+			`,
+		},
+		{
+			name: "existing bool_variables",
+			in: `
+				soong_config_module_type {
+					name: "foo",
+					variables: ["baz"],
+					bool_variables: ["bar"],
+				}
+
+				soong_config_bool_variable {
+					name: "baz",
+				}
+			`,
+			out: `
+				soong_config_module_type {
+					name: "foo",
+					bool_variables: ["bar", "baz"],
+				}
+			`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runPass(t, test.in, test.out, removeSoongConfigBoolVariable)
+		})
+	}
+}

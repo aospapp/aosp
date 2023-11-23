@@ -22,7 +22,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -52,7 +51,7 @@ public class HistoryLoggerTest {
         mLogger =
                 new HistoryLogger() {
                     @Override
-                    void writeToLog(String outMessage) throws IOException {
+                    protected void writeToLog(String outMessage) {
                         Assert.assertEquals("INVOCATION_END: {\"test\":\"value\"}\n", outMessage);
                         mWasCalled = true;
                     }
@@ -72,7 +71,7 @@ public class HistoryLoggerTest {
         mLogger =
                 new HistoryLogger() {
                     @Override
-                    void writeToLog(String outMessage) throws IOException {
+                    protected void writeToLog(String outMessage) {
                         Assert.assertEquals("INVOCATION_END: {}\n", outMessage);
                         mWasCalled = true;
                     }

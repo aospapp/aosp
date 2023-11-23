@@ -15,38 +15,39 @@
  */
 package com.android.tradefed.config;
 
+import static org.junit.Assert.assertNotEquals;
+
 import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildProvider;
 import com.android.tradefed.command.CommandOptions;
 import com.android.tradefed.command.ICommandOptions;
-import com.android.tradefed.config.ConfigurationDef.OptionDef;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IDeviceRecovery;
 import com.android.tradefed.device.IDeviceSelection;
 import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.ILeveledLogOutput;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TextResultReporter;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.MultiMap;
+import com.android.tradefed.util.IDisableable;
 
 import junit.framework.TestCase;
 
 import org.easymock.EasyMock;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,13 +72,18 @@ public class ConfigurationTest extends TestCase {
         public boolean getBool();
     }
 
-    private static class TestConfigObject implements TestConfig {
+    private static class TestConfigObject implements TestConfig, IDisableable {
 
         @Option(name = OPTION_NAME, description = OPTION_DESCRIPTION, requiredForRerun = true)
         private boolean mBool;
 
         @Option(name = ALT_OPTION_NAME, description = OPTION_DESCRIPTION)
         private Map<String, Boolean> mBoolMap = new HashMap<String, Boolean>();
+
+        @Option(name = "mandatory-option", mandatory = true)
+        private String mMandatory = null;
+
+        private boolean mIsDisabled = false;
 
         @Override
         public boolean getBool() {
@@ -86,6 +92,16 @@ public class ConfigurationTest extends TestCase {
 
         public Map<String, Boolean> getMap() {
             return mBoolMap;
+        }
+
+        @Override
+        public void setDisable(boolean isDisabled) {
+            mIsDisabled = isDisabled;
+        }
+
+        @Override
+        public boolean isDisabled() {
+            return mIsDisabled;
         }
     }
 
@@ -98,6 +114,11 @@ public class ConfigurationTest extends TestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mConfig = new Configuration(CONFIG_NAME, CONFIG_DESCRIPTION);
+
+        try {
+            GlobalConfiguration.createGlobalConfiguration(new String[] {"empty"});
+        } catch (IllegalStateException ignored) {
+        }
     }
 
     /**
@@ -228,7 +249,9 @@ public class ConfigurationTest extends TestCase {
      */
     public void testGetTests() throws DeviceNotAvailableException {
         // check that the default test is present and doesn't blow up
-        mConfig.getTests().get(0).run(new TextResultReporter());
+        mConfig.getTests()
+                .get(0)
+                .run(TestInformation.newBuilder().build(), new TextResultReporter());
         IRemoteTest test1 = EasyMock.createMock(IRemoteTest.class);
         mConfig.setTest(test1);
         assertEquals(test1, mConfig.getTests().get(0));
@@ -441,131 +464,37 @@ public class ConfigurationTest extends TestCase {
     }
 
     /**
-     * Basic test for {@link Configuration#getJsonCommandUsage()}.
-     */
-    public void testGetJsonCommandUsage() throws ConfigurationException, JSONException {
-        TestConfigObject testConfigObject = new TestConfigObject();
-        mConfig.setConfigurationObject(CONFIG_OBJECT_TYPE_NAME, testConfigObject);
-        mConfig.injectOptionValue(ALT_OPTION_NAME, "foo", Boolean.toString(true));
-        mConfig.injectOptionValue(ALT_OPTION_NAME, "bar", Boolean.toString(false));
-
-        // General validation of usage elements
-        JSONArray usage = mConfig.getJsonCommandUsage();
-        JSONObject jsonConfigObject = null;
-        for (int i = 0; i < usage.length(); i++) {
-            JSONObject optionClass = usage.getJSONObject(i);
-
-            // Each element should contain 'name', 'class', and 'options' values
-            assertTrue("Usage element does not contain a 'name' value", optionClass.has("name"));
-            assertTrue("Usage element does not contain a 'class' value", optionClass.has("class"));
-            assertTrue("Usage element does not contain a 'options' value",
-                    optionClass.has("options"));
-
-            // General validation of each field
-            JSONArray options = optionClass.getJSONArray("options");
-            for (int j = 0; j < options.length(); j++) {
-                JSONObject field = options.getJSONObject(j);
-
-                // Each field should at least have 'name', 'description', 'mandatory',
-                // 'javaClass', and 'updateRule' values
-                assertTrue("Option field does not have a 'name' value", field.has("name"));
-                assertTrue("Option field does not have a 'description' value",
-                        field.has("description"));
-                assertTrue("Option field does not have a 'mandatory' value",
-                        field.has("mandatory"));
-                assertTrue("Option field does not have a 'javaClass' value",
-                        field.has("javaClass"));
-                assertTrue("Option field does not have an 'updateRule' value",
-                        field.has("updateRule"));
-            }
-
-            // The only elements should either be built-in types, or the configuration object we
-            // added.
-            String name = optionClass.getString("name");
-            if (name.equals(CONFIG_OBJECT_TYPE_NAME)) {
-                // The object we added should only appear once
-                assertNull("Duplicate JSON usage element", jsonConfigObject);
-                jsonConfigObject = optionClass;
-            } else {
-                assertTrue(String.format("Unexpected JSON usage element: %s", name),
-                    Configuration.isBuiltInObjType(name));
-            }
-        }
-
-        // Verify that the configuration element we added has the expected values
-        assertNotNull("Missing JSON usage element", jsonConfigObject);
-        JSONArray options = jsonConfigObject.getJSONArray("options");
-        JSONObject jsonOptionField = null;
-        JSONObject jsonAltOptionField = null;
-        for (int i = 0; i < options.length(); i++) {
-            JSONObject field = options.getJSONObject(i);
-
-            if (OPTION_NAME.equals(field.getString("name"))) {
-                assertNull("Duplicate option field", jsonOptionField);
-                jsonOptionField = field;
-            } else if (ALT_OPTION_NAME.equals(field.getString("name"))) {
-                assertNull("Duplication option field", jsonAltOptionField);
-                jsonAltOptionField = field;
-            }
-        }
-        assertNotNull(jsonOptionField);
-        assertEquals(OPTION_DESCRIPTION, jsonOptionField.getString("description"));
-        assertNotNull(jsonAltOptionField);
-        assertEquals(OPTION_DESCRIPTION, jsonAltOptionField.getString("description"));
-
-        // Verify that generics have the fully resolved javaClass name
-        assertEquals("java.util.Map<java.lang.String, java.lang.Boolean>",
-                jsonAltOptionField.getString("javaClass"));
-    }
-
-    private JSONObject findConfigObjectByName(JSONArray usage, String name) throws JSONException {
-        for (int i = 0; i < usage.length(); i++) {
-            JSONObject configObject = usage.getJSONObject(i);
-            if (name != null && name.equals(configObject.getString("name"))) {
-                return configObject;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Test that {@link Configuration#getJsonCommandUsage()} expands {@link MultiMap} values.
-     */
-    public void testGetJsonCommandUsageMapValueExpansion() throws ConfigurationException,
-            JSONException {
-
-        // Inject a simple config object with a map
-        final MultiMap<String, Integer> mapOption = new MultiMap<>();
-        mapOption.put("foo", 1);
-        mapOption.put("foo", 2);
-        mapOption.put("foo", 3);
-        mapOption.put("bar", 4);
-        mapOption.put("bar", 5);
-        Object testConfig = new Object() {
-            @Option(name = "map-option")
-            MultiMap<String, Integer> mMapOption = mapOption;
-        };
-        mConfig.setConfigurationObject(CONFIG_OBJECT_TYPE_NAME, testConfig);
-
-        // Get the JSON usage and find our config object
-        JSONArray usage = mConfig.getJsonCommandUsage();
-        JSONObject jsonTestConfig = findConfigObjectByName(usage, CONFIG_OBJECT_TYPE_NAME);
-
-        // Get the map option
-        JSONArray options = jsonTestConfig.getJSONArray("options");
-        JSONObject jsonMapOption = options.getJSONObject(0);
-
-        // Validate the map option value
-        JSONObject jsonMapValue = jsonMapOption.getJSONObject("value");
-        assertEquals(mapOption.get("foo"), jsonMapValue.get("foo"));
-        assertEquals(mapOption.get("bar"), jsonMapValue.get("bar"));
-    }
-
-    /**
      * Test that {@link Configuration#validateOptions()} doesn't throw when all mandatory fields
      * are set.
      */
     public void testValidateOptions() throws ConfigurationException {
+        mConfig.validateOptions();
+    }
+
+    /**
+     * Test that {@link Configuration#validateOptions()} throw when all mandatory fields are not set
+     * and object is not disabled.
+     */
+    public void testValidateOptions_nonDisabledObject() throws ConfigurationException {
+        TestConfigObject object = new TestConfigObject();
+        object.setDisable(false);
+        mConfig.setConfigurationObject("helper", object);
+        try {
+            mConfig.validateOptions();
+            fail("Should have thrown an exception.");
+        } catch (ConfigurationException expected) {
+            assertTrue(expected.getMessage().contains("Found missing mandatory options"));
+        }
+    }
+
+    /**
+     * Test that {@link Configuration#validateOptions()} doesn't throw when all mandatory fields are
+     * not set but the object is disabled.
+     */
+    public void testValidateOptions_disabledObject() throws ConfigurationException {
+        TestConfigObject object = new TestConfigObject();
+        object.setDisable(true);
+        mConfig.setConfigurationObject("helper", object);
         mConfig.validateOptions();
     }
 
@@ -636,7 +565,14 @@ public class ConfigurationTest extends TestCase {
      * sharding. If that was the case, the downloaded files would be cleaned up right after the
      * shards are kicked-off in new invocations.
      */
-    public void testValidateOptions_localSharding_skipDownload() throws ConfigurationException {
+    public void testValidateOptions_localSharding_skipDownload() throws Exception {
+        mConfig =
+                new Configuration(CONFIG_NAME, CONFIG_DESCRIPTION) {
+                    @Override
+                    protected boolean isRemoteEnvironment() {
+                        return false;
+                    }
+                };
         CommandOptions options = new CommandOptions();
         options.setShardCount(5);
         options.setShardIndex(null);
@@ -647,7 +583,8 @@ public class ConfigurationTest extends TestCase {
         mConfig.setDeviceOptions(deviceOptions);
 
         // No exception for download is thrown because no download occurred.
-        mConfig.validateOptions(true);
+        mConfig.validateOptions();
+        mConfig.resolveDynamicOptions(new DynamicRemoteFileResolver());
         // Dynamic file is not resolved.
         assertEquals(fakeConfigFile, deviceOptions.getAvdConfigFile());
     }
@@ -735,5 +672,109 @@ public class ConfigurationTest extends TestCase {
         } finally {
             FileUtil.deleteFile(test);
         }
+    }
+
+    /** Ensure that the dump xml only considere trully changed option on the same object. */
+    public void testDumpChangedOption() throws Exception {
+        CommandOptions options1 = new CommandOptions();
+        Configuration one = new Configuration("test", "test");
+        one.setCommandOptions(options1);
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        one.dumpXml(pw, new ArrayList<>(), true, false);
+        String noOption = sw.toString();
+        assertTrue(
+                noOption.contains(
+                        "<cmd_options class=\"com.android.tradefed.command.CommandOptions\" />"));
+
+        OptionSetter setter = new OptionSetter(options1);
+        setter.setOptionValue("test-tag", "tag-value");
+        sw = new StringWriter();
+        pw = new PrintWriter(sw);
+        one.dumpXml(pw, new ArrayList<>(), true, false);
+        String withOption = sw.toString();
+        assertTrue(withOption.contains("<option name=\"test-tag\" value=\"tag-value\" />"));
+
+        CommandOptions options2 = new CommandOptions();
+        one.setCommandOptions(options2);
+        sw = new StringWriter();
+        pw = new PrintWriter(sw);
+        one.dumpXml(pw, new ArrayList<>(), true, false);
+        String differentObject = sw.toString();
+        assertTrue(
+                differentObject.contains(
+                        "<cmd_options class=\"com.android.tradefed.command.CommandOptions\" />"));
+    }
+
+    /** Ensure we print modified option if they are structures. */
+    public void testDumpChangedOption_structure() throws Exception {
+        CommandOptions options1 = new CommandOptions();
+        Configuration one = new Configuration("test", "test");
+        one.setCommandOptions(options1);
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        one.dumpXml(pw, new ArrayList<>(), true, false);
+        String noOption = sw.toString();
+        assertTrue(
+                noOption.contains(
+                        "<cmd_options class=\"com.android.tradefed.command.CommandOptions\" />"));
+
+        OptionSetter setter = new OptionSetter(options1);
+        setter.setOptionValue("invocation-data", "key", "value");
+        setter.setOptionValue("auto-collect", "LOGCAT_ON_FAILURE");
+        sw = new StringWriter();
+        pw = new PrintWriter(sw);
+        one.dumpXml(pw, new ArrayList<>(), true, false);
+        String withOption = sw.toString();
+        assertTrue(
+                withOption.contains(
+                        "<option name=\"invocation-data\" key=\"key\" value=\"value\" />"));
+        assertTrue(
+                withOption.contains(
+                        "<option name=\"auto-collect\" value=\"LOGCAT_ON_FAILURE\" />"));
+    }
+
+    public void testDeepClone() throws Exception {
+        Configuration original =
+                (Configuration)
+                        ConfigurationFactory.getInstance()
+                                .createConfigurationFromArgs(
+                                        new String[] {"instrumentations"}, null, null);
+        IConfiguration copy =
+                original.partialDeepClone(
+                        Arrays.asList(Configuration.DEVICE_NAME, Configuration.TEST_TYPE_NAME),
+                        null);
+        assertNotEquals(
+                original.getDeviceConfigByName(ConfigurationDef.DEFAULT_DEVICE_NAME),
+                copy.getDeviceConfigByName(ConfigurationDef.DEFAULT_DEVICE_NAME));
+        assertNotEquals(original.getTargetPreparers().get(0), copy.getTargetPreparers().get(0));
+        assertNotEquals(
+                original.getDeviceConfig().get(0).getTargetPreparers().get(0),
+                copy.getDeviceConfig().get(0).getTargetPreparers().get(0));
+        assertNotEquals(original.getTests().get(0), copy.getTests().get(0));
+        copy.validateOptions();
+    }
+
+    public void testDeepClone_innerDevice() throws Exception {
+        Configuration original =
+                (Configuration)
+                        ConfigurationFactory.getInstance()
+                                .createConfigurationFromArgs(
+                                        new String[] {"instrumentations"}, null, null);
+        IConfiguration copy =
+                original.partialDeepClone(
+                        Arrays.asList(
+                                Configuration.TARGET_PREPARER_TYPE_NAME,
+                                Configuration.TEST_TYPE_NAME),
+                        null);
+        assertNotEquals(
+                original.getDeviceConfigByName(ConfigurationDef.DEFAULT_DEVICE_NAME),
+                copy.getDeviceConfigByName(ConfigurationDef.DEFAULT_DEVICE_NAME));
+        assertNotEquals(original.getTargetPreparers().get(0), copy.getTargetPreparers().get(0));
+        assertNotEquals(
+                original.getDeviceConfig().get(0).getTargetPreparers().get(0),
+                copy.getDeviceConfig().get(0).getTargetPreparers().get(0));
+        assertNotEquals(original.getTests().get(0), copy.getTests().get(0));
+        copy.validateOptions();
     }
 }

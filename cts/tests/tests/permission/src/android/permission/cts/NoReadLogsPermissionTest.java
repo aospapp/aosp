@@ -22,10 +22,8 @@ import android.system.OsConstants;
 import android.system.StructStat;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
-import android.util.Log;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 

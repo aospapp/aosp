@@ -25,6 +25,9 @@ java_library {
         "app-helpers-handheld-interfaces",
         "junit",
         "ub-uiautomator",
+        "platformprotoslite",
+        "statsdprotolite",
+        "mockito-target-minus-junit4",
     ],
 
     platform_apis: true,

@@ -16,17 +16,31 @@
 
 package android.os.cts;
 
+import static android.content.Context.WINDOW_SERVICE;
+import static android.content.pm.PackageManager.FEATURE_INPUT_METHODS;
+import static android.view.Display.DEFAULT_DISPLAY;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+
+import static com.android.cts.mockime.ImeEventStreamTestUtils.clearAllEvents;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.hardware.display.DisplayManager;
+import android.inputmethodservice.InputMethodService;
 import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.IBinder;
@@ -51,9 +65,19 @@ import android.platform.test.annotations.AppModeInstant;
 import android.system.Os;
 import android.system.OsConstants;
 import android.util.Log;
+import android.view.Display;
+import android.view.ViewConfiguration;
+import android.view.WindowManager;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.annotation.IntDef;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.cts.mockime.ImeEvent;
+import com.android.cts.mockime.ImeEventStream;
+import com.android.cts.mockime.ImeSettings;
+import com.android.cts.mockime.MockImeSession;
 
 import org.junit.After;
 import org.junit.Before;
@@ -66,6 +90,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.Socket;
 import java.net.URL;
@@ -84,12 +110,54 @@ import java.util.function.Consumer;
 public class StrictModeTest {
     private static final String TAG = "StrictModeTest";
     private static final String REMOTE_SERVICE_ACTION = "android.app.REMOTESERVICE";
+    private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(10); // 10 seconds
+    private static final long NOT_EXPECT_TIMEOUT = TimeUnit.SECONDS.toMillis(2);
 
     private StrictMode.ThreadPolicy mThreadPolicy;
     private StrictMode.VmPolicy mVmPolicy;
 
+    // TODO(b/160143006): re-enable IMS part test.
+    private static final boolean DISABLE_VERIFY_IMS = false;
+
+    /**
+     * Verify mode to verifying if APIs violates incorrect context violation.
+     *
+     * @see #VERIFY_MODE_GET_DISPLAY
+     * @see #VERIFY_MODE_GET_WINDOW_MANAGER
+     * @see #VERIFY_MODE_GET_VIEW_CONFIGURATION
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(flag = true, value = {
+            VERIFY_MODE_GET_DISPLAY,
+            VERIFY_MODE_GET_WINDOW_MANAGER,
+            VERIFY_MODE_GET_VIEW_CONFIGURATION,
+    })
+    private @interface VerifyMode {}
+
+    /**
+     * Verifies if {@link Context#getDisplay} from {@link InputMethodService} and context created
+     * from {@link InputMethodService#createConfigurationContext(Configuration)} violates
+     * incorrect context violation.
+     */
+    private static final int VERIFY_MODE_GET_DISPLAY = 1;
+    /**
+     * Verifies if get {@link android.view.WindowManager} from {@link InputMethodService} and
+     * context created from {@link InputMethodService#createConfigurationContext(Configuration)}
+     * violates incorrect context violation.
+     *
+     * @see Context#getSystemService(String)
+     * @see Context#getSystemService(Class)
+     */
+    private static final int VERIFY_MODE_GET_WINDOW_MANAGER = 2;
+    /**
+     * Verifies if passing {@link InputMethodService} and context created
+     * from {@link InputMethodService#createConfigurationContext(Configuration)} to
+     * {@link android.view.ViewConfiguration#get(Context)} violates incorrect context violation.
+     */
+    private static final int VERIFY_MODE_GET_VIEW_CONFIGURATION = 3;
+
     private Context getContext() {
-        return InstrumentationRegistry.getContext();
+        return ApplicationProvider.getApplicationContext();
     }
 
     @Before
@@ -608,6 +676,153 @@ public class StrictModeTest {
         } catch (IOException ex) {
             // Expected
         }
+    }
+
+    @Test
+    public void testIncorrectContextUse_GetSystemService() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final String wmClassName = WindowManager.class.getSimpleName();
+        inspectViolation(
+                () -> getContext().getApplicationContext().getSystemService(WindowManager.class),
+                info -> assertThat(info.getStackTrace()).contains(
+                        "Tried to access visual service " + wmClassName));
+
+        final Display display = getContext().getSystemService(DisplayManager.class)
+                .getDisplay(DEFAULT_DISPLAY);
+        final Context visualContext = getContext().createDisplayContext(display)
+                .createWindowContext(TYPE_APPLICATION_OVERLAY, null /* options */);
+        assertNoViolation(() -> visualContext.getSystemService(WINDOW_SERVICE));
+
+        Intent intent = new Intent(getContext(), SimpleTestActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        final Activity activity = InstrumentationRegistry.getInstrumentation()
+                .startActivitySync(intent);
+        assertNoViolation(() -> activity.getSystemService(WINDOW_SERVICE));
+
+        // TODO(b/159593676): move the logic to CtsInputMethodTestCases
+        verifyIms(VERIFY_MODE_GET_WINDOW_MANAGER);
+    }
+
+    @Test
+    public void testIncorrectContextUse_GetDisplay() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Display display = getContext().getSystemService(DisplayManager.class)
+                .getDisplay(DEFAULT_DISPLAY);
+
+        final Context displayContext = getContext().createDisplayContext(display);
+        assertNoViolation(displayContext::getDisplay);
+
+        final Context windowContext =
+                displayContext.createWindowContext(TYPE_APPLICATION_OVERLAY, null /* options */);
+        assertNoViolation(windowContext::getDisplay);
+
+        Intent intent = new Intent(getContext(), SimpleTestActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        final Activity activity = InstrumentationRegistry.getInstrumentation()
+                .startActivitySync(intent);
+        assertNoViolation(() -> activity.getDisplay());
+
+        // TODO(b/159593676): move the logic to CtsInputMethodTestCases
+        verifyIms(VERIFY_MODE_GET_DISPLAY);
+        try {
+            getContext().getApplicationContext().getDisplay();
+        } catch (UnsupportedOperationException e) {
+            return;
+        }
+        fail("Expected to get incorrect use exception from calling getDisplay() on Application");
+    }
+
+    @Test
+    public void testIncorrectContextUse_GetViewConfiguration() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Context baseContext = getContext();
+        assertViolation(
+                "Tried to access UI constants from a non-visual Context:",
+                () -> ViewConfiguration.get(baseContext));
+
+        final Display display = baseContext.getSystemService(DisplayManager.class)
+                .getDisplay(DEFAULT_DISPLAY);
+        final Context displayContext = baseContext.createDisplayContext(display);
+        assertViolation(
+                "Tried to access UI constants from a non-visual Context:",
+                () -> ViewConfiguration.get(displayContext));
+
+        final Context windowContext =
+                displayContext.createWindowContext(TYPE_APPLICATION_OVERLAY, null /* options */);
+        assertNoViolation(() -> ViewConfiguration.get(windowContext));
+
+        Intent intent = new Intent(baseContext, SimpleTestActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        final Activity activity = InstrumentationRegistry.getInstrumentation()
+                .startActivitySync(intent);
+        assertNoViolation(() -> ViewConfiguration.get(activity));
+
+        // TODO(b/159593676): move the logic to CtsInputMethodTestCases
+        verifyIms(VERIFY_MODE_GET_VIEW_CONFIGURATION);
+    }
+
+    // TODO(b/159593676): move the logic to CtsInputMethodTestCases
+    /**
+     * Verify if APIs violates incorrect context violations by {@code mode}.
+     *
+     * @see VerifyMode
+     */
+    private void verifyIms(@VerifyMode int mode) throws Exception {
+        // If devices do not support installable IMEs, finish the test gracefully. We don't use
+        // assumeTrue here because we do pass some cases, so showing "pass" instead of "skip" makes
+        // sense here.
+        // TODO(b/160143006): re-enable IMS part test.
+        if (!supportsInstallableIme() || DISABLE_VERIFY_IMS) {
+            return;
+        }
+
+        try (final MockImeSession imeSession = MockImeSession.create(getContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder().setStrictModeEnabled(true))) {
+            final ImeEventStream stream = imeSession.openEventStream();
+            expectEvent(stream, event -> "onStartInput".equals(event.getEventName()), TIMEOUT);
+            final ImeEventStream forkedStream = clearAllEvents(stream, "onStrictModeViolated");
+            final ImeEvent imeEvent;
+            switch (mode) {
+                case VERIFY_MODE_GET_DISPLAY:
+                    imeEvent = expectCommand(forkedStream, imeSession.callVerifyGetDisplay(),
+                            TIMEOUT);
+                    break;
+                case VERIFY_MODE_GET_WINDOW_MANAGER:
+                    imeEvent = expectCommand(forkedStream, imeSession.callVerifyGetWindowManager(),
+                            TIMEOUT);
+                    break;
+                case VERIFY_MODE_GET_VIEW_CONFIGURATION:
+                    imeEvent = expectCommand(forkedStream,
+                            imeSession.callVerifyGetViewConfiguration(), TIMEOUT);
+                    break;
+                default:
+                    imeEvent = null;
+            }
+            assertTrue(imeEvent.getReturnBooleanValue());
+            notExpectEvent(stream, event -> "onStrictModeViolated".equals(event.getEventName()),
+                    NOT_EXPECT_TIMEOUT);
+        }
+    }
+
+    private boolean supportsInstallableIme() {
+        return getContext().getPackageManager().hasSystemFeature(FEATURE_INPUT_METHODS);
     }
 
     private static void runWithRemoteServiceBound(Context context, Consumer<ISecondary> consumer)

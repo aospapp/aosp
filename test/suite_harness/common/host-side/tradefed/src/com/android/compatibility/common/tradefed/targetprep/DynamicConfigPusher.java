@@ -25,10 +25,10 @@ import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.suite.TestSuiteInfo;
@@ -47,8 +47,7 @@ import java.util.List;
 
 /** Pushes dynamic config files from config repository */
 @OptionClass(alias = "dynamic-config-pusher")
-public class DynamicConfigPusher extends BaseTargetPreparer
-        implements ITargetCleaner, IInvocationContextReceiver {
+public class DynamicConfigPusher extends BaseTargetPreparer implements IInvocationContextReceiver {
     public enum TestTarget {
         DEVICE,
         HOST
@@ -112,13 +111,12 @@ public class DynamicConfigPusher extends BaseTargetPreparer
         mModuleContext = invocationContext;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError, BuildError,
-            DeviceNotAvailableException {
-
+    public void setUp(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        IBuildInfo buildInfo = testInfo.getBuildInfo();
+        ITestDevice device = testInfo.getDevice();
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
 
         File localConfigFile = getLocalConfigFile(buildHelper, device);
@@ -168,16 +166,13 @@ public class DynamicConfigPusher extends BaseTargetPreparer
         buildHelper.addDynamicConfigFile(mModuleName, hostFile);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         // Remove any file we have pushed to the device, host file will be moved to the result
         // directory by ResultReporter upon invocation completion.
         if (mDeviceFilePushed != null && !(e instanceof DeviceNotAvailableException) && mCleanup) {
-            device.deleteFile(mDeviceFilePushed);
+            testInfo.getDevice().deleteFile(mDeviceFilePushed);
         }
     }
 

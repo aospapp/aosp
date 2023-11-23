@@ -231,6 +231,14 @@ class WifiScannerMultiScanTest(WifiBaseTest):
 
     def __init__(self, controllers):
         WifiBaseTest.__init__(self, controllers)
+        self.tests = (
+            'test_wifi_two_scans_at_same_interval',
+            'test_wifi_two_scans_at_different_interval',
+            'test_wifi_scans_24GHz_and_both',
+            'test_wifi_scans_5GHz_and_both',
+            'test_wifi_scans_batch_and_24GHz',
+            'test_wifi_scans_batch_and_5GHz',
+            'test_wifi_scans_24GHz_5GHz_full_result',)
 
     def setup_class(self):
         # If running in a setup with attenuators, set attenuation on all
@@ -248,7 +256,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
         """ Setup the required dependencies and fetch the user params from
         config file.
         """
-        req_params = ("bssid_2g", "bssid_5g", "bssid_dfs", "max_bugreports")
+        req_params = ["max_bugreports"]
         opt_param = ["reference_networks"]
         self.unpack_userparams(
             req_param_names=req_params, opt_param_names=opt_param)
@@ -400,6 +408,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
     """ Tests Begin """
 
     @test_tracker_info(uuid="d490b146-5fc3-4fc3-9958-78ba0ad63211")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_two_scans_at_same_interval(self):
         """Perform two WifiScanner background scans, one at 2.4GHz and the other
         at 5GHz, the same interval and number of BSSIDs per scan.
@@ -429,6 +438,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
         self.scan_and_validate_results(scan_settings)
 
     @test_tracker_info(uuid="0ec9a554-f942-41a9-8096-6b0b400f60b0")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_two_scans_at_different_interval(self):
         """Perform two WifiScanner background scans, one at 2.4GHz and the other
         at 5GHz, different interval and number of BSSIDs per scan.
@@ -458,6 +468,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
         self.scan_and_validate_results(scan_settings)
 
     @test_tracker_info(uuid="0d616591-0d32-4be6-8fd4-e4a5e9ccdce0")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scans_24GHz_and_both(self):
         """Perform two WifiScanner background scans, one at 2.4GHz and
            the other at both 2.4GHz and 5GHz
@@ -487,6 +498,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
         self.scan_and_validate_results(scan_settings)
 
     @test_tracker_info(uuid="ddcf959e-512a-4e86-b3d3-18cebd0b22a0")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scans_5GHz_and_both(self):
         """Perform two WifiScanner scans, one at 5GHz and the other at both
            2.4GHz and 5GHz
@@ -516,6 +528,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
         self.scan_and_validate_results(scan_settings)
 
     @test_tracker_info(uuid="060469f1-fc6b-4255-ab6e-b1d5b54db53d")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scans_24GHz_5GHz_and_DFS(self):
         """Perform three WifiScanner scans, one at 5GHz, one at 2.4GHz and the
         other at just 5GHz DFS channels
@@ -549,6 +562,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
         self.scan_and_validate_results(scan_settings)
 
     @test_tracker_info(uuid="14104e98-27a0-43d5-9525-b36b65ac3957")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scans_batch_and_24GHz(self):
         """Perform two WifiScanner background scans, one in batch mode for both
         bands and the other in periodic mode at 2.4GHz
@@ -580,6 +594,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
         self.scan_and_validate_results(scan_settings)
 
     @test_tracker_info(uuid="cd6064b5-840b-4334-8cd4-8320a6cda52f")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scans_batch_and_5GHz(self):
         """Perform two WifiScanner background scans, one in batch mode for both
         bands and the other in periodic mode at 5GHz
@@ -611,6 +626,7 @@ class WifiScannerMultiScanTest(WifiBaseTest):
         self.scan_and_validate_results(scan_settings)
 
     @test_tracker_info(uuid="9f48cb0c-de87-4cd2-9e50-857579d44079")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scans_24GHz_5GHz_full_result(self):
         """Perform two WifiScanner background scans, one at 2.4GHz and
            the other at 5GHz. Report full scan results.

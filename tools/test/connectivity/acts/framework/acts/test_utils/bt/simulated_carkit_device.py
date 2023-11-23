@@ -16,16 +16,24 @@
 
 from acts import asserts
 
+from acts.controllers import android_device
 from acts.test_utils.bt.bt_test_utils import bluetooth_enabled_check
 
+# TODO: This class to be deprecated for
+# ../acts/test_utils/abstract_devices/bluetooth_handsfree_abstract_device.py
+
+
 class SimulatedCarkitDevice():
-    def __init__(self, android_device):
-        self.ad = android_device
+    def __init__(self, serial):
+        self.ad = android_device.create(serial)[0]
         if not bluetooth_enabled_check(self.ad):
             asserts.fail("No able to turn on bluetooth")
         self.mac_address = self.ad.droid.bluetoothGetLocalAddress()
         self.ad.droid.bluetoothToggleState(False)
         self.ad.droid.bluetoothMediaConnectToCarMBS()
+
+    def destroy(self):
+        self.ad.clean_up()
 
     def accept_call(self):
         return self.ad.droid.telecomAcceptRingingCall(None)

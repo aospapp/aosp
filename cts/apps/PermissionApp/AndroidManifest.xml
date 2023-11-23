@@ -38,7 +38,11 @@
     <uses-permission android:name="com.android.cts.permissionapp.permA"/>
     <uses-permission android:name="com.android.cts.permissionapp.permB"/>
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application android:label="CtsPermissionApp"
             android:icon="@drawable/ic_permissionapp">

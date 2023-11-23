@@ -42,8 +42,8 @@
  */
 
 using android::sp;
-using android::chre::getStringFromByteVector;
 using android::chre::FragmentedLoadTransaction;
+using android::chre::getStringFromByteVector;
 using android::chre::HostProtocolHost;
 using android::chre::IChreMessageHandlers;
 using android::chre::SocketClient;
@@ -85,15 +85,14 @@ class SocketCallbacks : public SocketClient::ICallbacks,
     LOGI("Socket disconnected");
   }
 
-  void handleNanoappMessage(const fbs::NanoappMessageT& message)
-      override {
+  void handleNanoappMessage(const fbs::NanoappMessageT &message) override {
     LOGI("Got message from nanoapp 0x%" PRIx64 " to endpoint 0x%" PRIx16
-         " with type 0x%" PRIx32 " and length %zu", message.app_id,
-         message.host_endpoint, message.message_type, message.message.size());
+         " with type 0x%" PRIx32 " and length %zu",
+         message.app_id, message.host_endpoint, message.message_type,
+         message.message.size());
   }
 
-  void handleHubInfoResponse(const fbs::HubInfoResponseT& rsp)
-      override {
+  void handleHubInfoResponse(const fbs::HubInfoResponseT &rsp) override {
     LOGI("Got hub info response:");
     LOGI("  Name: '%s'", getStringFromByteVector(rsp.name));
     LOGI("  Vendor: '%s'", getStringFromByteVector(rsp.vendor));
@@ -107,31 +106,33 @@ class SocketCallbacks : public SocketClient::ICallbacks,
          rsp.platform_id, rsp.chre_platform_version);
   }
 
-  void handleNanoappListResponse(const fbs::NanoappListResponseT& response)
-      override {
+  void handleNanoappListResponse(
+      const fbs::NanoappListResponseT &response) override {
     LOGI("Got nanoapp list response with %zu apps:", response.nanoapps.size());
-    for (const std::unique_ptr<fbs::NanoappListEntryT>& nanoapp
-           : response.nanoapps) {
-      LOGI("  App ID 0x%016" PRIx64 " version 0x%" PRIx32 " enabled %d system "
-           "%d", nanoapp->app_id, nanoapp->version, nanoapp->enabled,
+    for (const std::unique_ptr<fbs::NanoappListEntryT> &nanoapp :
+         response.nanoapps) {
+      LOGI("  App ID 0x%016" PRIx64 " version 0x%" PRIx32
+           " enabled %d system "
+           "%d",
+           nanoapp->app_id, nanoapp->version, nanoapp->enabled,
            nanoapp->is_system);
     }
   }
 
-  void handleLoadNanoappResponse(const fbs::LoadNanoappResponseT& response)
-      override {
+  void handleLoadNanoappResponse(
+      const fbs::LoadNanoappResponseT &response) override {
     LOGI("Got load nanoapp response, transaction ID 0x%" PRIx32 " result %d",
          response.transaction_id, response.success);
   }
 
-  void handleUnloadNanoappResponse(const fbs::UnloadNanoappResponseT& response)
-      override {
+  void handleUnloadNanoappResponse(
+      const fbs::UnloadNanoappResponseT &response) override {
     LOGI("Got unload nanoapp response, transaction ID 0x%" PRIx32 " result %d",
          response.transaction_id, response.success);
   }
 };
 
-void requestHubInfo(SocketClient& client) {
+void requestHubInfo(SocketClient &client) {
   FlatBufferBuilder builder(64);
   HostProtocolHost::encodeHubInfoRequest(builder);
 
@@ -141,7 +142,7 @@ void requestHubInfo(SocketClient& client) {
   }
 }
 
-void requestNanoappList(SocketClient& client) {
+void requestNanoappList(SocketClient &client) {
   FlatBufferBuilder builder(64);
   HostProtocolHost::encodeNanoappListRequest(builder);
 
@@ -151,12 +152,12 @@ void requestNanoappList(SocketClient& client) {
   }
 }
 
-void sendMessageToNanoapp(SocketClient& client) {
+void sendMessageToNanoapp(SocketClient &client) {
   FlatBufferBuilder builder(64);
   uint8_t messageData[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-  HostProtocolHost::encodeNanoappMessage(
-      builder, chre::kMessageWorldAppId, 1234 /* messageType */,
-      kHostEndpoint, messageData, sizeof(messageData));
+  HostProtocolHost::encodeNanoappMessage(builder, chre::kMessageWorldAppId,
+                                         1234 /* messageType */, kHostEndpoint,
+                                         messageData, sizeof(messageData));
 
   LOGI("Sending message to nanoapp (%" PRIu32 " bytes w/%zu bytes of payload)",
        builder.GetSize(), sizeof(messageData));
@@ -165,7 +166,7 @@ void sendMessageToNanoapp(SocketClient& client) {
   }
 }
 
-void sendLoadNanoappRequest(SocketClient& client, const char *filename,
+void sendLoadNanoappRequest(SocketClient &client, const char *filename,
                             uint64_t appId, uint32_t appVersion,
                             uint32_t apiVersion) {
   std::ifstream file(filename, std::ios::binary | std::ios::ate);
@@ -185,19 +186,21 @@ void sendLoadNanoappRequest(SocketClient& client, const char *filename,
   // Perform loading with 1 fragment for simplicity
   FlatBufferBuilder builder(size + 128);
   FragmentedLoadTransaction transaction = FragmentedLoadTransaction(
-      1 /* transactionId */, appId, appVersion, apiVersion,
-      buffer, buffer.size() /* fragmentSize */);
+      1 /* transactionId */, appId, appVersion, apiVersion, buffer,
+      buffer.size() /* fragmentSize */);
   HostProtocolHost::encodeFragmentedLoadNanoappRequest(
       builder, transaction.getNextRequest());
 
-  LOGI("Sending load nanoapp request (%" PRIu32 " bytes total w/%zu bytes of "
-       "payload)", builder.GetSize(), buffer.size());
+  LOGI("Sending load nanoapp request (%" PRIu32
+       " bytes total w/%zu bytes of "
+       "payload)",
+       builder.GetSize(), buffer.size());
   if (!client.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
     LOGE("Failed to send message");
   }
 }
 
-void sendUnloadNanoappRequest(SocketClient& client, uint64_t appId) {
+void sendUnloadNanoappRequest(SocketClient &client, uint64_t appId) {
   FlatBufferBuilder builder(48);
   constexpr uint32_t kTransactionId = 4321;
   HostProtocolHost::encodeUnloadNanoappRequest(
@@ -216,9 +219,12 @@ static void usage(const std::string &name) {
   std::string output;
 
   output =
-    "\n"
-    "Usage:\n  " + name + " load <nanoapp-id> <nanoapp-path> "
-    "[app-version] [api-version]\n  " + name + " unload <nanoapp-id>\n";
+      "\n"
+      "Usage:\n  " +
+      name +
+      " load <nanoapp-id> <nanoapp-path> "
+      "[app-version] [api-version]\n  " +
+      name + " unload <nanoapp-id>\n";
 
   LOGI("%s", output.c_str());
 }
@@ -245,8 +251,8 @@ int main(int argc, char *argv[]) {
     requestNanoappList(client);
     sendMessageToNanoapp(client);
     sendLoadNanoappRequest(client, "/data/activity.so",
-        0x476f6f676c00100b /* appId */, 0 /* appVersion */,
-        0x01000000 /* targetApiVersion */);
+                           0x476f6f676c00100b /* appId */, 0 /* appVersion */,
+                           0x01000000 /* targetApiVersion */);
     sendUnloadNanoappRequest(client, 0x476f6f676c00100b /* appId */);
 
     LOGI("Sleeping, waiting on responses");
@@ -263,10 +269,10 @@ int main(int argc, char *argv[]) {
     }
     std::istringstream(idstr) >> std::setbase(0) >> id;
     if (!appVerStr.empty()) {
-        std::istringstream(appVerStr) >> std::setbase(0) >> appVersion;
+      std::istringstream(appVerStr) >> std::setbase(0) >> appVersion;
     }
     if (!apiVerStr.empty()) {
-        std::istringstream(apiVerStr) >> std::setbase(0) >> apiVersion;
+      std::istringstream(apiVerStr) >> std::setbase(0) >> apiVersion;
     }
     sendLoadNanoappRequest(client, path.c_str(), id, appVersion, apiVersion);
   } else if (cmd == "unload") {

@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 
-#include "android/net/wifi/IWifiScannerImpl.h"
+#include "android/net/wifi/nl80211/IWifiScannerImpl.h"
 #include "wificond/scanning/single_scan_settings.h"
 
 #include <android-base/logging.h>
 
 #include "wificond/parcelable_utils.h"
 
-using android::net::wifi::IWifiScannerImpl;
+using android::net::wifi::nl80211::IWifiScannerImpl;
 using android::status_t;
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 bool SingleScanSettings::isValidScanType() const {
   return (scan_type_ == IWifiScannerImpl::SCAN_TYPE_LOW_SPAN ||
           scan_type_ == IWifiScannerImpl::SCAN_TYPE_LOW_POWER ||
@@ -109,8 +108,7 @@ status_t SingleScanSettings::readFromParcel(const ::android::Parcel* parcel) {
   return ::android::OK;
 }
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com

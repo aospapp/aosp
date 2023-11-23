@@ -60,8 +60,8 @@ bool MatrixHal::forEachInstance(const VersionRange& vr,
                 // TODO(b/73556059): Store MatrixInstance as well to avoid creating temps
                 FqInstance fqInstance;
                 if (fqInstance.setTo(getName(), vr.majorVer, vr.minMinor, interface, instance)) {
-                    if (!func(MatrixInstance(std::move(fqInstance), VersionRange(vr), optional,
-                                             isRegex))) {
+                    if (!func(MatrixInstance(format, std::move(fqInstance), VersionRange(vr),
+                                             optional, isRegex))) {
                         return false;
                     }
                 }

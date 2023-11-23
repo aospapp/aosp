@@ -19,7 +19,6 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <linux/if_arp.h>
 #include <linux/if_tun.h>
 #include <linux/ioctl.h>
 #include <net/if.h>
@@ -33,6 +32,7 @@
 #include <log/log.h>
 
 #include "ClatdController.h"
+#include "InterfaceController.h"
 
 #include "android-base/properties.h"
 #include "android-base/scopeguard.h"
@@ -46,10 +46,10 @@ extern "C" {
 #include "netutils/checksum.h"
 }
 
-#include "ClatUtils.h"
 #include "Fwmark.h"
 #include "NetdConstants.h"
 #include "NetworkController.h"
+#include "OffloadUtils.h"
 #include "netid_client.h"
 
 static const char* kClatdPath = "/system/bin/clatd";
@@ -60,6 +60,7 @@ static const char* kV4AddrString = "192.0.0.4";
 static const in_addr kV4Addr = {inet_addr(kV4AddrString)};
 static const int kV4AddrLen = 29;
 
+using android::base::Result;
 using android::base::StringPrintf;
 using android::base::unique_fd;
 using android::bpf::BpfMap;
@@ -73,7 +74,7 @@ void ClatdController::init(void) {
     std::lock_guard guard(mutex);
 
     // TODO: should refactor into separate function for testability
-    if (bpf::getBpfSupportLevel() == bpf::BpfLevel::NONE) {
+    if (!bpf::isBpfSupported()) {
         ALOGI("Pre-4.9 kernel or pre-P api shipping level - disabling clat ebpf.");
         mClatEbpfMode = ClatEbpfDisabled;
         return;
@@ -98,37 +99,25 @@ void ClatdController::init(void) {
         mClatEbpfMode = ClatEbpfMaybe;
     }
 
-    int rv = openNetlinkSocket();
+    int rv = getClatEgressMapFd();
     if (rv < 0) {
-        ALOGE("openNetlinkSocket() failure: %s", strerror(-rv));
+        ALOGE("getClatEgressMapFd() failure: %s", strerror(-rv));
         mClatEbpfMode = ClatEbpfDisabled;
         return;
     }
-    mNetlinkFd.reset(rv);
+    mClatEgressMap.reset(rv);
 
     rv = getClatIngressMapFd();
     if (rv < 0) {
         ALOGE("getClatIngressMapFd() failure: %s", strerror(-rv));
         mClatEbpfMode = ClatEbpfDisabled;
-        mNetlinkFd.reset(-1);
+        mClatEgressMap.reset(-1);
         return;
     }
     mClatIngressMap.reset(rv);
 
-    int netlinkFd = mNetlinkFd.get();
-
-    // TODO: perhaps this initial cleanup should be in its own function?
-    const auto del = [&netlinkFd](const ClatIngressKey& key,
-                                  const BpfMap<ClatIngressKey, ClatIngressValue>&) {
-        ALOGW("Removing stale clat config on interface %d.", key.iif);
-        int rv = tcQdiscDelDevClsact(netlinkFd, key.iif);
-        if (rv < 0) ALOGE("tcQdiscDelDevClsact() failure: %s", strerror(-rv));
-        return netdutils::status::ok;  // keep on going regardless
-    };
-    auto ret = mClatIngressMap.iterate(del);
-    if (!isOk(ret)) ALOGE("mClatIngressMap.iterate() failure: %s", strerror(ret.code()));
-    ret = mClatIngressMap.clear();
-    if (!isOk(ret)) ALOGE("mClatIngressMap.clear() failure: %s", strerror(ret.code()));
+    mClatEgressMap.clear();
+    mClatIngressMap.clear();
 }
 
 bool ClatdController::isIpv4AddressFree(in_addr_t addr) {
@@ -139,7 +128,11 @@ bool ClatdController::isIpv4AddressFree(in_addr_t addr) {
 
     // Attempt to connect to the address. If the connection succeeds and getsockname returns the
     // same then the address is already assigned to the system and we can't use it.
-    struct sockaddr_in sin = {.sin_family = AF_INET, .sin_addr = {addr}, .sin_port = 53};
+    struct sockaddr_in sin = {
+            .sin_family = AF_INET,
+            .sin_port = htons(53),
+            .sin_addr = {addr},
+    };
     socklen_t len = sizeof(sin);
     bool inuse = connect(s, (struct sockaddr*)&sin, sizeof(sin)) == 0 &&
                  getsockname(s, (struct sockaddr*)&sin, &len) == 0 && (size_t)len >= sizeof(sin) &&
@@ -235,93 +228,145 @@ int ClatdController::generateIpv6Address(const char* iface, const in_addr v4,
 void ClatdController::maybeStartBpf(const ClatdTracker& tracker) {
     if (mClatEbpfMode == ClatEbpfDisabled) return;
 
-    int rv = hardwareAddressType(tracker.iface);
-    if (rv < 0) {
-        ALOGE("hardwareAddressType(%s[%d]) failure: %s", tracker.iface, tracker.ifIndex,
-              strerror(-rv));
+    auto isEthernet = android::net::isEthernet(tracker.iface);
+    if (!isEthernet.ok()) {
+        ALOGE("isEthernet(%s[%d]) failure: %s", tracker.iface, tracker.ifIndex,
+              isEthernet.error().message().c_str());
         return;
     }
 
-    bool isEthernet;
-    switch (rv) {
-        case ARPHRD_ETHER:
-            isEthernet = true;
-            break;
-        case ARPHRD_RAWIP:  // in Linux 4.14+ rmnet support was upstreamed and this is 519
-        case 530:           // this is ARPHRD_RAWIP on some Android 4.9 kernels with rmnet
-            isEthernet = false;
-            break;
-        default:
-            ALOGE("hardwareAddressType(%s[%d]) returned unknown type %d.", tracker.iface,
-                  tracker.ifIndex, rv);
-            return;
-    }
-
-    rv = getClatIngressProgFd(isEthernet);
+    // This program will be attached to the v4-* interface which is a TUN and thus always rawip.
+    int rv = getClatEgressProgFd(RAWIP);
     if (rv < 0) {
-        ALOGE("getClatIngressProgFd(%d) failure: %s", isEthernet, strerror(-rv));
+        ALOGE("getClatEgressProgFd(RAWIP) failure: %s", strerror(-rv));
         return;
     }
-    unique_fd progFd(rv);
+    unique_fd txRawIpProgFd(rv);
 
-    ClatIngressKey key = {
+    rv = getClatIngressProgFd(isEthernet.value());
+    if (rv < 0) {
+        ALOGE("getClatIngressProgFd(%d) failure: %s", isEthernet.value(), strerror(-rv));
+        return;
+    }
+    unique_fd rxProgFd(rv);
+
+    ClatEgressKey txKey = {
+            .iif = tracker.v4ifIndex,
+            .local4 = tracker.v4,
+    };
+    ClatEgressValue txValue = {
+            .oif = tracker.ifIndex,
+            .local6 = tracker.v6,
+            .pfx96 = tracker.pfx96,
+            .oifIsEthernet = isEthernet.value(),
+    };
+
+    auto ret = mClatEgressMap.writeValue(txKey, txValue, BPF_ANY);
+    if (!ret.ok()) {
+        ALOGE("mClatEgressMap.writeValue failure: %s", strerror(ret.error().code()));
+        return;
+    }
+
+    ClatIngressKey rxKey = {
             .iif = tracker.ifIndex,
             .pfx96 = tracker.pfx96,
             .local6 = tracker.v6,
     };
-    ClatIngressValue value = {
+    ClatIngressValue rxValue = {
             // TODO: move all the clat code to eBPF and remove the tun interface entirely.
             .oif = tracker.v4ifIndex,
             .local4 = tracker.v4,
     };
 
-    auto ret = mClatIngressMap.writeValue(key, value, BPF_ANY);
-    if (!isOk(ret)) {
-        ALOGE("mClatIngress.Map.writeValue failure: %s", strerror(ret.code()));
+    ret = mClatIngressMap.writeValue(rxKey, rxValue, BPF_ANY);
+    if (!ret.ok()) {
+        ALOGE("mClatIngressMap.writeValue failure: %s", strerror(ret.error().code()));
+        ret = mClatEgressMap.deleteValue(txKey);
+        if (!ret.ok())
+            ALOGE("mClatEgressMap.deleteValue failure: %s", strerror(ret.error().code()));
         return;
     }
 
-    // We do tc setup *after* populating map, so scanning through map
+    // We do tc setup *after* populating the maps, so scanning through them
     // can always be used to tell us what needs cleanup.
 
-    rv = tcQdiscAddDevClsact(mNetlinkFd, tracker.ifIndex);
+    // Usually the clsact will be added in RouteController::addInterfaceToPhysicalNetwork.
+    // But clat is started before the v4- interface is added to the network. The clat startup have
+    // to add clsact of v4- tun interface first for adding bpf filter in maybeStartBpf.
+    // TODO: move "qdisc add clsact" of v4- tun interface out from ClatdController.
+    rv = tcQdiscAddDevClsact(tracker.v4ifIndex);
     if (rv) {
-        ALOGE("tcQdiscAddDevClsact(%d[%s]) failure: %s", tracker.ifIndex, tracker.iface,
+        ALOGE("tcQdiscAddDevClsact(%d[%s]) failure: %s", tracker.v4ifIndex, tracker.v4iface,
               strerror(-rv));
-        ret = mClatIngressMap.deleteValue(key);
-        if (!isOk(ret)) ALOGE("mClatIngressMap.deleteValue failure: %s", strerror(ret.code()));
+        ret = mClatEgressMap.deleteValue(txKey);
+        if (!ret.ok())
+            ALOGE("mClatEgressMap.deleteValue failure: %s", strerror(ret.error().code()));
+        ret = mClatIngressMap.deleteValue(rxKey);
+        if (!ret.ok())
+            ALOGE("mClatIngressMap.deleteValue failure: %s", strerror(ret.error().code()));
         return;
     }
 
-    rv = tcFilterAddDevBpf(mNetlinkFd, tracker.ifIndex, progFd, isEthernet);
+    rv = tcFilterAddDevEgressClatIpv4(tracker.v4ifIndex, txRawIpProgFd, RAWIP);
     if (rv) {
         if ((rv == -ENOENT) && (mClatEbpfMode == ClatEbpfMaybe)) {
-            ALOGI("tcFilterAddDevBpf(%d[%s], %d): %s", tracker.ifIndex, tracker.iface, isEthernet,
-                  strerror(-rv));
+            ALOGI("tcFilterAddDevEgressClatIpv4(%d[%s], RAWIP): %s", tracker.v4ifIndex,
+                  tracker.v4iface, strerror(-rv));
         } else {
-            ALOGE("tcFilterAddDevBpf(%d[%s], %d) failure: %s", tracker.ifIndex, tracker.iface,
-                  isEthernet, strerror(-rv));
+            ALOGE("tcFilterAddDevEgressClatIpv4(%d[%s], RAWIP) failure: %s", tracker.v4ifIndex,
+                  tracker.v4iface, strerror(-rv));
         }
-        rv = tcQdiscDelDevClsact(mNetlinkFd, tracker.ifIndex);
-        if (rv)
-            ALOGE("tcQdiscDelDevClsact(%d[%s]) failure: %s", tracker.ifIndex, tracker.iface,
-                  strerror(-rv));
-        ret = mClatIngressMap.deleteValue(key);
-        if (!isOk(ret)) ALOGE("mClatIngressMap.deleteValue failure: %s", strerror(ret.code()));
+
+        // The v4- interface clsact is not deleted for unwinding error because once it is created
+        // with interface addition, the lifetime is till interface deletion. Moreover, the clsact
+        // has no clat filter now. It should not break anything.
+
+        ret = mClatEgressMap.deleteValue(txKey);
+        if (!ret.ok())
+            ALOGE("mClatEgressMap.deleteValue failure: %s", strerror(ret.error().code()));
+        ret = mClatIngressMap.deleteValue(rxKey);
+        if (!ret.ok())
+            ALOGE("mClatIngressMap.deleteValue failure: %s", strerror(ret.error().code()));
+        return;
+    }
+
+    rv = tcFilterAddDevIngressClatIpv6(tracker.ifIndex, rxProgFd, isEthernet.value());
+    if (rv) {
+        if ((rv == -ENOENT) && (mClatEbpfMode == ClatEbpfMaybe)) {
+            ALOGI("tcFilterAddDevIngressClatIpv6(%d[%s], %d): %s", tracker.ifIndex, tracker.iface,
+                  isEthernet.value(), strerror(-rv));
+        } else {
+            ALOGE("tcFilterAddDevIngressClatIpv6(%d[%s], %d) failure: %s", tracker.ifIndex,
+                  tracker.iface, isEthernet.value(), strerror(-rv));
+        }
+        rv = tcFilterDelDevEgressClatIpv4(tracker.v4ifIndex);
+        if (rv) {
+            ALOGE("tcFilterDelDevEgressClatIpv4(%d[%s]) failure: %s", tracker.v4ifIndex,
+                  tracker.v4iface, strerror(-rv));
+        }
+
+        // The v4- interface clsact is not deleted. See the reason in the error unwinding code of
+        // the egress filter attaching of v4- tun interface.
+
+        ret = mClatEgressMap.deleteValue(txKey);
+        if (!ret.ok())
+            ALOGE("mClatEgressMap.deleteValue failure: %s", strerror(ret.error().code()));
+        ret = mClatIngressMap.deleteValue(rxKey);
+        if (!ret.ok())
+            ALOGE("mClatIngressMap.deleteValue failure: %s", strerror(ret.error().code()));
         return;
     }
 
     // success
 }
 
-void ClatdController::maybeSetIptablesDropRule(bool add, const char* pfx96Str, const char* v6Str) {
-    if (mClatEbpfMode == ClatEbpfDisabled) return;
-
+void ClatdController::setIptablesDropRule(bool add, const char* iface, const char* pfx96Str,
+                                          const char* v6Str) {
     std::string cmd = StringPrintf(
             "*raw\n"
-            "%s %s -s %s/96 -d %s -j DROP\n"
+            "%s %s -i %s -s %s/96 -d %s -j DROP\n"
             "COMMIT\n",
-            (add ? "-A" : "-D"), LOCAL_RAW_PREROUTING, pfx96Str, v6Str);
+            (add ? "-A" : "-D"), LOCAL_RAW_PREROUTING, iface, pfx96Str, v6Str);
 
     iptablesRestoreFunction(V6, cmd);
 }
@@ -329,24 +374,37 @@ void ClatdController::maybeSetIptablesDropRule(bool add, const char* pfx96Str, c
 void ClatdController::maybeStopBpf(const ClatdTracker& tracker) {
     if (mClatEbpfMode == ClatEbpfDisabled) return;
 
-    // No need to remove filter, since we remove qdisc it is attached to,
-    // which automatically removes everything attached to the qdisc.
-    int rv = tcQdiscDelDevClsact(mNetlinkFd, tracker.ifIndex);
-    if (rv < 0)
-        ALOGE("tcQdiscDelDevClsact(%d[%s]) failure: %s", tracker.ifIndex, tracker.iface,
+    int rv = tcFilterDelDevIngressClatIpv6(tracker.ifIndex);
+    if (rv < 0) {
+        ALOGE("tcFilterDelDevIngressClatIpv6(%d[%s]) failure: %s", tracker.ifIndex, tracker.iface,
               strerror(-rv));
+    }
 
-    // We cleanup map last, so scanning through map can be used to
+    rv = tcFilterDelDevEgressClatIpv4(tracker.v4ifIndex);
+    if (rv < 0) {
+        ALOGE("tcFilterDelDevEgressClatIpv4(%d[%s]) failure: %s", tracker.v4ifIndex,
+              tracker.v4iface, strerror(-rv));
+    }
+
+    // We cleanup the maps last, so scanning through them can be used to
     // determine what still needs cleanup.
 
-    ClatIngressKey key = {
+    ClatEgressKey txKey = {
+            .iif = tracker.v4ifIndex,
+            .local4 = tracker.v4,
+    };
+
+    auto ret = mClatEgressMap.deleteValue(txKey);
+    if (!ret.ok()) ALOGE("mClatEgressMap.deleteValue failure: %s", strerror(ret.error().code()));
+
+    ClatIngressKey rxKey = {
             .iif = tracker.ifIndex,
             .pfx96 = tracker.pfx96,
             .local6 = tracker.v6,
     };
 
-    auto ret = mClatIngressMap.deleteValue(key);
-    if (!isOk(ret)) ALOGE("mClatIngressMap.deleteValue failure: %s", strerror(ret.code()));
+    ret = mClatIngressMap.deleteValue(rxKey);
+    if (!ret.ok()) ALOGE("mClatIngressMap.deleteValue failure: %s", strerror(ret.error().code()));
 }
 
 // Finds the tracker of the clatd running on interface |interface|, or nullptr if clatd has not been
@@ -360,22 +418,19 @@ ClatdController::ClatdTracker* ClatdController::getClatdTracker(const std::strin
 int ClatdController::ClatdTracker::init(unsigned networkId, const std::string& interface,
                                         const std::string& v4interface,
                                         const std::string& nat64Prefix) {
-    netId = networkId;
-
-    fwmark.netId = netId;
+    fwmark.netId = networkId;
     fwmark.explicitlySelected = true;
     fwmark.protectedFromVpn = true;
     fwmark.permission = PERMISSION_SYSTEM;
 
     snprintf(fwmarkString, sizeof(fwmarkString), "0x%x", fwmark.intValue);
-    snprintf(netIdString, sizeof(netIdString), "%u", netId);
     strlcpy(iface, interface.c_str(), sizeof(iface));
     ifIndex = if_nametoindex(iface);
     strlcpy(v4iface, v4interface.c_str(), sizeof(v4iface));
     v4ifIndex = if_nametoindex(v4iface);
 
-    // Pass in everything that clatd needs: interface, a netid to use for DNS lookups, a fwmark for
-    // outgoing packets, the NAT64 prefix, and the IPv4 and IPv6 addresses.
+    // Pass in everything that clatd needs: interface, a fwmark for outgoing packets, the NAT64
+    // prefix, and the IPv4 and IPv6 addresses.
     // Validate the prefix and strip off the prefix length.
     uint8_t family;
     uint8_t prefixLen;
@@ -428,7 +483,7 @@ int ClatdController::startClatd(const std::string& interface, const std::string&
     }
 
     // 3. open the tun device in non blocking mode as required by clatd
-    int res = open("/dev/tun", O_RDWR | O_NONBLOCK | O_CLOEXEC);
+    int res = open("/dev/net/tun", O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (res == -1) {
         res = errno;
         ALOGE("open of tun device failed (%s)", strerror(res));
@@ -451,6 +506,10 @@ int ClatdController::startClatd(const std::string& interface, const std::string&
         ALOGE("ioctl(TUNSETIFF) failed (%s)", strerror(res));
         return -res;
     }
+
+    // disable IPv6 on it - failing to do so is not a critical error
+    res = InterfaceController::setEnableIPv6(v4interface.c_str(), 0);
+    if (res) ALOGE("setEnableIPv6 %s failed (%s)", v4interface.c_str(), strerror(res));
 
     // 5. initialize tracker object
     ClatdTracker tracker;
@@ -477,7 +536,6 @@ int ClatdController::startClatd(const std::string& interface, const std::string&
     // clang-format off
     const char* args[] = {progname.c_str(),
                           "-i", tracker.iface,
-                          "-n", tracker.netIdString,
                           "-m", tracker.fwmarkString,
                           "-p", tracker.pfx96String,
                           "-4", tracker.v4Str,
@@ -516,8 +574,8 @@ int ClatdController::startClatd(const std::string& interface, const std::string&
         return -res;
     }
 
-    // 11. If necessary, add the drop rule for iptables.
-    maybeSetIptablesDropRule(true, tracker.pfx96String, tracker.v6Str);
+    // 11. add the drop rule for iptables.
+    setIptablesDropRule(true, tracker.iface, tracker.pfx96String, tracker.v6Str);
 
     // 12. actually perform vfork/dup2/execve
     res = posix_spawn(&tracker.pid, kClatdPath, &fa, &attr, (char* const*)args, nullptr);
@@ -552,7 +610,7 @@ int ClatdController::stopClatd(const std::string& interface) {
     kill(tracker->pid, SIGTERM);
     waitpid(tracker->pid, nullptr, 0);
 
-    maybeSetIptablesDropRule(false, tracker->pfx96String, tracker->v6Str);
+    setIptablesDropRule(false, tracker->iface, tracker->pfx96String, tracker->v6Str);
     mClatdTrackers.erase(interface);
 
     ALOGD("clatd on %s stopped", interface.c_str());
@@ -560,28 +618,39 @@ int ClatdController::stopClatd(const std::string& interface) {
     return 0;
 }
 
-void ClatdController::dump(DumpWriter& dw) {
-    std::lock_guard guard(mutex);
+void ClatdController::dumpEgress(DumpWriter& dw) {
+    if (!mClatEgressMap.isValid()) return;  // if unsupported just don't dump anything
 
-    ScopedIndent clatdIndent(dw);
-    dw.println("ClatdController");
+    ScopedIndent bpfIndent(dw);
+    dw.println("BPF egress map: iif(iface) v4Addr -> v6Addr nat64Prefix oif(iface)");
 
-    {
-        ScopedIndent trackerIndent(dw);
-        dw.println("Trackers: iif[iface] nat64Prefix v6Addr -> v4Addr v4iif[v4iface] [netId]");
+    ScopedIndent bpfDetailIndent(dw);
+    const auto printClatMap = [&dw](const ClatEgressKey& key, const ClatEgressValue& value,
+                                    const BpfMap<ClatEgressKey, ClatEgressValue>&) {
+        char iifStr[IFNAMSIZ] = "?";
+        char local4Str[INET_ADDRSTRLEN] = "?";
+        char local6Str[INET6_ADDRSTRLEN] = "?";
+        char pfx96Str[INET6_ADDRSTRLEN] = "?";
+        char oifStr[IFNAMSIZ] = "?";
 
-        ScopedIndent trackerDetailIndent(dw);
-        for (const auto& pair : mClatdTrackers) {
-            const ClatdTracker& tracker = pair.second;
-            dw.println("%u[%s] %s/96 %s -> %s %u[%s] [%u]", tracker.ifIndex, tracker.iface,
-                       tracker.pfx96String, tracker.v6Str, tracker.v4Str, tracker.v4ifIndex,
-                       tracker.v4iface, tracker.netId);
-        }
+        if_indextoname(key.iif, iifStr);
+        inet_ntop(AF_INET, &key.local4, local4Str, sizeof(local4Str));
+        inet_ntop(AF_INET6, &value.local6, local6Str, sizeof(local6Str));
+        inet_ntop(AF_INET6, &value.pfx96, pfx96Str, sizeof(pfx96Str));
+        if_indextoname(value.oif, oifStr);
+
+        dw.println("%u(%s) %s -> %s %s/96 %u(%s) %s", key.iif, iifStr, local4Str, local6Str,
+                   pfx96Str, value.oif, oifStr, value.oifIsEthernet ? "ether" : "rawip");
+        return Result<void>();
+    };
+    auto res = mClatEgressMap.iterateWithValue(printClatMap);
+    if (!res.ok()) {
+        dw.println("Error printing BPF map: %s", res.error().message().c_str());
     }
+}
 
-    int mapFd = getClatIngressMapFd();
-    if (mapFd < 0) return;  // if unsupported just don't dump anything
-    BpfMap<ClatIngressKey, ClatIngressValue> configMap(mapFd);
+void ClatdController::dumpIngress(DumpWriter& dw) {
+    if (!mClatIngressMap.isValid()) return;  // if unsupported just don't dump anything
 
     ScopedIndent bpfIndent(dw);
     dw.println("BPF ingress map: iif(iface) nat64Prefix v6Addr -> v4Addr oif(iface)");
@@ -603,12 +672,36 @@ void ClatdController::dump(DumpWriter& dw) {
 
         dw.println("%u(%s) %s/96 %s -> %s %u(%s)", key.iif, iifStr, pfx96Str, local6Str, local4Str,
                    value.oif, oifStr);
-        return netdutils::status::ok;
+        return Result<void>();
     };
-    auto res = configMap.iterateWithValue(printClatMap);
-    if (!isOk(res)) {
-        dw.println("Error printing BPF map: %s", res.msg().c_str());
+    auto res = mClatIngressMap.iterateWithValue(printClatMap);
+    if (!res.ok()) {
+        dw.println("Error printing BPF map: %s", res.error().message().c_str());
     }
+}
+
+void ClatdController::dumpTrackers(DumpWriter& dw) {
+    ScopedIndent trackerIndent(dw);
+    dw.println("Trackers: iif[iface] nat64Prefix v6Addr -> v4Addr v4iif[v4iface] [fwmark]");
+
+    ScopedIndent trackerDetailIndent(dw);
+    for (const auto& pair : mClatdTrackers) {
+        const ClatdTracker& tracker = pair.second;
+        dw.println("%u[%s] %s/96 %s -> %s %u[%s] [%s]", tracker.ifIndex, tracker.iface,
+                   tracker.pfx96String, tracker.v6Str, tracker.v4Str, tracker.v4ifIndex,
+                   tracker.v4iface, tracker.fwmarkString);
+    }
+}
+
+void ClatdController::dump(DumpWriter& dw) {
+    std::lock_guard guard(mutex);
+
+    ScopedIndent clatdIndent(dw);
+    dw.println("ClatdController");
+
+    dumpTrackers(dw);
+    dumpIngress(dw);
+    dumpEgress(dw);
 }
 
 auto ClatdController::isIpv4AddressFreeFunc = isIpv4AddressFree;

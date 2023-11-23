@@ -37,7 +37,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             21:d6:d0:4a:4f:25:0f:c9:32:37:fc:aa:5e:12:8d:e9
-    Signature Algorithm: sha512WithRSAEncryption
+        Signature Algorithm: sha512WithRSAEncryption
         Issuer: C=PL, O=Unizeto Technologies S.A., OU=Certum Certification Authority, CN=Certum Trusted Network CA 2
         Validity
             Not Before: Oct  6 08:39:56 2011 GMT
@@ -45,7 +45,7 @@ Certificate:
         Subject: C=PL, O=Unizeto Technologies S.A., OU=Certum Certification Authority, CN=Certum Trusted Network CA 2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:bd:f9:78:f8:e6:d5:80:0c:64:9d:86:1b:96:64:
                     67:3f:22:3a:1e:75:01:7d:ef:fb:5c:67:8c:c9:cc:

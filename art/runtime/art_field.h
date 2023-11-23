@@ -17,7 +17,6 @@
 #ifndef ART_RUNTIME_ART_FIELD_H_
 #define ART_RUNTIME_ART_FIELD_H_
 
-#include "dex/dex_file_types.h"
 #include "dex/modifiers.h"
 #include "dex/primitive.h"
 #include "gc_root.h"
@@ -76,6 +75,10 @@ class ArtField final {
     return (GetAccessFlags() & kAccFinal) != 0;
   }
 
+  bool IsPrivate() REQUIRES_SHARED(Locks::mutator_lock_) {
+    return (GetAccessFlags() & kAccPrivate) != 0;
+  }
+
   uint32_t GetDexFieldIndex() {
     return field_dex_idx_;
   }
@@ -93,8 +96,12 @@ class ArtField final {
     return MemberOffset(offset_);
   }
 
-  static MemberOffset OffsetOffset() {
+  static constexpr MemberOffset OffsetOffset() {
     return MemberOffset(OFFSETOF_MEMBER(ArtField, offset_));
+  }
+
+  static constexpr MemberOffset DeclaringClassOffset() {
+    return MemberOffset(OFFSETOF_MEMBER(ArtField, declaring_class_));
   }
 
   MemberOffset GetOffsetDuringLinking() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -226,10 +233,8 @@ class ArtField final {
   std::string PrettyField(bool with_type = true)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Update the declaring class with the passed in visitor. Does not use read barrier.
-  template <typename Visitor>
-  ALWAYS_INLINE void UpdateObjects(const Visitor& visitor)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  // Returns true if a set-* instruction in the given method is allowable.
+  ALWAYS_INLINE inline bool CanBeChangedBy(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
   bool IsProxyField() REQUIRES_SHARED(Locks::mutator_lock_);

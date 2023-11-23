@@ -16,9 +16,14 @@
 
 package dalvik.system;
 
+import dalvik.system.ThreadPrioritySetter;
+
 import java.util.Objects;
 import java.util.TimeZone;
 import java.util.function.Supplier;
+
+import libcore.util.NonNull;
+import libcore.util.Nullable;
 
 /**
  * Provides lifecycle methods and other hooks for an Android runtime "container" to call into the
@@ -34,6 +39,10 @@ import java.util.function.Supplier;
 public final class RuntimeHooks {
 
     private static Supplier<String> zoneIdSupplier;
+
+    // BEGIN Android-added: Customize behavior of Thread.setPriority(). http://b/139521784
+    private static volatile ThreadPrioritySetter threadPrioritySetter;
+    // END Android-added: Customize behavior of Thread.setPriority(). http://b/139521784
 
     private RuntimeHooks() {
         // No need to construct an instance. All methods are static.
@@ -77,4 +86,27 @@ public final class RuntimeHooks {
             Thread.UncaughtExceptionHandler uncaughtExceptionHandler) {
         Thread.setUncaughtExceptionPreHandler(uncaughtExceptionHandler);
     }
+
+    // BEGIN Android-added: Customize behavior of Thread.setPriority(). http://b/139521784
+    /**
+     * Sets a {@link ThreadPrioritySetter} that will be invoked instead of
+     * the default implementation during {@link Thread.setPriority(int)}.
+     * @hide
+     */
+    @libcore.api.CorePlatformApi
+    public static void setThreadPrioritySetter(@NonNull ThreadPrioritySetter threadPrioritySetter) {
+        RuntimeHooks.threadPrioritySetter = Objects.requireNonNull(threadPrioritySetter);
+    }
+
+    /**
+     * Returns the last {@code ThreadPrioritySetter} that has been
+     * {@code #setThreadPrioritySetter(ThreadPrioritySetter) set}, or
+     * null if the setter has not yet been called.
+     * @hide
+     */
+    @libcore.api.CorePlatformApi
+    public static @Nullable ThreadPrioritySetter getThreadPrioritySetter() {
+        return threadPrioritySetter;
+    }
+    // END Android-added: Customize behavior of Thread.setPriority(). http://b/139521784
 }

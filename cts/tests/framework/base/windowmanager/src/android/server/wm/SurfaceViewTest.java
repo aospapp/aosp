@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import android.app.Instrumentation;
 import android.graphics.PixelFormat;
 import android.graphics.Region;
+import android.platform.test.annotations.Presubmit;
 import android.view.KeyEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -44,6 +45,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+@Presubmit
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class SurfaceViewTest {

@@ -53,10 +53,11 @@ class HostProtocolCommon {
    *        encode the message. It will be finalized before returning from this
    *        function.
    */
-  static void encodeNanoappMessage(
-      flatbuffers::FlatBufferBuilder& builder, uint64_t appId,
-      uint32_t messageType, uint16_t hostEndpoint, const void *messageData,
-      size_t messageDataLen);
+  static void encodeNanoappMessage(flatbuffers::FlatBufferBuilder &builder,
+                                   uint64_t appId, uint32_t messageType,
+                                   uint16_t hostEndpoint,
+                                   const void *messageData,
+                                   size_t messageDataLen);
 
   /**
    * Adds a string to the provided builder as a byte vector.
@@ -65,37 +66,36 @@ class HostProtocolCommon {
    * @param str The string to add.
    * @return The offset in the builder that the string is stored at.
    */
-  static flatbuffers::Offset<flatbuffers::Vector<int8_t>>
-      addStringAsByteVector(flatbuffers::FlatBufferBuilder& builder,
-                            const char *str);
+  static flatbuffers::Offset<flatbuffers::Vector<int8_t>> addStringAsByteVector(
+      flatbuffers::FlatBufferBuilder &builder, const char *str);
 
-   /**
-    * Constructs the message container and finalizes the FlatBufferBuilder
-    *
-    * @param builder The FlatBufferBuilder that was used to construct the
-    *        message prior to adding the container
-    * @param messageType Type of message that was constructed
-    * @param message Offset of the message to include (normally the return value
-    *        of flatbuffers::Offset::Union() on the message offset)
-    * @param hostClientId The source/client ID of the host-side entity that
-    *        sent/should receive this message. Leave unspecified (default 0)
-    *        when constructing a message on the host, as this field will be
-    *        set before the message is sent to CHRE.
-    */
-   static void finalize(
-       flatbuffers::FlatBufferBuilder& builder, fbs::ChreMessage messageType,
-       flatbuffers::Offset<void> message,
-       uint16_t hostClientId = kHostClientIdUnspecified);
+  /**
+   * Constructs the message container and finalizes the FlatBufferBuilder
+   *
+   * @param builder The FlatBufferBuilder that was used to construct the
+   *        message prior to adding the container
+   * @param messageType Type of message that was constructed
+   * @param message Offset of the message to include (normally the return value
+   *        of flatbuffers::Offset::Union() on the message offset)
+   * @param hostClientId The source/client ID of the host-side entity that
+   *        sent/should receive this message. Leave unspecified (default 0)
+   *        when constructing a message on the host, as this field will be
+   *        set before the message is sent to CHRE.
+   */
+  static void finalize(flatbuffers::FlatBufferBuilder &builder,
+                       fbs::ChreMessage messageType,
+                       flatbuffers::Offset<void> message,
+                       uint16_t hostClientId = kHostClientIdUnspecified);
 
-   /**
-    * Verifies that the provided message contains a valid flatbuffers CHRE
-    * protocol message,
-    *
-    * @param message The message to validate.
-    * @param length The size of the message to validate.
-    * @return true if the message is valid, false otherwise.
-    */
-   static bool verifyMessage(const void *message, size_t messageLen);
+  /**
+   * Verifies that the provided message contains a valid flatbuffers CHRE
+   * protocol message,
+   *
+   * @param message The message to validate.
+   * @param length The size of the message to validate.
+   * @return true if the message is valid, false otherwise.
+   */
+  static bool verifyMessage(const void *message, size_t messageLen);
 };
 
 }  // namespace chre

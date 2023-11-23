@@ -31,6 +31,7 @@
 #include "linker_globals.h"
 #include "linker_dlwarning.h"
 
+#include <link.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -193,11 +194,6 @@ int __loader_dl_iterate_phdr(int (*cb)(dl_phdr_info* info, size_t size, void* da
   return do_dl_iterate_phdr(cb, data);
 }
 
-// This function is needed by libgcc.a
-int dl_iterate_phdr(int (*cb)(dl_phdr_info* info, size_t size, void* data), void* data) {
-  return __loader_dl_iterate_phdr(cb, data);
-}
-
 #if defined(__arm__)
 _Unwind_Ptr __loader_dl_unwind_find_exidx(_Unwind_Ptr pc, int* pcount) {
   ScopedPthreadMutexLocker locker(&g_dl_mutex);
@@ -283,10 +279,12 @@ bool __loader_android_link_namespaces_all_libs(android_namespace_t* namespace_fr
 }
 
 android_namespace_t* __loader_android_get_exported_namespace(const char* name) {
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
   return get_exported_namespace(name);
 }
 
 void __loader_cfi_fail(uint64_t CallSiteTypeId, void* Ptr, void *DiagData, void *CallerPc) {
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
   CFIShadowWriter::CfiFail(CallSiteTypeId, Ptr, DiagData, CallerPc);
 }
 
@@ -308,11 +306,11 @@ static uint8_t __libdl_info_buf[sizeof(soinfo)] __attribute__((aligned(8)));
 static soinfo* __libdl_info = nullptr;
 
 // This is used by the dynamic linker. Every process gets these symbols for free.
-soinfo* get_libdl_info(const char* linker_path, const soinfo& linker_si) {
+soinfo* get_libdl_info(const soinfo& linker_si) {
   CHECK((linker_si.flags_ & FLAG_GNU_HASH) != 0);
 
   if (__libdl_info == nullptr) {
-    __libdl_info = new (__libdl_info_buf) soinfo(&g_default_namespace, linker_path, nullptr, 0, 0);
+    __libdl_info = new (__libdl_info_buf) soinfo(&g_default_namespace, nullptr, nullptr, 0, 0);
     __libdl_info->flags_ |= (FLAG_LINKED | FLAG_GNU_HASH);
     __libdl_info->strtab_ = linker_si.strtab_;
     __libdl_info->symtab_ = linker_si.symtab_;

@@ -19,6 +19,8 @@ import android.media.AudioTrack;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.Surface;
 import java.nio.ByteBuffer;
@@ -31,7 +33,8 @@ import java.util.LinkedList;
 public class CodecState {
     private static final String TAG = CodecState.class.getSimpleName();
 
-    private boolean mSawInputEOS, mSawOutputEOS;
+    private boolean mSawInputEOS;
+    private volatile boolean mSawOutputEOS;
     private boolean mLimitQueueDepth;
     private boolean mTunneled;
     private boolean mIsAudio;
@@ -42,7 +45,7 @@ public class CodecState {
     private LinkedList<Integer> mAvailableInputBufferIndices;
     private LinkedList<Integer> mAvailableOutputBufferIndices;
     private LinkedList<MediaCodec.BufferInfo> mAvailableOutputBufferInfos;
-    private long mPresentationTimeUs;
+    private volatile long mPresentationTimeUs;
     private long mSampleBaseTimeUs;
     private MediaCodec mCodec;
     private MediaTimeProvider mMediaTimeProvider;
@@ -50,6 +53,7 @@ public class CodecState {
     private MediaFormat mFormat;
     private MediaFormat mOutputFormat;
     private NonBlockingAudioTrack mAudioTrack;
+    private volatile OnFrameRenderedListener mOnFrameRenderedListener;
 
     /**
      * Manages audio and video playback using MediaCodec and AudioTrack.
@@ -84,6 +88,12 @@ public class CodecState {
         String mime = mFormat.getString(MediaFormat.KEY_MIME);
         Log.d(TAG, "CodecState::CodecState " + mime);
         mIsAudio = mime.startsWith("audio/");
+
+        if (mTunneled && !mIsAudio) {
+            mOnFrameRenderedListener = new OnFrameRenderedListener();
+            codec.setOnFrameRenderedListener(mOnFrameRenderedListener,
+                                             new Handler(Looper.getMainLooper()));
+        }
     }
 
     public void release() {
@@ -99,6 +109,11 @@ public class CodecState {
         mAvailableInputBufferIndices = null;
         mAvailableOutputBufferIndices = null;
         mAvailableOutputBufferInfos = null;
+
+        if (mOnFrameRenderedListener != null) {
+            mCodec.setOnFrameRenderedListener(null, null);
+            mOnFrameRenderedListener = null;
+        }
 
         mCodec.release();
         mCodec = null;
@@ -218,11 +233,6 @@ public class CodecState {
                 Log.d(TAG, "sampleSize: " + sampleSize + " trackIndex:" + trackIndex +
                         " sampleTime:" + sampleTime + " sampleFlags:" + sampleFlags);
                 mSawInputEOS = true;
-                // FIX-ME: in tunneled mode we currently use input EOS as output EOS indicator
-                // we should use stream duration
-                if (mTunneled && !mIsAudio) {
-                    mSawOutputEOS = true;
-                }
                 return false;
             }
 
@@ -231,9 +241,6 @@ public class CodecState {
                     mSampleBaseTimeUs = sampleTime;
                 }
                 sampleTime -= mSampleBaseTimeUs;
-                // FIX-ME: in tunneled mode we currently use input buffer time
-                // as video presentation time. This is not accurate and should be fixed
-                mPresentationTimeUs = sampleTime;
             }
 
             if ((sampleFlags & MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) {
@@ -255,11 +262,6 @@ public class CodecState {
             Log.d(TAG, "saw input EOS on track " + mTrackIndex);
 
             mSawInputEOS = true;
-            // FIX-ME: in tunneled mode we currently use input EOS as output EOS indicator
-            // we should use stream duration
-            if (mTunneled && !mIsAudio) {
-                mSawOutputEOS = true;
-            }
 
             mCodec.queueInputBuffer(
                     index, 0 /* offset */, 0 /* sampleSize */,
@@ -372,6 +374,23 @@ public class CodecState {
             mAvailableOutputBufferIndices.removeFirst();
             mAvailableOutputBufferInfos.removeFirst();
             return true;
+        }
+    }
+
+    /** Callback called by the renderer in tunneling mode. */
+    private class OnFrameRenderedListener implements MediaCodec.OnFrameRenderedListener {
+        private static final long TUNNELING_EOS_PRESENTATION_TIME_US = Long.MAX_VALUE;
+
+        @Override
+        public void onFrameRendered(MediaCodec codec, long presentationTimeUs, long nanoTime) {
+            if (this != mOnFrameRenderedListener) {
+                return; // stale event
+            }
+            if (presentationTimeUs == TUNNELING_EOS_PRESENTATION_TIME_US) {
+                 mSawOutputEOS = true;
+            } else {
+                 mPresentationTimeUs = presentationTimeUs;
+            }
         }
     }
 

@@ -18,6 +18,7 @@ package com.android.tradefed.config;
 
 import com.android.ddmlib.Log;
 import com.android.tradefed.command.CommandOptions;
+import com.android.tradefed.config.yaml.ConfigurationYamlParser;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.ClassPathScanner;
 import com.android.tradefed.util.ClassPathScanner.IClassPathFilter;
@@ -29,6 +30,8 @@ import com.android.tradefed.util.keystore.DryRunKeyStore;
 import com.android.tradefed.util.keystore.IKeyStoreClient;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSortedSet;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
@@ -55,9 +58,12 @@ import java.util.regex.Pattern;
  */
 public class ConfigurationFactory implements IConfigurationFactory {
 
+    /** Currently supported extensions for Tradefed configurations */
+    private static final Set<String> SUPPORTED_EXTENSIONS =
+            ImmutableSortedSet.of(".xml", ".config");
+
     private static final String LOG_TAG = "ConfigurationFactory";
     private static IConfigurationFactory sInstance = null;
-    private static final String CONFIG_SUFFIX = ".xml";
     private static final String CONFIG_PREFIX = "config/";
     private static final String DRY_RUN_TEMPLATE_CONFIG = "empty";
     private static final String CONFIG_ERROR_PATTERN = "(Could not find option with name )(.*)";
@@ -152,8 +158,10 @@ public class ConfigurationFactory implements IConfigurationFactory {
         public boolean accept(String pathName) {
             // only accept entries that match the pattern, and that we don't already know about
             final ConfigId pathId = new ConfigId(pathName);
-            return pathName.startsWith(mPrefix) && pathName.endsWith(CONFIG_SUFFIX) &&
-                    !mConfigDefMap.containsKey(pathId);
+            String extension = FileUtil.getExtension(pathName);
+            return pathName.startsWith(mPrefix)
+                    && SUPPORTED_EXTENSIONS.contains(extension)
+                    && !mConfigDefMap.containsKey(pathId);
         }
 
         /**
@@ -161,9 +169,10 @@ public class ConfigurationFactory implements IConfigurationFactory {
          */
         @Override
         public String transform(String pathName) {
-            // strip off CONFIG_PREFIX and CONFIG_SUFFIX
+            // strip off CONFIG_PREFIX and config extension
             int pathStartIndex = getConfigPrefix().length();
-            int pathEndIndex = pathName.length() - CONFIG_SUFFIX.length();
+            String extension = FileUtil.getExtension(pathName);
+            int pathEndIndex = pathName.length() - extension.length();
             return pathName.substring(pathStartIndex, pathEndIndex);
         }
     }
@@ -215,7 +224,16 @@ public class ConfigurationFactory implements IConfigurationFactory {
      */
     @VisibleForTesting
     File getTestCaseConfigPath(String name) {
-        String[] possibleConfigFileNames = {name + ".xml", name + ".config"};
+        String[] possibleConfigFileNames = {name};
+        if (Strings.isNullOrEmpty(FileUtil.getExtension(name))) {
+            possibleConfigFileNames = new String[SUPPORTED_EXTENSIONS.size()];
+            int i = 0;
+            for (String supportedExtension : SUPPORTED_EXTENSIONS) {
+                possibleConfigFileNames[i] = (name + supportedExtension);
+                i++;
+            }
+        }
+
         for (File testCasesDir : getExternalTestCasesDirs()) {
             for (String configFileName : possibleConfigFileNames) {
                 File config = FileUtil.findFile(testCasesDir, configFileName);
@@ -268,11 +286,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
 
         /** Returns true if it is a config file found inside the classpath. */
         protected boolean isBundledConfig(String name) {
-            InputStream configStream =
-                    getClass()
-                            .getResourceAsStream(
-                                    String.format(
-                                            "/%s%s%s", getConfigPrefix(), name, CONFIG_SUFFIX));
+            InputStream configStream = getBundledConfigStream(name);
             return configStream != null;
         }
 
@@ -379,7 +393,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
          * Loads a configuration.
          *
          * @param name the name of a built-in configuration to load or a file path to configuration
-         *     xml to load
+         *     file to load
          * @param def the loaded {@link ConfigurationDef}
          * @param deviceTagObject name of the current deviceTag if we are loading from a config
          *     inside an <include>. Null otherwise.
@@ -397,8 +411,23 @@ public class ConfigurationFactory implements IConfigurationFactory {
                 Set<String> templateSeen)
                 throws ConfigurationException {
             BufferedInputStream bufStream = getConfigStream(name);
-            ConfigurationXmlParser parser = new ConfigurationXmlParser(this, deviceTagObject);
-            parser.parse(def, name, bufStream, templateMap, templateSeen);
+            String extension = FileUtil.getExtension(name);
+            switch (extension) {
+                case ".xml":
+                case ".config":
+                case "":
+                    ConfigurationXmlParser parser =
+                            new ConfigurationXmlParser(this, deviceTagObject);
+                    parser.parse(def, name, bufStream, templateMap, templateSeen);
+                    break;
+                case ".tf_yaml":
+                    ConfigurationYamlParser yamlParser = new ConfigurationYamlParser();
+                    yamlParser.parse(def, name, bufStream);
+                    break;
+                default:
+                    throw new ConfigurationException(
+                            String.format("The config format for %s is not supported.", name));
+            }
             trackConfig(name, def);
         }
 
@@ -452,7 +481,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
     /**
      * Retrieve the {@link ConfigurationDef} for the given name
      *
-     * @param name the name of a built-in configuration to load or a file path to configuration xml
+     * @param name the name of a built-in configuration to load or a file path to configuration file
      *     to load
      * @return {@link ConfigurationDef}
      * @throws ConfigurationException if an error occurred loading the config
@@ -488,6 +517,9 @@ public class ConfigurationFactory implements IConfigurationFactory {
     public IConfiguration createConfigurationFromArgs(String[] arrayArgs,
             List<String> unconsumedArgs, IKeyStoreClient keyStoreClient)
             throws ConfigurationException {
+        if (arrayArgs.length == 0) {
+            throw new ConfigurationException("Configuration to run was not specified");
+        }
         List<String> listArgs = new ArrayList<String>(arrayArgs.length);
         // FIXME: Update parsing to not care about arg order.
         String[] reorderedArrayArgs = reorderArgs(arrayArgs);
@@ -535,28 +567,12 @@ public class ConfigurationFactory implements IConfigurationFactory {
     private IConfiguration internalCreateConfigurationFromArgs(String[] arrayArgs,
             List<String> optionArgsRef, IKeyStoreClient keyStoreClient)
             throws ConfigurationException {
-        if (arrayArgs.length == 0) {
-            throw new ConfigurationException("Configuration to run was not specified");
-        }
         final List<String> listArgs = new ArrayList<>(Arrays.asList(arrayArgs));
         // first arg is config name
         final String configName = listArgs.remove(0);
 
-        // Steal ConfigurationXmlParser arguments from the command line
-        final ConfigurationXmlParserSettings parserSettings = new ConfigurationXmlParserSettings();
-        final ArgsOptionParser templateArgParser = new ArgsOptionParser(parserSettings);
-        if (keyStoreClient != null) {
-            templateArgParser.setKeyStore(keyStoreClient);
-        }
-        optionArgsRef.addAll(templateArgParser.parseBestEffort(listArgs));
-        // Check that the same template is not attempted to be loaded twice.
-        for (String key : parserSettings.templateMap.keySet()) {
-            if (parserSettings.templateMap.get(key).size() > 1) {
-                throw new ConfigurationException(
-                        String.format("More than one template specified for key '%s'", key));
-            }
-        }
-        Map<String, String> uniqueMap = parserSettings.templateMap.getUniqueMap();
+        Map<String, String> uniqueMap =
+                extractTemplates(configName, listArgs, optionArgsRef, keyStoreClient);
         ConfigurationDef configDef = getConfigurationDef(configName, false, uniqueMap);
         if (!uniqueMap.isEmpty()) {
             // remove the bad ConfigDef from the cache.
@@ -571,6 +587,38 @@ public class ConfigurationFactory implements IConfigurationFactory {
                     String.format("Unused template:map parameters: %s", uniqueMap.toString()));
         }
         return configDef.createConfiguration();
+    }
+
+    private Map<String, String> extractTemplates(
+            String configName,
+            List<String> listArgs,
+            List<String> optionArgsRef,
+            IKeyStoreClient keyStoreClient)
+            throws ConfigurationException {
+        final String extension = FileUtil.getExtension(configName);
+        switch (extension) {
+            case ".xml":
+            case ".config":
+            case "":
+                final ConfigurationXmlParserSettings parserSettings =
+                        new ConfigurationXmlParserSettings();
+                final ArgsOptionParser templateArgParser = new ArgsOptionParser(parserSettings);
+                if (keyStoreClient != null) {
+                    templateArgParser.setKeyStore(keyStoreClient);
+                }
+                optionArgsRef.addAll(templateArgParser.parseBestEffort(listArgs));
+                // Check that the same template is not attempted to be loaded twice.
+                for (String key : parserSettings.templateMap.keySet()) {
+                    if (parserSettings.templateMap.get(key).size() > 1) {
+                        throw new ConfigurationException(
+                                String.format(
+                                        "More than one template specified for key '%s'", key));
+                    }
+                }
+                return parserSettings.templateMap.getUniqueMap();
+            default:
+                return new HashMap<>();
+        }
     }
 
     /**
@@ -609,6 +657,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
         ConfigurationDef configDef = getConfigurationDef(configName, true, null);
         IGlobalConfiguration config = configDef.createGlobalConfiguration();
         config.setOriginalConfig(configName);
+        config.setConfigurationFactory(this);
         return config;
     }
 
@@ -637,15 +686,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
      */
     @Override
     public List<String> getConfigList() {
-        return getConfigList(null);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<String> getConfigList(String subPath) {
-        return getConfigList(subPath, true);
+        return getConfigList(null, true);
     }
 
     /** {@inheritDoc} */
@@ -680,6 +721,12 @@ public class ConfigurationFactory implements IConfigurationFactory {
     @VisibleForTesting
     Set<String> getConfigNamesFromTestCases(String subPath) {
         return ConfigurationUtil.getConfigNamesFromDirs(subPath, getExternalTestCasesDirs());
+    }
+
+    @VisibleForTesting
+    Map<String, String> getConfigSetFromClasspathFromJar(String subPath) {
+        ClassPathScanner cpScanner = new ClassPathScanner();
+        return cpScanner.getClassPathEntriesFromJar(new ConfigClasspathFilter(subPath));
     }
 
     /**
@@ -803,9 +850,24 @@ public class ConfigurationFactory implements IConfigurationFactory {
     }
 
     protected InputStream getBundledConfigStream(String name) {
-        return getClass()
-                .getResourceAsStream(
-                        String.format("/%s%s%s", getConfigPrefix(), name, CONFIG_SUFFIX));
+        String extension = FileUtil.getExtension(name);
+        if (Strings.isNullOrEmpty(extension)) {
+            // If the default name doesn't have an extension, search all possible extensions.
+            for (String supportExtension : SUPPORTED_EXTENSIONS) {
+                InputStream res =
+                        getClass()
+                                .getResourceAsStream(
+                                        String.format(
+                                                "/%s%s%s",
+                                                getConfigPrefix(), name, supportExtension));
+                if (res != null) {
+                    return res;
+                }
+            }
+            return null;
+        }
+        // Check directly with extension if it has one.
+        return getClass().getResourceAsStream(String.format("/%s%s", getConfigPrefix(), name));
     }
 
     /**

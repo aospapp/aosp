@@ -31,20 +31,20 @@ import java.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class Cache<K, V> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     protected Cache() {
         throw new RuntimeException("Stub!");
     }
 
     public abstract int size();
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public abstract void clear();
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public abstract void put(K key, V value);
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public abstract V get(java.lang.Object key);
 
     public abstract void remove(java.lang.Object key);
@@ -63,7 +63,7 @@ public abstract class Cache<K, V> {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static <K, V> sun.security.util.Cache<K, V> newHardMemoryCache(int size) {
         throw new RuntimeException("Stub!");
     }

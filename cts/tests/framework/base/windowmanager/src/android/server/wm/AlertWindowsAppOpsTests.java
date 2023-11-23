@@ -91,10 +91,11 @@ public class AlertWindowsAppOpsTests {
         final AlertWindowsAppOpsTestsActivity activity = mActivityRule.getActivity();
 
         // Start watching for app op
-        appOpsManager.startWatchingActive(new int[] {OP_SYSTEM_ALERT_WINDOW}, listener);
+        appOpsManager.startWatchingActive(new String[] { OPSTR_SYSTEM_ALERT_WINDOW },
+                getInstrumentation().getContext().getMainExecutor(), listener);
 
         // Assert the app op is not started
-        assertFalse(appOpsManager.isOperationActive(OP_SYSTEM_ALERT_WINDOW, uid, packageName));
+        assertFalse(appOpsManager.isOpActive(OPSTR_SYSTEM_ALERT_WINDOW, uid, packageName));
 
 
         // Show a system alert window.
@@ -102,11 +103,11 @@ public class AlertWindowsAppOpsTests {
 
         // The app op should start
         verify(listener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS)
-                .only()).onOpActiveChanged(eq(OP_SYSTEM_ALERT_WINDOW),
+                .only()).onOpActiveChanged(eq(OPSTR_SYSTEM_ALERT_WINDOW),
                 eq(uid), eq(packageName), eq(true));
 
         // The app op should be reported as started
-        assertTrue(appOpsManager.isOperationActive(OP_SYSTEM_ALERT_WINDOW,
+        assertTrue(appOpsManager.isOpActive(OPSTR_SYSTEM_ALERT_WINDOW,
                 uid, packageName));
 
 
@@ -118,11 +119,11 @@ public class AlertWindowsAppOpsTests {
 
         // The app op should finish
         verify(listener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS)
-                .only()).onOpActiveChanged(eq(OP_SYSTEM_ALERT_WINDOW),
+                .only()).onOpActiveChanged(eq(OPSTR_SYSTEM_ALERT_WINDOW),
                 eq(uid), eq(packageName), eq(false));
 
         // The app op should be reported as finished
-        assertFalse(appOpsManager.isOperationActive(OP_SYSTEM_ALERT_WINDOW, uid, packageName));
+        assertFalse(appOpsManager.isOpActive(OPSTR_SYSTEM_ALERT_WINDOW, uid, packageName));
 
 
         // Start with a clean slate
@@ -136,10 +137,10 @@ public class AlertWindowsAppOpsTests {
 
         // No other callbacks expected
         verify(listener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS).times(0))
-                .onOpActiveChanged(eq(OP_SYSTEM_ALERT_WINDOW),
+                .onOpActiveChanged(eq(OPSTR_SYSTEM_ALERT_WINDOW),
                         anyInt(), anyString(), anyBoolean());
 
         // The app op should be reported as started
-        assertTrue(appOpsManager.isOperationActive(OP_SYSTEM_ALERT_WINDOW, uid, packageName));
+        assertTrue(appOpsManager.isOpActive(OPSTR_SYSTEM_ALERT_WINDOW, uid, packageName));
     }
 }

@@ -70,15 +70,20 @@ public class RequiredComponentsTest {
     @AppModeFull
     @Test
     public void testExtServicesPresent() throws Exception {
-        enforceSharedLibPresentAndProperlyHosted(
-                PackageManager.SYSTEM_SHARED_LIBRARY_SERVICES,
-                ApplicationInfo.FLAG_SYSTEM,
-                ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
+        PackageManager packageManager = InstrumentationRegistry.getContext().getPackageManager();
+        String servicesExtensionPackage =
+                packageManager.getServicesSystemSharedLibraryPackageName();
+
+        PackageInfo packageInfo = packageManager.getPackageInfo(servicesExtensionPackage, 0);
+
+        assertTrue(servicesExtensionPackage + " must be a system app",
+                (packageInfo.applicationInfo.flags
+                        & ApplicationInfo.FLAG_SYSTEM) == ApplicationInfo.FLAG_SYSTEM);
     }
 
     @AppModeFull
     @Test
-    public void testSharedServicesPresent() throws Exception {
+    public void testSharedLibraryPresent() throws Exception {
         enforceSharedLibPresentAndProperlyHosted(
                 PackageManager.SYSTEM_SHARED_LIBRARY_SHARED,
                 ApplicationInfo.FLAG_SYSTEM, 0);

@@ -37,7 +37,7 @@ import static android.media.AudioManager.VIBRATE_TYPE_NOTIFICATION;
 import static android.media.AudioManager.VIBRATE_TYPE_RINGER;
 import static android.provider.Settings.System.SOUND_EFFECTS_ENABLED;
 
-import android.app.ActivityManager;
+import android.app.INotificationManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
@@ -51,6 +51,7 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MicrophoneInfo;
+import android.os.ServiceManager;
 import android.os.Vibrator;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
@@ -61,12 +62,15 @@ import android.util.Log;
 import android.view.SoundEffectConstants;
 
 import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.internal.annotations.GuardedBy;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@NonMediaMainlineTest
 public class AudioManagerTest extends InstrumentationTestCase {
     private final static String TAG = "AudioManagerTest";
 
@@ -87,12 +91,13 @@ public class AudioManagerTest extends InstrumentationTestCase {
     // But DND access is disabled completely on low ram devices,
     // so completely skip those tests here.
     // These tests are migrated to CTS verifier tests to ensure test coverage.
-    private boolean mSupportNotificationPolicyAccess;
     private Context mContext;
     private int mOriginalRingerMode;
     private Map<Integer, Integer> mOriginalStreamVolumes = new HashMap<>();
     private NotificationManager.Policy mOriginalNotificationPolicy;
     private int mOriginalZen;
+    private boolean mDoNotCheckUnmute;
+    private boolean mAppsBypassingDnd;
 
     @Override
     protected void setUp() throws Exception {
@@ -102,6 +107,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         Vibrator vibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
         mNm = (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+        mAppsBypassingDnd = NotificationManager.getService().areChannelsBypassingDnd();
         mHasVibrator = (vibrator != null) && vibrator.hasVibrator();
         mUseFixedVolume = mContext.getResources().getBoolean(
                 Resources.getSystem().getIdentifier("config_useFixedVolume", "bool", "android"));
@@ -112,8 +118,6 @@ public class AudioManagerTest extends InstrumentationTestCase {
         mIsSingleVolume = mContext.getResources().getBoolean(
                 Resources.getSystem().getIdentifier("config_single_volume", "bool", "android"));
         mSkipRingerTests = mUseFixedVolume || mIsTelevision || mIsSingleVolume;
-        ActivityManager am = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
-        mSupportNotificationPolicyAccess = !am.isLowRamDevice();
 
         // Store the original volumes that that they can be recovered in tearDown().
         final int[] streamTypes = {
@@ -131,25 +135,30 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mOriginalStreamVolumes.put(streamType, mAudioManager.getStreamVolume(streamType));
         }
 
-        if (mSupportNotificationPolicyAccess) {
-            try {
-                Utils.toggleNotificationPolicyAccess(
-                        mContext.getPackageName(), getInstrumentation(), true);
-                mOriginalNotificationPolicy = mNm.getNotificationPolicy();
-                mOriginalZen = mNm.getCurrentInterruptionFilter();
-            } finally {
-                setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
-                Utils.toggleNotificationPolicyAccess(
-                        mContext.getPackageName(), getInstrumentation(), false);
+        try {
+            Utils.toggleNotificationPolicyAccess(
+                    mContext.getPackageName(), getInstrumentation(), true);
+            mOriginalNotificationPolicy = mNm.getNotificationPolicy();
+            mOriginalZen = mNm.getCurrentInterruptionFilter();
+        } finally {
+            setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+            Utils.toggleNotificationPolicyAccess(
+                    mContext.getPackageName(), getInstrumentation(), false);
+        }
+
+        // Check original mirchrophone mute/unmute status
+        mDoNotCheckUnmute = false;
+        if (mAudioManager.isMicrophoneMute()) {
+            mAudioManager.setMicrophoneMute(false);
+            if (mAudioManager.isMicrophoneMute()) {
+                Log.w(TAG, "Mic seems muted by hardware! Please unmute and rerrun the test.");
+                mDoNotCheckUnmute = true;
             }
         }
     }
 
     @Override
     protected void tearDown() throws Exception {
-        if (!mSupportNotificationPolicyAccess) {
-            return;
-        }
         try {
             Utils.toggleNotificationPolicyAccess(
                     mContext.getPackageName(), getInstrumentation(), true);
@@ -173,36 +182,31 @@ public class AudioManagerTest extends InstrumentationTestCase {
         mAudioManager.setMicrophoneMute(true);
         assertTrue(mAudioManager.isMicrophoneMute());
         mAudioManager.setMicrophoneMute(false);
-        assertFalse(mAudioManager.isMicrophoneMute());
+        assertFalse(mAudioManager.isMicrophoneMute() && !mDoNotCheckUnmute);
     }
 
     @AppModeFull(reason = "Instant apps cannot hold android.permission.MODIFY_AUDIO_SETTINGS")
     public void testMicrophoneMuteIntent() throws Exception {
-        // Skip this test for automotive.
-        // This tests listens for ACTION_MICROPHONE_MUTE_CHANGED which AudioService only broadcasts
-        // to system user. Automotive devices, which runs in secondary user, will fail this test.
-        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
-            return;
-        }
-
-        final MyBlockingIntentReceiver receiver = new MyBlockingIntentReceiver(
-                AudioManager.ACTION_MICROPHONE_MUTE_CHANGED);
-        final boolean initialMicMute = mAudioManager.isMicrophoneMute();
-        try {
-            mContext.registerReceiver(receiver,
-                    new IntentFilter(AudioManager.ACTION_MICROPHONE_MUTE_CHANGED));
-            // change the mic mute state
-            mAudioManager.setMicrophoneMute(!initialMicMute);
-            // verify a change was reported
-            final boolean intentFired = receiver.waitForExpectedAction(500/*ms*/);
-            assertTrue("ACTION_MICROPHONE_MUTE_CHANGED wasn't fired", intentFired);
-            // verify the mic mute state is expected
-            final boolean newMicMute = mAudioManager.isMicrophoneMute();
-            assertTrue("new mic mute state not as expected (" + !initialMicMute + ")",
-                    newMicMute == !initialMicMute);
-        } finally {
-            mContext.unregisterReceiver(receiver);
-            mAudioManager.setMicrophoneMute(initialMicMute);
+        if (!mDoNotCheckUnmute) {
+            final MyBlockingIntentReceiver receiver = new MyBlockingIntentReceiver(
+                    AudioManager.ACTION_MICROPHONE_MUTE_CHANGED);
+            final boolean initialMicMute = mAudioManager.isMicrophoneMute();
+            try {
+                mContext.registerReceiver(receiver,
+                        new IntentFilter(AudioManager.ACTION_MICROPHONE_MUTE_CHANGED));
+                // change the mic mute state
+                mAudioManager.setMicrophoneMute(!initialMicMute);
+                // verify a change was reported
+                final boolean intentFired = receiver.waitForExpectedAction(500/*ms*/);
+                assertTrue("ACTION_MICROPHONE_MUTE_CHANGED wasn't fired", intentFired);
+                // verify the mic mute state is expected
+                final boolean newMicMute = mAudioManager.isMicrophoneMute();
+                assertTrue("new mic mute state not as expected (" + !initialMicMute + ")",
+                        (newMicMute == !initialMicMute));
+            } finally {
+                mContext.unregisterReceiver(receiver);
+                mAudioManager.setMicrophoneMute(initialMicMute);
+            }
         }
     }
 
@@ -296,9 +300,6 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testCheckingZenModeBlockDoesNotRequireNotificationPolicyAccess() throws Exception {
-        if (!mSupportNotificationPolicyAccess) {
-            return;
-        }
         try {
             // set zen mode to priority only, so playSoundEffect will check notification policy
             Utils.toggleNotificationPolicyAccess(mContext.getPackageName(), getInstrumentation(),
@@ -389,7 +390,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testVibrateNotification() throws Exception {
-        if (mUseFixedVolume || !mHasVibrator || !mSupportNotificationPolicyAccess) {
+        if (mUseFixedVolume || !mHasVibrator) {
             return;
         }
         Utils.toggleNotificationPolicyAccess(
@@ -452,7 +453,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testVibrateRinger() throws Exception {
-        if (mUseFixedVolume || !mHasVibrator || !mSupportNotificationPolicyAccess) {
+        if (mUseFixedVolume || !mHasVibrator) {
             return;
         }
         Utils.toggleNotificationPolicyAccess(
@@ -516,9 +517,6 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testAccessRingMode() throws Exception {
-        if (!mSupportNotificationPolicyAccess) {
-            return;
-        }
         Utils.toggleNotificationPolicyAccess(
                 mContext.getPackageName(), getInstrumentation(), true);
         mAudioManager.setRingerMode(RINGER_MODE_NORMAL);
@@ -543,7 +541,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testSetRingerModePolicyAccess() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         // Apps without policy access cannot change silent -> normal or silent -> vibrate.
@@ -606,9 +604,8 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testVolume() throws Exception {
-        if (!mSupportNotificationPolicyAccess) {
+        if (MediaUtils.check(mIsTelevision, "No volume test due to fixed/full vol devices"))
             return;
-        }
         Utils.toggleNotificationPolicyAccess(
                 mContext.getPackageName(), getInstrumentation(), true);
         int volume, volumeDelta;
@@ -626,6 +623,11 @@ public class AudioManagerTest extends InstrumentationTestCase {
         int maxMusicVolume = mAudioManager.getStreamMaxVolume(STREAM_MUSIC);
 
         for (int stream : streams) {
+
+            if (mIsSingleVolume && stream != AudioManager.STREAM_MUSIC) {
+                continue;
+            }
+
             // set ringer mode to back normal to not interfere with volume tests
             mAudioManager.setRingerMode(RINGER_MODE_NORMAL);
 
@@ -638,13 +640,14 @@ public class AudioManagerTest extends InstrumentationTestCase {
                     maxVolume),
                     minVolume < maxVolume);
 
-            mAudioManager.setStreamVolume(stream, 1, 0);
+            final int minNonZeroVolume = Math.max(minVolume, 1);
+            mAudioManager.setStreamVolume(stream, minNonZeroVolume, 0);
             if (mUseFixedVolume) {
                 assertEquals(maxVolume, mAudioManager.getStreamVolume(stream));
                 continue;
             }
             assertEquals(String.format("stream=%d", stream),
-                    1, mAudioManager.getStreamVolume(stream));
+                    minNonZeroVolume, mAudioManager.getStreamVolume(stream));
 
             if (stream == AudioManager.STREAM_MUSIC && mAudioManager.isWiredHeadsetOn()) {
                 // due to new regulations, music sent over a wired headset may be volume limited
@@ -668,7 +671,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
             volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(stream));
             mAudioManager.adjustSuggestedStreamVolume(ADJUST_LOWER, stream, 0);
             Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
-            assertEquals(maxVolume - volumeDelta, mAudioManager.getStreamVolume(stream));
+            assertEquals("Vol ADJUST_LOWER suggested stream:" + stream + " maxVol:" + maxVolume
+                    + " volDelta:" + volumeDelta,
+                    maxVolume - volumeDelta, mAudioManager.getStreamVolume(stream));
 
             // volume lower
             mAudioManager.setStreamVolume(stream, maxVolume, 0);
@@ -676,7 +681,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
             while (volume > minVolume) {
                 volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(stream));
                 mAudioManager.adjustStreamVolume(stream, ADJUST_LOWER, 0);
-                assertEquals(Math.max(0, volume - volumeDelta),
+                assertEquals("Vol ADJUST_LOWER on stream:" + stream + " vol:" + volume
+                                + " minVol:" + minVolume + " volDelta:" + volumeDelta,
+                        Math.max(0, volume - volumeDelta),
                         mAudioManager.getStreamVolume(stream));
                 volume = mAudioManager.getStreamVolume(stream);
             }
@@ -684,12 +691,14 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mAudioManager.adjustStreamVolume(stream, ADJUST_SAME, 0);
 
             // volume raise
-            mAudioManager.setStreamVolume(stream, 1, 0);
+            mAudioManager.setStreamVolume(stream, minNonZeroVolume, 0);
             volume = mAudioManager.getStreamVolume(stream);
             while (volume < maxVolume) {
                 volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(stream));
                 mAudioManager.adjustStreamVolume(stream, ADJUST_RAISE, 0);
-                assertEquals(Math.min(volume + volumeDelta, maxVolume),
+                assertEquals("Vol ADJUST_RAISE on stream:" + stream + " vol:" + volume
+                                + " maxVol:" + maxVolume + " volDelta:" + volumeDelta,
+                        Math.min(volume + volumeDelta, maxVolume),
                         mAudioManager.getStreamVolume(stream));
                 volume = mAudioManager.getStreamVolume(stream);
             }
@@ -698,7 +707,8 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mAudioManager.setStreamVolume(stream, maxVolume, 0);
             for (int k = 0; k < maxVolume; k++) {
                 mAudioManager.adjustStreamVolume(stream, ADJUST_SAME, 0);
-                assertEquals(maxVolume, mAudioManager.getStreamVolume(stream));
+                assertEquals("Vol ADJUST_RAISE onADJUST_SAME stream:" + stream,
+                        maxVolume, mAudioManager.getStreamVolume(stream));
             }
 
             mAudioManager.setStreamVolume(stream, maxVolume, 0);
@@ -831,7 +841,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testMuteDndAffectedStreams() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         int[] streams = { AudioManager.STREAM_RING };
@@ -905,7 +915,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testMuteDndUnaffectedStreams() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         int[] streams = {
@@ -999,7 +1009,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testAdjustVolumeInTotalSilenceMode() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         try {
@@ -1020,7 +1030,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testAdjustVolumeInAlarmsOnlyMode() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         try {
@@ -1045,7 +1055,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testSetStreamVolumeInTotalSilenceMode() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         try {
@@ -1069,7 +1079,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testSetStreamVolumeInAlarmsOnlyMode() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         try {
@@ -1091,7 +1101,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testSetStreamVolumeInPriorityOnlyMode() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         Utils.toggleNotificationPolicyAccess(
@@ -1129,7 +1139,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testAdjustVolumeInPriorityOnly() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
 
@@ -1174,7 +1184,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
     }
 
     public void testPriorityOnlyMuteAll() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
 
@@ -1200,16 +1210,22 @@ public class AudioManagerTest extends InstrumentationTestCase {
             assertTrue("Alarm stream should be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_ALARM));
 
-            // Test requires that the phone's default state has no channels that can bypass dnd
-            assertTrue("Ringer stream should be muted",
-                    mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            // if channels cannot bypass DND, the Ringer stream should be muted, else it
+            // shouldn't be muted
+            if (!mAppsBypassingDnd) {
+                assertTrue("Ringer stream should be muted",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            } else {
+                assertFalse("Ringer stream shouldn't be muted b/c channels can bypass DND",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            }
         } finally {
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
         }
     }
 
     public void testPriorityOnlyMediaAllowed() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
         Utils.toggleNotificationPolicyAccess(
@@ -1235,16 +1251,22 @@ public class AudioManagerTest extends InstrumentationTestCase {
             assertTrue("Alarm stream should be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_ALARM));
 
-            // Test requires that the phone's default state has no channels that can bypass dnd
-            assertTrue("Ringer stream should be muted",
-                    mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            // if channels cannot bypass DND, the Ringer stream should be muted, else it
+            // shouldn't be muted
+            if (!mAppsBypassingDnd) {
+                assertTrue("Ringer stream should be muted",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            } else {
+                assertFalse("Ringer stream shouldn't be muted b/c channels can bypass DND",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            }
         } finally {
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
         }
     }
 
     public void testPriorityOnlySystemAllowed() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
 
@@ -1270,17 +1292,50 @@ public class AudioManagerTest extends InstrumentationTestCase {
                     mAudioManager.isStreamMute(AudioManager.STREAM_SYSTEM));
             assertTrue("Alarm stream should be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_ALARM));
-
-            // Test requires that the phone's default state has no channels that can bypass dnd
-            assertTrue("Ringer stream should be muted",
+            assertFalse("Ringer stream should not be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_RING));
         } finally {
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
         }
     }
 
+    public void testPriorityOnlySystemDisallowedWithRingerMuted() throws Exception {
+        if (mSkipRingerTests) {
+            return;
+        }
+
+        Utils.toggleNotificationPolicyAccess(
+                mContext.getPackageName(), getInstrumentation(), true);
+        try {
+            // ensure volume is not muted/0 to start test, but then mute ringer
+            mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_ALARM, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_RING, 0, 0);
+            mAudioManager.setRingerMode(RINGER_MODE_SILENT);
+
+            // allow only system in priority only
+            mNm.setNotificationPolicy(new NotificationManager.Policy(
+                    NotificationManager.Policy.PRIORITY_CATEGORY_SYSTEM, 0, 0));
+            setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
+
+            assertTrue("Music (media) stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
+            assertTrue("System stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_SYSTEM));
+            assertTrue("Alarm stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_ALARM));
+           assertTrue("Ringer stream should be muted",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+        } finally {
+            setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+        }
+    }
+
     public void testPriorityOnlyAlarmsAllowed() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
 
@@ -1307,16 +1362,22 @@ public class AudioManagerTest extends InstrumentationTestCase {
             assertFalse("Alarm stream should not be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_ALARM));
 
-            // Test requires that the phone's default state has no channels that can bypass dnd
-            assertTrue("Ringer stream should be muted",
-                    mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            // if channels cannot bypass DND, the Ringer stream should be muted, else it
+            // shouldn't be muted
+            if (!mAppsBypassingDnd) {
+                assertTrue("Ringer stream should be muted",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            } else {
+                assertFalse("Ringer stream shouldn't be muted b/c channels can bypass DND",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            }
         } finally {
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
         }
     }
 
     public void testPriorityOnlyRingerAllowed() throws Exception {
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
 
@@ -1352,7 +1413,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
 
     public void testPriorityOnlyChannelsCanBypassDnd() throws Exception {
         final String NOTIFICATION_CHANNEL_ID = "test_id";
-        if (mSkipRingerTests || !mSupportNotificationPolicyAccess) {
+        if (mSkipRingerTests) {
             return;
         }
 
@@ -1386,12 +1447,32 @@ public class AudioManagerTest extends InstrumentationTestCase {
             assertFalse("Ringer stream should not be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_RING));
 
+            // delete the channel that can bypass dnd
+            mNm.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
+
+            assertTrue("Music (media) stream should still be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
+            assertTrue("System stream should still be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_SYSTEM));
+            assertTrue("Alarm stream should still be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_ALARM));
+
+            // if channels cannot bypass DND, the Ringer stream should be muted, else it
+            // shouldn't be muted
+            if (!mAppsBypassingDnd) {
+                assertTrue("Ringer stream should be muted",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            } else {
+                assertFalse("Ringer stream shouldn't be muted b/c channels can bypass DND",
+                        mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+            }
         } finally {
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
             mNm.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
             Utils.toggleNotificationPolicyAccess(mContext.getPackageName(), getInstrumentation(),
                     false);
-
         }
     }
 
@@ -1495,7 +1576,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
         mAudioManager.adjustSuggestedStreamVolume(AudioManager.ADJUST_RAISE, 66747, 0);
     }
 
-    @CddTest(requirement="5.4.4/C-4-1")
+    @CddTest(requirement="5.4.1/C-1-4")
     public void testGetMicrophones() throws Exception {
         if (!mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_MICROPHONE)) {
@@ -1568,4 +1649,45 @@ public class AudioManagerTest extends InstrumentationTestCase {
             assertEquals("Allowed capture policy doesn't match", setPolicy, getPolicy);
         }
     }
+
+    public void testIsHdmiSystemAudidoSupported() {
+        // just make sure the call works
+        boolean isSupported = mAudioManager.isHdmiSystemAudioSupported();
+        Log.d(TAG, "isHdmiSystemAudioSupported() = " + isSupported);
+    }
+
+    public void testIsBluetoothScoAvailableOffCall() {
+        // just make sure the call works
+        boolean isSupported = mAudioManager.isBluetoothScoAvailableOffCall();
+        Log.d(TAG, "isBluetoothScoAvailableOffCall() = " + isSupported);
+    }
+
+    public void testStartStopBluetoothSco() {
+        mAudioManager.startBluetoothSco();
+        mAudioManager.stopBluetoothSco();
+    }
+
+    public void testStartStopBluetoothScoVirtualCall() {
+        mAudioManager.startBluetoothScoVirtualCall();
+        mAudioManager.stopBluetoothSco();
+    }
+
+    public void testGetAdditionalOutputDeviceDelay() {
+        AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_ALL);
+        for (AudioDeviceInfo device : devices) {
+            long delay = mAudioManager.getAdditionalOutputDeviceDelay(device);
+            assertTrue("getAdditionalOutputDeviceDelay() = " + delay +" (should be >= 0)",
+                    delay >= 0);
+            delay = mAudioManager.getMaxAdditionalOutputDeviceDelay(device);
+            assertTrue("getMaxAdditionalOutputDeviceDelay() = " + delay +" (should be >= 0)",
+                    delay >= 0);
+        }
+    }
+
+    // getParameters() & setParameters() are deprecated, so don't test
+
+    // setAdditionalOutputDeviceDelay(), getAudioVolumeGroups(), getVolumeIndexForAttributes()
+    // getMinVolumeIndexForAttributes(), getMaxVolumeIndexForAttributes() &
+    // setVolumeIndexForAttributes() require privledged permission MODIFY_AUDIO_ROUTING
+    // and thus cannot be tested here.
 }

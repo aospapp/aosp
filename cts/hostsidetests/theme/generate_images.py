@@ -46,6 +46,7 @@ CTS_THEME_dict = {
     400: "400dpi",
     420: "420dpi",
     440: "440dpi",
+    450: "450dpi",
     480: "xxhdpi",
     560: "560dpi",
     640: "xxxhdpi",

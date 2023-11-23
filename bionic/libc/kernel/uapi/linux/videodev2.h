@@ -24,10 +24,10 @@
 #include <linux/types.h>
 #include <linux/v4l2-common.h>
 #include <linux/v4l2-controls.h>
-#define VIDEO_MAX_FRAME 32
+#define VIDEO_MAX_FRAME 64
 #define VIDEO_MAX_PLANES 8
 #define v4l2_fourcc(a,b,c,d) ((__u32) (a) | ((__u32) (b) << 8) | ((__u32) (c) << 16) | ((__u32) (d) << 24))
-#define v4l2_fourcc_be(a,b,c,d) (v4l2_fourcc(a, b, c, d) | (1 << 31))
+#define v4l2_fourcc_be(a,b,c,d) (v4l2_fourcc(a, b, c, d) | (1U << 31))
 enum v4l2_field {
   V4L2_FIELD_ANY = 0,
   V4L2_FIELD_NONE = 1,
@@ -44,6 +44,8 @@ enum v4l2_field {
 #define V4L2_FIELD_HAS_BOTTOM(field) ((field) == V4L2_FIELD_BOTTOM || (field) == V4L2_FIELD_INTERLACED || (field) == V4L2_FIELD_INTERLACED_TB || (field) == V4L2_FIELD_INTERLACED_BT || (field) == V4L2_FIELD_SEQ_TB || (field) == V4L2_FIELD_SEQ_BT)
 #define V4L2_FIELD_HAS_BOTH(field) ((field) == V4L2_FIELD_INTERLACED || (field) == V4L2_FIELD_INTERLACED_TB || (field) == V4L2_FIELD_INTERLACED_BT || (field) == V4L2_FIELD_SEQ_TB || (field) == V4L2_FIELD_SEQ_BT)
 #define V4L2_FIELD_HAS_T_OR_B(field) ((field) == V4L2_FIELD_BOTTOM || (field) == V4L2_FIELD_TOP || (field) == V4L2_FIELD_ALTERNATE)
+#define V4L2_FIELD_IS_INTERLACED(field) ((field) == V4L2_FIELD_INTERLACED || (field) == V4L2_FIELD_INTERLACED_TB || (field) == V4L2_FIELD_INTERLACED_BT)
+#define V4L2_FIELD_IS_SEQUENTIAL(field) ((field) == V4L2_FIELD_SEQ_TB || (field) == V4L2_FIELD_SEQ_BT)
 enum v4l2_buf_type {
   V4L2_BUF_TYPE_VIDEO_CAPTURE = 1,
   V4L2_BUF_TYPE_VIDEO_OUTPUT = 2,
@@ -62,7 +64,7 @@ enum v4l2_buf_type {
   V4L2_BUF_TYPE_PRIVATE = 0x80,
 };
 #define V4L2_TYPE_IS_MULTIPLANAR(type) ((type) == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-#define V4L2_TYPE_IS_OUTPUT(type) ((type) == V4L2_BUF_TYPE_VIDEO_OUTPUT || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE || (type) == V4L2_BUF_TYPE_VIDEO_OVERLAY || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY || (type) == V4L2_BUF_TYPE_VBI_OUTPUT || (type) == V4L2_BUF_TYPE_SLICED_VBI_OUTPUT || (type) == V4L2_BUF_TYPE_SDR_OUTPUT)
+#define V4L2_TYPE_IS_OUTPUT(type) ((type) == V4L2_BUF_TYPE_VIDEO_OUTPUT || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE || (type) == V4L2_BUF_TYPE_VIDEO_OVERLAY || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY || (type) == V4L2_BUF_TYPE_VBI_OUTPUT || (type) == V4L2_BUF_TYPE_SLICED_VBI_OUTPUT || (type) == V4L2_BUF_TYPE_SDR_OUTPUT || (type) == V4L2_BUF_TYPE_META_OUTPUT)
 enum v4l2_tuner_type {
   V4L2_TUNER_RADIO = 1,
   V4L2_TUNER_ANALOG_TV = 2,
@@ -145,6 +147,10 @@ struct v4l2_fract {
   __u32 numerator;
   __u32 denominator;
 };
+struct v4l2_area {
+  __u32 width;
+  __u32 height;
+};
 struct v4l2_capability {
   __u8 driver[16];
   __u8 card[32];
@@ -204,9 +210,21 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_RGB444 v4l2_fourcc('R', '4', '4', '4')
 #define V4L2_PIX_FMT_ARGB444 v4l2_fourcc('A', 'R', '1', '2')
 #define V4L2_PIX_FMT_XRGB444 v4l2_fourcc('X', 'R', '1', '2')
+#define V4L2_PIX_FMT_RGBA444 v4l2_fourcc('R', 'A', '1', '2')
+#define V4L2_PIX_FMT_RGBX444 v4l2_fourcc('R', 'X', '1', '2')
+#define V4L2_PIX_FMT_ABGR444 v4l2_fourcc('A', 'B', '1', '2')
+#define V4L2_PIX_FMT_XBGR444 v4l2_fourcc('X', 'B', '1', '2')
+#define V4L2_PIX_FMT_BGRA444 v4l2_fourcc('G', 'A', '1', '2')
+#define V4L2_PIX_FMT_BGRX444 v4l2_fourcc('B', 'X', '1', '2')
 #define V4L2_PIX_FMT_RGB555 v4l2_fourcc('R', 'G', 'B', 'O')
 #define V4L2_PIX_FMT_ARGB555 v4l2_fourcc('A', 'R', '1', '5')
 #define V4L2_PIX_FMT_XRGB555 v4l2_fourcc('X', 'R', '1', '5')
+#define V4L2_PIX_FMT_RGBA555 v4l2_fourcc('R', 'A', '1', '5')
+#define V4L2_PIX_FMT_RGBX555 v4l2_fourcc('R', 'X', '1', '5')
+#define V4L2_PIX_FMT_ABGR555 v4l2_fourcc('A', 'B', '1', '5')
+#define V4L2_PIX_FMT_XBGR555 v4l2_fourcc('X', 'B', '1', '5')
+#define V4L2_PIX_FMT_BGRA555 v4l2_fourcc('B', 'A', '1', '5')
+#define V4L2_PIX_FMT_BGRX555 v4l2_fourcc('B', 'X', '1', '5')
 #define V4L2_PIX_FMT_RGB565 v4l2_fourcc('R', 'G', 'B', 'P')
 #define V4L2_PIX_FMT_RGB555X v4l2_fourcc('R', 'G', 'B', 'Q')
 #define V4L2_PIX_FMT_ARGB555X v4l2_fourcc_be('A', 'R', '1', '5')
@@ -218,7 +236,11 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_BGR32 v4l2_fourcc('B', 'G', 'R', '4')
 #define V4L2_PIX_FMT_ABGR32 v4l2_fourcc('A', 'R', '2', '4')
 #define V4L2_PIX_FMT_XBGR32 v4l2_fourcc('X', 'R', '2', '4')
+#define V4L2_PIX_FMT_BGRA32 v4l2_fourcc('R', 'A', '2', '4')
+#define V4L2_PIX_FMT_BGRX32 v4l2_fourcc('R', 'X', '2', '4')
 #define V4L2_PIX_FMT_RGB32 v4l2_fourcc('R', 'G', 'B', '4')
+#define V4L2_PIX_FMT_RGBA32 v4l2_fourcc('A', 'B', '2', '4')
+#define V4L2_PIX_FMT_RGBX32 v4l2_fourcc('X', 'B', '2', '4')
 #define V4L2_PIX_FMT_ARGB32 v4l2_fourcc('B', 'A', '2', '4')
 #define V4L2_PIX_FMT_XRGB32 v4l2_fourcc('B', 'X', '2', '4')
 #define V4L2_PIX_FMT_GREY v4l2_fourcc('G', 'R', 'E', 'Y')
@@ -242,6 +264,10 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_YUV555 v4l2_fourcc('Y', 'U', 'V', 'O')
 #define V4L2_PIX_FMT_YUV565 v4l2_fourcc('Y', 'U', 'V', 'P')
 #define V4L2_PIX_FMT_YUV32 v4l2_fourcc('Y', 'U', 'V', '4')
+#define V4L2_PIX_FMT_AYUV32 v4l2_fourcc('A', 'Y', 'U', 'V')
+#define V4L2_PIX_FMT_XYUV32 v4l2_fourcc('X', 'Y', 'U', 'V')
+#define V4L2_PIX_FMT_VUYA32 v4l2_fourcc('V', 'U', 'Y', 'A')
+#define V4L2_PIX_FMT_VUYX32 v4l2_fourcc('V', 'U', 'Y', 'X')
 #define V4L2_PIX_FMT_HI240 v4l2_fourcc('H', 'I', '2', '4')
 #define V4L2_PIX_FMT_HM12 v4l2_fourcc('H', 'M', '1', '2')
 #define V4L2_PIX_FMT_M420 v4l2_fourcc('M', '4', '2', '0')
@@ -326,6 +352,7 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_VP9 v4l2_fourcc('V', 'P', '9', '0')
 #define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C')
 #define V4L2_PIX_FMT_FWHT v4l2_fourcc('F', 'W', 'H', 'T')
+#define V4L2_PIX_FMT_FWHT_STATELESS v4l2_fourcc('S', 'F', 'W', 'H')
 #define V4L2_PIX_FMT_CPIA1 v4l2_fourcc('C', 'P', 'I', 'A')
 #define V4L2_PIX_FMT_WNVA v4l2_fourcc('W', 'N', 'V', 'A')
 #define V4L2_PIX_FMT_SN9C10X v4l2_fourcc('S', '9', '1', '0')
@@ -379,6 +406,7 @@ struct v4l2_pix_format {
 #define V4L2_META_FMT_VSP1_HGT v4l2_fourcc('V', 'S', 'P', 'T')
 #define V4L2_META_FMT_UVC v4l2_fourcc('U', 'V', 'C', 'H')
 #define V4L2_META_FMT_D4XX v4l2_fourcc('D', '4', 'X', 'X')
+#define V4L2_META_FMT_VIVID v4l2_fourcc('V', 'I', 'V', 'D')
 #define V4L2_PIX_FMT_PRIV_MAGIC 0xfeedcafe
 #define V4L2_PIX_FMT_FLAG_PREMUL_ALPHA 0x00000001
 struct v4l2_fmtdesc {
@@ -391,6 +419,8 @@ struct v4l2_fmtdesc {
 };
 #define V4L2_FMT_FLAG_COMPRESSED 0x0001
 #define V4L2_FMT_FLAG_EMULATED 0x0002
+#define V4L2_FMT_FLAG_CONTINUOUS_BYTESTREAM 0x0004
+#define V4L2_FMT_FLAG_DYN_RESOLUTION 0x0008
 enum v4l2_frmsizetypes {
   V4L2_FRMSIZE_TYPE_DISCRETE = 1,
   V4L2_FRMSIZE_TYPE_CONTINUOUS = 2,
@@ -485,6 +515,7 @@ struct v4l2_requestbuffers {
 #define V4L2_BUF_CAP_SUPPORTS_DMABUF (1 << 2)
 #define V4L2_BUF_CAP_SUPPORTS_REQUESTS (1 << 3)
 #define V4L2_BUF_CAP_SUPPORTS_ORPHANED_BUFS (1 << 4)
+#define V4L2_BUF_CAP_SUPPORTS_M2M_HOLD_CAPTURE_BUF (1 << 5)
 struct v4l2_plane {
   __u32 bytesused;
   __u32 length;
@@ -528,6 +559,7 @@ struct v4l2_buffer {
 #define V4L2_BUF_FLAG_ERROR 0x00000040
 #define V4L2_BUF_FLAG_IN_REQUEST 0x00000080
 #define V4L2_BUF_FLAG_TIMECODE 0x00000100
+#define V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF 0x00000200
 #define V4L2_BUF_FLAG_PREPARED 0x00000400
 #define V4L2_BUF_FLAG_NO_CACHE_INVALIDATE 0x00000800
 #define V4L2_BUF_FLAG_NO_CACHE_CLEAN 0x00001000
@@ -829,6 +861,7 @@ struct v4l2_ext_control {
     __u8 __user * p_u8;
     __u16 __user * p_u16;
     __u32 __user * p_u32;
+    struct v4l2_area __user * p_area;
     void __user * ptr;
   };
 } __attribute__((packed));
@@ -865,6 +898,7 @@ enum v4l2_ctrl_type {
   V4L2_CTRL_TYPE_U8 = 0x0100,
   V4L2_CTRL_TYPE_U16 = 0x0101,
   V4L2_CTRL_TYPE_U32 = 0x0102,
+  V4L2_CTRL_TYPE_AREA = 0x0106,
 };
 struct v4l2_queryctrl {
   __u32 id;
@@ -1061,6 +1095,7 @@ struct v4l2_encoder_cmd {
 #define V4L2_DEC_CMD_STOP (1)
 #define V4L2_DEC_CMD_PAUSE (2)
 #define V4L2_DEC_CMD_RESUME (3)
+#define V4L2_DEC_CMD_FLUSH (4)
 #define V4L2_DEC_CMD_START_MUTE_AUDIO (1 << 0)
 #define V4L2_DEC_CMD_PAUSE_TO_BLACK (1 << 0)
 #define V4L2_DEC_CMD_STOP_TO_BLACK (1 << 0)

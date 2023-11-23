@@ -27,4 +27,6 @@ cc_test {
     shared_libs: [
         "libnetutils",
     ],
+    require_root: true,
+    test_suites: ["vts"],
 }

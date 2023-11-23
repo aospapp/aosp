@@ -39,7 +39,6 @@
     </style>
     <style name="OpaqueTheme">
         <item name="android:windowIsTranslucent">false</item>
-        <item name="android:windowSwipeToDismiss">false</item>
         <item name="android:windowIsFloating">false</item>
     </style>
     <style name="NoPreview">

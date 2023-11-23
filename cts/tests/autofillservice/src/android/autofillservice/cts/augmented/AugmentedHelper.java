@@ -32,13 +32,13 @@ import android.util.Log;
 import android.util.Pair;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
+import android.view.inputmethod.InlineSuggestionsRequest;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.google.common.base.Preconditions;
-
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -86,8 +86,21 @@ public final class AugmentedHelper {
     public static void assertBasicRequestInfo(@NonNull AugmentedFillRequest request,
             @NonNull Activity activity, @NonNull AutofillId expectedFocusedId,
             @NonNull String expectedFocusedValue) {
-        Preconditions.checkNotNull(activity);
-        Preconditions.checkNotNull(expectedFocusedId);
+        assertBasicRequestInfo(request, activity, expectedFocusedId, expectedFocusedValue, true);
+    }
+
+    public static void assertBasicRequestInfo(@NonNull AugmentedFillRequest request,
+            @NonNull Activity activity, @NonNull AutofillId expectedFocusedId,
+            @NonNull AutofillValue expectedFocusedValue, boolean hasInlineRequest) {
+        assertBasicRequestInfo(request, activity, expectedFocusedId,
+                expectedFocusedValue.getTextValue().toString(), hasInlineRequest);
+    }
+
+    private static void assertBasicRequestInfo(@NonNull AugmentedFillRequest request,
+            @NonNull Activity activity, @NonNull AutofillId expectedFocusedId,
+            @NonNull String expectedFocusedValue, boolean hasInlineRequest) {
+        Objects.requireNonNull(activity);
+        Objects.requireNonNull(expectedFocusedId);
         assertWithMessage("no AugmentedFillRequest").that(request).isNotNull();
         assertWithMessage("no FillRequest on %s", request).that(request.request).isNotNull();
         assertWithMessage("no FillController on %s", request).that(request.controller).isNotNull();
@@ -109,6 +122,13 @@ public final class AugmentedHelper {
         final AutofillValue actualFocusedValue = request.request.getFocusedValue();
         assertWithMessage("no focused value on %s", request).that(actualFocusedValue).isNotNull();
         assertAutofillValue(expectedFocusedValue, actualFocusedValue);
+        final InlineSuggestionsRequest inlineRequest =
+                request.request.getInlineSuggestionsRequest();
+        if (hasInlineRequest) {
+            assertWithMessage("no inline request on %s", request).that(inlineRequest).isNotNull();
+        } else {
+            assertWithMessage("exist inline request on %s", request).that(inlineRequest).isNull();
+        }
     }
 
     public static void assertAutofillValue(@NonNull AutofillValue expectedValue,

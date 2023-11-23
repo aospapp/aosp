@@ -69,8 +69,6 @@ public:
   // is unsupported.
   static BacktraceMap* Create(pid_t pid, bool uncached = false);
 
-  static BacktraceMap* CreateOffline(pid_t pid, const std::vector<backtrace_map_t>& maps);
-
   virtual ~BacktraceMap();
 
   class iterator : public std::iterator<std::bidirectional_iterator_tag, backtrace_map_t*> {
@@ -81,7 +79,7 @@ public:
       index_++;
       return *this;
     }
-    iterator& operator++(int increment) {
+    const iterator operator++(int increment) {
       index_ += increment;
       return *this;
     }
@@ -89,7 +87,7 @@ public:
       index_--;
       return *this;
     }
-    iterator& operator--(int decrement) {
+    const iterator operator--(int decrement) {
       index_ -= decrement;
       return *this;
     }

@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="cmd accessibility set-bind-instant-service-allowed true" />
         <option name="teardown-command" value="cmd accessibility set-bind-instant-service-allowed false" />
@@ -30,4 +31,8 @@
         <option name="package" value="android.view.accessibility.cts" />
         <option name="runtime-hint" value="8m"/>
     </test>
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="directory-keys" value="/sdcard/android.view.accessibility.cts" />
+        <option name="collect-on-run-ended-only" value="true" />
+    </metrics_collector>
 </configuration>

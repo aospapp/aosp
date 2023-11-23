@@ -16,10 +16,12 @@
 
 package libcore.util;
 
+import com.android.icu.util.Icu4cMetadata;
+
 import libcore.timezone.TimeZoneDataFiles;
 import libcore.timezone.TzDataSetVersion;
 import libcore.timezone.TzDataSetVersion.TzDataSetException;
-import libcore.timezone.ZoneInfoDB;
+import libcore.timezone.ZoneInfoDb;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,44 +61,36 @@ public class CoreLibraryDebug {
         // Time zone module tz data set.
         {
             String tzDataModulePrefix = debugKeyPrefix + "tzdata_module_";
-            String versionFileName = TimeZoneDataFiles.getTimeZoneModuleFile(
-                    "tz/" + TzDataSetVersion.DEFAULT_FILE_NAME);
-            addTzDataSetVersionDebugInfo(versionFileName, tzDataModulePrefix, debugInfo);
-        }
-
-        // Runtime module tz data set.
-        {
-            String runtimeModulePrefix = debugKeyPrefix + "runtime_module_";
-            String versionFileName = TimeZoneDataFiles.getRuntimeModuleFile(
-                    "tz/" + TzDataSetVersion.DEFAULT_FILE_NAME);
-            addTzDataSetVersionDebugInfo(versionFileName, runtimeModulePrefix, debugInfo);
+            String versionFile =
+                    TimeZoneDataFiles.getTimeZoneModuleTzFile(TzDataSetVersion.DEFAULT_FILE_NAME);
+            addTzDataSetVersionDebugInfo(versionFile, tzDataModulePrefix, debugInfo);
         }
 
         // /system tz data set.
         {
             String systemDirPrefix = debugKeyPrefix + "system_";
-            String versionFileName =
-                    TimeZoneDataFiles.getSystemTimeZoneFile(TzDataSetVersion.DEFAULT_FILE_NAME);
-            addTzDataSetVersionDebugInfo(versionFileName, systemDirPrefix, debugInfo);
+            String versionFile =
+                    TimeZoneDataFiles.getSystemTzFile(TzDataSetVersion.DEFAULT_FILE_NAME);
+            addTzDataSetVersionDebugInfo(versionFile, systemDirPrefix, debugInfo);
         }
     }
 
-    private static void addTzDataSetVersionDebugInfo(String tzDataSetVersionFileName,
+    private static void addTzDataSetVersionDebugInfo(String tzDataSetVersionFile,
             String debugKeyPrefix, DebugInfo debugInfo) {
-        File file = new File(tzDataSetVersionFileName);
+        File file = new File(tzDataSetVersionFile);
         String statusKey = debugKeyPrefix + "status";
         if (file.exists()) {
             try {
                 TzDataSetVersion tzDataSetVersion =
                         TzDataSetVersion.readFromFile(file);
-                String formatVersionString = tzDataSetVersion.formatMajorVersion + "."
-                        + tzDataSetVersion.formatMinorVersion;
+                String formatVersionString = tzDataSetVersion.getFormatMajorVersion() + "."
+                        + tzDataSetVersion.getFormatMinorVersion();
                 debugInfo.addStringEntry(statusKey, "OK")
                         .addStringEntry(debugKeyPrefix + "formatVersion", formatVersionString)
                         .addStringEntry(debugKeyPrefix + "rulesVersion",
-                                tzDataSetVersion.rulesVersion)
+                                tzDataSetVersion.getRulesVersion())
                         .addStringEntry(debugKeyPrefix + "revision",
-                                tzDataSetVersion.revision);
+                                tzDataSetVersion.getRevision());
             } catch (IOException | TzDataSetException e) {
                 debugInfo.addStringEntry(statusKey, "ERROR");
                 debugInfo.addStringEntry(debugKeyPrefix + "exception_class", e.getClass().getName());
@@ -115,9 +109,9 @@ public class CoreLibraryDebug {
                 android.icu.util.TimeZone.getTZDataVersion());
         debugInfo.addStringEntry(
                 debugKeyPrefix + "libcore.tzdb_version",
-                ZoneInfoDB.getInstance().getVersion());
+                ZoneInfoDb.getInstance().getVersion());
         debugInfo.addStringEntry(
                 debugKeyPrefix + "icu4c.tzdb_version",
-                libcore.icu.ICU.getTZDataVersion());
+                Icu4cMetadata.getTzdbVersion());
     }
 }

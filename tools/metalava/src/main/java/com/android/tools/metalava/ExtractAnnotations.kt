@@ -19,7 +19,7 @@ package com.android.tools.metalava
 import com.android.SdkConstants
 import com.android.tools.lint.annotations.Extractor
 import com.android.tools.lint.client.api.AnnotationLookup
-import com.android.tools.metalava.doclava1.Errors
+import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.AnnotationTarget
 import com.android.tools.metalava.model.ClassItem
@@ -223,14 +223,14 @@ class ExtractAnnotations(
                     // Make sure it has the right retention
                     if (!hasSourceRetention(typeDefClass)) {
                         reporter.report(
-                            Errors.ANNOTATION_EXTRACTION, typeDefClass,
+                            Issues.ANNOTATION_EXTRACTION, typeDefClass,
                             "This typedef annotation class should have @Retention(RetentionPolicy.SOURCE)"
                         )
                     }
 
                     if (filterEmit.test(typeDefClass)) {
                         reporter.report(
-                            Errors.ANNOTATION_EXTRACTION, typeDefClass,
+                            Issues.ANNOTATION_EXTRACTION, typeDefClass,
                             "This typedef annotation class should be marked @hide or should not be marked public"
                         )
                     }
@@ -257,7 +257,7 @@ class ExtractAnnotations(
                     addItem(item, result)
 
                     if (item is PsiMethodItem && result.uAnnotation != null &&
-                        !reporter.isSuppressed(Errors.RETURNING_UNEXPECTED_CONSTANT)
+                        !reporter.isSuppressed(Issues.RETURNING_UNEXPECTED_CONSTANT)
                     ) {
                         verifyReturnedConstants(item, result.uAnnotation, result, className)
                     }
@@ -303,7 +303,7 @@ class ExtractAnnotations(
                             if (names.isNotEmpty() && !names.contains(name)) {
                                 val expected = names.joinToString { it }
                                 reporter.report(
-                                    Errors.RETURNING_UNEXPECTED_CONSTANT, value as PsiElement,
+                                    Issues.RETURNING_UNEXPECTED_CONSTANT, value as PsiElement,
                                     "Returning unexpected constant $name; is @${result.annotationClass?.simpleName()
                                         ?: className} missing this constant? Expected one of $expected"
                                 )
@@ -351,7 +351,7 @@ class ExtractAnnotations(
             val attributes = annotation.attributeValues
             if (attributes.size != 1) {
                 reporter.report(
-                    Errors.ANNOTATION_EXTRACTION, annotation.sourcePsi,
+                    Issues.ANNOTATION_EXTRACTION, annotation.sourcePsi,
                     "Expected exactly one parameter passed to @Retention"
                 )
                 return false
@@ -569,7 +569,7 @@ class ExtractAnnotations(
             // extracted metadata.
             if (("prefix" == name || "suffix" == name) && annotationItem.isTypeDefAnnotation()) {
                 reporter.report(
-                    Errors.SUPERFLUOUS_PREFIX, item,
+                    Issues.SUPERFLUOUS_PREFIX, item,
                     "Superfluous $name attribute on typedef"
                 )
                 continue

@@ -93,6 +93,7 @@ ANRITSU_ERROR_CODES = {
     536870953: 'The specified IP address is the same as that of Default Gateway'
                'specified by Simulation parameter.',
     536870954: 'TFT IE conversion failed.',
+    536870955: 'Saving settings to the SmartStudio scenario failed.',
     536875008: 'An error exists in the parameter configuration.'
                '(This error applies only to the current version.)',
     536936448: 'License verification failed.',

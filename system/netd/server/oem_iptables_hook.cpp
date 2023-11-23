@@ -26,7 +26,6 @@
 
 #define LOG_TAG "OemIptablesHook"
 #include <log/log.h>
-#include <logwrap/logwrap.h>
 #include "NetdConstants.h"
 
 namespace {

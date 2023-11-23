@@ -1,6 +1,7 @@
 type apexd_prop, property_type;
 type audio_prop, property_type, core_property_type;
 type boottime_prop, property_type;
+type boottime_public_prop, property_type;
 type bluetooth_a2dp_offload_prop, property_type;
 type bluetooth_audio_hal_prop, property_type;
 type bluetooth_prop, property_type;
@@ -44,6 +45,7 @@ type dumpstate_options_prop, property_type;
 type dumpstate_prop, property_type, core_property_type;
 type dynamic_system_prop, property_type;
 type exported_secure_prop, property_type;
+type sota_prop, property_type;
 type ffs_prop, property_type, core_property_type;
 type fingerprint_prop, property_type, core_property_type;
 type firstboot_prop, property_type;
@@ -360,6 +362,7 @@ compatible_property_only(`
     -bluetooth_prop
     -bootloader_boot_reason_prop
     -boottime_prop
+    -boottime_public_prop
     -bpf_progs_loaded_prop
     -config_prop
     -cppreopt_prop
@@ -412,6 +415,7 @@ compatible_property_only(`
     -exported_vold_prop
     -exported_wifi_prop
     -extended_core_property_type
+    -sota_prop
     -ffs_prop
     -fingerprint_prop
     -firstboot_prop

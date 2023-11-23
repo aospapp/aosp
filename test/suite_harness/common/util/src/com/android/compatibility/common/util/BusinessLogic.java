@@ -18,6 +18,7 @@ package com.android.compatibility.common.util;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -44,6 +45,9 @@ public class BusinessLogic {
 
     // A Date denoting the time of request from the business logic service
     protected Date mTimestamp;
+
+    // A list of regexes triggering log redaction
+    protected List<String> mRedactionRegexes = new ArrayList<>();
 
     /**
      * Determines whether business logic exists for a given test name
@@ -176,6 +180,10 @@ public class BusinessLogic {
 
     public Date getTimestamp() {
         return mTimestamp;
+    }
+
+    public List<String> getRedactionRegexes() {
+        return new ArrayList<String>(mRedactionRegexes);
     }
 
     /**

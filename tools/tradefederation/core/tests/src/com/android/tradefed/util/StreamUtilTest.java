@@ -23,8 +23,10 @@ import junit.framework.TestCase;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 
@@ -108,14 +110,39 @@ public class StreamUtilTest extends TestCase {
     }
 
     /**
-     * Verify that {@link com.android.tradefed.util.StreamUtil#getStringFromStream} works as
-     * expected.
+     * Verify that {@link com.android.tradefed.util.StreamUtil#getStringFromStream(InputStream)}
+     * works as expected.
      */
     public void testGetStringFromStream() throws Exception {
         final String contents = "this is a string";
         final String output = StreamUtil.getStringFromStream(
                 new ByteArrayInputStream(contents.getBytes()));
         assertEquals(contents, output);
+    }
+
+    /**
+     * Verify that {@link com.android.tradefed.util.StreamUtil#getStringFromStream(InputStream,
+     * long)} works as expected.
+     */
+    public void testGetStringFromStream_withLength() throws Exception {
+        final String contents = "this is a string";
+        final String output =
+                StreamUtil.getStringFromStream(new ByteArrayInputStream(contents.getBytes()), 5);
+        assertEquals("this ", output);
+    }
+
+    /**
+     * Verify that {@link com.android.tradefed.util.StreamUtil#calculateCrc32(InputStream)} works as
+     * expected.
+     *
+     * @throws IOException
+     */
+    public void testCalculateCrc32() throws IOException {
+        final String source = getLargeText();
+        final long crc32 = 3023941728L;
+        ByteArrayInputStream inputSource = new ByteArrayInputStream(source.getBytes());
+        long actualCrc32 = StreamUtil.calculateCrc32(inputSource);
+        assertEquals(crc32, actualCrc32);
     }
 
     /**
@@ -156,6 +183,46 @@ public class StreamUtilTest extends TestCase {
         assertEquals(text, baos.toString());
     }
 
+    /**
+     * Verify that {@link com.android.tradefed.util.StreamUtil#copyStreams(InputStream,
+     * OutputStream, long, long)} can copy partial content.
+     */
+    public void testCopyStreams_partialSuccess() throws Exception {
+        String text = getLargeText();
+        StringBuilder builder = new StringBuilder(33 * 1024);
+        // Create a string longer than StreamUtil.BUF_SIZE
+        while (builder.length() < 32 * 1024) {
+            builder.append(text);
+        }
+        ByteArrayInputStream bais = new ByteArrayInputStream(builder.toString().getBytes());
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        // Skip the first 1kB, and read longer than StreamUtil.BUF_SIZE
+        StreamUtil.copyStreams(bais, baos, 1024, 20 * 1024);
+        bais.close();
+        baos.close();
+        assertEquals(builder.toString().substring(1024, 21 * 1024), baos.toString());
+    }
+
+    /**
+     * Verify that {@link com.android.tradefed.util.StreamUtil#copyStreams(InputStream,
+     * OutputStream, long, long)} cannot copy partial content if requested size is larger than
+     * what's available.
+     */
+    public void testCopyStreams_partialFail() throws Exception {
+        ByteArrayInputStream bais = null;
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            String text = getLargeText();
+            bais = new ByteArrayInputStream(text.getBytes());
+            // Skip the first 1kB, and read longer than the size of text
+            StreamUtil.copyStreams(bais, baos, 10, text.length() + 1024);
+            fail("IOException should be thrown when reading too much data.");
+        } catch (IOException e) {
+            // Ignore expected error.
+        } finally {
+            StreamUtil.close(bais);
+        }
+    }
+
     public void testCopyStreamToWriter() throws Exception {
         String text = getLargeText();
         ByteArrayInputStream bais = new ByteArrayInputStream(text.getBytes());
@@ -166,6 +233,26 @@ public class StreamUtilTest extends TestCase {
         writer.close();
         baos.close();
         assertEquals(text, baos.toString());
+    }
+
+    /**
+     * Verify that {@link com.android.tradefed.util.StreamUtil#copyFileToStream(File, OutputStream)}
+     * works as expected.
+     *
+     * @throws IOException
+     */
+    public void testCopyFileToStream() throws IOException {
+        String text = getLargeText();
+        File file = File.createTempFile("testCopyFileToStream", ".txt");
+        try {
+            FileUtil.writeToFile(text, file);
+            try (ByteArrayOutputStream outStream = new ByteArrayOutputStream()) {
+                StreamUtil.copyFileToStream(file, outStream);
+                assertEquals(text, outStream.toString());
+            }
+        } finally {
+            file.delete();
+        }
     }
 
     /**

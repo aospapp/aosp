@@ -32,6 +32,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.INSTANT_APP_FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -47,8 +48,8 @@
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
 
-        <activity android:name="android.media.cts.AudioPlaybackCaptureActivity"
-            android:label="AudioPlaybackCaptureActivity"
+        <activity android:name="android.media.cts.MediaProjectionActivity"
+            android:label="MediaProjectionActivity"
             android:screenOrientation="locked"/>
         <activity android:name="android.media.cts.AudioManagerStub"
             android:label="AudioManagerStub"/>
@@ -143,7 +144,16 @@
             android:foregroundServiceType="mediaProjection"
             android:enabled="true">
         </service>
+        <service android:name=".StubMediaRoute2ProviderService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.MediaRoute2ProviderService" />
+            </intent-filter>
+       </service>
+       <receiver android:name="android.media.cts.MediaButtonReceiver" />
     </application>
+
+    <uses-sdk android:minSdkVersion="29"   android:targetSdkVersion="29" />
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.media.cts"

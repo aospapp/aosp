@@ -22,7 +22,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 35210227249154 (0x200605167002)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=RO, O=certSIGN, OU=certSIGN ROOT CA
         Validity
             Not Before: Jul  4 17:20:04 2006 GMT
@@ -30,7 +30,7 @@ Certificate:
         Subject: C=RO, O=certSIGN, OU=certSIGN ROOT CA
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:b7:33:b9:7e:c8:25:4a:8e:b5:db:b4:28:1b:aa:
                     57:90:e8:d1:22:d3:64:ba:d3:93:e8:d4:ac:86:61:

@@ -42,8 +42,8 @@ from acts.test_utils.bt.bt_test_utils import verify_server_and_client_connected
 
 
 class BleCoc2ConnTest(BluetoothBaseTest):
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.client_ad = self.android_devices[0]
         # The client which is scanning will need location to be enabled in order to
         # start scan and get scan results.
@@ -53,7 +53,6 @@ class BleCoc2ConnTest(BluetoothBaseTest):
         if len(self.android_devices) > 2:
             self.server2_ad = self.android_devices[2]
 
-    def setup_class(self):
         return setup_multiple_devices_for_bt_test(self.android_devices)
 
     def teardown_test(self):

@@ -25,22 +25,23 @@ import static org.mockito.Mockito.doReturn;
 
 import com.android.tradefed.command.CommandScheduler;
 import com.android.tradefed.config.Option.Importance;
+import com.android.tradefed.config.gcs.GCSConfigurationFactory;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.keystore.JSONFileKeyStoreFactory;
 import com.android.tradefed.util.keystore.StubKeyStoreFactory;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
-
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /**
  * Unit Tests for {@link GlobalConfiguration} It is difficult to test since GlobalConfiguration is a
@@ -249,7 +250,12 @@ public class GlobalConfigurationTest {
 
         @Override
         public InputStream getConfig(String name) throws ConfigurationException {
-            return null;
+            String config =
+                    "<configuration description=\"gcs host config.\">"
+                            + "<key_store class=\"com.android.tradefed.util.keystore.JSONFileKeyStoreFactory\">"
+                            + "</key_store>"
+                            + "</configuration>";
+            return new ByteArrayInputStream(config.getBytes());
         }
 
         @Override
@@ -285,5 +291,34 @@ public class GlobalConfigurationTest {
         assertEquals("stub", globalConfigServer.getServerName());
         assertEquals("current-host-config.xml", globalConfigServer.getCurrentHostConfig());
         assertTrue(nonConfigServerArgs.size() == 2);
+    }
+
+    /** Test global configuration loaded from config server can be cloned. */
+    @Test
+    public void testCreateGlobalConfiguration_withConfigServerAndCloneConfigWithFilter()
+            throws Exception {
+        StubConfigServer globalConfigServer = new StubConfigServer();
+        IConfigurationFactory configFactory =
+                GCSConfigurationFactory.getInstance(globalConfigServer);
+        IGlobalConfiguration globalConfig =
+                configFactory.createGlobalConfigurationFromArgs(
+                        ArrayUtil.buildArray(new String[] {"a-gcs-host-config"}, new String[0]),
+                        new ArrayList<String>());
+        File tmpXml = null;
+        try {
+            tmpXml = globalConfig.cloneConfigWithFilter();
+            // Load the filtered XML and confirm it has desired content.
+            IGlobalConfiguration filteredGlobalConfig =
+                    ConfigurationFactory.getInstance()
+                            .createGlobalConfigurationFromArgs(
+                                    ArrayUtil.buildArray(
+                                            new String[] {tmpXml.toString()}, new String[0]),
+                                    new ArrayList<String>());
+            assertNotNull(filteredGlobalConfig);
+            assertTrue(
+                    filteredGlobalConfig.getKeyStoreFactory() instanceof JSONFileKeyStoreFactory);
+        } finally {
+            FileUtil.deleteFile(tmpXml);
+        }
     }
 }

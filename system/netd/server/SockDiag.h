@@ -34,7 +34,6 @@
 
 struct inet_diag_msg;
 struct tcp_info;
-class SockDiagTest;
 
 namespace android {
 namespace net {

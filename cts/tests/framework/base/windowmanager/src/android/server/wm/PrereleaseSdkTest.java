@@ -48,10 +48,7 @@ public class PrereleaseSdkTest extends ActivityManagerTestBase {
     }
 
     @After
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
-
+    public void tearDown() {
         // Ensure app process is stopped.
         stopTestPackage(MAIN_ACTIVITY.getPackageName());
     }
@@ -60,8 +57,8 @@ public class PrereleaseSdkTest extends ActivityManagerTestBase {
     public void testCompatibilityDialog() throws Exception {
         // Launch target app.
         launchActivity(MAIN_ACTIVITY);
-        mAmWmState.assertActivityDisplayed(MAIN_ACTIVITY);
-        mAmWmState.assertWindowDisplayed(UNSUPPORTED_COMPILE_SDK_DIALOG);
+        mWmState.assertActivityDisplayed(MAIN_ACTIVITY);
+        mWmState.assertWindowDisplayed(UNSUPPORTED_COMPILE_SDK_DIALOG);
 
         // Go back to dismiss the warning dialog.
         pressBackButton();

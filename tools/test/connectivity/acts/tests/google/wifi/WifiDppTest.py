@@ -19,14 +19,14 @@ import queue
 import time
 
 from acts import asserts
-from acts import base_test
 from acts import utils
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.wifi import wifi_constants
 from acts.test_utils.wifi import wifi_test_utils as wutils
+from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts.test_utils.wifi.aware import aware_test_utils as autils
 
-class WifiDppTest(base_test.BaseTestClass):
+class WifiDppTest(WifiBaseTest):
   """This class tests the DPP API surface.
 
      Attributes: The tests in this class require one DUT and one helper phone
@@ -49,19 +49,33 @@ class WifiDppTest(base_test.BaseTestClass):
   DPP_TEST_MESSAGE_TYPE = "Type"
   DPP_TEST_MESSAGE_STATUS = "Status"
   DPP_TEST_MESSAGE_NETWORK_ID = "NetworkId"
+  DPP_TEST_MESSAGE_FAILURE_SSID = "onFailureSsid"
+  DPP_TEST_MESSAGE_FAILURE_CHANNEL_LIST = "onFailureChannelList"
+  DPP_TEST_MESSAGE_FAILURE_BAND_LIST = "onFailureBandList"
 
   DPP_TEST_NETWORK_ROLE_STA = "sta"
   DPP_TEST_NETWORK_ROLE_AP = "ap"
 
+  DPP_TEST_PARAM_SSID = "SSID"
+  DPP_TEST_PARAM_PASSWORD = "Password"
+
   WPA_SUPPLICANT_SECURITY_SAE = "sae"
   WPA_SUPPLICANT_SECURITY_PSK = "psk"
+
+  DPP_EVENT_PROGRESS_AUTHENTICATION_SUCCESS = 0
+  DPP_EVENT_PROGRESS_RESPONSE_PENDING = 1
+  DPP_EVENT_PROGRESS_CONFIGURATION_SENT_WAITING_RESPONSE = 2
+  DPP_EVENT_PROGRESS_CONFIGURATION_ACCEPTED = 3
+
+  DPP_EVENT_SUCCESS_CONFIGURATION_SENT = 0
+  DPP_EVENT_SUCCESS_CONFIGURATION_APPLIED = 1
 
   def setup_class(self):
     """ Sets up the required dependencies from the config file and configures the device for
         WifiService API tests.
 
         Returns:
-          True is successfully configured the requirements for testig.
+          True is successfully configured the requirements for testing.
     """
 
     # Device 0 is under test. Device 1 performs the responder role
@@ -75,6 +89,41 @@ class WifiDppTest(base_test.BaseTestClass):
     utils.require_sl4a((self.dut,))
     utils.sync_device_time(self.dut)
 
+    req_params = ["dpp_r1_test_only"]
+    opt_param = ["wifi_psk_network", "wifi_sae_network"]
+    self.unpack_userparams(
+      req_param_names=req_params, opt_param_names=opt_param)
+
+    self.dut.log.info(
+      "Parsed configs: %s %s" % (self.wifi_psk_network, self.wifi_sae_network))
+
+    # Set up the networks. This is optional. In case these networks are not initialized,
+    # the script will create random ones. However, a real AP is required to pass DPP R2 test.
+    # Most efficient setup would be to use an AP in WPA2/WPA3 transition mode.
+    if self.DPP_TEST_PARAM_SSID in self.wifi_psk_network:
+      self.psk_network_ssid = self.wifi_psk_network[self.DPP_TEST_PARAM_SSID]
+    else:
+      self.psk_network_ssid = None
+
+    if self.DPP_TEST_PARAM_PASSWORD in self.wifi_psk_network:
+      self.psk_network_password = self.wifi_psk_network[self.DPP_TEST_PARAM_PASSWORD]
+    else:
+      self.psk_network_ssid = None
+
+    if self.DPP_TEST_PARAM_SSID in self.wifi_sae_network:
+      self.sae_network_ssid = self.wifi_sae_network[self.DPP_TEST_PARAM_SSID]
+    else:
+      self.sae_network_ssid = None
+
+    if self.DPP_TEST_PARAM_PASSWORD in self.wifi_sae_network:
+      self.sae_network_password = self.wifi_sae_network[self.DPP_TEST_PARAM_PASSWORD]
+    else:
+      self.sae_network_ssid = None
+
+    if self.dpp_r1_test_only == "False":
+      if not self.wifi_psk_network or not self.wifi_sae_network:
+        asserts.fail("Must specify wifi_psk_network and wifi_sae_network for DPP R2 tests")
+
     # Enable verbose logging on the dut
     self.dut.droid.wifiEnableVerboseLogging(1)
     asserts.assert_true(self.dut.droid.wifiGetVerboseLoggingLevel() == 1,
@@ -84,21 +133,45 @@ class WifiDppTest(base_test.BaseTestClass):
     wutils.reset_wifi(self.dut)
 
   def on_fail(self, test_name, begin_time):
-        self.dut.take_bug_report(test_name, begin_time)
-        self.dut.cat_adb_log(test_name, begin_time)
+    self.dut.take_bug_report(test_name, begin_time)
+    self.dut.cat_adb_log(test_name, begin_time)
 
-  def create_and_save_wifi_network_config(self, security):
+  def create_and_save_wifi_network_config(self, security, random_network=False,
+                                          r2_auth_error=False):
     """ Create a config with random SSID and password.
 
             Args:
                security: Security type: PSK or SAE
+               random_network: A boolean that indicates if to create a random network
+               r2_auth_error: A boolean that indicates if to create a network with a bad password
 
             Returns:
                A tuple with the config and networkId for the newly created and
                saved network.
     """
-    config_ssid = self.DPP_TEST_SSID_PREFIX + utils.rand_ascii_str(8)
-    config_password = utils.rand_ascii_str(8)
+    if security == self.DPP_TEST_SECURITY_PSK:
+      if self.psk_network_ssid is None or self.psk_network_password is None or \
+              random_network is True:
+        config_ssid = self.DPP_TEST_SSID_PREFIX + utils.rand_ascii_str(8)
+        config_password = utils.rand_ascii_str(8)
+      else:
+        config_ssid = self.psk_network_ssid
+        if r2_auth_error:
+          config_password = utils.rand_ascii_str(8)
+        else:
+          config_password = self.psk_network_password
+    else:
+      if self.sae_network_ssid is None or self.sae_network_password is None or \
+              random_network is True:
+        config_ssid = self.DPP_TEST_SSID_PREFIX + utils.rand_ascii_str(8)
+        config_password = utils.rand_ascii_str(8)
+      else:
+        config_ssid = self.sae_network_ssid
+        if r2_auth_error:
+          config_password = utils.rand_ascii_str(8)
+        else:
+          config_password = self.sae_network_password
+
     self.dut.log.info(
         "creating config: %s %s %s" % (config_ssid, config_password, security))
     config = {
@@ -231,9 +304,9 @@ class WifiDppTest(base_test.BaseTestClass):
     cmd = "wpa_cli DPP_BOOTSTRAP_REMOVE %s" % uri_id
     result = device.adb.shell(cmd)
 
-    if "FAIL" in result:
-      asserts.fail("del_uri: Failed to delete URI. Command used: %s" % cmd)
-    device.log.info("Deleted URI, id = %s" % uri_id)
+    # If URI was already flushed, ignore a failure here
+    if "FAIL" not in result:
+      device.log.info("Deleted URI, id = %s" % uri_id)
 
   def start_responder_configurator(self,
                                    device,
@@ -269,15 +342,23 @@ class WifiDppTest(base_test.BaseTestClass):
         self.log.warning("SAE not supported on device! reverting to PSK")
         security = self.DPP_TEST_SECURITY_PSK_PASSPHRASE
 
+    ssid = self.DPP_TEST_SSID_PREFIX + utils.rand_ascii_str(8)
+    password = utils.rand_ascii_str(8)
+
     if security == self.DPP_TEST_SECURITY_SAE:
       conf += self.WPA_SUPPLICANT_SECURITY_SAE
+      if not self.sae_network_ssid is None:
+        ssid = self.sae_network_ssid
+        password = self.sae_network_password
     elif security == self.DPP_TEST_SECURITY_PSK_PASSPHRASE:
       conf += self.WPA_SUPPLICANT_SECURITY_PSK
+      if not self.psk_network_ssid is None:
+        ssid = self.psk_network_ssid
+        password = self.psk_network_password
     else:
       conf += self.WPA_SUPPLICANT_SECURITY_PSK
       use_psk = True
 
-    ssid = self.DPP_TEST_SSID_PREFIX + utils.rand_ascii_str(8)
     self.log.debug("SSID = %s" % ssid)
 
     ssid_encoded = binascii.hexlify(ssid.encode()).decode()
@@ -291,7 +372,6 @@ class WifiDppTest(base_test.BaseTestClass):
         psk_encoded = psk
       self.log.debug("PSK = %s" % psk)
     else:
-      password = utils.rand_ascii_str(8)
       if not invalid_config:
         password_encoded = binascii.b2a_hex(password.encode()).decode()
       else:
@@ -356,9 +436,11 @@ class WifiDppTest(base_test.BaseTestClass):
     if "FAIL" in result:
       asserts.fail("start_responder_enrollee: Failure. Command used: %s" % cmd)
 
+    device.adb.shell("wpa_cli set dpp_config_processing 2")
+
     device.log.info("Started responder in enrollee mode")
 
-  def stop_responder(self, device):
+  def stop_responder(self, device, flush=False):
     """Stop responder on helper device
 
        Args:
@@ -368,7 +450,9 @@ class WifiDppTest(base_test.BaseTestClass):
     if "FAIL" in result:
       asserts.fail("stop_responder: Failed to stop responder")
     device.adb.shell("wpa_cli set dpp_configurator_params")
-
+    device.adb.shell("wpa_cli set dpp_config_processing 0")
+    if flush:
+      device.adb.shell("wpa_cli flush")
     device.log.info("Stopped responder")
 
   def start_dpp_as_initiator_configurator(self,
@@ -379,7 +463,9 @@ class WifiDppTest(base_test.BaseTestClass):
                                           net_role=DPP_TEST_NETWORK_ROLE_STA,
                                           cause_timeout=False,
                                           fail_authentication=False,
-                                          invalid_uri=False):
+                                          invalid_uri=False,
+                                          r2_no_ap=False,
+                                          r2_auth_error=False):
     """ Test Easy Connect (DPP) as initiator configurator.
 
                 1. Enable wifi, if needed
@@ -406,13 +492,16 @@ class WifiDppTest(base_test.BaseTestClass):
             fail_authentication: Fail authentication by corrupting the
               responder's key
             invalid_uri: Use garbage string instead of a URI
+            r2_no_ap: Indicates if to test DPP R2 no AP failure event
+            r2_auth_error: Indicates if to test DPP R2 authentication failure
     """
     if not self.dut.droid.wifiIsEasyConnectSupported():
       self.log.warning("Easy Connect is not supported on device!")
       return
 
     wutils.wifi_toggle_state(self.dut, True)
-    test_network_id = self.create_and_save_wifi_network_config(security)
+    test_network_id = self.create_and_save_wifi_network_config(security, random_network=r2_no_ap,
+                                                               r2_auth_error=r2_auth_error)
 
     if use_mac:
       mac = autils.get_mac_addr(self.helper_dev, "wlan0")
@@ -454,34 +543,57 @@ class WifiDppTest(base_test.BaseTestClass):
               == self.DPP_TEST_EVENT_ENROLLEE_SUCCESS:
         asserts.fail("DPP failure, unexpected result!")
         break
-      if dut_event[self.DPP_TEST_EVENT_DATA][
-          self
-          .DPP_TEST_MESSAGE_TYPE] == self.DPP_TEST_EVENT_CONFIGURATOR_SUCCESS:
-        if cause_timeout or fail_authentication or invalid_uri:
+      if dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_TYPE] \
+              == self.DPP_TEST_EVENT_CONFIGURATOR_SUCCESS:
+        if cause_timeout or fail_authentication or invalid_uri or r2_no_ap or r2_auth_error:
           asserts.fail(
               "Unexpected DPP success, status code: %s" %
               dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_STATUS])
         else:
           val = dut_event[self.DPP_TEST_EVENT_DATA][
               self.DPP_TEST_MESSAGE_STATUS]
-          if val == 0:
+          if val == self.DPP_EVENT_SUCCESS_CONFIGURATION_SENT:
             self.dut.log.info("DPP Configuration sent success")
+          if val == self.DPP_EVENT_SUCCESS_CONFIGURATION_APPLIED:
+            self.dut.log.info("DPP Configuration applied by enrollee")
         break
-      if dut_event[self.DPP_TEST_EVENT_DATA][
-          self.DPP_TEST_MESSAGE_TYPE] == self.DPP_TEST_EVENT_PROGRESS:
+      if dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_TYPE] \
+              == self.DPP_TEST_EVENT_PROGRESS:
         self.dut.log.info("DPP progress event")
         val = dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_STATUS]
-        if val == 0:
+        if val == self.DPP_EVENT_PROGRESS_AUTHENTICATION_SUCCESS:
           self.dut.log.info("DPP Authentication success")
-        elif val == 1:
+        elif val == self.DPP_EVENT_PROGRESS_RESPONSE_PENDING:
           self.dut.log.info("DPP Response pending")
+        elif val == self.DPP_EVENT_PROGRESS_CONFIGURATION_SENT_WAITING_RESPONSE:
+          self.dut.log.info("DPP Configuration sent, waiting response")
+        elif val == self.DPP_EVENT_PROGRESS_CONFIGURATION_ACCEPTED:
+          self.dut.log.info("Configuration accepted")
         continue
       if dut_event[self.DPP_TEST_EVENT_DATA][
           self.DPP_TEST_MESSAGE_TYPE] == self.DPP_TEST_EVENT_FAILURE:
-        if cause_timeout or fail_authentication or invalid_uri:
+        if cause_timeout or fail_authentication or invalid_uri or r2_no_ap or r2_auth_error:
           self.dut.log.info(
               "Error %s occurred, as expected" %
               dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_STATUS])
+          if r2_no_ap or r2_auth_error:
+            if not dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_FAILURE_SSID]:
+              asserts.fail("Expected SSID value in DPP R2 onFailure event")
+            self.dut.log.info(
+              "Enrollee searched for SSID %s" %
+              dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_FAILURE_SSID])
+          if r2_no_ap:
+            if not dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_FAILURE_CHANNEL_LIST]:
+              asserts.fail("Expected Channel list value in DPP R2 onFailure event")
+            self.dut.log.info(
+              "Enrollee scanned the following channels: %s" %
+              dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_FAILURE_CHANNEL_LIST])
+          if r2_no_ap or r2_auth_error:
+            if not dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_FAILURE_BAND_LIST]:
+              asserts.fail("Expected Band Support list value in DPP R2 onFailure event")
+            self.dut.log.info(
+              "Enrollee supports the following bands: %s" %
+              dut_event[self.DPP_TEST_EVENT_DATA][self.DPP_TEST_MESSAGE_FAILURE_BAND_LIST])
         else:
           asserts.fail(
               "DPP failure, status code: %s" %
@@ -492,7 +604,7 @@ class WifiDppTest(base_test.BaseTestClass):
     self.dut.ed.clear_all_events()
 
     # Stop responder
-    self.stop_responder(self.helper_dev)
+    self.stop_responder(self.helper_dev, flush=True)
 
     if not invalid_uri:
       # Delete URI
@@ -607,7 +719,7 @@ class WifiDppTest(base_test.BaseTestClass):
     self.dut.ed.clear_all_events()
 
     # Stop responder
-    self.stop_responder(self.helper_dev)
+    self.stop_responder(self.helper_dev, flush=True)
 
     # Delete URI
     self.del_uri(self.helper_dev, uri_id)
@@ -625,6 +737,7 @@ class WifiDppTest(base_test.BaseTestClass):
   """ Tests Begin """
 
   @test_tracker_info(uuid="30893d51-2069-4e1c-8917-c8a840f91b59")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_5G(self):
     asserts.skip_if(not self.dut.droid.wifiIs5GHzBandSupported() or
             not self.helper_dev.droid.wifiIs5GHzBandSupported(),
@@ -634,6 +747,7 @@ class WifiDppTest(base_test.BaseTestClass):
       use_mac=True)
 
   @test_tracker_info(uuid="54d1d19a-aece-459c-b819-9d4b1ae63f77")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_5G_broadcast(self):
     asserts.skip_if(not self.dut.droid.wifiIs5GHzBandSupported() or
                     not self.helper_dev.droid.wifiIs5GHzBandSupported(),
@@ -643,6 +757,7 @@ class WifiDppTest(base_test.BaseTestClass):
       use_mac=False)
 
   @test_tracker_info(uuid="18270a69-300c-4f54-87fd-c19073a2854e ")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_no_chan_in_uri_listen_on_5745_broadcast(self):
     asserts.skip_if(not self.dut.droid.wifiIs5GHzBandSupported() or
                     not self.helper_dev.droid.wifiIs5GHzBandSupported(),
@@ -651,6 +766,7 @@ class WifiDppTest(base_test.BaseTestClass):
       security=self.DPP_TEST_SECURITY_PSK, responder_chan=None, responder_freq=5745, use_mac=False)
 
   @test_tracker_info(uuid="fbdd687c-954a-400b-9da3-2d17e28b0798")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_no_chan_in_uri_listen_on_5745(self):
     asserts.skip_if(not self.dut.droid.wifiIs5GHzBandSupported() or
                     not self.helper_dev.droid.wifiIs5GHzBandSupported(),
@@ -658,42 +774,50 @@ class WifiDppTest(base_test.BaseTestClass):
     self.start_dpp_as_initiator_configurator(
       security=self.DPP_TEST_SECURITY_PSK, responder_chan=None, responder_freq=5745, use_mac=True)
 
-  @test_tracker_info(uuid="570f499f-ab12-4405-af14-c9ed36da2e01 ")
+  @test_tracker_info(uuid="570f499f-ab12-4405-af14-c9ed36da2e01")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_no_chan_in_uri_listen_on_2462_broadcast(self):
     self.start_dpp_as_initiator_configurator(
       security=self.DPP_TEST_SECURITY_PSK, responder_chan=None, responder_freq=2462, use_mac=False)
 
   @test_tracker_info(uuid="e1f083e0-0878-4c49-8ac5-d7c6bba24625")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_no_chan_in_uri_listen_on_2462(self):
     self.start_dpp_as_initiator_configurator(
       security=self.DPP_TEST_SECURITY_PSK, responder_chan=None, responder_freq=2462, use_mac=True)
 
   @test_tracker_info(uuid="d2a526f5-4269-493d-bd79-4e6d1b7b00f0")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_PSK, use_mac=True)
 
   @test_tracker_info(uuid="6ead218c-222b-45b8-8aad-fe7d883ed631")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_sae(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_SAE, use_mac=True)
 
   @test_tracker_info(uuid="1686adb5-1b3c-4e6d-a969-6b007bdd990d")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_passphrase(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE, use_mac=True)
 
   @test_tracker_info(uuid="3958feb5-1a0c-4487-9741-ac06f04c55a2")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_sae_broadcast(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_SAE, use_mac=False)
 
   @test_tracker_info(uuid="fe6d66f5-73a1-46e9-8f49-73b8f332cc8c")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_passphrase_broadcast(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE, use_mac=False)
 
   @test_tracker_info(uuid="9edd372d-e2f1-4545-8d04-6a1636fcbc4b")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_sae_for_ap(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_SAE,
@@ -701,6 +825,7 @@ class WifiDppTest(base_test.BaseTestClass):
         net_role=self.DPP_TEST_NETWORK_ROLE_AP)
 
   @test_tracker_info(uuid="e9eec912-d665-4926-beac-859cb13dc17b")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_with_psk_passphrase_for_ap(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE,
@@ -708,26 +833,31 @@ class WifiDppTest(base_test.BaseTestClass):
         net_role=self.DPP_TEST_NETWORK_ROLE_AP)
 
   @test_tracker_info(uuid="8055694f-606f-41dd-9826-3ea1e9b007f8")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_enrollee_with_sae(self):
     self.start_dpp_as_initiator_enrollee(
         security=self.DPP_TEST_SECURITY_SAE, use_mac=True)
 
   @test_tracker_info(uuid="c1e9f605-b5c0-4e53-8a08-1b0087a667fa")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_enrollee_with_psk_passphrase(self):
     self.start_dpp_as_initiator_enrollee(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE, use_mac=True)
 
   @test_tracker_info(uuid="1d7f30ad-2f9a-427a-8059-651dc8827ae2")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_enrollee_with_sae_broadcast(self):
     self.start_dpp_as_initiator_enrollee(
         security=self.DPP_TEST_SECURITY_SAE, use_mac=False)
 
   @test_tracker_info(uuid="0cfc2645-600e-4f2b-ab5c-fcee6d363a9a")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_enrollee_with_psk_passphrase_broadcast(self):
     self.start_dpp_as_initiator_enrollee(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE, use_mac=False)
 
   @test_tracker_info(uuid="2e26b248-65dd-41f6-977b-e223d72b2de9")
+  @WifiBaseTest.wifi_test_wrap
   def test_start_dpp_as_initiator_enrollee_receive_invalid_config(self):
     self.start_dpp_as_initiator_enrollee(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE,
@@ -735,6 +865,7 @@ class WifiDppTest(base_test.BaseTestClass):
         invalid_config=True)
 
   @test_tracker_info(uuid="ed189661-d1c1-4626-9f01-3b7bb8a417fe")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_fail_authentication(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE,
@@ -742,6 +873,7 @@ class WifiDppTest(base_test.BaseTestClass):
         fail_authentication=True)
 
   @test_tracker_info(uuid="5a8c6587-fbb4-4a27-9cba-af6f8935833a")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_fail_unicast_timeout(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE,
@@ -749,6 +881,7 @@ class WifiDppTest(base_test.BaseTestClass):
         cause_timeout=True)
 
   @test_tracker_info(uuid="b12353ac-1a04-4036-81a4-2d2d0c653dbb")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_fail_broadcast_timeout(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE,
@@ -756,6 +889,7 @@ class WifiDppTest(base_test.BaseTestClass):
         cause_timeout=True)
 
   @test_tracker_info(uuid="eeff91be-09ce-4a33-8b4f-ece40eb51c76")
+  @WifiBaseTest.wifi_test_wrap
   def test_dpp_as_initiator_configurator_invalid_uri(self):
     self.start_dpp_as_initiator_configurator(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE,
@@ -763,10 +897,25 @@ class WifiDppTest(base_test.BaseTestClass):
         invalid_uri=True)
 
   @test_tracker_info(uuid="1fa25f58-0d0e-40bd-8714-ab78957514d9")
+  @WifiBaseTest.wifi_test_wrap
   def test_start_dpp_as_initiator_enrollee_fail_timeout(self):
     self.start_dpp_as_initiator_enrollee(
         security=self.DPP_TEST_SECURITY_PSK_PASSPHRASE,
         use_mac=True,
         cause_timeout=True)
 
-  """ Tests End """
+  @test_tracker_info(uuid="23601af8-118e-4ba8-89e3-5da2e37bbd7d")
+  def test_dpp_as_initiator_configurator_fail_r2_no_ap(self):
+    asserts.skip_if(self.dpp_r1_test_only == "True",
+                    "DPP R1 test, skipping this test for DPP R2 only")
+    self.start_dpp_as_initiator_configurator(
+      security=self.DPP_TEST_SECURITY_PSK, use_mac=True, r2_no_ap=True)
+
+  @test_tracker_info(uuid="7f9756d3-f28f-498e-8dcf-ac3816303998")
+  def test_dpp_as_initiator_configurator_fail_r2_auth_error(self):
+    asserts.skip_if(self.dpp_r1_test_only == "True",
+                    "DPP R1 test, skipping this test for DPP R2 only")
+    self.start_dpp_as_initiator_configurator(
+      security=self.DPP_TEST_SECURITY_PSK, use_mac=True, r2_auth_error=True)
+
+""" Tests End """

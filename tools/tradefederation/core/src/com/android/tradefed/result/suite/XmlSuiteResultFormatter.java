@@ -33,7 +33,6 @@ import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.xml.XmlEscapers;
 import com.google.gson.Gson;
@@ -99,6 +98,7 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
     private static final String MODULE_TAG = "Module";
     private static final String MODULES_DONE_ATTR = "modules_done";
     private static final String MODULES_TOTAL_ATTR = "modules_total";
+    private static final String MODULES_NOT_DONE_REASON = "Reason";
     private static final String NAME_ATTR = "name";
     private static final String OS_ARCH_ATTR = "os_arch";
     private static final String OS_NAME_ATTR = "os_name";
@@ -127,6 +127,10 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
     public static final class RunHistory {
         public long startTime;
         public long endTime;
+        public long passedTests;
+        public long failedTests;
+        public String commandLineArgs;
+        public String hostName;
     }
 
     /**
@@ -214,13 +218,13 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         Map<Integer, List<String>> serialsShards = holder.context.getShardsSerials();
         String deviceList = "";
         if (serialsShards.isEmpty()) {
-            deviceList = Joiner.on(",").join(holder.context.getSerials());
+            deviceList = String.join(",", holder.context.getSerials());
         } else {
             List<String> subList = new ArrayList<>();
             for (List<String> list : serialsShards.values()) {
-                subList.add(Joiner.on(",").join(list));
+                subList.add(String.join(",", list));
             }
-            deviceList = Joiner.on(",").join(subList);
+            deviceList = String.join(",", subList);
         }
         serializer.attribute(NS, DEVICES_ATTR, deviceList);
 
@@ -241,7 +245,7 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         serializer.startTag(NS, BUILD_TAG);
         for (String key : holder.context.getAttributes().keySet()) {
             serializer.attribute(
-                    NS, key, Joiner.on(",").join(holder.context.getAttributes().get(key)));
+                    NS, key, String.join(",", holder.context.getAttributes().get(key)));
         }
         addBuildInfoAttributes(serializer, holder);
         serializer.endTag(NS, BUILD_TAG);
@@ -256,6 +260,10 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
                 serializer.startTag(NS, RUN_TAG);
                 serializer.attribute(NS, START_TIME_ATTR, String.valueOf(runHistory.startTime));
                 serializer.attribute(NS, END_TIME_ATTR, String.valueOf(runHistory.endTime));
+                serializer.attribute(NS, PASS_ATTR, Long.toString(runHistory.passedTests));
+                serializer.attribute(NS, FAILED_ATTR, Long.toString(runHistory.failedTests));
+                serializer.attribute(NS, COMMAND_LINE_ARGS, runHistory.commandLineArgs);
+                serializer.attribute(NS, HOST_NAME_ATTR, runHistory.hostName);
                 serializer.endTag(NS, RUN_TAG);
             }
             serializer.endTag(NS, RUN_HISTORY_TAG);
@@ -290,6 +298,15 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
                     NS, PASS_ATTR, Integer.toString(module.getNumTestsInState(TestStatus.PASSED)));
             serializer.attribute(NS, TOTAL_TESTS_ATTR, Integer.toString(module.getNumTests()));
 
+            if (!isDone) {
+                String message = module.getRunFailureMessage();
+                if (message == null) {
+                    message = "Run was incomplete. Some tests might not have finished.";
+                }
+                serializer.startTag(NS, MODULES_NOT_DONE_REASON);
+                serializer.attribute(NS, MESSAGE_ATTR, message);
+                serializer.endTag(NS, MODULES_NOT_DONE_REASON);
+            }
             serializeTestCases(serializer, module.getTestResults());
             serializer.endTag(NS, MODULE_TAG);
         }
@@ -456,8 +473,9 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
 
             parser.nextTag();
             parser.require(XmlPullParser.START_TAG, NS, RESULT_TAG);
-            invocation.startTime = (Long.valueOf(parser.getAttributeValue(NS, START_TIME_ATTR)));
-            invocation.endTime = (Long.valueOf(parser.getAttributeValue(NS, END_TIME_ATTR)));
+            invocation.startTime = Long.valueOf(parser.getAttributeValue(NS, START_TIME_ATTR));
+            invocation.endTime = Long.valueOf(parser.getAttributeValue(NS, END_TIME_ATTR));
+            invocation.hostName = parser.getAttributeValue(NS, HOST_NAME_ATTR);
             context.addInvocationAttribute(
                     COMMAND_LINE_ARGS, parser.getAttributeValue(NS, COMMAND_LINE_ARGS));
             parseSuiteAttributes(parser, context);
@@ -595,6 +613,13 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
             module.testRunStarted(moduleId, totalTests);
             // TestCase level information parsing
             while (parser.nextTag() == XmlPullParser.START_TAG) {
+                // If a reason for not done exists, handle it.
+                if (parser.getName().equals(MODULES_NOT_DONE_REASON)) {
+                    parser.require(XmlPullParser.START_TAG, NS, MODULES_NOT_DONE_REASON);
+                    parser.nextTag();
+                    parser.require(XmlPullParser.END_TAG, NS, MODULES_NOT_DONE_REASON);
+                    continue;
+                }
                 parser.require(XmlPullParser.START_TAG, NS, CASE_TAG);
                 String className = parser.getAttributeValue(NS, NAME_ATTR);
                 // Test level information parsing
@@ -681,7 +706,8 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         return metrics;
     }
 
-    private static String sanitizeXmlContent(String s) {
+    @VisibleForTesting
+    static String sanitizeXmlContent(String s) {
         return XmlEscapers.xmlContentEscaper().escape(s);
     }
 }

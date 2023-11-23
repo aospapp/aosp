@@ -60,7 +60,7 @@ class ConvertJarsToSignatureFiles {
                 // File(root, "prebuilts/sdk/$api/public/api/android.${if (options.compatOutput) "txt" else "v2.txt"}")
                 File(root, "prebuilts/sdk/$api/public/api/android.txt")
 
-            progress("\nWriting signature files $signatureFile for $apiJar")
+            progress("Writing signature files $signatureFile for $apiJar")
 
             // Treat android.jar file as not filtered since they contain misc stuff that shouldn't be
             // there: package private super classes etc.
@@ -102,12 +102,12 @@ class ConvertJarsToSignatureFiles {
                 val visitor = object : ComparisonVisitor() {
                     override fun compare(old: MethodItem, new: MethodItem) {
                         new.removed = true
-                        progress("\nRemoved $old")
+                        progress("Removed $old")
                     }
 
                     override fun compare(old: FieldItem, new: FieldItem) {
                         new.removed = true
-                        progress("\nRemoved $old")
+                        progress("Removed $old")
                     }
                 }
                 CodebaseComparator().compare(visitor, oldCodebase, jarCodebase, null)
@@ -125,7 +125,7 @@ class ConvertJarsToSignatureFiles {
                     override fun compare(old: Item, new: Item) {
                         if (old.deprecated && !new.deprecated && old !is PackageItem) {
                             new.deprecated = true
-                            progress("\nRecorded deprecation from previous signature file for $old")
+                            progress("Recorded deprecation from previous signature file for $old")
                         }
                     }
                 }
@@ -201,7 +201,7 @@ class ConvertJarsToSignatureFiles {
             val item = codebase.findClass(classNode, MATCH_ALL)
             if (item != null && !item.deprecated) {
                 item.deprecated = true
-                progress("\nTurned deprecation on for $item")
+                progress("Turned deprecation on for $item")
             }
         }
 
@@ -214,7 +214,7 @@ class ConvertJarsToSignatureFiles {
             val item = codebase.findMethod(classNode, methodNode, MATCH_ALL)
             if (item != null && !item.deprecated) {
                 item.deprecated = true
-                progress("\nTurned deprecation on for $item")
+                progress("Turned deprecation on for $item")
             }
         }
 
@@ -227,7 +227,7 @@ class ConvertJarsToSignatureFiles {
             val item = codebase.findField(classNode, fieldNode, MATCH_ALL)
             if (item != null && !item.deprecated) {
                 item.deprecated = true
-                progress("\nTurned deprecation on for $item")
+                progress("Turned deprecation on for $item")
             }
         }
     }

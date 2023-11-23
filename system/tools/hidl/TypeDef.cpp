@@ -16,12 +16,13 @@
 
 #include "TypeDef.h"
 
-#include <hidl-util/Formatter.h>
 #include <android-base/logging.h>
+#include <hidl-util/Formatter.h>
+#include <string>
 
 namespace android {
 
-TypeDef::TypeDef(const char* localName, const FQName& fullName, const Location& location,
+TypeDef::TypeDef(const std::string& localName, const FQName& fullName, const Location& location,
                  Scope* parent, const Reference<Type>& type)
     : NamedType(localName, fullName, location, parent), mReferencedType(type) {}
 
@@ -43,12 +44,11 @@ bool TypeDef::isInterface() const {
 }
 
 bool TypeDef::isEnum() const {
-    CHECK(!"Should not be here");
     return false;
 }
 
 std::string TypeDef::typeName() const {
-    return "typedef " + localName();
+    return "typedef " + definedName();
 }
 
 bool TypeDef::isTypeDef() const {
@@ -74,11 +74,11 @@ bool TypeDef::resultNeedsDeref() const {
 }
 
 void TypeDef::emitTypeDeclarations(Formatter& out) const {
-    out << "typedef "
-        << mReferencedType->getCppStackType()
-        << " "
-        << localName()
-        << ";\n\n";
+    out << "typedef " << mReferencedType->getCppStackType() << " " << definedName() << ";\n\n";
+}
+
+void TypeDef::emitHidlDefinition(Formatter& out) const {
+    out << "typedef " << mReferencedType.localName() << " " << definedName() << ";\n";
 }
 
 }  // namespace android

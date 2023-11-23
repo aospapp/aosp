@@ -36,8 +36,8 @@ Nanoseconds SystemTime::getMonotonicTime() {
   // The C++11 spec guarantees that tv_sec and tv_nsec only have values >= 0 and
   // [0, 999999999]. It is safe to static cast these to their unsigned
   // counterpart.
-  return Seconds(static_cast<uint64_t>(timeNow.tv_sec))
-      + Nanoseconds(static_cast<uint64_t>(timeNow.tv_nsec));
+  return Seconds(static_cast<uint64_t>(timeNow.tv_sec)) +
+         Nanoseconds(static_cast<uint64_t>(timeNow.tv_nsec));
 }
 
 int64_t SystemTime::getEstimatedHostTimeOffset() {

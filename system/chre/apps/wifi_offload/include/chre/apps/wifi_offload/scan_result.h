@@ -20,7 +20,7 @@
 // First to pickup the LOG_TAG
 #include "chre/apps/wifi_offload/wifi_offload.h"
 
-#include "chre/apps/wifi_offload/flatbuffers_types_generated.h"
+#include "chre/apps/wifi_offload/generated/flatbuffers_types_generated.h"
 #include "chre/apps/wifi_offload/preferred_network.h"
 #include "chre/apps/wifi_offload/ssid.h"
 

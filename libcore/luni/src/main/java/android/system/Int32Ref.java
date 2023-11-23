@@ -16,7 +16,9 @@
 
 package android.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import libcore.util.Objects;
+
+import android.compat.annotation.UnsupportedAppUsage;
 
 /**
  * @hide
@@ -31,5 +33,9 @@ public class Int32Ref {
     @libcore.api.CorePlatformApi
     public Int32Ref(int value) {
         this.value = value;
+    }
+
+    @Override public String toString() {
+        return Objects.toString(this);
     }
 }

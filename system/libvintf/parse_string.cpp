@@ -91,13 +91,13 @@ bool parseEnum(const std::string &s, E *e, const Array &strings) {
         return os << g##ENUM##Strings.at(static_cast<size_t>(hf)); \
     }                                                              \
 
-DEFINE_PARSE_STREAMIN_FOR_ENUM(HalFormat);
-DEFINE_PARSE_STREAMIN_FOR_ENUM(Transport);
-DEFINE_PARSE_STREAMIN_FOR_ENUM(Arch);
-DEFINE_PARSE_STREAMIN_FOR_ENUM(KernelConfigType);
-DEFINE_PARSE_STREAMIN_FOR_ENUM(Tristate);
-DEFINE_PARSE_STREAMIN_FOR_ENUM(SchemaType);
-DEFINE_PARSE_STREAMIN_FOR_ENUM(XmlSchemaFormat);
+DEFINE_PARSE_STREAMIN_FOR_ENUM(HalFormat)
+DEFINE_PARSE_STREAMIN_FOR_ENUM(Transport)
+DEFINE_PARSE_STREAMIN_FOR_ENUM(Arch)
+DEFINE_PARSE_STREAMIN_FOR_ENUM(KernelConfigType)
+DEFINE_PARSE_STREAMIN_FOR_ENUM(Tristate)
+DEFINE_PARSE_STREAMIN_FOR_ENUM(SchemaType)
+DEFINE_PARSE_STREAMIN_FOR_ENUM(XmlSchemaFormat)
 
 std::ostream &operator<<(std::ostream &os, const KernelConfigTypedValue &kctv) {
     switch (kctv.mType) {
@@ -403,9 +403,19 @@ std::string expandInstances(const MatrixHal& req, const VersionRange& vr, bool b
     size_t count = 0;
     req.forEachInstance(vr, [&](const auto& matrixInstance) {
         if (count > 0) s += " AND ";
-        s += toFQNameString(vr, matrixInstance.interface(),
-                            matrixInstance.isRegex() ? matrixInstance.regexPattern()
-                                                     : matrixInstance.exactInstance());
+        auto instance = matrixInstance.isRegex() ? matrixInstance.regexPattern()
+                                                 : matrixInstance.exactInstance();
+        switch (req.format) {
+            case HalFormat::AIDL: {
+                // Hide fake version when printing human-readable error messages.
+                s += toFQNameString(matrixInstance.interface(), instance);
+            } break;
+            case HalFormat::HIDL:
+                [[fallthrough]];
+            case HalFormat::NATIVE: {
+                s += toFQNameString(vr, matrixInstance.interface(), instance);
+            } break;
+        }
         count++;
         return true;
     });
@@ -515,12 +525,26 @@ std::string toFQNameString(const VersionRange& range, const std::string& interfa
     return toFQNameString("", range, interface, instance);
 }
 
+std::string toFQNameString(const std::string& interface, const std::string& instance) {
+    return interface + "/" + instance;
+}
+
 std::ostream& operator<<(std::ostream& os, const FqInstance& fqInstance) {
     return os << fqInstance.string();
 }
 
 bool parse(const std::string& s, FqInstance* fqInstance) {
     return fqInstance->setTo(s);
+}
+
+std::string toAidlFqnameString(const std::string& package, const std::string& interface,
+                               const std::string& instance) {
+    std::stringstream ss;
+    ss << package << "." << interface;
+    if (!instance.empty()) {
+        ss << "/" << instance;
+    }
+    return ss.str();
 }
 
 } // namespace vintf

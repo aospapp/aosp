@@ -1,9 +1,11 @@
+# Bug component: 24949
+
 # Use this reviewer by default.
 android-libcore-team+review@google.com
 
 # People who can approve changes for submission; don't send review emails to them
 # unless you know what you're doing.
-flooey@google.com
+dauletz@google.com
 narayan@google.com
 nfuller@google.com
 nikitai@google.com

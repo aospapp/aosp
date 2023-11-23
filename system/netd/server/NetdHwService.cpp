@@ -108,7 +108,8 @@ Return <StatusCode> NetdHwService::addRouteToOemNetwork(
     RETURN_IF_NOT_OEM_NETWORK(netId);
 
     return toHalStatus(gCtls->netCtrl.addRoute(netId, ifname.c_str(), destination.c_str(),
-                                               maybeNullString(nexthop), false, INVALID_UID));
+                                               maybeNullString(nexthop), false, INVALID_UID,
+                                               0 /* mtu */));
 }
 
 Return <StatusCode> NetdHwService::removeRouteFromOemNetwork(

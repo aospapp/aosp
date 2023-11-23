@@ -372,7 +372,7 @@ public class PrintJobStateTransitionsTest extends BasePrintTest {
         waitForWriteAdapterCallback(1);
 
         for (int i = 0; i < 2; i++) {
-            clickPrintButton();
+            mPrintHelper.submitPrintJob();
 
             try {
                 // Wait for print job to be queued

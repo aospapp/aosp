@@ -32,8 +32,8 @@ interface IBluetoothHeadsetClient {
     List<BluetoothDevice> getConnectedDevices();
     List<BluetoothDevice> getDevicesMatchingConnectionStates(in int[] states);
     int getConnectionState(in BluetoothDevice device);
-    boolean setPriority(in BluetoothDevice device, int priority);
-    int getPriority(in BluetoothDevice device);
+    boolean setConnectionPolicy(in BluetoothDevice device, int connectionPolicy);
+    int getConnectionPolicy(in BluetoothDevice device);
 
     boolean startVoiceRecognition(in BluetoothDevice device);
     boolean stopVoiceRecognition(in BluetoothDevice device);
@@ -59,6 +59,7 @@ interface IBluetoothHeadsetClient {
     boolean disconnectAudio(in BluetoothDevice device);
     void setAudioRouteAllowed(in BluetoothDevice device, boolean allowed);
     boolean getAudioRouteAllowed(in BluetoothDevice device);
+    boolean sendVendorAtCommand(in BluetoothDevice device, int vendorId, String atCommand);
 
     Bundle getCurrentAgFeatures(in BluetoothDevice device);
 }

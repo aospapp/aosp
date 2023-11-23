@@ -33,6 +33,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/throwable.h"
+#include "nterp_helpers.h"
 #include "oat_quick_method_header.h"
 #include "stack.h"
 #include "stack_map.h"
@@ -52,7 +53,6 @@ QuickExceptionHandler::QuickExceptionHandler(Thread* self, bool is_deoptimizatio
       handler_quick_frame_pc_(0),
       handler_method_header_(nullptr),
       handler_quick_arg0_(0),
-      handler_method_(nullptr),
       handler_dex_pc_(0),
       clear_exception_(false),
       handler_frame_depth_(kInvalidFrameDepth),
@@ -82,19 +82,6 @@ class CatchBlockStackVisitor final : public StackVisitor {
       // This is the upcall, we remember the frame and last pc so that we may long jump to them.
       exception_handler_->SetHandlerQuickFramePc(GetCurrentQuickFramePc());
       exception_handler_->SetHandlerQuickFrame(GetCurrentQuickFrame());
-      exception_handler_->SetHandlerMethodHeader(GetCurrentOatQuickMethodHeader());
-      uint32_t next_dex_pc;
-      ArtMethod* next_art_method;
-      bool has_next = GetNextMethodAndDexPc(&next_art_method, &next_dex_pc);
-      // Report the method that did the down call as the handler.
-      exception_handler_->SetHandlerDexPc(next_dex_pc);
-      exception_handler_->SetHandlerMethod(next_art_method);
-      if (!has_next) {
-        // No next method? Check exception handler is set up for the unhandled exception handler
-        // case.
-        DCHECK_EQ(0U, exception_handler_->GetHandlerDexPc());
-        DCHECK(nullptr == exception_handler_->GetHandlerMethod());
-      }
       return false;  // End stack walk.
     }
     if (skip_frames_ != 0) {
@@ -123,7 +110,6 @@ class CatchBlockStackVisitor final : public StackVisitor {
       uint32_t found_dex_pc = method->FindCatchBlock(to_find, dex_pc, &clear_exception);
       exception_handler_->SetClearException(clear_exception);
       if (found_dex_pc != dex::kDexNoIndex) {
-        exception_handler_->SetHandlerMethod(method);
         exception_handler_->SetHandlerDexPc(found_dex_pc);
         exception_handler_->SetHandlerQuickFramePc(
             GetCurrentOatQuickMethodHeader()->ToNativeQuickPc(
@@ -154,37 +140,6 @@ class CatchBlockStackVisitor final : public StackVisitor {
 
   DISALLOW_COPY_AND_ASSIGN(CatchBlockStackVisitor);
 };
-
-static size_t GetInstrumentationFramesToPop(Thread* self, size_t frame_depth)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  CHECK_NE(frame_depth, kInvalidFrameDepth);
-  size_t instrumentation_frames_to_pop = 0;
-  StackVisitor::WalkStack(
-      [&](art::StackVisitor* stack_visitor) REQUIRES_SHARED(Locks::mutator_lock_) {
-        size_t current_frame_depth = stack_visitor->GetFrameDepth();
-        if (current_frame_depth < frame_depth) {
-          CHECK(stack_visitor->GetMethod() != nullptr);
-          if (UNLIKELY(reinterpret_cast<uintptr_t>(GetQuickInstrumentationExitPc()) ==
-                  stack_visitor->GetReturnPc())) {
-            if (!stack_visitor->IsInInlinedFrame()) {
-              // We do not count inlined frames, because we do not instrument them. The reason we
-              // include them in the stack walking is the check against `frame_depth_`, which is
-              // given to us by a visitor that visits inlined frames.
-              ++instrumentation_frames_to_pop;
-            }
-          }
-          return true;
-        }
-        // We reached the frame of the catch handler or the upcall.
-        return false;
-      },
-      self,
-      /* context= */ nullptr,
-      art::StackVisitor::StackWalkKind::kIncludeInlinedFrames,
-      /* check_suspended */ true,
-      /* include_transitions */ true);
-  return instrumentation_frames_to_pop;
-}
 
 // Finds the appropriate exception catch after calling all method exit instrumentation functions.
 // Note that this might change the exception being thrown.
@@ -218,23 +173,17 @@ void QuickExceptionHandler::FindCatch(ObjPtr<mirror::Throwable> exception) {
     DCHECK_GE(new_pop_count, already_popped);
     already_popped = new_pop_count;
 
-    // Figure out how many of those frames have instrumentation we need to remove (Should be the
-    // exact same as number of new_pop_count if there aren't inlined frames).
-    size_t instrumentation_frames_to_pop =
-        GetInstrumentationFramesToPop(self_, handler_frame_depth_);
-
     if (kDebugExceptionDelivery) {
       if (*handler_quick_frame_ == nullptr) {
         LOG(INFO) << "Handler is upcall";
       }
-      if (handler_method_ != nullptr) {
-        const DexFile* dex_file = handler_method_->GetDexFile();
-        int line_number = annotations::GetLineNumFromPC(dex_file, handler_method_, handler_dex_pc_);
-        LOG(INFO) << "Handler: " << handler_method_->PrettyMethod() << " (line: "
+      if (GetHandlerMethod() != nullptr) {
+        const DexFile* dex_file = GetHandlerMethod()->GetDexFile();
+        int line_number =
+            annotations::GetLineNumFromPC(dex_file, GetHandlerMethod(), handler_dex_pc_);
+        LOG(INFO) << "Handler: " << GetHandlerMethod()->PrettyMethod() << " (line: "
                   << line_number << ")";
       }
-      LOG(INFO) << "Will attempt to pop " << instrumentation_frames_to_pop
-                << " off of the instrumentation stack";
     }
     // Exception was cleared as part of delivery.
     DCHECK(!self_->IsExceptionPending());
@@ -244,7 +193,8 @@ void QuickExceptionHandler::FindCatch(ObjPtr<mirror::Throwable> exception) {
         handler_method_header_->IsOptimized()) {
       SetCatchEnvironmentForOptimizedHandler(&visitor);
     }
-    popped_to_top = popper.PopFramesTo(instrumentation_frames_to_pop, exception_ref);
+    popped_to_top =
+        popper.PopFramesTo(reinterpret_cast<uintptr_t>(handler_quick_frame_), exception_ref);
   } while (!popped_to_top);
   if (!clear_exception_) {
     // Put exception back in root set with clear throw location.
@@ -287,13 +237,13 @@ static VRegKind ToVRegKind(DexRegisterLocation::Kind kind) {
 void QuickExceptionHandler::SetCatchEnvironmentForOptimizedHandler(StackVisitor* stack_visitor) {
   DCHECK(!is_deoptimization_);
   DCHECK(*handler_quick_frame_ != nullptr) << "Method should not be called on upcall exceptions";
-  DCHECK(handler_method_ != nullptr && handler_method_header_->IsOptimized());
+  DCHECK(GetHandlerMethod() != nullptr && handler_method_header_->IsOptimized());
 
   if (kDebugExceptionDelivery) {
     self_->DumpStack(LOG_STREAM(INFO) << "Setting catch phis: ");
   }
 
-  CodeItemDataAccessor accessor(handler_method_->DexInstructionData());
+  CodeItemDataAccessor accessor(GetHandlerMethod()->DexInstructionData());
   const size_t number_of_vregs = accessor.RegistersSize();
   CodeInfo code_info(handler_method_header_);
 
@@ -301,10 +251,11 @@ void QuickExceptionHandler::SetCatchEnvironmentForOptimizedHandler(StackVisitor*
   StackMap catch_stack_map = code_info.GetCatchStackMapForDexPc(GetHandlerDexPc());
   DCHECK(catch_stack_map.IsValid());
   DexRegisterMap catch_vreg_map = code_info.GetDexRegisterMapOf(catch_stack_map);
+  DCHECK_EQ(catch_vreg_map.size(), number_of_vregs);
+
   if (!catch_vreg_map.HasAnyLiveDexRegisters()) {
     return;
   }
-  DCHECK_EQ(catch_vreg_map.size(), number_of_vregs);
 
   // Find stack map of the throwing instruction.
   StackMap throw_stack_map =
@@ -324,10 +275,12 @@ void QuickExceptionHandler::SetCatchEnvironmentForOptimizedHandler(StackVisitor*
     // Get vreg value from its current location.
     uint32_t vreg_value;
     VRegKind vreg_kind = ToVRegKind(throw_vreg_map[vreg].GetKind());
-    bool get_vreg_success = stack_visitor->GetVReg(stack_visitor->GetMethod(),
-                                                   vreg,
-                                                   vreg_kind,
-                                                   &vreg_value);
+    bool get_vreg_success =
+        stack_visitor->GetVReg(stack_visitor->GetMethod(),
+                               vreg,
+                               vreg_kind,
+                               &vreg_value,
+                               throw_vreg_map[vreg]);
     CHECK(get_vreg_success) << "VReg " << vreg << " was optimized out ("
                             << "method=" << ArtMethod::PrettyMethod(stack_visitor->GetMethod())
                             << ", dex_pc=" << stack_visitor->GetDexPc() << ", "
@@ -433,7 +386,11 @@ class DeoptimizeStackVisitor final : public StackVisitor {
         updated_vregs = GetThread()->GetUpdatedVRegFlags(frame_id);
         DCHECK(updated_vregs != nullptr);
       }
-      HandleOptimizingDeoptimization(method, new_frame, updated_vregs);
+      if (GetCurrentOatQuickMethodHeader()->IsNterpMethodHeader()) {
+        HandleNterpDeoptimization(method, new_frame, updated_vregs);
+      } else {
+        HandleOptimizingDeoptimization(method, new_frame, updated_vregs);
+      }
       if (updated_vregs != nullptr) {
         // Calling Thread::RemoveDebuggerShadowFrameMapping will also delete the updated_vregs
         // array so this must come after we processed the frame.
@@ -463,6 +420,35 @@ class DeoptimizeStackVisitor final : public StackVisitor {
   }
 
  private:
+  void HandleNterpDeoptimization(ArtMethod* m,
+                                 ShadowFrame* new_frame,
+                                 const bool* updated_vregs)
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ArtMethod** cur_quick_frame = GetCurrentQuickFrame();
+    StackReference<mirror::Object>* vreg_ref_base =
+        reinterpret_cast<StackReference<mirror::Object>*>(NterpGetReferenceArray(cur_quick_frame));
+    int32_t* vreg_int_base =
+        reinterpret_cast<int32_t*>(NterpGetRegistersArray(cur_quick_frame));
+    CodeItemDataAccessor accessor(m->DexInstructionData());
+    const uint16_t num_regs = accessor.RegistersSize();
+    // An nterp frame has two arrays: a dex register array and a reference array
+    // that shadows the dex register array but only containing references
+    // (non-reference dex registers have nulls). See nterp_helpers.cc.
+    for (size_t reg = 0; reg < num_regs; ++reg) {
+      if (updated_vregs != nullptr && updated_vregs[reg]) {
+        // Keep the value set by debugger.
+        continue;
+      }
+      StackReference<mirror::Object>* ref_addr = vreg_ref_base + reg;
+      mirror::Object* ref = ref_addr->AsMirrorPtr();
+      if (ref != nullptr) {
+        new_frame->SetVRegReference(reg, ref);
+      } else {
+        new_frame->SetVReg(reg, vreg_int_base[reg]);
+      }
+    }
+  }
+
   void HandleOptimizingDeoptimization(ArtMethod* m,
                                       ShadowFrame* new_frame,
                                       const bool* updated_vregs)
@@ -478,10 +464,11 @@ class DeoptimizeStackVisitor final : public StackVisitor {
     DexRegisterMap vreg_map = IsInInlinedFrame()
         ? code_info.GetInlineDexRegisterMapOf(stack_map, GetCurrentInlinedFrame())
         : code_info.GetDexRegisterMapOf(stack_map);
+
+    DCHECK_EQ(vreg_map.size(), number_of_vregs);
     if (vreg_map.empty()) {
       return;
     }
-    DCHECK_EQ(vreg_map.size(), number_of_vregs);
 
     for (uint16_t vreg = 0; vreg < number_of_vregs; ++vreg) {
       if (updated_vregs != nullptr && updated_vregs[vreg]) {
@@ -641,10 +628,9 @@ uintptr_t QuickExceptionHandler::UpdateInstrumentationStack() {
   DCHECK(is_deoptimization_) << "Non-deoptimization handlers should use FindCatch";
   uintptr_t return_pc = 0;
   if (method_tracing_active_) {
-    size_t instrumentation_frames_to_pop =
-        GetInstrumentationFramesToPop(self_, handler_frame_depth_);
     instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
-    return_pc = instrumentation->PopFramesForDeoptimization(self_, instrumentation_frames_to_pop);
+    return_pc = instrumentation->PopFramesForDeoptimization(
+        self_, reinterpret_cast<uintptr_t>(handler_quick_frame_));
   }
   return return_pc;
 }
@@ -658,6 +644,12 @@ void QuickExceptionHandler::DoLongJump(bool smash_caller_saves) {
   context_->SetArg0(handler_quick_arg0_);
   if (smash_caller_saves) {
     context_->SmashCallerSaves();
+  }
+  if (!is_deoptimization_ &&
+      handler_method_header_ != nullptr &&
+      handler_method_header_->IsNterpMethodHeader()) {
+    context_->SetNterpDexPC(reinterpret_cast<uintptr_t>(
+        GetHandlerMethod()->DexInstructions().Insns() + handler_dex_pc_));
   }
   context_->DoLongJump();
   UNREACHABLE();

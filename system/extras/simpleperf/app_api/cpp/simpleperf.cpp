@@ -188,6 +188,7 @@ class ProfileSessionImpl {
   pid_t simpleperf_pid_ = -1;
   int control_fd_ = -1;
   int reply_fd_ = -1;
+  bool trace_offcpu_ = false;
 };
 
 ProfileSessionImpl::~ProfileSessionImpl() {
@@ -204,6 +205,11 @@ void ProfileSessionImpl::StartRecording(const std::vector<std::string> &args) {
   if (state_ != NOT_YET_STARTED) {
     Abort("startRecording: session in wrong state %d", state_);
   }
+  for (const auto& arg : args) {
+    if (arg == "--trace-offcpu") {
+      trace_offcpu_ = true;
+    }
+  }
   std::string simpleperf_path = FindSimpleperf();
   CheckIfPerfEnabled();
   CreateSimpleperfDataDir();
@@ -215,6 +221,9 @@ void ProfileSessionImpl::PauseRecording() {
   std::lock_guard<std::mutex> guard(lock_);
   if (state_ != STARTED) {
     Abort("pauseRecording: session in wrong state %d", state_);
+  }
+  if (trace_offcpu_) {
+    Abort("--trace-offcpu doesn't work well with pause/resume recording");
   }
   SendCmd("pause");
   state_ = PAUSED;
@@ -270,6 +279,61 @@ static bool IsExecutableFile(const std::string& path) {
   return false;
 }
 
+static std::string ReadFile(FILE* fp) {
+  std::string s;
+  if (fp == nullptr) {
+    return s;
+  }
+  char buf[200];
+  while (true) {
+    ssize_t n = fread(buf, 1, sizeof(buf), fp);
+    if (n <= 0) {
+      break;
+    }
+    s.insert(s.end(), buf, buf + n);
+  }
+  fclose(fp);
+  return s;
+}
+
+static bool RunCmd(std::vector<const char*> args, std::string* stdout) {
+  int stdout_fd[2];
+  if (pipe(stdout_fd) != 0) {
+    return false;
+  }
+  args.push_back(nullptr);
+  // Fork handlers (like gsl_library_close) may hang in a multi-thread environment.
+  // So we use vfork instead of fork to avoid calling them.
+  int pid = vfork();
+  if (pid == -1) {
+    return false;
+  }
+  if (pid == 0) {
+    // child process
+    close(stdout_fd[0]);
+    dup2(stdout_fd[1], 1);
+    close(stdout_fd[1]);
+    execvp(const_cast<char*>(args[0]), const_cast<char**>(args.data()));
+    _exit(1);
+  }
+  // parent process
+  close(stdout_fd[1]);
+  int status;
+  pid_t result = TEMP_FAILURE_RETRY(waitpid(pid, &status, 0));
+  if (result == -1) {
+    Abort("failed to call waitpid: %s", strerror(errno));
+  }
+  if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+    return false;
+  }
+  if (stdout == nullptr) {
+    close(stdout_fd[0]);
+  } else {
+    *stdout = ReadFile(fdopen(stdout_fd[0], "r"));
+  }
+  return true;
+}
+
 std::string ProfileSessionImpl::FindSimpleperf() {
   // 1. Try /data/local/tmp/simpleperf first. Probably it's newer than /system/bin/simpleperf.
   std::string simpleperf_path = FindSimpleperfInTempDir();
@@ -292,38 +356,27 @@ std::string ProfileSessionImpl::FindSimpleperfInTempDir() {
   }
   // Copy it to app_dir to execute it.
   const std::string to_path = app_data_dir_ + "/simpleperf";
-  const std::string copy_cmd = "cp " + path + " " + to_path;
-  if (system(copy_cmd.c_str()) != 0) {
+  if (!RunCmd({"/system/bin/cp", path.c_str(), to_path.c_str()}, nullptr)) {
     return "";
   }
-  const std::string test_cmd = to_path;
-  // For apps with target sdk >= 29, executing app data file isn't allowed. So test executing it.
-  if (system(test_cmd.c_str()) != 0) {
+  // For apps with target sdk >= 29, executing app data file isn't allowed.
+  // For android R, app context isn't allowed to use perf_event_open.
+  // So test executing downloaded simpleperf.
+  std::string s;
+  if (!RunCmd({to_path.c_str(), "list", "sw"}, &s)) {
+    return "";
+  }
+  if (s.find("cpu-clock") == std::string::npos) {
     return "";
   }
   return to_path;
 }
 
-static std::string ReadFile(FILE* fp) {
-  std::string s;
-  char buf[200];
-  while (true) {
-    ssize_t n = fread(buf, 1, sizeof(buf), fp);
-    if (n <= 0) {
-      break;
-    }
-    s.insert(s.end(), buf, buf + n);
-  }
-  return s;
-}
-
 void ProfileSessionImpl::CheckIfPerfEnabled() {
-  FILE* fp = popen("/system/bin/getprop security.perf_harden", "re");
-  if (fp == nullptr) {
+  std::string s;
+  if (!RunCmd({"/system/bin/getprop", "security.perf_harden"}, &s)) {
     return;  // Omit check if getprop doesn't exist.
   }
-  std::string s = ReadFile(fp);
-  pclose(fp);
   if (!s.empty() && s[0] == '1') {
     Abort("linux perf events aren't enabled on the device. Please run api_profiler.py.");
   }
@@ -366,7 +419,9 @@ void ProfileSessionImpl::CreateSimpleperfProcess(const std::string &simpleperf_p
   argv[args.size()] = nullptr;
 
   // 3. Start simpleperf process.
-  int pid = fork();
+  // Fork handlers (like gsl_library_close) may hang in a multi-thread environment.
+  // So we use vfork instead of fork to avoid calling them.
+  int pid = vfork();
   if (pid == -1) {
     Abort("failed to fork: %s", strerror(errno));
   }
@@ -415,7 +470,6 @@ ProfileSession::ProfileSession() {
     Abort("failed to open /proc/self/cmdline: %s", strerror(errno));
   }
   std::string s = ReadFile(fp);
-  fclose(fp);
   for (int i = 0; i < s.size(); i++) {
     if (s[i] == '\0') {
       s = s.substr(0, i);

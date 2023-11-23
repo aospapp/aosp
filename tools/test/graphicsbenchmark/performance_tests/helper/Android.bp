@@ -13,7 +13,7 @@
 // limitations under the License.
 
 java_library {
-    name: "GameQualificationHelper",
+    name: "GameCoreHelper",
     srcs: [
         "src/**/*.java",
         "proto/**/*.proto",
@@ -25,7 +25,7 @@ java_library {
 }
 
 java_library_host {
-    name: "GameQualificationHelperHost",
+    name: "GameCoreHelperHost",
     srcs: [
         "src/**/*.java",
         "proto/**/*.proto",
@@ -40,13 +40,15 @@ java_library_host {
 
 // Test
 java_test_host {
-    name: "GameQualificationHelperTest",
+    name: "GameCoreHelperTest",
     srcs: ["test/**/*.java"],
     test_suites: [
         "general-tests"
     ],
     libs: [
-        "GameQualificationHelperHost",
         "junit-host",
+    ],
+    static_libs: [
+        "GameCoreHelperHost",
     ],
 }

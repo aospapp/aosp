@@ -59,5 +59,5 @@ class TextBackedAnnotationItem(
     override fun originalName(): String? = originalName
     override fun qualifiedName(): String? = qualifiedName
     override fun attributes(): List<AnnotationAttribute> = attributes
-    override fun toSource(target: AnnotationTarget): String = full
+    override fun toSource(target: AnnotationTarget, showDefaultAttrs: Boolean): String = full
 }

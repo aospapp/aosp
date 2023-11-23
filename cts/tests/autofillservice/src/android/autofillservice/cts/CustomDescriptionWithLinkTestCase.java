@@ -89,6 +89,7 @@ abstract class CustomDescriptionWithLinkTestCase<A extends AbstractAutoFillActiv
     public final void testTapLink_changeOrientationThenTapBack() throws Exception {
         assumeTrue("Rotation is supported", Helper.isRotationSupported(mContext));
 
+        mUiBot.assumeMinimumResolution(500);
         mUiBot.setScreenOrientation(UiBot.PORTRAIT);
         try {
             saveUiRestoredAfterTappingLinkTest(

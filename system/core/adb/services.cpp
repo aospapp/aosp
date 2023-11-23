@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <cstring>
 #include <thread>
 
 #include <android-base/stringprintf.h>
@@ -34,6 +35,7 @@
 #include "adb_io.h"
 #include "adb_unique_fd.h"
 #include "adb_utils.h"
+#include "adb_wifi.h"
 #include "services.h"
 #include "socket_spec.h"
 #include "sysdeps.h"
@@ -100,7 +102,7 @@ struct state_info {
     ConnectionState state;
 };
 
-static void wait_for_state(int fd, state_info* sinfo) {
+static void wait_for_state(unique_fd fd, state_info* sinfo) {
     D("wait_for_state %d", sinfo->state);
 
     while (true) {
@@ -122,7 +124,7 @@ static void wait_for_state(int fd, state_info* sinfo) {
         }
 
         if (!is_ambiguous) {
-            adb_pollfd pfd = {.fd = fd, .events = POLLIN};
+            adb_pollfd pfd = {.fd = fd.get(), .events = POLLIN};
             int rc = adb_poll(&pfd, 1, 100);
             if (rc < 0) {
                 SendFail(fd, error);
@@ -140,7 +142,6 @@ static void wait_for_state(int fd, state_info* sinfo) {
         }
     }
 
-    adb_close(fd);
     D("wait_for_state is done");
 }
 
@@ -194,6 +195,12 @@ static void connect_service(unique_fd fd, std::string host) {
     // Send response for emulator and device
     SendProtocolString(fd.get(), response);
 }
+
+static void pair_service(unique_fd fd, std::string host, std::string password) {
+    std::string response;
+    adb_wifi_pair_device(host, password, response);
+    SendProtocolString(fd.get(), response);
+}
 #endif
 
 #if ADB_HOST
@@ -203,7 +210,7 @@ asocket* host_service_to_socket(std::string_view name, std::string_view serial,
         return create_device_tracker(false);
     } else if (name == "track-devices-l") {
         return create_device_tracker(true);
-    } else if (ConsumePrefix(&name, "wait-for-")) {
+    } else if (android::base::ConsumePrefix(&name, "wait-for-")) {
         std::shared_ptr<state_info> sinfo = std::make_shared<state_info>();
         if (sinfo == nullptr) {
             fprintf(stderr, "couldn't allocate state_info: %s", strerror(errno));
@@ -213,11 +220,11 @@ asocket* host_service_to_socket(std::string_view name, std::string_view serial,
         sinfo->serial = serial;
         sinfo->transport_id = transport_id;
 
-        if (ConsumePrefix(&name, "local")) {
+        if (android::base::ConsumePrefix(&name, "local")) {
             sinfo->transport_type = kTransportLocal;
-        } else if (ConsumePrefix(&name, "usb")) {
+        } else if (android::base::ConsumePrefix(&name, "usb")) {
             sinfo->transport_type = kTransportUsb;
-        } else if (ConsumePrefix(&name, "any")) {
+        } else if (android::base::ConsumePrefix(&name, "any")) {
             sinfo->transport_type = kTransportAny;
         } else {
             return nullptr;
@@ -241,14 +248,23 @@ asocket* host_service_to_socket(std::string_view name, std::string_view serial,
             return nullptr;
         }
 
-        unique_fd fd = create_service_thread("wait", [sinfo](int fd) {
-            wait_for_state(fd, sinfo.get());
-        });
+        unique_fd fd = create_service_thread(
+                "wait", [sinfo](unique_fd fd) { wait_for_state(std::move(fd), sinfo.get()); });
         return create_local_socket(std::move(fd));
-    } else if (ConsumePrefix(&name, "connect:")) {
+    } else if (android::base::ConsumePrefix(&name, "connect:")) {
         std::string host(name);
         unique_fd fd = create_service_thread(
                 "connect", std::bind(connect_service, std::placeholders::_1, host));
+        return create_local_socket(std::move(fd));
+    } else if (android::base::ConsumePrefix(&name, "pair:")) {
+        const char* divider = strchr(name.data(), ':');
+        if (!divider) {
+            return nullptr;
+        }
+        std::string password(name.data(), divider);
+        std::string host(divider + 1);
+        unique_fd fd = create_service_thread(
+                "pair", std::bind(pair_service, std::placeholders::_1, host, password));
         return create_local_socket(std::move(fd));
     }
     return nullptr;

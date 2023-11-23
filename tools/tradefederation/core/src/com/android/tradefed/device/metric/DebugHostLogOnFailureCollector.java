@@ -32,23 +32,41 @@ public class DebugHostLogOnFailureCollector extends BaseDeviceMetricCollector {
 
     private static final String NAME_FORMAT = "%s-debug-hostlog-on-failure";
 
-    public Long offset = null;
+    private Long offset = null;
 
     @Override
     public void onTestRunStart(DeviceMetricData runData) {
+        offset = null;
         // TODO: Improve the offset from the start of the method instead.
-        offset = getLogger().getLog().size();
+        try (InputStreamSource source = getLogger().getLog()) {
+            if (source == null) {
+                CLog.e(
+                        "Could not obtain the host logs for debugging. It won't be available "
+                                + "in the event of test cases failures.");
+                return;
+            }
+            offset = source.size();
+        }
     }
 
     @Override
     public void onTestFail(DeviceMetricData testData, TestDescription test) {
-        try (InputStreamSource source = getLogger().getLog();
-                InputStream stream = source.createInputStream()) {
-            stream.skip(offset);
-            try (InputStreamSource logSource =
-                    new SnapshotInputStreamSource("host-log-failure", stream)) {
-                super.testLog(
-                        String.format(NAME_FORMAT, test.toString()), LogDataType.TEXT, logSource);
+        if (offset == null) {
+            return;
+        }
+        try (InputStreamSource source = getLogger().getLog()) {
+            if (source == null) {
+                return;
+            }
+            try (InputStream stream = source.createInputStream()) {
+                stream.skip(offset);
+                try (InputStreamSource logSource =
+                        new SnapshotInputStreamSource("host-log-failure", stream)) {
+                    super.testLog(
+                            String.format(NAME_FORMAT, test.toString()),
+                            LogDataType.TEXT,
+                            logSource);
+                }
             }
         } catch (IOException e) {
             CLog.e(e);

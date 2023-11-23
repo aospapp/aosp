@@ -18,6 +18,7 @@
 #define _BPF_NETWORKSTATS_H
 
 #include <bpf/BpfMap.h>
+#include "bpf_shared.h"
 
 namespace android {
 namespace bpf {
@@ -55,7 +56,7 @@ bool operator==(const stats_line& lhs, const stats_line& rhs);
 bool operator<(const stats_line& lhs, const stats_line& rhs);
 
 // For test only
-int bpfGetUidStatsInternal(uid_t uid, struct Stats* stats,
+int bpfGetUidStatsInternal(uid_t uid, Stats* stats,
                            const BpfMap<uint32_t, StatsValue>& appUidStatsMap);
 // For test only
 int bpfGetIfaceStatsInternal(const char* iface, Stats* stats,
@@ -74,7 +75,7 @@ int getIfaceNameFromMap(const BpfMap<uint32_t, IfaceValue>& ifaceMap,
                         const BpfMap<Key, StatsValue>& statsMap, uint32_t ifaceIndex, char* ifname,
                         const Key& curKey, int64_t* unknownIfaceBytesTotal) {
     auto iface = ifaceMap.readValue(ifaceIndex);
-    if (!isOk(iface)) {
+    if (!iface.ok()) {
         maybeLogUnknownIface(ifaceIndex, statsMap, curKey, unknownIfaceBytesTotal);
         return -ENODEV;
     }
@@ -92,7 +93,7 @@ void maybeLogUnknownIface(int ifaceIndex, const BpfMap<Key, StatsValue>& statsMa
 
     // Are we undercounting enough data to be worth logging?
     auto statsEntry = statsMap.readValue(curKey);
-    if (!netdutils::isOk(statsEntry)) {
+    if (!statsEntry.ok()) {
         // No data is being undercounted.
         return;
     }
@@ -110,8 +111,8 @@ int parseBpfNetworkStatsDevInternal(std::vector<stats_line>* lines,
                                     const BpfMap<uint32_t, StatsValue>& statsMap,
                                     const BpfMap<uint32_t, IfaceValue>& ifaceMap);
 
-int bpfGetUidStats(uid_t uid, struct Stats* stats);
-int bpfGetIfaceStats(const char* iface, struct Stats* stats);
+int bpfGetUidStats(uid_t uid, Stats* stats);
+int bpfGetIfaceStats(const char* iface, Stats* stats);
 int parseBpfNetworkStatsDetail(std::vector<stats_line>* lines,
                                const std::vector<std::string>& limitIfaces, int limitTag,
                                int limitUid);

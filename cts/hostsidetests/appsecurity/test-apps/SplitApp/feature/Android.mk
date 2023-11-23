@@ -31,7 +31,7 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-versi
 LOCAL_MODULE_TAGS := tests
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_USE_AAPT2 := true
 LOCAL_APK_LIBRARIES := CtsSplitApp
@@ -56,7 +56,7 @@ LOCAL_PACKAGE_NAME := CtsNeedSplitFeature
 LOCAL_SDK_VERSION := current
 LOCAL_MIN_SDK_VERSION := 4
 
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_ASSET_DIR := $(LOCAL_PATH)/assets
 

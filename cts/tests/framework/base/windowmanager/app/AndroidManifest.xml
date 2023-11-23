@@ -162,6 +162,16 @@
                   android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
                   android:exported="true"
         />
+        <activity android:name=".PipActivityWithMinimalSize"
+                  android:resizeableActivity="false"
+                  android:supportsPictureInPicture="true"
+                  android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
+                  android:exported="true"
+                  android:taskAffinity="nobody.but.PipActivity">
+                  <layout android:minWidth="100dp"
+                          android:minHeight="80dp"
+                  />
+        </activity>
         <activity android:name=".FreeformActivity"
                   android:resizeableActivity="true"
                   android:taskAffinity="nobody.but.FreeformActivity"
@@ -244,6 +254,11 @@
         />
         <activity android:name=".TopActivity"
                   android:process=".top_process"
+                  android:exported="true"
+                  android:theme="@style/NoPreview"
+        />
+        <activity android:name=".UnresponsiveActivity"
+                  android:process=".unresponsive_activity_process"
                   android:exported="true"
                   android:theme="@style/NoPreview"
         />
@@ -367,10 +382,6 @@
             android:theme="@style/SplashscreenTheme"
             android:exported="true" />
 
-
-        <activity android:name=".SwipeRefreshActivity"
-                  android:exported="true" />
-
         <activity android:name=".NoHistoryActivity"
                   android:noHistory="true"
                   android:exported="true" />
@@ -476,6 +487,26 @@
             </meta-data>
         </service>
 
+        <service
+            android:name=".TestDream"
+            android:exported="true"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".TestStubbornDream"
+            android:exported="true"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
         <!-- Disable home activities by default or it may disturb other tests by
              showing ResolverActivity when start home activity -->
         <activity-alias android:name=".HomeActivity"
@@ -532,6 +563,36 @@
                <action android:name="android.service.vr.VrListenerService" />
            </intent-filter>
         </service>
+
+        <activity android:name=".HostActivity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.server.wm.app.HostActivity"></action>
+            </intent-filter>
+        </activity>
+        <service android:name=".RenderService"
+                 android:process=".render_process" />
+        <activity
+            android:name=".ClickableToastActivity"
+            android:exported="true" />
+        <activity
+            android:name=".MinimalPostProcessingActivity"
+            android:exported="true" />
+        <activity
+            android:name=".MinimalPostProcessingActivity2"
+            android:exported="true"/>
+        <activity
+            android:name=".MinimalPostProcessingManifestActivity"
+            android:preferMinimalPostProcessing="true"
+            android:exported="true"/>
+        <activity
+            android:name=".PopupMinimalPostProcessingActivity"
+            android:theme="@android:style/Theme.Holo.Dialog.NoActionBar"
+            android:exported="true" />
+        <activity
+            android:name=".PresentationActivity"
+            android:launchMode="singleTop"
+            android:exported="true" />
     </application>
 </manifest>
 

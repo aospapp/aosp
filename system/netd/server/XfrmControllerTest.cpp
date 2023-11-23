@@ -19,7 +19,6 @@
 #include <cerrno>
 #include <cinttypes>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <set>
 #include <vector>

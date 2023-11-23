@@ -26,6 +26,7 @@ import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.FileUtils;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -34,6 +35,9 @@ import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 @RunWith(AndroidJUnit4.class)
 public class DownloadManagerApi28Test extends DownloadManagerTestBase {
@@ -128,6 +132,7 @@ public class DownloadManagerApi28Test extends DownloadManagerTestBase {
                         Environment.DIRECTORY_DOWNLOADS), "file1.txt").getPath(),
                 createFile(Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_DOCUMENTS), "file2.txt").getPath(),
+                "/sdcard/Download/file3.txt",
         };
 
         for (String path : filePaths) {
@@ -173,8 +178,6 @@ public class DownloadManagerApi28Test extends DownloadManagerTestBase {
                 receiver.waitForDownloadComplete(SHORT_TIMEOUT, downloadId);
                 assertSuccessfulDownload(downloadId, new File(downloadLocation.getPath()));
                 final Uri downloadUri = mDownloadManager.getUriForDownloadedFile(downloadId);
-                mContext.grantUriPermission("com.android.shell", downloadUri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 final Uri mediaStoreUri = getMediaStoreUri(downloadUri);
                 final ContentResolver contentResolver = mContext.getContentResolver();
                 assertArrayEquals(hash(contentResolver.openInputStream(downloadUri)),
@@ -199,6 +202,7 @@ public class DownloadManagerApi28Test extends DownloadManagerTestBase {
      */
     @Test
     public void testAddCompletedDownload_mediaStoreEntry() throws Exception {
+        final String assetName = "noiseandchirps.mp3";
         final String[] downloadPath = new String[] {
                 new File(Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_DOWNLOADS), "file1.mp3").getPath(),
@@ -207,17 +211,17 @@ public class DownloadManagerApi28Test extends DownloadManagerTestBase {
                 "/sdcard/file3.mp3",
         };
         for (String downloadLocation : downloadPath) {
-            final String fileContents = "Test content:" + downloadLocation + "_" + System.nanoTime();
             final File file = new File(Uri.parse(downloadLocation).getPath());
-            writeToFile(file, fileContents);
+            try (InputStream in = mContext.getAssets().open(assetName);
+                 OutputStream out = new FileOutputStream(file)) {
+                FileUtils.copy(in, out);
+            }
 
             final long downloadId = mDownloadManager.addCompletedDownload(file.getName(),
                     "Test desc", true,
-                    "text/plain", downloadLocation, fileContents.getBytes().length, true);
+                    "audio/mp3", downloadLocation, file.length(), true);
             assertTrue(downloadId >= 0);
             final Uri downloadUri = mDownloadManager.getUriForDownloadedFile(downloadId);
-            mContext.grantUriPermission("com.android.shell", downloadUri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
             final Uri mediaStoreUri = getMediaStoreUri(downloadUri);
             assertArrayEquals(hash(new FileInputStream(file)),
                     hash(mContext.getContentResolver().openInputStream(mediaStoreUri)));

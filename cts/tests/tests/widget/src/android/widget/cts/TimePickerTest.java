@@ -38,14 +38,15 @@ import android.view.View;
 import android.view.autofill.AutofillValue;
 import android.widget.TimePicker;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
+import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -77,6 +78,7 @@ public class TimePickerTest {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
         mTimePicker = (TimePicker) mActivity.findViewById(R.id.timepicker_clock);
+        PollingCheck.waitFor(mActivity::hasWindowFocus);
     }
 
     @Test

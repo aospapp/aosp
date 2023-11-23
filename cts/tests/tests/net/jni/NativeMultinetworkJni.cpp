@@ -16,7 +16,6 @@
 
 
 #define LOG_TAG "MultinetworkApiTest"
-#include <utils/Log.h>
 
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
@@ -34,8 +33,12 @@
 
 #include <string>
 
+#include <android/log.h>
 #include <android/multinetwork.h>
 #include <nativehelper/JNIHelp.h>
+
+#define LOGD(fmt, ...) \
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, fmt, ##__VA_ARGS__)
 
 #define EXPECT_GE(env, actual, expected, msg)                        \
     do {                                                             \
@@ -138,14 +141,14 @@ int expectAnswersNotValid(JNIEnv* env, int fd, int expectedErrno) {
     uint8_t buf[MAXPACKET] = {};
     int res = getAsyncResponse(env, fd, TIMEOUT_MS, &rcode, buf, MAXPACKET);
     if (res != expectedErrno) {
-        ALOGD("res:%d, expectedErrno = %d", res, expectedErrno);
+        LOGD("res:%d, expectedErrno = %d", res, expectedErrno);
         return (res > 0) ? -EREMOTEIO : res;
     }
     return 0;
 }
 
 extern "C"
-JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNqueryCheck(
+JNIEXPORT void Java_android_net_cts_MultinetworkApiTest_runResNqueryCheck(
         JNIEnv* env, jclass, jlong nethandle) {
     net_handle_t handle = (net_handle_t) nethandle;
 
@@ -155,29 +158,15 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNqueryCheck(
     EXPECT_EQ(env, 0, expectAnswersValid(env, fd, AF_INET, ns_r_noerror),
             "v4 res_nquery check answers");
 
-    // V4 NXDOMAIN
-    fd = android_res_nquery(handle, kNxDomainName, ns_c_in, ns_t_a, 0);
-    EXPECT_GE(env, fd, 0, "v4 res_nquery NXDOMAIN");
-    EXPECT_EQ(env, 0, expectAnswersValid(env, fd, AF_INET, ns_r_nxdomain),
-            "v4 res_nquery NXDOMAIN check answers");
-
     // V6
     fd = android_res_nquery(handle, kHostname, ns_c_in, ns_t_aaaa, 0);
     EXPECT_GE(env, fd, 0, "v6 res_nquery");
     EXPECT_EQ(env, 0, expectAnswersValid(env, fd, AF_INET, ns_r_noerror),
             "v6 res_nquery check answers");
-
-    // V6 NXDOMAIN
-    fd = android_res_nquery(handle, kNxDomainName, ns_c_in, ns_t_aaaa, 0);
-    EXPECT_GE(env, fd, 0, "v6 res_nquery NXDOMAIN");
-    EXPECT_EQ(env, 0, expectAnswersValid(env, fd, AF_INET, ns_r_nxdomain),
-            "v6 res_nquery NXDOMAIN check answers");
-
-    return 0;
 }
 
 extern "C"
-JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNsendCheck(
+JNIEXPORT void Java_android_net_cts_MultinetworkApiTest_runResNsendCheck(
         JNIEnv* env, jclass, jlong nethandle) {
     net_handle_t handle = (net_handle_t) nethandle;
     // V4
@@ -200,15 +189,6 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNsendCheck(
     EXPECT_EQ(env, 0, expectAnswersValid(env, fd1, AF_INET, ns_r_noerror),
             "v4 res_nsend 1st check answers");
 
-    // V4 NXDOMAIN
-    memset(buf1, 0, sizeof(buf1));
-    len1 = makeQuery(kNxDomainName, ns_t_a, buf1, sizeof(buf1));
-    EXPECT_GT(env, len1, 0, "v4 res_mkquery NXDOMAIN");
-    fd1 = android_res_nsend(handle, buf1, len1, 0);
-    EXPECT_GE(env, fd1, 0, "v4 res_nsend NXDOMAIN");
-    EXPECT_EQ(env, 0, expectAnswersValid(env, fd1, AF_INET, ns_r_nxdomain),
-            "v4 res_nsend NXDOMAIN check answers");
-
     // V6
     memset(buf1, 0, sizeof(buf1));
     memset(buf2, 0, sizeof(buf2));
@@ -226,21 +206,47 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNsendCheck(
             "v6 res_nsend 2nd check answers");
     EXPECT_EQ(env, 0, expectAnswersValid(env, fd1, AF_INET6, ns_r_noerror),
             "v6 res_nsend 1st check answers");
-
-    // V6 NXDOMAIN
-    memset(buf1, 0, sizeof(buf1));
-    len1 = makeQuery(kNxDomainName, ns_t_aaaa, buf1, sizeof(buf1));
-    EXPECT_GT(env, len1, 0, "v6 res_mkquery NXDOMAIN");
-    fd1 = android_res_nsend(handle, buf1, len1, 0);
-    EXPECT_GE(env, fd1, 0, "v6 res_nsend NXDOMAIN");
-    EXPECT_EQ(env, 0, expectAnswersValid(env, fd1, AF_INET6, ns_r_nxdomain),
-            "v6 res_nsend NXDOMAIN check answers");
-
-    return 0;
 }
 
 extern "C"
-JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNcancelCheck(
+JNIEXPORT void Java_android_net_cts_MultinetworkApiTest_runResNnxDomainCheck(
+        JNIEnv* env, jclass, jlong nethandle) {
+    net_handle_t handle = (net_handle_t) nethandle;
+
+    // res_nquery V4 NXDOMAIN
+    int fd = android_res_nquery(handle, kNxDomainName, ns_c_in, ns_t_a, 0);
+    EXPECT_GE(env, fd, 0, "v4 res_nquery NXDOMAIN");
+    EXPECT_EQ(env, 0, expectAnswersValid(env, fd, AF_INET, ns_r_nxdomain),
+            "v4 res_nquery NXDOMAIN check answers");
+
+    // res_nquery V6 NXDOMAIN
+    fd = android_res_nquery(handle, kNxDomainName, ns_c_in, ns_t_aaaa, 0);
+    EXPECT_GE(env, fd, 0, "v6 res_nquery NXDOMAIN");
+    EXPECT_EQ(env, 0, expectAnswersValid(env, fd, AF_INET6, ns_r_nxdomain),
+            "v6 res_nquery NXDOMAIN check answers");
+
+    uint8_t buf[MAXPACKET] = {};
+    // res_nsend V4 NXDOMAIN
+    int len = makeQuery(kNxDomainName, ns_t_a, buf, sizeof(buf));
+    EXPECT_GT(env, len, 0, "v4 res_mkquery NXDOMAIN");
+    fd = android_res_nsend(handle, buf, len, 0);
+    EXPECT_GE(env, fd, 0, "v4 res_nsend NXDOMAIN");
+    EXPECT_EQ(env, 0, expectAnswersValid(env, fd, AF_INET, ns_r_nxdomain),
+            "v4 res_nsend NXDOMAIN check answers");
+
+    // res_nsend V6 NXDOMAIN
+    memset(buf, 0, sizeof(buf));
+    len = makeQuery(kNxDomainName, ns_t_aaaa, buf, sizeof(buf));
+    EXPECT_GT(env, len, 0, "v6 res_mkquery NXDOMAIN");
+    fd = android_res_nsend(handle, buf, len, 0);
+    EXPECT_GE(env, fd, 0, "v6 res_nsend NXDOMAIN");
+    EXPECT_EQ(env, 0, expectAnswersValid(env, fd, AF_INET6, ns_r_nxdomain),
+            "v6 res_nsend NXDOMAIN check answers");
+}
+
+
+extern "C"
+JNIEXPORT void Java_android_net_cts_MultinetworkApiTest_runResNcancelCheck(
         JNIEnv* env, jclass, jlong nethandle) {
     net_handle_t handle = (net_handle_t) nethandle;
 
@@ -251,11 +257,10 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNcancelCheck(
     EXPECT_EQ(env, 0, err, "res_cancel");
     // DO NOT call cancel or result with the same fd more than once,
     // otherwise it will hit fdsan double-close fd.
-    return 0;
 }
 
 extern "C"
-JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNapiMalformedCheck(
+JNIEXPORT void Java_android_net_cts_MultinetworkApiTest_runResNapiMalformedCheck(
         JNIEnv* env, jclass, jlong nethandle) {
     net_handle_t handle = (net_handle_t) nethandle;
 
@@ -311,8 +316,6 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runResNapiMalformedCheck
     EXPECT_GE(env, fd, 0, "res_nsend 500 bytes filled with 0xFF");
     EXPECT_EQ(env, 0, expectAnswersNotValid(env, fd, -EINVAL),
             "res_nsend 500 bytes filled with 0xFF check answers");
-
-    return 0;
 }
 
 extern "C"
@@ -326,7 +329,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runGetaddrinfoCheck(
     const int saved_errno = errno;
     freeaddrinfo(res);
 
-    ALOGD("android_getaddrinfofornetwork(%" PRIu64 ", %s) returned rval=%d errno=%d",
+    LOGD("android_getaddrinfofornetwork(%" PRIu64 ", %s) returned rval=%d errno=%d",
           handle, kHostname, rval, saved_errno);
     return rval == 0 ? 0 : -saved_errno;
 }
@@ -339,7 +342,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runSetprocnetwork(
     errno = 0;
     int rval = android_setprocnetwork(handle);
     const int saved_errno = errno;
-    ALOGD("android_setprocnetwork(%" PRIu64 ") returned rval=%d errno=%d",
+    LOGD("android_setprocnetwork(%" PRIu64 ") returned rval=%d errno=%d",
           handle, rval, saved_errno);
     return rval == 0 ? 0 : -saved_errno;
 }
@@ -352,14 +355,14 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runSetsocknetwork(
     errno = 0;
     int fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
     if (fd < 0) {
-        ALOGD("socket() failed, errno=%d", errno);
+        LOGD("socket() failed, errno=%d", errno);
         return -errno;
     }
 
     errno = 0;
     int rval = android_setsocknetwork(handle, fd);
     const int saved_errno = errno;
-    ALOGD("android_setprocnetwork(%" PRIu64 ", %d) returned rval=%d errno=%d",
+    LOGD("android_setprocnetwork(%" PRIu64 ", %d) returned rval=%d errno=%d",
           handle, fd, rval, saved_errno);
     close(fd);
     return rval == 0 ? 0 : -saved_errno;
@@ -404,7 +407,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runDatagramCheck(
     static const char kPort[] = "443";
     int rval = android_getaddrinfofornetwork(handle, kHostname, kPort, &kHints, &res);
     if (rval != 0) {
-        ALOGD("android_getaddrinfofornetwork(%llu, %s) returned rval=%d errno=%d",
+        LOGD("android_getaddrinfofornetwork(%llu, %s) returned rval=%d errno=%d",
               handle, kHostname, rval, errno);
         freeaddrinfo(res);
         return -errno;
@@ -413,14 +416,14 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runDatagramCheck(
     // Rely upon getaddrinfo sorting the best destination to the front.
     int fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if (fd < 0) {
-        ALOGD("socket(%d, %d, %d) failed, errno=%d",
+        LOGD("socket(%d, %d, %d) failed, errno=%d",
               res->ai_family, res->ai_socktype, res->ai_protocol, errno);
         freeaddrinfo(res);
         return -errno;
     }
 
     rval = android_setsocknetwork(handle, fd);
-    ALOGD("android_setprocnetwork(%llu, %d) returned rval=%d errno=%d",
+    LOGD("android_setprocnetwork(%llu, %d) returned rval=%d errno=%d",
           handle, fd, rval, errno);
     if (rval != 0) {
         close(fd);
@@ -430,7 +433,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runDatagramCheck(
 
     char addrstr[kSockaddrStrLen+1];
     sockaddr_ntop(res->ai_addr, res->ai_addrlen, addrstr, sizeof(addrstr));
-    ALOGD("Attempting connect() to %s ...", addrstr);
+    LOGD("Attempting connect() to %s ...", addrstr);
 
     rval = connect(fd, res->ai_addr, res->ai_addrlen);
     if (rval != 0) {
@@ -447,7 +450,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runDatagramCheck(
         return -errno;
     }
     sockaddr_ntop((const struct sockaddr *)&src_addr, sizeof(src_addr), addrstr, sizeof(addrstr));
-    ALOGD("... from %s", addrstr);
+    LOGD("... from %s", addrstr);
 
     // Don't let reads or writes block indefinitely.
     const struct timeval timeo = { 2, 0 };  // 2 seconds
@@ -455,13 +458,17 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runDatagramCheck(
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeo, sizeof(timeo));
 
     // For reference see:
-    //     https://tools.ietf.org/html/draft-tsvwg-quic-protocol-01#section-6.1
-    uint8_t quic_packet[] = {
-        0x0c,                    // public flags: 64bit conn ID, 8bit sequence number
+    //     https://tools.ietf.org/html/draft-tsvwg-quic-protocol#section-6.1
+    uint8_t quic_packet[1200] = {
+        0x0d,                    // public flags:
+                                 //   - version present (0x01),
+                                 //   - 64bit connection ID (0x0c),
+                                 //   - 1 byte packet number (0x00)
         0, 0, 0, 0, 0, 0, 0, 0,  // 64bit connection ID
-        0x01,                    // sequence number
+        0xaa, 0xda, 0xca, 0xaa,  // reserved-space version number
+        1,                       // 1 byte packet number
         0x00,                    // private flags
-        0x07,                    // type: regular frame type "PING"
+        0x07,                    // PING frame (cuz why not)
     };
 
     arc4random_buf(quic_packet + 1, 8);  // random connection ID
@@ -475,7 +482,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runDatagramCheck(
         sent = send(fd, quic_packet, sizeof(quic_packet), 0);
         if (sent < (ssize_t)sizeof(quic_packet)) {
             errnum = errno;
-            ALOGD("send(QUIC packet) returned sent=%zd, errno=%d", sent, errnum);
+            LOGD("send(QUIC packet) returned sent=%zd, errno=%d", sent, errnum);
             close(fd);
             return -errnum;
         }
@@ -485,14 +492,14 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runDatagramCheck(
             break;
         } else {
             errnum = errno;
-            ALOGD("[%d/%d] recv(QUIC response) returned rcvd=%zd, errno=%d",
+            LOGD("[%d/%d] recv(QUIC response) returned rcvd=%zd, errno=%d",
                   i + 1, MAX_RETRIES, rcvd, errnum);
         }
     }
-    if (rcvd < sent) {
-        ALOGD("QUIC UDP %s: sent=%zd but rcvd=%zd, errno=%d", kPort, sent, rcvd, errnum);
+    if (rcvd < 9) {
+        LOGD("QUIC UDP %s: sent=%zd but rcvd=%zd, errno=%d", kPort, sent, rcvd, errnum);
         if (rcvd <= 0) {
-            ALOGD("Does this network block UDP port %s?", kPort);
+            LOGD("Does this network block UDP port %s?", kPort);
         }
         close(fd);
         return -EPROTO;
@@ -500,13 +507,12 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runDatagramCheck(
 
     int conn_id_cmp = memcmp(quic_packet + 1, response + 1, 8);
     if (conn_id_cmp != 0) {
-        ALOGD("sent and received connection IDs do not match");
+        LOGD("sent and received connection IDs do not match");
         close(fd);
         return -EPROTO;
     }
 
-    // TODO: log, and compare to the IP address encoded in the
-    // response, since this should be a public reset packet.
+    // TODO: Replace this quick 'n' dirty test with proper QUIC-capable code.
 
     close(fd);
     return 0;

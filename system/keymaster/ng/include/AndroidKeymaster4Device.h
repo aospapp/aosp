@@ -20,6 +20,7 @@
 
 #include <android/hardware/keymaster/4.0/IKeymasterDevice.h>
 
+#include <hardware/keymaster_defs.h>
 #include <hidl/Status.h>
 
 namespace keymaster {
@@ -98,10 +99,15 @@ class AndroidKeymaster4Device : public IKeymasterDevice {
                         const VerificationToken& verificationToken, finish_cb _hidl_cb) override;
     Return<ErrorCode> abort(uint64_t operationHandle) override;
 
-  private:
+  protected:
     std::unique_ptr<::keymaster::AndroidKeymaster> impl_;
     SecurityLevel securityLevel_;
 };
+
+// Convert HIDL key parametes to old keymaster param set.  Note that this does *not* copy the blobs
+// from keyParams, only pointers to them.  The keyParams instance retains ownership and must
+// continue to exist.
+keymaster_key_param_set_t hidlKeyParams2Km(const hidl_vec<KeyParameter>& keyParams);
 
 IKeymasterDevice* CreateKeymasterDevice(SecurityLevel securityLevel);
 

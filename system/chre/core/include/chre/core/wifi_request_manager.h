@@ -22,6 +22,7 @@
 #include "chre/util/buffer.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/optional.h"
+#include "chre/util/system/debug_dump.h"
 #include "chre/util/time.h"
 #include "chre_api/chre/wifi.h"
 
@@ -37,10 +38,10 @@ namespace chre {
  */
 class WifiRequestManager : public NonCopyable {
  public:
-   /**
-    * Initializes the WifiRequestManager with a default state and memory for any
-    * requests.
-    */
+  /**
+   * Initializes the WifiRequestManager with a default state and memory for any
+   * requests.
+   */
   WifiRequestManager();
 
   /**
@@ -152,12 +153,10 @@ class WifiRequestManager : public NonCopyable {
    * Prints state in a string buffer. Must only be called from the context of
    * the main CHRE thread.
    *
-   * @param buffer Pointer to the start of the buffer.
-   * @param bufferPos Pointer to buffer position to start the print (in-out).
-   * @param size Size of the buffer in bytes.
+   * @param debugDump The debug dump wrapper where a string can be printed
+   *     into one of the buffers.
    */
-  void logStateToBuffer(char *buffer, size_t *bufferPos,
-                        size_t bufferSize) const;
+  void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
  private:
   struct PendingRequestBase {
@@ -173,6 +172,21 @@ class WifiRequestManager : public NonCopyable {
 
   struct PendingScanMonitorRequest : public PendingRequestBase {
     bool enable;  //!< Requested scan monitor state
+  };
+
+  //! An internal struct to hold scan request data for logging
+  struct WifiScanRequestLog {
+    WifiScanRequestLog(Nanoseconds timestampIn, uint32_t instanceIdIn,
+                       chreWifiScanType scanTypeIn, Milliseconds maxScanAgeMsIn)
+        : timestamp(timestampIn),
+          instanceId(instanceIdIn),
+          scanType(scanTypeIn),
+          maxScanAgeMs(maxScanAgeMsIn) {}
+
+    Nanoseconds timestamp;
+    uint32_t instanceId;
+    enum chreWifiScanType scanType;
+    Milliseconds maxScanAgeMs;
   };
 
   static constexpr size_t kMaxScanMonitorStateTransitions = 8;
@@ -219,6 +233,10 @@ class WifiRequestManager : public NonCopyable {
   //! Tracks the in-flight ranging request and any others queued up behind it
   ArrayQueue<PendingRangingRequest, kMaxPendingRangingRequests>
       mPendingRangingRequests;
+
+  //! List of most recent wifi scan request logs
+  static constexpr size_t kNumWifiRequestLogs = 10;
+  ArrayQueue<WifiScanRequestLog, kNumWifiRequestLogs> mWifiScanRequestLogs;
 
   //! Helps ensure we don't get stuck if platform isn't behaving as expected
   Nanoseconds mRangingResponseTimeout;
@@ -295,9 +313,9 @@ class WifiRequestManager : public NonCopyable {
    *
    * @return true if the event was successfully posted to the event loop.
    */
-  bool postScanMonitorAsyncResultEvent(
-      uint32_t nanoappInstanceId, bool success, bool enable, uint8_t errorCode,
-      const void *cookie);
+  bool postScanMonitorAsyncResultEvent(uint32_t nanoappInstanceId, bool success,
+                                       bool enable, uint8_t errorCode,
+                                       const void *cookie);
 
   /**
    * Calls through to postScanMonitorAsyncResultEvent but invokes the
@@ -306,9 +324,10 @@ class WifiRequestManager : public NonCopyable {
    * but CHRE failed to enqueue one. For parameter details,
    * @see postScanMonitorAsyncResultEvent
    */
-  void postScanMonitorAsyncResultEventFatal(
-      uint32_t nanoappInstanceId, bool success, bool enable, uint8_t errorCode,
-      const void *cookie);
+  void postScanMonitorAsyncResultEventFatal(uint32_t nanoappInstanceId,
+                                            bool success, bool enable,
+                                            uint8_t errorCode,
+                                            const void *cookie);
 
   /**
    * Posts an event to a nanoapp indicating the result of a request for an
@@ -322,9 +341,8 @@ class WifiRequestManager : public NonCopyable {
    *
    * @return true if the event was successfully posted to the event loop.
    */
-  bool postScanRequestAsyncResultEvent(
-      uint32_t nanoappInstanceId, bool success, uint8_t errorCode,
-      const void *cookie);
+  bool postScanRequestAsyncResultEvent(uint32_t nanoappInstanceId, bool success,
+                                       uint8_t errorCode, const void *cookie);
 
   /**
    * Calls through to postScanRequestAsyncResultEvent but invokes the
@@ -333,9 +351,9 @@ class WifiRequestManager : public NonCopyable {
    * but CHRE failed to enqueue one. For parameter details,
    * @see postScanRequestAsyncResultEvent
    */
-  void postScanRequestAsyncResultEventFatal(
-      uint32_t nanoappInstanceId, bool success, uint8_t errorCode,
-      const void *cookie);
+  void postScanRequestAsyncResultEventFatal(uint32_t nanoappInstanceId,
+                                            bool success, uint8_t errorCode,
+                                            const void *cookie);
 
   /**
    * Posts a broadcast event containing the results of a wifi scan. Failure to
@@ -409,6 +427,16 @@ class WifiRequestManager : public NonCopyable {
    * @param scanEvent The scan event to release.
    */
   void handleFreeWifiScanEvent(chreWifiScanEvent *scanEvent);
+
+  /**
+   * Adds a wifi scan request log onto list possibly kicking earliest log out
+   * if full.
+   *
+   * @param nanoappInstanceId The instance Id of the requesting nanoapp
+   * @param params The chre wifi scan params
+   */
+  void addWifiScanRequestLog(uint32_t nanoappInstanceId,
+                             const chreWifiScanParams *params);
 
   /**
    * Releases a wifi scan event after nanoapps have consumed it.

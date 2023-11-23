@@ -16,13 +16,15 @@
 
 #include "chre/core/event.h"
 
-
 namespace chre {
 
-Event::Event(uint16_t eventType_, void *eventData_,
-             chreEventCompleteFunction *freeCallback_,
+Event::Event(uint16_t eventType_, uint16_t receivedTimeMillis_,
+             void *eventData_, chreEventCompleteFunction *freeCallback_,
              uint32_t senderInstanceId_, uint32_t targetInstanceId_)
-    : eventType(eventType_), eventData(eventData_), freeCallback(freeCallback_),
+    : eventType(eventType_),
+      receivedTimeMillis(receivedTimeMillis_),
+      eventData(eventData_),
+      freeCallback(freeCallback_),
       senderInstanceId(senderInstanceId_),
       targetInstanceId(targetInstanceId_) {}
 

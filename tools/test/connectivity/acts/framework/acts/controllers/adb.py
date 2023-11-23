@@ -87,7 +87,7 @@ class AdbProxy(object):
         self.serial = serial
         self._server_local_port = None
         adb_path = job.run("which adb").stdout
-        adb_cmd = [adb_path]
+        adb_cmd = [shellescape.quote(adb_path)]
         if serial:
             adb_cmd.append("-s %s" % serial)
         if ssh_connection is not None:
@@ -174,8 +174,10 @@ class AdbProxy(object):
             return parsing_parcel_output(out)
         if ignore_status:
             return out or err
-        if ret == 1 and (DEVICE_NOT_FOUND_REGEX.match(err) or
-                         CANNOT_BIND_LISTENER_REGEX.match(err)):
+        if ret == 1 and (DEVICE_NOT_FOUND_REGEX.match(err)
+                         or CANNOT_BIND_LISTENER_REGEX.match(err)):
+            raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
+        if ret == 2:
             raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
         else:
             return out
@@ -213,9 +215,8 @@ class AdbProxy(object):
             #  2) Setup forwarding between that remote port and the requested
             #     device port
             remote_port = self._ssh_connection.find_free_port()
-            local_port = self._ssh_connection.create_ssh_tunnel(
+            host_port = self._ssh_connection.create_ssh_tunnel(
                 remote_port, local_port=host_port)
-            host_port = remote_port
         output = self.forward("tcp:%d tcp:%d" % (host_port, device_port))
         # If hinted_port is 0, the output will be the selected port.
         # Otherwise, there will be no output upon successfully
@@ -223,7 +224,7 @@ class AdbProxy(object):
         if output:
             return int(output)
         else:
-            return local_port
+            return host_port
 
     def remove_tcp_forward(self, host_port):
         """Stop tcp forwarding a port from localhost to this android device.
@@ -289,8 +290,7 @@ class AdbProxy(object):
             AdbError if the version number is not found/parsable.
         """
         version_output = self.version()
-        match = re.search(ADB_VERSION_REGEX,
-                          version_output)
+        match = re.search(ADB_VERSION_REGEX, version_output)
 
         if not match:
             logging.error('Unable to capture ADB version from adb version '

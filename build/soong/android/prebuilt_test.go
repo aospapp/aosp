@@ -15,8 +15,7 @@
 package android
 
 import (
-	"io/ioutil"
-	"os"
+	"fmt"
 	"testing"
 
 	"github.com/google/blueprint"
@@ -61,7 +60,7 @@ var prebuiltsTests = []struct {
 			source {
 				name: "bar",
 			}
-			
+
 			prebuilt {
 				name: "bar",
 				prefer: false,
@@ -75,7 +74,7 @@ var prebuiltsTests = []struct {
 			source {
 				name: "bar",
 			}
-			
+
 			prebuilt {
 				name: "bar",
 				prefer: true,
@@ -89,7 +88,7 @@ var prebuiltsTests = []struct {
 			source {
 				name: "bar",
 			}
-			
+
 			prebuilt {
 				name: "bar",
 				prefer: false,
@@ -102,7 +101,7 @@ var prebuiltsTests = []struct {
 			source {
 				name: "bar",
 			}
-			
+
 			prebuilt {
 				name: "bar",
 				prefer: true,
@@ -123,38 +122,68 @@ var prebuiltsTests = []struct {
 			}`,
 		prebuilt: true,
 	},
+	{
+		name: "prebuilt override not preferred",
+		modules: `
+			source {
+				name: "baz",
+			}
+
+			override_source {
+				name: "bar",
+				base: "baz",
+			}
+
+			prebuilt {
+				name: "bar",
+				prefer: false,
+				srcs: ["prebuilt_file"],
+			}`,
+		prebuilt: false,
+	},
+	{
+		name: "prebuilt override preferred",
+		modules: `
+			source {
+				name: "baz",
+			}
+
+			override_source {
+				name: "bar",
+				base: "baz",
+			}
+
+			prebuilt {
+				name: "bar",
+				prefer: true,
+				srcs: ["prebuilt_file"],
+			}`,
+		prebuilt: true,
+	},
 }
 
 func TestPrebuilts(t *testing.T) {
-	buildDir, err := ioutil.TempDir("", "soong_prebuilt_test")
-	if err != nil {
-		t.Fatal(err)
+	fs := map[string][]byte{
+		"prebuilt_file": nil,
+		"source_file":   nil,
 	}
-	defer os.RemoveAll(buildDir)
-
-	config := TestConfig(buildDir, nil)
 
 	for _, test := range prebuiltsTests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := NewTestContext()
-			ctx.PreArchMutators(RegisterPrebuiltsPreArchMutators)
-			ctx.PostDepsMutators(RegisterPrebuiltsPostDepsMutators)
-			ctx.RegisterModuleType("filegroup", ModuleFactoryAdaptor(FileGroupFactory))
-			ctx.RegisterModuleType("prebuilt", ModuleFactoryAdaptor(newPrebuiltModule))
-			ctx.RegisterModuleType("source", ModuleFactoryAdaptor(newSourceModule))
-			ctx.Register()
-			ctx.MockFileSystem(map[string][]byte{
-				"prebuilt_file": nil,
-				"source_file":   nil,
-				"Blueprints": []byte(`
-					source {
-						name: "foo",
-						deps: [":bar"],
-					}
-					` + test.modules),
-			})
+			bp := `
+				source {
+					name: "foo",
+					deps: [":bar"],
+				}
+				` + test.modules
+			config := TestConfig(buildDir, nil, bp, fs)
 
-			_, errs := ctx.ParseBlueprintsFiles("Blueprints")
+			ctx := NewTestContext()
+			registerTestPrebuiltBuildComponents(ctx)
+			ctx.RegisterModuleType("filegroup", FileGroupFactory)
+			ctx.Register(config)
+
+			_, errs := ctx.ParseBlueprintsFiles("Android.bp")
 			FailIfErrored(t, errs)
 			_, errs = ctx.PrepareBuildActions(config)
 			FailIfErrored(t, errs)
@@ -219,6 +248,15 @@ func TestPrebuilts(t *testing.T) {
 	}
 }
 
+func registerTestPrebuiltBuildComponents(ctx RegistrationContext) {
+	ctx.RegisterModuleType("prebuilt", newPrebuiltModule)
+	ctx.RegisterModuleType("source", newSourceModule)
+	ctx.RegisterModuleType("override_source", newOverrideSourceModule)
+
+	RegisterPrebuiltMutators(ctx)
+	ctx.PostDepsMutators(RegisterOverridePostDepsMutators)
+}
+
 type prebuiltModule struct {
 	ModuleBase
 	prebuilt   Prebuilt
@@ -250,15 +288,24 @@ func (p *prebuiltModule) Prebuilt() *Prebuilt {
 	return &p.prebuilt
 }
 
-func (p *prebuiltModule) Srcs() Paths {
-	return Paths{p.src}
+func (p *prebuiltModule) OutputFiles(tag string) (Paths, error) {
+	switch tag {
+	case "":
+		return Paths{p.src}, nil
+	default:
+		return nil, fmt.Errorf("unsupported module reference tag %q", tag)
+	}
+}
+
+type sourceModuleProperties struct {
+	Deps []string `android:"path"`
 }
 
 type sourceModule struct {
 	ModuleBase
-	properties struct {
-		Deps []string `android:"path"`
-	}
+	OverridableModuleBase
+
+	properties                                     sourceModuleProperties
 	dependsOnSourceModule, dependsOnPrebuiltModule bool
 	deps                                           Paths
 	src                                            Path
@@ -268,10 +315,11 @@ func newSourceModule() Module {
 	m := &sourceModule{}
 	m.AddProperties(&m.properties)
 	InitAndroidModule(m)
+	InitOverridableModule(m, nil)
 	return m
 }
 
-func (s *sourceModule) DepsMutator(ctx BottomUpMutatorContext) {
+func (s *sourceModule) OverridablePropertiesDepsMutator(ctx BottomUpMutatorContext) {
 	// s.properties.Deps are annotated with android:path, so they are
 	// automatically added to the dependency by pathDeps mutator
 }
@@ -283,4 +331,21 @@ func (s *sourceModule) GenerateAndroidBuildActions(ctx ModuleContext) {
 
 func (s *sourceModule) Srcs() Paths {
 	return Paths{s.src}
+}
+
+type overrideSourceModule struct {
+	ModuleBase
+	OverrideModuleBase
+}
+
+func (o *overrideSourceModule) GenerateAndroidBuildActions(_ ModuleContext) {
+}
+
+func newOverrideSourceModule() Module {
+	m := &overrideSourceModule{}
+	m.AddProperties(&sourceModuleProperties{})
+
+	InitAndroidModule(m)
+	InitOverrideModule(m)
+	return m
 }

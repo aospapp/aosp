@@ -16,9 +16,6 @@
 
 package android.server.wm.component;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-
 import android.content.ComponentName;
 
 /**
@@ -37,7 +34,9 @@ public class ComponentsBase {
      */
     protected static ComponentName component(
             Class<? extends ComponentsBase> componentsClass, String className) {
-        assertFalse("className should not start with '.'", className.startsWith("."));
+        if (className.startsWith(".")) {
+            throw new AssertionError("Class name should not start with '.'");
+        }
         final String packageName = getPackageName(componentsClass);
         final boolean isSimpleClassName = className.indexOf('.') < 0;
         final String fullClassName = isSimpleClassName ? packageName + "." + className : className;
@@ -50,7 +49,9 @@ public class ComponentsBase {
      * @return package name of APK.
      */
     protected static String getPackageName(Class<? extends ComponentsBase> componentsClass) {
-        assertEquals("Components", componentsClass.getSimpleName());
+        if (!"Components".equals(componentsClass.getSimpleName())) {
+            throw new AssertionError("The class name must be 'Components'");
+        }
         return componentsClass.getPackage().getName();
     }
 }

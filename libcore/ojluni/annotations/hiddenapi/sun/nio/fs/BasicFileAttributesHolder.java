@@ -28,7 +28,7 @@ package sun.nio.fs;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public interface BasicFileAttributesHolder {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.nio.file.attribute.BasicFileAttributes get();
 
     public void invalidate();

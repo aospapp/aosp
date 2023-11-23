@@ -29,7 +29,7 @@ static const keymaster_digest_t supported_digests[] = {KM_DIGEST_NONE,      KM_D
                                                        KM_DIGEST_SHA_2_384, KM_DIGEST_SHA_2_512};
 
 OperationPtr EcdsaOperationFactory::CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                                    keymaster_error_t* error) const {
+                                                    keymaster_error_t* error) {
     const EcKey& ecdsa_key = static_cast<EcKey&>(key);
 
     UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey(EVP_PKEY_new());
@@ -39,7 +39,9 @@ OperationPtr EcdsaOperationFactory::CreateOperation(Key&& key, const Authorizati
     }
 
     keymaster_digest_t digest;
-    if (!GetAndValidateDigest(begin_params, ecdsa_key, &digest, error)) return nullptr;
+    if (!GetAndValidateDigest(begin_params, ecdsa_key, &digest, error, true)) {
+        return nullptr;
+    }
 
     *error = KM_ERROR_OK;
     auto op = OperationPtr(InstantiateOperation(key.hw_enforced_move(), key.sw_enforced_move(),

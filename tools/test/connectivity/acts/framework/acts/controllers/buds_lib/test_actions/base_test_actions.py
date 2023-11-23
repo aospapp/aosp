@@ -22,7 +22,7 @@ import datetime
 import inspect
 import time
 
-from acts import tracelogger
+from acts.controllers.buds_lib import tako_trace_logger
 from acts.libs.utils.timer import TimeRecorder
 
 # All methods start with "_" are considered hidden.
@@ -37,7 +37,7 @@ def timed_action(method):
         func_name = self._convert_default_action_name(method.__name__)
         if not func_name:
             func_name = method.__name__
-        self.logger.step('%s...' % func_name)
+        self.log_step('%s...' % func_name)
         self.timer.start_timer(func_name, True)
         result = method(self, *args, **kw)
         # TODO: Method run time collected can be used for automatic KPI checks
@@ -135,9 +135,11 @@ class BaseTestAction(object):
 
     def __init__(self, logger=None):
         if logger is None:
-            self.logger = tracelogger.TakoTraceLogger()
+            self.logger = tako_trace_logger.TakoTraceLogger()
+            self.log_step = self.logger.step
         else:
             self.logger = logger
+            self.log_step = self.logger.info
         self.timer = TimeRecorder()
         self._fill_default_action_map()
 
@@ -172,15 +174,16 @@ class BaseTestAction(object):
                exceptions
         """
         num_acts = len(self._action_map)
-        self.logger.i('I can do %d action%s:' %
+
+        self.logger.info('I can do %d action%s:' %
                       (num_acts, 's' if num_acts != 1 else ''))
         for act in self._action_map.keys():
-            self.logger.i(' - %s' % act)
+            self.logger.info(' - %s' % act)
         return True
 
     @timed_action
     def sleep(self, seconds):
-        self.logger.i('%s seconds' % seconds)
+        self.logger.info('%s seconds' % seconds)
         time.sleep(seconds)
 
 

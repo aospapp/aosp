@@ -16,12 +16,19 @@
 package com.android.tradefed.device.cloud;
 
 import com.android.ddmlib.IDevice;
+import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.DynamicRemoteFileResolver;
+import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IDeviceMonitor;
 import com.android.tradefed.device.IDeviceStateMonitor;
 import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.device.TestDevice;
+import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.device.cloud.GceAvdInfo.GceStatus;
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -29,6 +36,7 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestLoggerReceiver;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.error.DeviceErrorIdentifier;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
@@ -37,7 +45,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 /**
  * A device running inside a virtual machine that we manage remotely via a Tradefed instance inside
@@ -48,6 +55,9 @@ public class ManagedRemoteDevice extends TestDevice implements ITestLoggerReceiv
     private GceManager mGceHandler = null;
     private GceAvdInfo mGceAvd;
     private ITestLogger mTestLogger;
+
+    private TestDeviceOptions mCopiedOptions;
+    private IConfiguration mValidationConfig;
 
     /**
      * Creates a {@link ManagedRemoteDevice}.
@@ -62,32 +72,32 @@ public class ManagedRemoteDevice extends TestDevice implements ITestLoggerReceiv
     }
 
     @Override
-    public void preInvocationSetup(IBuildInfo info, List<IBuildInfo> testResourceBuildInfos)
+    public void preInvocationSetup(IBuildInfo info)
             throws TargetSetupError, DeviceNotAvailableException {
-        super.preInvocationSetup(info, testResourceBuildInfos);
+        super.preInvocationSetup(info);
         mGceAvd = null;
-
+        // First get the options
+        TestDeviceOptions options = getOptions();
         // We create a brand new GceManager each time to ensure clean state.
-        mGceHandler =
-                new GceManager(getDeviceDescriptor(), getOptions(), info, testResourceBuildInfos);
+        mGceHandler = new GceManager(getDeviceDescriptor(), options, info);
         getGceHandler().logStableHostImageInfos(info);
         setFastbootEnabled(false);
 
         // Launch GCE helper script.
         long startTime = getCurrentTime();
         launchGce();
-        long remainingTime = getOptions().getGceCmdTimeout() - (getCurrentTime() - startTime);
+        long remainingTime = options.getGceCmdTimeout() - (getCurrentTime() - startTime);
         if (remainingTime < 0) {
             throw new DeviceNotAvailableException(
-                    String.format(
-                            "Failed to launch GCE after %sms", getOptions().getGceCmdTimeout()),
-                    getSerialNumber());
+                    String.format("Failed to launch GCE after %sms", options.getGceCmdTimeout()),
+                    getSerialNumber(),
+                    DeviceErrorIdentifier.FAILED_TO_LAUNCH_GCE);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void postInvocationTearDown() {
+    public void postInvocationTearDown(Throwable exception) {
         try {
             CLog.i("Shutting down GCE device %s", getSerialNumber());
             // Log the last part of the logcat from the tear down.
@@ -100,18 +110,19 @@ public class ManagedRemoteDevice extends TestDevice implements ITestLoggerReceiv
             }
 
             if (mGceAvd != null) {
-                // attempt to get a bugreport if Gce Avd is a failure
-                if (!GceStatus.SUCCESS.equals(mGceAvd.getStatus())) {
-                    // Get a bugreport via ssh
-                    getSshBugreport();
+                if (mGceAvd.hostAndPort() != null) {
+                    // attempt to get a bugreport if Gce Avd is a failure
+                    if (!GceStatus.SUCCESS.equals(mGceAvd.getStatus())) {
+                        // Get a bugreport via ssh
+                        getSshBugreport();
+                    }
+                    // Log the serial output of the instance.
+                    getGceHandler().logSerialOutput(mGceAvd, mTestLogger);
+
+                    // Fetch remote files
+                    CommonLogRemoteFileUtil.fetchCommonFiles(
+                            mTestLogger, mGceAvd, getOptions(), getRunUtil());
                 }
-                // Log the serial output of the instance.
-                getGceHandler().logSerialOutput(mGceAvd, mTestLogger);
-
-                // Fetch remote files
-                CommonLogRemoteFileUtil.fetchCommonFiles(
-                        mTestLogger, mGceAvd, getOptions(), getRunUtil());
-
                 // Cleanup GCE first to make sure ssh tunnel has nowhere to go.
                 if (!getOptions().shouldSkipTearDown()) {
                     getGceHandler().shutdownGce();
@@ -124,8 +135,14 @@ public class ManagedRemoteDevice extends TestDevice implements ITestLoggerReceiv
                 getGceHandler().cleanUp();
             }
         } finally {
+            // Reset the internal variable
+            mCopiedOptions = null;
+            if (mValidationConfig != null) {
+                mValidationConfig.cleanConfigurationData();
+                mValidationConfig = null;
+            }
             // Ensure parent postInvocationTearDown is always called.
-            super.postInvocationTearDown();
+            super.postInvocationTearDown(exception);
         }
     }
 
@@ -191,5 +208,26 @@ public class ManagedRemoteDevice extends TestDevice implements ITestLoggerReceiv
     @VisibleForTesting
     GceManager getGceHandler() {
         return mGceHandler;
+    }
+
+    /**
+     * Override the base getter to be able to resolve dynamic options before attempting to do the
+     * remote setup.
+     */
+    @Override
+    public TestDeviceOptions getOptions() {
+        if (mCopiedOptions == null) {
+            mCopiedOptions = new TestDeviceOptions();
+            TestDeviceOptions options = super.getOptions();
+            OptionCopier.copyOptionsNoThrow(options, mCopiedOptions);
+            mValidationConfig = new Configuration("validation", "validation");
+            mValidationConfig.setDeviceOptions(mCopiedOptions);
+            try {
+                mValidationConfig.resolveDynamicOptions(new DynamicRemoteFileResolver());
+            } catch (BuildRetrievalError | ConfigurationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return mCopiedOptions;
     }
 }

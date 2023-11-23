@@ -6,6 +6,7 @@
     <component name="NewModuleRootManager" inherit-compiler-output="true">
         <exclude-output />
 @SOURCES@
+@SRCJAR@
         <orderEntry type="sourceFolder" forTests="false" />
 @MODULE_DEPENDENCIES@
         <orderEntry type="inheritedJdk" />

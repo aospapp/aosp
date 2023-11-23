@@ -25,7 +25,7 @@
 
 package java.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class HashMap<K, V> extends java.util.AbstractMap<K, V>

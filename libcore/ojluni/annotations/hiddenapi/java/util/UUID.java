@@ -25,7 +25,7 @@
 
 package java.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class UUID implements java.io.Serializable, java.lang.Comparable<java.util.UUID> {

@@ -300,22 +300,37 @@ public class TextureViewTest {
     public void testSamplingWithTransform() throws Throwable {
         final TextureViewCtsActivity activity = mActivityRule.launchActivity(null);
         final TextureView textureView = activity.getTextureView();
+        final int viewWidth = textureView.getWidth();
+        final int viewHeight = textureView.getHeight();
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, activity.getTextureView(), null);
         // Remove cover and calculate TextureView position on the screen.
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule,
                 activity.findViewById(android.R.id.content), () -> activity.removeCover());
 
         float[][] matrices = {
-            {1, 0, 0, 0, 1, 0, 0, 0, 1},        // identity matrix
-            {1, 0, 0, 0, 1, 10.3f, 0, 0, 1},    // translation matrix with a fractional offset
-            {1, 0, 0, 0, 0.75f, 0, 0, 0, 1},    // scaling matrix
-            {1, 0, 0, 0, 1, 10f, 0, 0, 1}       // translation matrix with an integer offset
+            {1, 0, 0, 0, 1, 0, 0, 0, 1},            // identity matrix
+            {1, 0, 0, 0, 1, 10.3f, 0, 0, 1},        // translation matrix with a fractional offset
+            {1, 0, 0, 0, 0.75f, 0, 0, 0, 1},        // scaling matrix
+            {1, 0, 0, 0, 1, 10f, 0, 0, 1},          // translation matrix with an integer offset
+            {0, -1, viewWidth, 1, 0, 0, 0, 0, 1},   // 90 rotation matrix + integer translate X
+            {0, 1, 0, -1, 0, viewWidth, 0, 0, 1},   // 270 rotation matrix + integer translate Y
+            {-1, 0, viewWidth, 0, 1, 0, 0, 0, 1},   // H flip matrix + integer translate X
+            {1, 0, 0, 0, -1, viewHeight, 0, 0, 1},  // V flip matrix + integer translate Y
+            {-1, 0, viewWidth, 0, -1, viewHeight, 0, 0, 1}, // 180 rotation + integer translate X Y
+            {0, -1, viewWidth - 10.3f, 1, 0, 0, 0, 0, 1},  // 90 rotation matrix with a fractional
+                                                           // offset
         };
         boolean[] nearestSampling = {
             true,  // nearest sampling for identity
             false, // bilerp sampling for fractional translate
             false, // bilerp sampling for scaling
-            true   // nearest sampling for integer translate
+            true,  // nearest sampling for integer translate
+            true,  // nearest sampling for 90 rotation with integer translate
+            true,  // nearest sampling for 270 rotation with integer translate
+            true,  // nearest sampling for H flip with integer translate
+            true,  // nearest sampling for V flip with integer translate
+            true,  // nearest sampling for 180 rotation with integer translate
+            false, // bilerp sampling for 90 rotation matrix with a fractional offset
         };
         for (int i = 0; i < nearestSampling.length; i++) {
 
@@ -345,8 +360,10 @@ public class TextureViewTest {
             // "texturePos" has SurfaceTexture position inside the TextureView.
             RectF texturePosF = new RectF(0, 0, viewPos.width(), viewPos.height());
             transform.mapRect(texturePosF);
-            //clip parts outside TextureView
-            texturePosF.intersect(0, 0, viewPos.width(), viewPos.height());
+            // Clip parts outside TextureView.
+            // Matrices are picked, so that the drawing area is not empty.
+            assertTrue("empty test area",
+                    texturePosF.intersect(0, 0, viewPos.width(), viewPos.height()));
             Rect texturePos = new Rect((int) Math.ceil(texturePosF.left),
                     (int) Math.ceil(texturePosF.top), (int) Math.floor(texturePosF.right),
                     (int) Math.floor(texturePosF.bottom));
@@ -367,14 +384,18 @@ public class TextureViewTest {
                     }
                 }
             } else {
-                // Check there are no black nor white pixels, because bilerp sampling changed
-                // pure black/white to a variety of gray intermediates.
+                // Check that a third of pixels are not black nor white, because bilerp sampling
+                // changed pure black/white to a variety of gray intermediates.
+                int nonBlackWhitePixels = 0;
                 for (int j = 0; j < pixels.length; j++) {
-                    if (pixels[j] == Color.BLACK || pixels[j] == Color.WHITE) {
-                        success = false;
+                    if (pixels[j] != Color.BLACK && pixels[j] != Color.WHITE) {
+                        nonBlackWhitePixels++;
+                    } else {
                         failPosition = j;
-                        break;
                     }
+                }
+                if (nonBlackWhitePixels < pixels.length / 3) {
+                    success = false;
                 }
             }
             assertTrue("Unexpected color at position " + failPosition + " = "

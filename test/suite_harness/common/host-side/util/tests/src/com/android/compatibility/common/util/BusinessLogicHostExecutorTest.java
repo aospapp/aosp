@@ -73,7 +73,9 @@ public class BusinessLogicHostExecutorTest {
     public void setUp() {
         mMockBuild = EasyMock.createMock(IBuildInfo.class);
         mMockDevice = EasyMock.createMock(ITestDevice.class);
-        mExecutor = new BusinessLogicHostExecutor(mMockDevice, mMockBuild, this);
+        mExecutor =
+                new BusinessLogicHostExecutor(
+                        mMockDevice, mMockBuild, this, new ArrayList<String>());
         // reset the instance variables tracking the method invoked and the args used
         mInvoked = null;
         mArgsUsed = null;

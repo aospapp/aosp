@@ -25,7 +25,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             04:00:00:00:00:01:0f:85:aa:2d:48
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: O=Cybertrust, Inc, CN=Cybertrust Global Root
         Validity
             Not Before: Dec 15 08:00:00 2006 GMT
@@ -33,7 +33,7 @@ Certificate:
         Subject: O=Cybertrust, Inc, CN=Cybertrust Global Root
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:f8:c8:bc:bd:14:50:66:13:ff:f0:d3:79:ec:23:
                     f2:b7:1a:c7:8e:85:f1:12:73:a6:19:aa:10:db:9c:

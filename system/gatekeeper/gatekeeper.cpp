@@ -17,15 +17,16 @@
 #include <gatekeeper/gatekeeper.h>
 
 #include <endian.h>
+#include <stddef.h>
 
 #define DAY_IN_MS (1000 * 60 * 60 * 24)
 
 namespace gatekeeper {
 
 void GateKeeper::Enroll(const EnrollRequest &request, EnrollResponse *response) {
-    if (response == NULL) return;
+    if (response == nullptr) return;
 
-    if (!request.provided_password.buffer.get()) {
+    if (!request.provided_password) {
         response->error = ERROR_INVALID;
         return;
     }
@@ -33,18 +34,13 @@ void GateKeeper::Enroll(const EnrollRequest &request, EnrollResponse *response) 
     secure_id_t user_id = 0;// todo: rename to policy
     uint32_t uid = request.user_id;
 
-    if (request.password_handle.buffer.get() == NULL) {
+    if (!request.password_handle) {
         // Password handle does not match what is stored, generate new SecureID
         GetRandom(&user_id, sizeof(secure_id_t));
     } else {
-        if (request.password_handle.length < sizeof(password_handle_t)) {
-            response->error = ERROR_INVALID;
-            return;
-        }
-        password_handle_t *pw_handle =
-            reinterpret_cast<password_handle_t *>(request.password_handle.buffer.get());
+        const password_handle_t *pw_handle = request.password_handle.Data<password_handle_t>();
 
-        if (pw_handle->version > HANDLE_VERSION) {
+        if (!pw_handle || pw_handle->version > HANDLE_VERSION) {
             response->error = ERROR_INVALID;
             return;
         }
@@ -96,32 +92,25 @@ void GateKeeper::Enroll(const EnrollRequest &request, EnrollResponse *response) 
 
     SizedBuffer password_handle;
     if (!CreatePasswordHandle(&password_handle,
-            salt, user_id, flags, HANDLE_VERSION, request.provided_password.buffer.get(),
-            request.provided_password.length)) {
+            salt, user_id, flags, HANDLE_VERSION, request.provided_password)) {
         response->error = ERROR_INVALID;
         return;
     }
 
-    response->SetEnrolledPasswordHandle(&password_handle);
+    response->SetEnrolledPasswordHandle(move(password_handle));
 }
 
 void GateKeeper::Verify(const VerifyRequest &request, VerifyResponse *response) {
-    if (response == NULL) return;
+    if (response == nullptr) return;
 
-    if (!request.provided_password.buffer.get() || !request.password_handle.buffer.get()) {
+    if (!request.provided_password || !request.password_handle) {
         response->error = ERROR_INVALID;
         return;
     }
 
-    if (request.password_handle.length < sizeof(password_handle_t)) {
-        response->error = ERROR_INVALID;
-        return;
-    }
+    const password_handle_t *password_handle = request.password_handle.Data<password_handle_t>();
 
-    password_handle_t *password_handle = reinterpret_cast<password_handle_t *>(
-            request.password_handle.buffer.get());
-
-    if (password_handle->version > HANDLE_VERSION) {
+    if (!password_handle || password_handle->version > HANDLE_VERSION) {
         response->error = ERROR_INVALID;
         return;
     }
@@ -156,14 +145,13 @@ void GateKeeper::Verify(const VerifyRequest &request, VerifyResponse *response) 
 
     if (DoVerify(password_handle, request.provided_password)) {
         // Signature matches
-        UniquePtr<uint8_t> auth_token_buffer;
-        uint32_t auth_token_len;
-        MintAuthToken(&auth_token_buffer, &auth_token_len, timestamp,
+        SizedBuffer auth_token;
+        response->error = MintAuthToken(&auth_token, timestamp,
                 user_id, authenticator_id, request.challenge);
 
-        SizedBuffer auth_token(auth_token_len);
-        memcpy(auth_token.buffer.get(), auth_token_buffer.get(), auth_token_len);
-        response->SetVerificationToken(&auth_token);
+        if (response->error != ERROR_NONE) return;
+
+        response->SetVerificationToken(move(auth_token));
         if (throttle) ClearFailureRecord(uid, user_id, throttle_secure);
     } else {
         // compute the new timeout given the incremented record
@@ -176,31 +164,32 @@ void GateKeeper::Verify(const VerifyRequest &request, VerifyResponse *response) 
 }
 
 bool GateKeeper::CreatePasswordHandle(SizedBuffer *password_handle_buffer, salt_t salt,
-        secure_id_t user_id, uint64_t flags, uint8_t handle_version, const uint8_t *password,
-        uint32_t password_length) {
-    password_handle_buffer->buffer.reset(new uint8_t[sizeof(password_handle_t)]);
-    password_handle_buffer->length = sizeof(password_handle_t);
+        secure_id_t user_id, uint64_t flags, uint8_t handle_version, const SizedBuffer & password) {
+    if (password_handle_buffer == nullptr) return false;
 
-    password_handle_t *password_handle = reinterpret_cast<password_handle_t *>(
-            password_handle_buffer->buffer.get());
-    password_handle->version = handle_version;
-    password_handle->salt = salt;
-    password_handle->user_id = user_id;
-    password_handle->flags = flags;
-    password_handle->hardware_backed = IsHardwareBacked();
+    password_handle_t password_handle;
 
-    uint32_t metadata_length = sizeof(user_id) + sizeof(flags) + sizeof(HANDLE_VERSION);
-    const size_t to_sign_size = password_length + metadata_length;
-    UniquePtr<uint8_t[]> to_sign(new uint8_t[to_sign_size]);
+    password_handle.version = handle_version;
+    password_handle.salt = salt;
+    password_handle.user_id = user_id;
+    password_handle.flags = flags;
+    password_handle.hardware_backed = IsHardwareBacked();
 
-    if (to_sign.get() == nullptr) {
-        return false;
-    }
+    constexpr uint32_t metadata_length = sizeof(password_handle.version) +
+                                         sizeof(password_handle.user_id) +
+                                         sizeof(password_handle.flags);
+    static_assert(offsetof(password_handle_t, salt) == metadata_length,
+            "password_handle_t does not appear to be packed");
 
-    memcpy(to_sign.get(), password_handle, metadata_length);
-    memcpy(to_sign.get() + metadata_length, password, password_length);
+    const size_t to_sign_size = password.size() + metadata_length;
 
-    const uint8_t *password_key = NULL;
+    UniquePtr<uint8_t[]> to_sign(new(std::nothrow) uint8_t[to_sign_size]);
+    if (!to_sign) return false;
+
+    memcpy(to_sign.get(), &password_handle, metadata_length);
+    memcpy(to_sign.get() + metadata_length, password.Data<uint8_t>(), password.size());
+
+    const uint8_t *password_key = nullptr;
     uint32_t password_key_length = 0;
     GetPasswordKey(&password_key, &password_key_length);
 
@@ -208,54 +197,72 @@ bool GateKeeper::CreatePasswordHandle(SizedBuffer *password_handle_buffer, salt_
         return false;
     }
 
-    ComputePasswordSignature(password_handle->signature, sizeof(password_handle->signature),
+    ComputePasswordSignature(password_handle.signature, sizeof(password_handle.signature),
             password_key, password_key_length, to_sign.get(), to_sign_size, salt);
+
+    uint8_t *ph_buffer = new(std::nothrow) uint8_t[sizeof(password_handle_t)];
+    if (ph_buffer == nullptr) return false;
+
+    *password_handle_buffer = { ph_buffer, sizeof(password_handle_t) };
+    memcpy(ph_buffer, &password_handle, sizeof(password_handle_t));
+
     return true;
 }
 
 bool GateKeeper::DoVerify(const password_handle_t *expected_handle, const SizedBuffer &password) {
-    if (!password.buffer.get()) return false;
+    if (!password) return false;
 
     SizedBuffer provided_handle;
     if (!CreatePasswordHandle(&provided_handle, expected_handle->salt, expected_handle->user_id,
-            expected_handle->flags, expected_handle->version,
-            password.buffer.get(), password.length)) {
+            expected_handle->flags, expected_handle->version, password)) {
         return false;
     }
 
-    password_handle_t *generated_handle =
-            reinterpret_cast<password_handle_t *>(provided_handle.buffer.get());
+    const password_handle_t *generated_handle = provided_handle.Data<password_handle_t>();
     return memcmp_s(generated_handle->signature, expected_handle->signature,
             sizeof(expected_handle->signature)) == 0;
 }
 
-void GateKeeper::MintAuthToken(UniquePtr<uint8_t> *auth_token, uint32_t *length,
+gatekeeper_error_t GateKeeper::MintAuthToken(SizedBuffer *auth_token,
         uint64_t timestamp, secure_id_t user_id, secure_id_t authenticator_id,
         uint64_t challenge) {
-    if (auth_token == NULL) return;
+    if (auth_token == nullptr) return ERROR_INVALID;
 
-    hw_auth_token_t *token = new hw_auth_token_t;
-    SizedBuffer serialized_auth_token;
+    hw_auth_token_t token;
 
-    token->version = HW_AUTH_TOKEN_VERSION;
-    token->challenge = challenge;
-    token->user_id = user_id;
-    token->authenticator_id = authenticator_id;
-    token->authenticator_type = htobe32(HW_AUTH_PASSWORD);
-    token->timestamp = htobe64(timestamp);
+    token.version = HW_AUTH_TOKEN_VERSION;
+    token.challenge = challenge;
+    token.user_id = user_id;
+    token.authenticator_id = authenticator_id;
+    token.authenticator_type = htobe32(HW_AUTH_PASSWORD);
+    token.timestamp = htobe64(timestamp);
 
-    const uint8_t *auth_token_key = NULL;
+    constexpr uint32_t hashable_length = sizeof(token.version) +
+                                         sizeof(token.challenge) +
+                                         sizeof(token.user_id) +
+                                         sizeof(token.authenticator_id) +
+                                         sizeof(token.authenticator_type) +
+                                         sizeof(token.timestamp);
+
+    static_assert(offsetof(hw_auth_token_t, hmac) == hashable_length,
+            "hw_auth_token_t does not appear to be packed");
+
+    const uint8_t *auth_token_key = nullptr;
     uint32_t key_len = 0;
     if (GetAuthTokenKey(&auth_token_key, &key_len)) {
-        uint32_t hash_len = (uint32_t)((uint8_t *)&token->hmac - (uint8_t *)token);
-        ComputeSignature(token->hmac, sizeof(token->hmac), auth_token_key, key_len,
-                reinterpret_cast<uint8_t *>(token), hash_len);
+        ComputeSignature(token.hmac, sizeof(token.hmac), auth_token_key, key_len,
+                reinterpret_cast<uint8_t *>(&token), hashable_length);
     } else {
-        memset(token->hmac, 0, sizeof(token->hmac));
+        memset(token.hmac, 0, sizeof(token.hmac));
     }
 
-    if (length != NULL) *length = sizeof(*token);
-    auth_token->reset(reinterpret_cast<uint8_t *>(token));
+    uint8_t *token_buffer = new(std::nothrow) uint8_t[sizeof(hw_auth_token_t)];
+    if (token_buffer == nullptr) return ERROR_MEMORY_ALLOCATION_FAILED;
+
+    *reinterpret_cast<hw_auth_token_t*>(token_buffer) = token;
+
+    *auth_token = { token_buffer, sizeof(hw_auth_token_t) };
+    return ERROR_NONE;
 }
 
 /*

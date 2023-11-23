@@ -22,6 +22,7 @@ import time
 
 import its.device
 import numpy
+import rotation_rig as rot
 
 SCENE_NAME = 'sensor_fusion'
 SKIP_RET_CODE = 101
@@ -131,7 +132,14 @@ def main():
         with open(outpath, 'w') as fout, open(errpath, 'w') as ferr:
             retcode = subprocess.call(
                     cmd, stderr=ferr, stdout=fout, cwd=outdir)
-        t1 = time.time()
+
+        t_test = time.time() - t0
+
+        # wait for rotations to stop
+        t_rotate = (rot.NUM_ROTATIONS * len(rot.ARDUINO_ANGLES) *
+                    rot.ARDUINO_MOVE_TIME) + 2  # 2s slop
+        if t_rotate > t_test:
+            time.sleep(t_rotate - t_test)
 
         if retcode == 0:
             retstr = 'PASS '
@@ -152,7 +160,7 @@ def main():
             else:
                 shift_list.append(time_shift)
             num_fail += 1
-        msg = '%s %s/%s [%.1fs]' % (retstr, SCENE_NAME, TEST_NAME, t1-t0)
+        msg = '%s %s/%s [%.1fs]' % (retstr, SCENE_NAME, TEST_NAME, t_test)
         print msg
 
     if num_pass == 1:
@@ -219,6 +227,7 @@ def find_matching_line(file_path, regex):
             if regex.match(line):
                 return line
     return None
+
 
 def find_avail_camera_ids():
     """Find the available camera IDs.

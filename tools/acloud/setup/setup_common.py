@@ -22,10 +22,11 @@ import subprocess
 
 from acloud import errors
 
+
 logger = logging.getLogger(__name__)
 
 PKG_INSTALL_CMD = "sudo apt-get --assume-yes install %s"
-APT_CHECK_CMD = "apt-cache policy %s"
+APT_CHECK_CMD = "LANG=en_US.UTF-8 apt-cache policy %s"
 _INSTALLED_RE = re.compile(r"(.*\s*Installed:)(?P<installed_ver>.*\s?)")
 _CANDIDATE_RE = re.compile(r"(.*\s*Candidate:)(?P<candidate_ver>.*\s?)")
 
@@ -131,11 +132,9 @@ def PackageInstalled(pkg_name, compare_version=True):
                      installed_ver,
                      candidate_ver)
         return False
-    # installed package is old and we care about the version.
+    # TODO(148116924):Setup process should ask user to update package if the
+    # minimax required version is specified.
     if compare_version and installed_ver != candidate_ver:
-        logger.debug("Package %s version at %s, expected %s",
-                     pkg_name,
-                     installed_ver,
-                     candidate_ver)
-        return False
+        logger.warning("Package %s version at %s, expected %s",
+                       pkg_name, installed_ver, candidate_ver)
     return True

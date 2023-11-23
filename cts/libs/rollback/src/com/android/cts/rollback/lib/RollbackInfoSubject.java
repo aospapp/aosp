@@ -20,9 +20,10 @@ import android.content.pm.VersionedPackage;
 import android.content.rollback.PackageRollbackInfo;
 import android.content.rollback.RollbackInfo;
 
-import com.google.common.truth.FailureStrategy;
+import com.android.cts.install.lib.TestApp;
+
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
-import com.google.common.truth.SubjectFactory;
 import com.google.common.truth.Truth;
 
 import java.util.ArrayList;
@@ -42,20 +43,20 @@ public final class RollbackInfoSubject extends Subject<RollbackInfoSubject, Roll
     /**
      * Gets the subject factory for RollbackInfo.
      */
-    public static SubjectFactory<RollbackInfoSubject, RollbackInfo> rollbacks() {
+    public static Subject.Factory<RollbackInfoSubject, RollbackInfo> rollbacks() {
         return SUBJECT_FACTORY;
     }
 
-    private static final SubjectFactory<RollbackInfoSubject, RollbackInfo> SUBJECT_FACTORY =
-            new SubjectFactory<RollbackInfoSubject, RollbackInfo>() {
+    private static final Subject.Factory<RollbackInfoSubject, RollbackInfo> SUBJECT_FACTORY =
+            new Subject.Factory<RollbackInfoSubject, RollbackInfo>() {
                 @Override
-                public RollbackInfoSubject getSubject(FailureStrategy fs, RollbackInfo that) {
+                public RollbackInfoSubject createSubject(FailureMetadata fs, RollbackInfo that) {
                     return new RollbackInfoSubject(fs, that);
                 }
             };
 
-    private RollbackInfoSubject(FailureStrategy failureStrategy, RollbackInfo subject) {
-        super(failureStrategy, subject);
+    private RollbackInfoSubject(FailureMetadata failureMetadata, RollbackInfo subject) {
+        super(failureMetadata, subject);
     }
 
     /**
@@ -91,45 +92,16 @@ public final class RollbackInfoSubject extends Subject<RollbackInfoSubject, Roll
         check().that(actualPackages).containsExactly((Object[]) expected);
     }
 
-    private static class VersionedPackageWithEquals {
-        private final VersionedPackage mVp;
-
-        VersionedPackageWithEquals(VersionedPackage versionedPackage) {
-            mVp = versionedPackage;
-        }
-
-        @Override
-        public String toString() {
-            return mVp.toString();
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (!(other instanceof VersionedPackageWithEquals)) {
-                return false;
-            }
-
-            VersionedPackageWithEquals r = (VersionedPackageWithEquals) other;
-            return mVp.getPackageName().equals(r.mVp.getPackageName())
-                    && mVp.getLongVersionCode() == r.mVp.getLongVersionCode();
-        }
-    }
-
     /**
      * Asserts that the RollbackInfo contains exactly the list of provided
      * cause packages. Though they may be in any order.
      */
     public void causePackagesContainsExactly(TestApp... causes) {
-        List<VersionedPackageWithEquals> expectedVps = new ArrayList<>();
+        List<VersionedPackage> expectedVps = new ArrayList<>();
         for (TestApp cause : causes) {
-            expectedVps.add(new VersionedPackageWithEquals(cause.getVersionedPackage()));
+            expectedVps.add(cause.getVersionedPackage());
         }
 
-        List<VersionedPackageWithEquals> actualVps = new ArrayList<>();
-        for (VersionedPackage vp : getSubject().getCausePackages()) {
-            actualVps.add(new VersionedPackageWithEquals(vp));
-        }
-
-        check().that(actualVps).containsExactlyElementsIn(expectedVps);
+        check().that(getSubject().getCausePackages()).containsExactlyElementsIn(expectedVps);
     }
 }

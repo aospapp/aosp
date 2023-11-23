@@ -63,7 +63,7 @@ File* OS::OpenFileWithFlags(const char* name, int flags, bool auto_flush) {
   bool read_only = ((flags & O_ACCMODE) == O_RDONLY);
   bool check_usage = !read_only && auto_flush;
   std::unique_ptr<File> file(
-      new File(name, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, check_usage));
+      new File(name, flags,  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, check_usage));
   if (!file->IsOpened()) {
     return nullptr;
   }

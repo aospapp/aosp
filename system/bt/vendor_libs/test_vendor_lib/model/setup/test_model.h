@@ -47,7 +47,7 @@ class TestModel {
   void Del(size_t device_index);
 
   // Add phy, return its index
-  size_t AddPhy(std::shared_ptr<PhyLayerFactory> phy);
+  size_t AddPhy(Phy::Type phy_type);
 
   // Remove phy by index
   void DelPhy(size_t phy_index);
@@ -63,8 +63,14 @@ class TestModel {
   void IncomingLinkLayerConnection(int socket_fd);
   void IncomingHciConnection(int socket_fd);
 
+  // Handle closed remote connections
+  void OnHciConnectionClosed(int socket_fd, size_t index);
+
   // Connect to a remote device
   void AddRemote(const std::string& server, int port, Phy::Type phy_type);
+
+  // Set the device's Bluetooth address
+  void SetDeviceAddress(size_t device_index, Address device_address);
 
   // Let devices know about the passage of time
   void TimerTick();
@@ -79,8 +85,10 @@ class TestModel {
   void Reset();
 
  private:
-  std::vector<std::shared_ptr<PhyLayerFactory>> phys_;
-  std::vector<std::shared_ptr<Device>> devices_;
+  std::map<size_t, std::shared_ptr<PhyLayerFactory>> phys_;
+  size_t phys_counter_ = 0;
+  std::map<size_t, std::shared_ptr<Device>> devices_;
+  size_t devices_counter_ = 0;
   std::string list_string_;
 
   // Callbacks to schedule tasks.

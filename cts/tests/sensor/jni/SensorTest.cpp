@@ -163,9 +163,9 @@ TestSharedMemory::TestSharedMemory(int type, size_t size)
                 .width = static_cast<uint32_t>(size),
                 .height = 1,
                 .layers = 1,
+                .format = AHARDWAREBUFFER_FORMAT_BLOB,
                 .usage = AHARDWAREBUFFER_USAGE_SENSOR_DIRECT_DATA
                          | AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
-                .format = AHARDWAREBUFFER_FORMAT_BLOB
             };
 
             // allocate

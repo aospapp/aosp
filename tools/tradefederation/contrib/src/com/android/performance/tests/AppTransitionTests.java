@@ -736,10 +736,15 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
                 stats.add(Double.parseDouble(delay.toString()));
             }
             activityMetrics.put(appNameKey + "_min", stats.min().toString());
+            CLog.i("%s : %s", appNameKey + "_min", stats.min().toString());
             activityMetrics.put(appNameKey + "_max", stats.max().toString());
+            CLog.i("%s : %s", appNameKey + "_max", stats.max().toString());
             activityMetrics.put(appNameKey + "_avg", stats.mean().toString());
+            CLog.i("%s : %s", appNameKey + "_avg", stats.mean().toString());
             activityMetrics.put(appNameKey + "_median", stats.median().toString());
+            CLog.i("%s : %s", appNameKey + "_median", stats.median().toString());
             activityMetrics.put(appNameKey + "_std_dev", stats.stdev().toString());
+            CLog.i("%s : %s", appNameKey + "_std_dev", stats.stdev().toString());
         }
         mListener.testRunStarted(reportingKey, 0);
         mListener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(activityMetrics));

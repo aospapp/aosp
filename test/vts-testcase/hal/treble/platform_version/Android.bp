@@ -17,3 +17,29 @@
 vts_config {
     name: "VtsTreblePlatformVersionTest",
 }
+
+python_test_host {
+    name: "vts_treble_platform_version_test",
+    main: "vts_treble_platform_version_test.py",
+    srcs: [
+        "vts_treble_platform_version_test.py",
+    ],
+    libs: [
+        "vndk_utils",
+        "vts_vndk_utils",
+    ],
+    test_suites: [
+        "vts",
+    ],
+    auto_gen_config: true,
+    version: {
+        py2: {
+            enabled: false,
+            embedded_launcher: false,
+        },
+        py3: {
+            enabled: true,
+            embedded_launcher: true,
+        }
+    }
+}

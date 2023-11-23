@@ -115,6 +115,39 @@ public class MyanmarTest {
     }
 
     @Test
+    public void testMyanmarUnicodeRenders() {
+        assumeTrue(sHasBurmeseLocale);
+        assumeTrue(!sMymrLocales.isEmpty());
+
+        assertTrue("Should render Unicode text correctly in Myanmar Unicode locale",
+                isUnicodeRendersCorrectly(mContext, new LocaleList(sMymrLocales.get(0))));
+    }
+
+    @Test
+    public void testUnicodeRenders_withValidLocaleList() {
+        assumeTrue(sHasBurmeseLocale);
+        assumeTrue(!sMymrLocales.isEmpty());
+
+        final LocaleList[] testLocales = new LocaleList[]{
+                LocaleList.forLanguageTags("en-Latn-US"),
+                LocaleList.forLanguageTags("en-Latn"),
+                LocaleList.forLanguageTags("my-Mymr"),
+                LocaleList.forLanguageTags("my-Mymr,my-Qaag"),
+                LocaleList.forLanguageTags("my-Mymr-MM,my-Qaag-MM"),
+                LocaleList.forLanguageTags("en-Latn,my-Mymr"),
+                LocaleList.forLanguageTags("en-Latn-US,my-Mymr-MM"),
+                LocaleList.forLanguageTags("en-Mymr,my-Qaag"),
+                LocaleList.forLanguageTags("en-Mymr-MM,my-Qaag-MM"),
+        };
+
+        for (LocaleList localeList : testLocales) {
+            assertTrue("Should render Unicode text correctly in locale " + localeList.toString(),
+                    isUnicodeRendersCorrectly(mContext, localeList));
+        }
+
+    }
+
+    @Test
     public void testZawgyiRenders() {
         assumeTrue(sHasBurmeseLocale);
         assumeTrue(!sZawgyiLocales.isEmpty());
@@ -165,6 +198,15 @@ public class MyanmarTest {
         }
 
         assertTrue(qaagFontExists);
+    }
+
+    private static boolean isUnicodeRendersCorrectly(Context context, LocaleList localeList) {
+        final Bitmap bitmapCorrect = CaptureTextView.capture(context, localeList,
+                UNICODE_CORRECT_ORDER);
+        final Bitmap bitmapWrong = CaptureTextView.capture(context, localeList,
+                UNICODE_WRONG_ORDER);
+
+        return !bitmapCorrect.sameAs(bitmapWrong);
     }
 
     private static boolean isZawgyiRendersCorrectly(Context context, LocaleList localeList) {

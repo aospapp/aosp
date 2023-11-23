@@ -40,10 +40,10 @@ class StackMapStream : public DeletableArenaObject<kArenaAllocStackMapStream> {
       : allocator_(allocator),
         instruction_set_(instruction_set),
         stack_maps_(allocator),
-        inline_infos_(allocator),
-        method_infos_(allocator),
         register_masks_(allocator),
         stack_masks_(allocator),
+        inline_infos_(allocator),
+        method_infos_(allocator),
         dex_register_masks_(allocator),
         dex_register_maps_(allocator),
         dex_register_catalog_(allocator),
@@ -61,14 +61,16 @@ class StackMapStream : public DeletableArenaObject<kArenaAllocStackMapStream> {
   void BeginMethod(size_t frame_size_in_bytes,
                    size_t core_spill_mask,
                    size_t fp_spill_mask,
-                   uint32_t num_dex_registers);
+                   uint32_t num_dex_registers,
+                   bool baseline = false);
   void EndMethod();
 
   void BeginStackMapEntry(uint32_t dex_pc,
                           uint32_t native_pc_offset,
                           uint32_t register_mask = 0,
                           BitVector* sp_mask = nullptr,
-                          StackMap::Kind kind = StackMap::Kind::Default);
+                          StackMap::Kind kind = StackMap::Kind::Default,
+                          bool needs_vreg_info = true);
   void EndStackMapEntry();
 
   void AddDexRegisterEntry(DexRegisterLocation::Kind kind, int32_t value) {
@@ -97,17 +99,33 @@ class StackMapStream : public DeletableArenaObject<kArenaAllocStackMapStream> {
 
   void CreateDexRegisterMap();
 
+  // Invokes the callback with pointer of each BitTableBuilder field.
+  template<typename Callback>
+  void ForEachBitTable(Callback callback) {
+    size_t index = 0;
+    callback(index++, &stack_maps_);
+    callback(index++, &register_masks_);
+    callback(index++, &stack_masks_);
+    callback(index++, &inline_infos_);
+    callback(index++, &method_infos_);
+    callback(index++, &dex_register_masks_);
+    callback(index++, &dex_register_maps_);
+    callback(index++, &dex_register_catalog_);
+    CHECK_EQ(index, CodeInfo::kNumBitTables);
+  }
+
   ScopedArenaAllocator* allocator_;
   const InstructionSet instruction_set_;
   uint32_t packed_frame_size_ = 0;
   uint32_t core_spill_mask_ = 0;
   uint32_t fp_spill_mask_ = 0;
   uint32_t num_dex_registers_ = 0;
+  bool baseline_;
   BitTableBuilder<StackMap> stack_maps_;
-  BitTableBuilder<InlineInfo> inline_infos_;
-  BitTableBuilder<MethodInfo> method_infos_;
   BitTableBuilder<RegisterMask> register_masks_;
   BitmapTableBuilder stack_masks_;
+  BitTableBuilder<InlineInfo> inline_infos_;
+  BitTableBuilder<MethodInfo> method_infos_;
   BitmapTableBuilder dex_register_masks_;
   BitTableBuilder<DexRegisterMapInfo> dex_register_maps_;
   BitTableBuilder<DexRegisterInfo> dex_register_catalog_;

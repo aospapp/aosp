@@ -18,8 +18,6 @@
 
 #include <android-base/properties.h>
 
-#include "linkerconfig/log.h"
-
 namespace android {
 namespace linkerconfig {
 namespace modules {

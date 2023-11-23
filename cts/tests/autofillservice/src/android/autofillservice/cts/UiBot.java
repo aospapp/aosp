@@ -17,6 +17,7 @@
 package android.autofillservice.cts;
 
 import static android.autofillservice.cts.Timeouts.DATASET_PICKER_NOT_SHOWN_NAPTIME_MS;
+import static android.autofillservice.cts.Timeouts.LONG_PRESS_MS;
 import static android.autofillservice.cts.Timeouts.SAVE_NOT_SHOWN_NAPTIME_MS;
 import static android.autofillservice.cts.Timeouts.SAVE_TIMEOUT;
 import static android.autofillservice.cts.Timeouts.UI_DATASET_PICKER_TIMEOUT;
@@ -24,9 +25,12 @@ import static android.autofillservice.cts.Timeouts.UI_SCREEN_ORIENTATION_TIMEOUT
 import static android.autofillservice.cts.Timeouts.UI_TIMEOUT;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_ADDRESS;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_CREDIT_CARD;
+import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_DEBIT_CARD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_EMAIL_ADDRESS;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
+import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC_CARD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
+import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PAYMENT_CARD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_USERNAME;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
@@ -36,22 +40,33 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assume.assumeTrue;
 
+import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.os.SystemClock;
 import android.service.autofill.SaveInfo;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
+import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.SearchCondition;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiScrollable;
+import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.text.Html;
+import android.text.Spanned;
+import android.text.style.URLSpan;
 import android.util.Log;
+import android.view.View;
+import android.view.WindowInsets;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 
 import androidx.annotation.NonNull;
@@ -71,7 +86,7 @@ import java.util.concurrent.TimeoutException;
 /**
  * Helper for UI-related needs.
  */
-public final class UiBot {
+public class UiBot {
 
     private static final String TAG = "AutoFillCtsUiBot";
 
@@ -95,10 +110,18 @@ public final class UiBot {
     private static final String RESOURCE_STRING_SAVE_TYPE_USERNAME = "autofill_save_type_username";
     private static final String RESOURCE_STRING_SAVE_TYPE_EMAIL_ADDRESS =
             "autofill_save_type_email_address";
-    private static final String RESOURCE_STRING_SAVE_BUTTON_NOT_NOW = "save_password_notnow";
+    private static final String RESOURCE_STRING_SAVE_TYPE_DEBIT_CARD =
+            "autofill_save_type_debit_card";
+    private static final String RESOURCE_STRING_SAVE_TYPE_PAYMENT_CARD =
+            "autofill_save_type_payment_card";
+    private static final String RESOURCE_STRING_SAVE_TYPE_GENERIC_CARD =
+            "autofill_save_type_generic_card";
+    private static final String RESOURCE_STRING_SAVE_BUTTON_NEVER = "autofill_save_never";
+    private static final String RESOURCE_STRING_SAVE_BUTTON_NOT_NOW = "autofill_save_notnow";
     private static final String RESOURCE_STRING_SAVE_BUTTON_NO_THANKS = "autofill_save_no";
     private static final String RESOURCE_STRING_SAVE_BUTTON_YES = "autofill_save_yes";
     private static final String RESOURCE_STRING_UPDATE_BUTTON_YES = "autofill_update_yes";
+    private static final String RESOURCE_STRING_CONTINUE_BUTTON_YES = "autofill_continue_yes";
     private static final String RESOURCE_STRING_UPDATE_TITLE = "autofill_update_title";
     private static final String RESOURCE_STRING_UPDATE_TITLE_WITH_TYPE =
             "autofill_update_title_with_type";
@@ -153,6 +176,13 @@ public final class UiBot {
         mDevice.waitForIdle();
         final float delta = ((float) (SystemClock.elapsedRealtimeNanos() - before)) / 1_000_000;
         Log.v(TAG, "device idle in " + delta + "ms");
+    }
+
+    public void waitForIdleSync() {
+        final long before = SystemClock.elapsedRealtimeNanos();
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        final float delta = ((float) (SystemClock.elapsedRealtimeNanos() - before)) / 1_000_000;
+        Log.v(TAG, "device idle sync in " + delta + "ms");
     }
 
     public void reset() {
@@ -245,20 +275,14 @@ public final class UiBot {
      * @return the dataset picker object.
      */
     public UiObject2 assertDatasets(String...names) throws Exception {
-        // TODO: change run() so it can rethrow the original message
-        return UI_DATASET_PICKER_TIMEOUT.run("assertDatasets: " + Arrays.toString(names), () -> {
-            final UiObject2 picker = findDatasetPicker(UI_DATASET_PICKER_TIMEOUT);
-            try {
-                // TODO: use a library to check it contains, instead of asserThat + catch exception
-                assertWithMessage("wrong dataset names").that(getChildrenAsText(picker))
-                        .containsExactlyElementsIn(Arrays.asList(names)).inOrder();
-                return picker;
-            } catch (AssertionError e) {
-                // Value mismatch - most likely UI didn't change yet, try again
-                Log.w(TAG, "datasets don't match yet: " + e.getMessage());
-                return null;
-            }
-        });
+        final UiObject2 picker = findDatasetPicker(UI_DATASET_PICKER_TIMEOUT);
+        return assertDatasets(picker, names);
+    }
+
+    protected UiObject2 assertDatasets(UiObject2 picker, String...names) {
+        assertWithMessage("wrong dataset names").that(getChildrenAsText(picker))
+                .containsExactlyElementsIn(Arrays.asList(names)).inOrder();
+        return picker;
     }
 
     /**
@@ -267,20 +291,10 @@ public final class UiBot {
      * @return the dataset picker object.
      */
     public UiObject2 assertDatasetsContains(String...names) throws Exception {
-        // TODO: change run() so it can rethrow the original message
-        return UI_DATASET_PICKER_TIMEOUT.run("assertDatasets: " + Arrays.toString(names), () -> {
-            final UiObject2 picker = findDatasetPicker(UI_DATASET_PICKER_TIMEOUT);
-            try {
-                // TODO: use a library to check it contains, instead of asserThat + catch exception
-                assertWithMessage("wrong dataset names").that(getChildrenAsText(picker))
+        final UiObject2 picker = findDatasetPicker(UI_DATASET_PICKER_TIMEOUT);
+        assertWithMessage("wrong dataset names").that(getChildrenAsText(picker))
                 .containsAllIn(Arrays.asList(names)).inOrder();
-                return picker;
-            } catch (AssertionError e) {
-                // Value mismatch - most likely UI didn't change yet, try again
-                Log.w(TAG, "datasets don't match yet: " + e.getMessage());
-                return null;
-            }
-        });
+        return picker;
     }
 
     /**
@@ -333,11 +347,22 @@ public final class UiBot {
     }
 
     /**
-     * Selects a dataset that should be visible in the floating UI.
+     * Selects a dataset that should be visible in the floating UI and does not need to wait for
+     * application become idle.
      */
     public void selectDataset(String name) throws Exception {
         final UiObject2 picker = findDatasetPicker(UI_DATASET_PICKER_TIMEOUT);
         selectDataset(picker, name);
+    }
+
+    /**
+     * Selects a dataset that should be visible in the floating UI and waits for application become
+     * idle if needed.
+     */
+    public void selectDatasetSync(String name) throws Exception {
+        final UiObject2 picker = findDatasetPicker(UI_DATASET_PICKER_TIMEOUT);
+        selectDataset(picker, name);
+        mDevice.waitForIdle();
     }
 
     /**
@@ -349,6 +374,38 @@ public final class UiBot {
             throw new AssertionError("no dataset " + name + " in " + getChildrenAsText(picker));
         }
         dataset.click();
+    }
+
+    /**
+     * Finds the suggestion by name and perform long click on suggestion to trigger attribution
+     * intent.
+     */
+    public void longPressSuggestion(String name) throws Exception {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Asserts the suggestion chooser is shown in the suggestion view.
+     */
+    public void assertSuggestion(String name) throws Exception {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Asserts the suggestion chooser is not shown in the suggestion view.
+     */
+    public void assertNoSuggestion(String name) throws Exception {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Scrolls the suggestion view.
+     *
+     * @param direction The direction to scroll.
+     * @param speed The speed to scroll per second.
+     */
+    public void scrollSuggestionView(Direction direction, int speed) throws Exception {
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -504,7 +561,7 @@ public final class UiBot {
     /**
      * Asserts that a {@code selector} is not showing after {@code timeout} milliseconds.
      */
-    private void assertNeverShown(String description, BySelector selector, long timeout)
+    protected void assertNeverShown(String description, BySelector selector, long timeout)
             throws Exception {
         SystemClock.sleep(timeout);
         final UiObject2 object = mDevice.findObject(selector);
@@ -603,6 +660,15 @@ public final class UiBot {
             case SAVE_DATA_TYPE_EMAIL_ADDRESS:
                 typeResourceName = RESOURCE_STRING_SAVE_TYPE_EMAIL_ADDRESS;
                 break;
+            case SAVE_DATA_TYPE_DEBIT_CARD:
+                typeResourceName = RESOURCE_STRING_SAVE_TYPE_DEBIT_CARD;
+                break;
+            case SAVE_DATA_TYPE_PAYMENT_CARD:
+                typeResourceName = RESOURCE_STRING_SAVE_TYPE_PAYMENT_CARD;
+                break;
+            case SAVE_DATA_TYPE_GENERIC_CARD:
+                typeResourceName = RESOURCE_STRING_SAVE_TYPE_GENERIC_CARD;
+                break;
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
         }
@@ -626,9 +692,21 @@ public final class UiBot {
                 SAVE_TIMEOUT, types);
     }
 
+    public UiObject2 assertSaveShowing(int positiveButtonStyle, int... types) throws Exception {
+        return assertSaveOrUpdateShowing(/* update= */ false, SaveInfo.NEGATIVE_BUTTON_STYLE_CANCEL,
+                positiveButtonStyle, /* description= */ null, SAVE_TIMEOUT, types);
+    }
 
     public UiObject2 assertSaveOrUpdateShowing(boolean update, int negativeButtonStyle,
             String description, Timeout timeout, int... types) throws Exception {
+        return assertSaveOrUpdateShowing(update, negativeButtonStyle,
+                SaveInfo.POSITIVE_BUTTON_STYLE_SAVE, description, timeout, types);
+    }
+
+    public UiObject2 assertSaveOrUpdateShowing(boolean update, int negativeButtonStyle,
+            int positiveButtonStyle, String description, Timeout timeout, int... types)
+            throws Exception {
+
         final UiObject2 snackbar = waitForObject(SAVE_UI_SELECTOR, timeout);
 
         final UiObject2 titleView =
@@ -682,18 +760,29 @@ public final class UiBot {
             assertWithMessage("save subtitle(%s)", description).that(saveSubTitle).isNotNull();
         }
 
-        final String positiveButtonStringId = update ? RESOURCE_STRING_UPDATE_BUTTON_YES
-                : RESOURCE_STRING_SAVE_BUTTON_YES;
+        final String positiveButtonStringId;
+        switch (positiveButtonStyle) {
+            case SaveInfo.POSITIVE_BUTTON_STYLE_CONTINUE:
+                positiveButtonStringId = RESOURCE_STRING_CONTINUE_BUTTON_YES;
+                break;
+            default:
+                positiveButtonStringId = update ? RESOURCE_STRING_UPDATE_BUTTON_YES
+                        : RESOURCE_STRING_SAVE_BUTTON_YES;
+        }
         final String expectedPositiveButtonText = getString(positiveButtonStringId).toUpperCase();
         final UiObject2 positiveButton = waitForObject(snackbar,
                 By.res("android", RESOURCE_ID_SAVE_BUTTON_YES), timeout);
         assertWithMessage("wrong text on positive button")
                 .that(positiveButton.getText().toUpperCase()).isEqualTo(expectedPositiveButtonText);
 
-        final String negativeButtonStringId =
-                (negativeButtonStyle == SaveInfo.NEGATIVE_BUTTON_STYLE_REJECT)
-                ? RESOURCE_STRING_SAVE_BUTTON_NOT_NOW
-                : RESOURCE_STRING_SAVE_BUTTON_NO_THANKS;
+        final String negativeButtonStringId;
+        if (negativeButtonStyle == SaveInfo.NEGATIVE_BUTTON_STYLE_REJECT) {
+            negativeButtonStringId = RESOURCE_STRING_SAVE_BUTTON_NOT_NOW;
+        } else if (negativeButtonStyle == SaveInfo.NEGATIVE_BUTTON_STYLE_NEVER) {
+            negativeButtonStringId = RESOURCE_STRING_SAVE_BUTTON_NEVER;
+        } else {
+            negativeButtonStringId = RESOURCE_STRING_SAVE_BUTTON_NO_THANKS;
+        }
         final String expectedNegativeButtonText = getString(negativeButtonStringId).toUpperCase();
         final UiObject2 negativeButton = waitForObject(snackbar,
                 By.res("android", RESOURCE_ID_SAVE_BUTTON_NO), timeout);
@@ -732,8 +821,18 @@ public final class UiBot {
      */
     public void saveForAutofill(int negativeButtonStyle, boolean yesDoIt, int... types)
             throws Exception {
-        final UiObject2 saveSnackBar = assertSaveShowing(negativeButtonStyle,null, types);
+        final UiObject2 saveSnackBar = assertSaveShowing(negativeButtonStyle, null, types);
         saveForAutofill(saveSnackBar, yesDoIt);
+    }
+
+    /**
+     * Taps the positive button in the save snackbar.
+     *
+     * @param types expected types of save info.
+     */
+    public void saveForAutofill(int positiveButtonStyle, int... types) throws Exception {
+        final UiObject2 saveSnackBar = assertSaveShowing(positiveButtonStyle, types);
+        saveForAutofill(saveSnackBar, /* yesDoIt= */ true);
     }
 
     /**
@@ -760,42 +859,46 @@ public final class UiBot {
      * faster.
      *
      * @param id resource id of the field.
-     * @param expectOverflow whether overflow menu should be shown (when clipboard contains text)
      */
-    public UiObject2 getAutofillMenuOption(String id, boolean expectOverflow) throws Exception {
+    public UiObject2 getAutofillMenuOption(String id) throws Exception {
         final UiObject2 field = waitForObject(By.res(mPackageName, id));
         // TODO: figure out why obj.longClick() doesn't always work
-        field.click(3000);
+        field.click(LONG_PRESS_MS);
 
         List<UiObject2> menuItems = waitForObjects(
                 By.res("android", RESOURCE_ID_CONTEXT_MENUITEM), mDefaultTimeout);
         final String expectedText = getAutofillContextualMenuTitle();
 
-        if (expectOverflow) {
-            // Check first menu does not have AUTOFILL
-            for (UiObject2 menuItem : menuItems) {
-                final String menuName = menuItem.getText();
-                if (menuName.equalsIgnoreCase(expectedText)) {
-                    throw new IllegalStateException(expectedText + " in context menu");
-                }
-            }
-
-            final BySelector overflowSelector = By.res("android", RESOURCE_ID_OVERFLOW);
-
-            // Click overflow menu button.
-            final UiObject2 overflowMenu = waitForObject(overflowSelector, mDefaultTimeout);
-            overflowMenu.click();
-
-            // Wait for overflow menu to show.
-            mDevice.wait(Until.gone(overflowSelector), 1000);
-        }
-
-        menuItems = waitForObjects(
-                By.res("android", RESOURCE_ID_CONTEXT_MENUITEM), mDefaultTimeout);
         final StringBuffer menuNames = new StringBuffer();
+
+        // Check first menu for AUTOFILL
         for (UiObject2 menuItem : menuItems) {
             final String menuName = menuItem.getText();
             if (menuName.equalsIgnoreCase(expectedText)) {
+                Log.v(TAG, "AUTOFILL found in first menu");
+                return menuItem;
+            }
+            menuNames.append("'").append(menuName).append("' ");
+        }
+
+        menuNames.append(";");
+
+        // First menu does not have AUTOFILL, check overflow
+        final BySelector overflowSelector = By.res("android", RESOURCE_ID_OVERFLOW);
+
+        // Click overflow menu button.
+        final UiObject2 overflowMenu = waitForObject(overflowSelector, mDefaultTimeout);
+        overflowMenu.click();
+
+        // Wait for overflow menu to show.
+        mDevice.wait(Until.gone(overflowSelector), 1000);
+
+        menuItems = waitForObjects(
+                By.res("android", RESOURCE_ID_CONTEXT_MENUITEM), mDefaultTimeout);
+        for (UiObject2 menuItem : menuItems) {
+            final String menuName = menuItem.getText();
+            if (menuName.equalsIgnoreCase(expectedText)) {
+                Log.v(TAG, "AUTOFILL found in overflow menu");
                 return menuItem;
             }
             menuNames.append("'").append(menuName).append("' ");
@@ -813,7 +916,12 @@ public final class UiBot {
     private String getString(String id) {
         final Resources resources = mContext.getResources();
         final int stringId = resources.getIdentifier(id, "string", "android");
-        return resources.getString(stringId);
+        try {
+            return resources.getString(stringId);
+        } catch (Resources.NotFoundException e) {
+            throw new IllegalStateException("no internal string for '" + id + "' / res=" + stringId
+                    + ": ", e);
+        }
     }
 
     /**
@@ -822,7 +930,12 @@ public final class UiBot {
     private String getString(String id, Object... formatArgs) {
         final Resources resources = mContext.getResources();
         final int stringId = resources.getIdentifier(id, "string", "android");
-        return resources.getString(stringId, formatArgs);
+        try {
+            return resources.getString(stringId, formatArgs);
+        } catch (Resources.NotFoundException e) {
+            throw new IllegalStateException("no internal string for '" + id + "' / res=" + stringId
+                    + ": ", e);
+        }
     }
 
     /**
@@ -873,7 +986,7 @@ public final class UiBot {
      * @param selector {@link BySelector} that identifies the object.
      * @param timeout timeout in ms
      */
-    private UiObject2 waitForObject(@NonNull BySelector selector, @NonNull Timeout timeout)
+    protected UiObject2 waitForObject(@NonNull BySelector selector, @NonNull Timeout timeout)
             throws Exception {
         return waitForObject(/* parent= */ null, selector, timeout);
     }
@@ -894,19 +1007,24 @@ public final class UiBot {
      * Execute a Runnable and wait for {@link AccessibilityEvent#TYPE_WINDOWS_CHANGED} or
      * {@link AccessibilityEvent#TYPE_WINDOW_STATE_CHANGED}.
      */
-    public AccessibilityEvent waitForWindowChange(Runnable runnable, long timeoutMillis)
-            throws TimeoutException {
-        return mAutoman.executeAndWaitForEvent(runnable, (AccessibilityEvent event) -> {
-            switch (event.getEventType()) {
-                case AccessibilityEvent.TYPE_WINDOWS_CHANGED:
-                case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
-                    return true;
-            }
-            return false;
-        }, timeoutMillis);
+    public AccessibilityEvent waitForWindowChange(Runnable runnable, long timeoutMillis) {
+        try {
+            return mAutoman.executeAndWaitForEvent(runnable, (AccessibilityEvent event) -> {
+                switch (event.getEventType()) {
+                    case AccessibilityEvent.TYPE_WINDOWS_CHANGED:
+                    case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
+                        return true;
+                    default:
+                        Log.v(TAG, "waitForWindowChange(): ignoring event " + event);
+                }
+                return false;
+            }, timeoutMillis);
+        } catch (TimeoutException e) {
+            throw new WindowChangeTimeoutException(e, timeoutMillis);
+        }
     }
 
-    public AccessibilityEvent waitForWindowChange(Runnable runnable) throws TimeoutException {
+    public AccessibilityEvent waitForWindowChange(Runnable runnable) {
         return waitForWindowChange(runnable, Timeouts.WINDOW_CHANGE_TIMEOUT_MS);
     }
 
@@ -1005,15 +1123,49 @@ public final class UiBot {
         }
     }
 
+    private Rect cropScreenshotWithoutScreenDecoration(Activity activity) {
+        final WindowInsets[] inset = new WindowInsets[1];
+        final View[] rootView = new View[1];
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            rootView[0] = activity.getWindow().getDecorView();
+            inset[0] = rootView[0].getRootWindowInsets();
+        });
+        final int navBarHeight = inset[0].getStableInsetBottom();
+        final int statusBarHeight = inset[0].getStableInsetTop();
+
+        return new Rect(0, statusBarHeight, rootView[0].getWidth(),
+                rootView[0].getHeight() - navBarHeight - statusBarHeight);
+    }
+
     // TODO(b/74358143): ideally we should take a screenshot limited by the boundaries of the
     // activity window, so external elements (such as the clock) are filtered out and don't cause
     // test flakiness when the contents are compared.
     public Bitmap takeScreenshot() {
+        return takeScreenshotWithRect(null);
+    }
+
+    public Bitmap takeScreenshot(@NonNull Activity activity) {
+        // crop the screenshot without screen decoration to prevent test flakiness.
+        final Rect rect = cropScreenshotWithoutScreenDecoration(activity);
+        return takeScreenshotWithRect(rect);
+    }
+
+    private Bitmap takeScreenshotWithRect(@Nullable Rect r) {
         final long before = SystemClock.elapsedRealtime();
         final Bitmap bitmap = mAutoman.takeScreenshot();
         final long delta = SystemClock.elapsedRealtime() - before;
         Log.v(TAG, "Screenshot taken in " + delta + "ms");
-        return bitmap;
+        if (r == null) {
+            return bitmap;
+        }
+        try {
+            return Bitmap.createBitmap(bitmap, r.left, r.top, r.right, r.bottom);
+        } finally {
+            if (bitmap != null) {
+                bitmap.recycle();
+            }
+        }
     }
 
     /**
@@ -1074,6 +1226,38 @@ public final class UiBot {
             Log.e(TAG, "Did not find window divider " + SPLIT_WINDOW_DIVIDER_ID + "; waiting "
                     + timeout + "ms instead");
             SystemClock.sleep(timeout);
+        }
+    }
+
+    /**
+     * Finds the first {@link URLSpan} on the current screen.
+     */
+    public URLSpan findFirstUrlSpanWithText(String str) throws Exception {
+        final List<AccessibilityNodeInfo> list = mAutoman.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(str);
+        if (list.isEmpty()) {
+            throw new AssertionError("Didn't found AccessibilityNodeInfo with " + str);
+        }
+
+        final AccessibilityNodeInfo text = list.get(0);
+        final CharSequence accessibilityTextWithSpan = text.getText();
+        if (!(accessibilityTextWithSpan instanceof Spanned)) {
+            throw new AssertionError("\"" + text.getViewIdResourceName() + "\" was not a Spanned");
+        }
+
+        final URLSpan[] spans = ((Spanned) accessibilityTextWithSpan)
+                .getSpans(0, accessibilityTextWithSpan.length(), URLSpan.class);
+        return spans[0];
+    }
+
+    public boolean scrollToTextObject(String text) {
+        UiScrollable scroller = new UiScrollable(new UiSelector().scrollable(true));
+        try {
+            // Swipe far away from the edges to avoid triggering navigation gestures
+            scroller.setSwipeDeadZonePercentage(0.25);
+            return scroller.scrollTextIntoView(text);
+        } catch (UiObjectNotFoundException e) {
+            return false;
         }
     }
 }

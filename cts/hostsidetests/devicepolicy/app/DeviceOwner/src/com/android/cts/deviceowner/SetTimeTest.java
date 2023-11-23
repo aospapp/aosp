@@ -92,7 +92,7 @@ public class SetTimeTest extends BaseDeviceOwnerTest {
         final BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (testTimeZone.equals(intent.getStringExtra("time-zone"))) {
+                if (testTimeZone.equals(intent.getStringExtra(Intent.EXTRA_TIMEZONE))) {
                     latch.countDown();
                 }
             }

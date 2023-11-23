@@ -79,18 +79,24 @@ TEST_F(RouteControllerTest, TestRouteFlush) {
     static_assert(table2 < RouteController::ROUTE_TABLE_OFFSET_FROM_INDEX,
                   "Test table2 number too large");
 
-    EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, table1, "lo", "192.0.2.2/32", nullptr));
-    EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, table1, "lo", "192.0.2.3/32", nullptr));
-    EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, table2, "lo", "192.0.2.4/32", nullptr));
+    EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo",
+              "192.0.2.2/32", nullptr, 0 /* mtu */));
+    EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo",
+              "192.0.2.3/32", nullptr, 0 /* mtu */));
+    EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, NETLINK_ROUTE_CREATE_FLAGS, table2, "lo",
+              "192.0.2.4/32", nullptr, 0 /* mtu */));
 
     EXPECT_EQ(0, flushRoutes(table1));
 
     EXPECT_EQ(-ESRCH,
-              modifyIpRoute(RTM_DELROUTE, table1, "lo", "192.0.2.2/32", nullptr));
+              modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo", "192.0.2.2/32",
+                            nullptr, 0 /* mtu */));
     EXPECT_EQ(-ESRCH,
-              modifyIpRoute(RTM_DELROUTE, table1, "lo", "192.0.2.3/32", nullptr));
+              modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo", "192.0.2.3/32",
+                            nullptr, 0 /* mtu */));
     EXPECT_EQ(0,
-              modifyIpRoute(RTM_DELROUTE, table2, "lo", "192.0.2.4/32", nullptr));
+              modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table2, "lo", "192.0.2.4/32",
+                            nullptr, 0 /* mtu */));
 }
 
 TEST_F(RouteControllerTest, TestModifyIncomingPacketMark) {

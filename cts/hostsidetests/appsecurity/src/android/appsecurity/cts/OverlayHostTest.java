@@ -69,7 +69,7 @@ public class OverlayHostTest extends BaseAppSecurityTest {
 
     @Before
     public void setUp() throws Exception {
-        new InstallMultiple().addApk(TEST_APP_APK).run();
+        new InstallMultiple().addFile(TEST_APP_APK).run();
     }
 
     @After
@@ -79,7 +79,10 @@ public class OverlayHostTest extends BaseAppSecurityTest {
 
     private String getStateForOverlay(String overlayPackage) throws Exception {
         String result = getDevice().executeShellCommand("cmd overlay dump");
-        int startIndex = result.indexOf(overlayPackage + ":");
+
+        String overlayPackageForCurrentUser = overlayPackage + ":" + getDevice().getCurrentUser();
+
+        int startIndex = result.indexOf(overlayPackageForCurrentUser);
         if (startIndex < 0) {
             return null;
         }
@@ -118,11 +121,11 @@ public class OverlayHostTest extends BaseAppSecurityTest {
             assertFalse(getDevice().getInstalledPackageNames().contains(OVERLAY_ALL_PACKAGE));
             assertFalse(getDevice().getInstalledPackageNames().contains(overlayPackage));
 
-            new InstallMultiple().addApk(TARGET_OVERLAYABLE_APK).run();
-            new InstallMultiple().addApk(overlayApk).run();
+            new InstallMultiple().addFile(TARGET_OVERLAYABLE_APK).run();
+            new InstallMultiple().addFile(overlayApk).run();
 
             waitForOverlayState(overlayPackage, STATE_NO_IDMAP);
-            getDevice().executeShellCommand("cmd overlay enable " + overlayPackage);
+            getDevice().executeShellCommand("cmd overlay enable  --user current " + overlayPackage);
             waitForOverlayState(overlayPackage, STATE_NO_IDMAP);
         } finally {
             getDevice().uninstallPackage(TARGET_PACKAGE);
@@ -139,14 +142,14 @@ public class OverlayHostTest extends BaseAppSecurityTest {
             assertFalse(getDevice().getInstalledPackageNames().contains(TARGET_PACKAGE));
             assertFalse(getDevice().getInstalledPackageNames().contains(overlayPackage));
 
-            new InstallMultiple().addApk(overlayApk).run();
-            new InstallMultiple().addApk(targetApk).run();
+            new InstallMultiple().addFile(overlayApk).run();
+            new InstallMultiple().addFile(targetApk).run();
 
             waitForOverlayState(overlayPackage, STATE_DISABLED);
-            getDevice().executeShellCommand("cmd overlay enable " + overlayPackage);
+            getDevice().executeShellCommand("cmd overlay enable --user current " + overlayPackage);
             waitForOverlayState(overlayPackage, STATE_ENABLED);
 
-            runDeviceTests(TEST_APP_PACKAGE, TEST_APP_CLASS, testMethod);
+            runDeviceTests(TEST_APP_PACKAGE, TEST_APP_CLASS, testMethod, false /* instant */);
         } finally {
             getDevice().uninstallPackage(TARGET_PACKAGE);
             getDevice().uninstallPackage(overlayPackage);
@@ -164,13 +167,13 @@ public class OverlayHostTest extends BaseAppSecurityTest {
             assertFalse(getDevice().getInstalledPackageNames().contains(OVERLAY_ANDROID_PACKAGE));
 
             // Try to install the overlay, but expect an error.
-            new InstallMultiple().addApk(OVERLAY_ANDROID_APK).runExpectingFailure();
+            new InstallMultiple().addFile(OVERLAY_ANDROID_APK).runExpectingFailure();
 
             // The install should have failed.
             assertFalse(getDevice().getInstalledPackageNames().contains(OVERLAY_ANDROID_PACKAGE));
 
             // The package of the installed overlay should not appear in the overlay manager list.
-            assertFalse(getDevice().executeShellCommand("cmd overlay list")
+            assertFalse(getDevice().executeShellCommand("cmd overlay list --user current ")
                     .contains(" " + OVERLAY_ANDROID_PACKAGE + "\n"));
         } finally {
             getDevice().uninstallPackage(OVERLAY_ANDROID_PACKAGE);
@@ -188,7 +191,7 @@ public class OverlayHostTest extends BaseAppSecurityTest {
             assertFalse(getDevice().getInstalledPackageNames().contains(OVERLAY_ALL_PACKAGE));
 
             // Try to install the overlay, but expect an error.
-            new InstallMultiple().addApk(OVERLAY_ALL_PIE_APK).runExpectingFailure();
+            new InstallMultiple().addFile(OVERLAY_ALL_PIE_APK).runExpectingFailure();
 
             // The install should have failed.
             assertFalse(getDevice().getInstalledPackageNames().contains(OVERLAY_ALL_PACKAGE));
@@ -214,15 +217,15 @@ public class OverlayHostTest extends BaseAppSecurityTest {
             assertFalse(getDevice().getInstalledPackageNames().contains(OVERLAY_ALL_PACKAGE));
 
             // Try to install the overlay, but expect an error.
-            new InstallMultiple().addApk(TARGET_NO_OVERLAYABLE_APK).run();
-            new InstallMultiple().addApk(
+            new InstallMultiple().addFile(TARGET_NO_OVERLAYABLE_APK).run();
+            new InstallMultiple().addFile(
                     OVERLAY_ALL_NO_NAME_DIFFERENT_CERT_APK).runExpectingFailure();
 
             // The install should have failed.
             assertFalse(getDevice().getInstalledPackageNames().contains(OVERLAY_ALL_PACKAGE));
 
             // The package of the installed overlay should not appear in the overlay manager list.
-            assertFalse(getDevice().executeShellCommand("cmd overlay list")
+            assertFalse(getDevice().executeShellCommand("cmd overlay list --user current")
                     .contains(" " + OVERLAY_ALL_PACKAGE + "\n"));
         } finally {
             getDevice().uninstallPackage(OVERLAY_ALL_PACKAGE);
@@ -291,7 +294,7 @@ public class OverlayHostTest extends BaseAppSecurityTest {
     @Test
     public void testFrameworkDoesNotDefineOverlayable() throws Exception {
         String testMethod = "testFrameworkDoesNotDefineOverlayable";
-        runDeviceTests(TEST_APP_PACKAGE, TEST_APP_CLASS, testMethod);
+        runDeviceTests(TEST_APP_PACKAGE, TEST_APP_CLASS, testMethod, false /* instant */);
     }
 
     /** Overlays must not overlay assets. */

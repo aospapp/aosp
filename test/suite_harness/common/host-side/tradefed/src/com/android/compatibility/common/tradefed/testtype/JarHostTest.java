@@ -16,6 +16,7 @@
 package com.android.compatibility.common.tradefed.testtype;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -31,11 +32,12 @@ import java.util.Map;
  */
 public class JarHostTest extends HostTest {
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        // Set test information otherwise it might fail to countTestCases.
+        setTestInformation(testInfo);
         int numTests = 0;
         RuntimeException bufferedException = null;
         try {
@@ -50,7 +52,7 @@ public class JarHostTest extends HostTest {
             if (bufferedException != null) {
                 throw bufferedException;
             }
-            super.run(hostListener);
+            super.run(testInfo, hostListener);
         } finally {
             HashMap<String, Metric> metrics = hostListener.getNewMetrics();
             metrics.putAll(TfMetricProtoUtil.upgradeConvert(hostListener.getMetrics()));

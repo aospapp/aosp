@@ -148,6 +148,10 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
                 for (cls in classes(predicate)) {
                     cls.accept(object : ItemVisitor() {
                         override fun visitItem(item: Item) {
+                            // Do not let documentation on hidden items affect the imports.
+                            if (!predicate.test(item)) {
+                                return
+                            }
                             val doc = item.documentation
                             if (doc.isNotBlank()) {
                                 var found: MutableList<String>? = null

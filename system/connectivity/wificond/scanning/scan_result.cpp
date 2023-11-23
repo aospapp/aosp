@@ -27,11 +27,10 @@ using android::status_t;
 using android::OK;
 using std::string;
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 NativeScanResult::NativeScanResult(std::vector<uint8_t>& ssid_,
                                    std::array<uint8_t, ETH_ALEN>& bssid_,
@@ -135,8 +134,7 @@ void NativeScanResult::DebugLog() {
 
 }
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com

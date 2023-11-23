@@ -53,7 +53,7 @@ bool blockCheckpointsSupported() {
 
   if (pid == 0) {
     static const char* args[] = {"/system/bin/vdc", "checkpoint",
-                                 "supportsBlockCheckpoint"};
+                                 "supportsBlockCheckpoint", 0};
     EXPECT_NE(execv(args[0], const_cast<char* const*>(args)), -1);
   }
 

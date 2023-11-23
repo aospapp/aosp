@@ -48,8 +48,8 @@ public class EventsLogParserTest extends TestCase {
      */
     public void testEmptyEventsLog() throws IOException {
         List<String> lines = Arrays.asList("");
-        List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
-                parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
+        List<TransitionDelayItem> transitionItems =
+                new EventsLogParser().parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Transition Delay items list should be empty", 0,transitionItems.size());
     }
 
@@ -64,8 +64,8 @@ public class EventsLogParserTest extends TestCase {
                         "08-25 12:56:15.852  1152  8968 I am_focused_activity: [0,com.google.android.apps.nexuslauncher/.NexusLauncherActivity,appDied]",
                         "08-25 12:56:15.852  1152  8968 I wm_task_removed: [27,removeTask]",
                         "08-25 12:56:15.852  1152  8968 I wm_stack_removed: 1");
-        List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
-                parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
+        List<TransitionDelayItem> transitionItems =
+                new EventsLogParser().parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Transition Delay items list should be empty", 0,
                 transitionItems.size());
     }
@@ -77,8 +77,8 @@ public class EventsLogParserTest extends TestCase {
         List<String> lines = Arrays
                 .asList("09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,904,com.google.android.apps.nexuslauncher,905,0,945,41]",
                         "09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0,945,41]");
-        List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
-                parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
+        List<TransitionDelayItem> transitionItems =
+                new EventsLogParser().parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Startinng Window Delay items list should have two item", 2,
                 transitionItems.size());
         assertEquals("Component name not parsed correctly",
@@ -101,8 +101,8 @@ public class EventsLogParserTest extends TestCase {
                         "09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0]",
                         "09-19 02:26:30.182  1143  1196 I sysui_multi_action: [319,87,322,75,325,212,757,761,758,9,759,2,806,com.google.android.apps.nexuslauncher,871,com.google.android.apps.nexuslauncher.NexusLauncherActivity,904,com.google.android.apps.nexuslauncher,905,0]",
                         "09-19 02:26:30.182  1143  1196 I sysui_multi_action: [319,87,322,75,325,212,757,761,758,9,759,2,806,com.google.android.apps.nexuslauncher,871,com.google.android.apps.nexuslauncher.NexusLauncherActivity,905,0]");
-        List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
-                parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
+        List<TransitionDelayItem> transitionItems =
+                new EventsLogParser().parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Transition Delay items list should have four item", 4,
                 transitionItems.size());
         assertEquals("Component name not parsed correctly",
@@ -121,8 +121,8 @@ public class EventsLogParserTest extends TestCase {
         List<String> lines = Arrays
                 .asList("09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,59,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,904,com.google.android.apps.nexuslauncher,905,0,945,41]",
                         "09-18 23:59:18.380  1140  1221 I sysui_multi_action: [319,55,321,65,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0,945,41]");
-        List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
-                parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
+        List<TransitionDelayItem> transitionItems =
+                new EventsLogParser().parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Transition Delay items list should have two items", 2,
                 transitionItems.size());
         assertEquals("Transition delay for the first item is not set correct", Long.valueOf(59),
@@ -138,8 +138,8 @@ public class EventsLogParserTest extends TestCase {
         List<String> lines = Arrays
                 .asList("09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,904,com.google.android.apps.nexuslauncher,905,0]",
                         "09-19 02:26:30.182  1143  1196 I sysui_multi_action: [319,87,322,75,325,212,757,761,758,9,759,2,806,com.google.android.apps.nexuslauncher,871,com.google.android.apps.nexuslauncher.NexusLauncherActivity,904,com.google.android.apps.nexuslauncher,905,0]");
-        List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
-                parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
+        List<TransitionDelayItem> transitionItems =
+                new EventsLogParser().parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Transition Delay items list should have two items", 2,
                 transitionItems.size());
         assertEquals("Calculator is not the first transition delay item",
@@ -162,8 +162,8 @@ public class EventsLogParserTest extends TestCase {
                         "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_trigger_nav_btn,802,1]",
                         "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_source_app,802,1]",
                         "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,804,799,overview_source_app_index,801,8,802,1]");
-        List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
-                parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
+        List<TransitionDelayItem> transitionItems =
+                new EventsLogParser().parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Transition Delay items list should be empty", 0,
                 transitionItems.size());
     }
@@ -179,8 +179,8 @@ public class EventsLogParserTest extends TestCase {
                         "08-25 13:01:19.437  1152  1226 I sysui_action: [319,85]",
                         "08-25 12:56:15.850  1152  8968 I am_focused_stack: [0,0,1,appDied setFocusedActivity]",
                         "09-19 11:53:16.893  1080  1160 I sysui_latency: [1,50]");
-        List<LatencyItem> latencyItems = (new EventsLogParser()).
-                parseLatencyInfo(readInputBuffer(getTempFile(lines)));
+        List<LatencyItem> latencyItems =
+                new EventsLogParser().parseLatencyInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("One latency item should present in the list", 1, latencyItems.size());
         assertEquals("Action Id is not correct", 1, latencyItems.get(0).getActionId());
         assertEquals("Delay is not correct", 50L, latencyItems.get(0).getDelay());
@@ -197,8 +197,8 @@ public class EventsLogParserTest extends TestCase {
                         "08-25 13:01:19.437  1152  1226 I sysui_action: [319,85]",
                         "08-25 12:56:15.850  1152  8968 I am_focused_stack: [0,0,1,appDied setFocusedActivity]",
                         "09-19 11:53:16.893  1080  1160 I sysui_latency: [1]");
-        List<LatencyItem> latencyItems = (new EventsLogParser()).
-                parseLatencyInfo(readInputBuffer(getTempFile(lines)));
+        List<LatencyItem> latencyItems =
+                new EventsLogParser().parseLatencyInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Latency items list should be empty", 0, latencyItems.size());
     }
 
@@ -213,8 +213,8 @@ public class EventsLogParserTest extends TestCase {
                         "08-25 13:01:19.437  1152  1226 I sysui_action: [319,85]",
                         "08-25 12:56:15.850  1152  8968 I am_focused_stack: [0,0,1,appDied setFocusedActivity]",
                         "09-19 11:53:16.893  1080  1160 I sysui_latency: []");
-        List<LatencyItem> latencyItems = (new EventsLogParser()).
-                parseLatencyInfo(readInputBuffer(getTempFile(lines)));
+        List<LatencyItem> latencyItems =
+                new EventsLogParser().parseLatencyInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Latency items list should be empty", 0, latencyItems.size());
     }
 
@@ -230,8 +230,8 @@ public class EventsLogParserTest extends TestCase {
                         "08-25 13:01:19.437  1152  1226 I sysui_action: [319,85]",
                         "08-25 12:56:15.850  1152  8968 I am_focused_stack: [0,0,1,appDied setFocusedActivity]",
                         "09-19 11:53:16.893  1080  1160 I sysui_latency: [2,100]");
-        List<LatencyItem> latencyItems = (new EventsLogParser()).
-                parseLatencyInfo(readInputBuffer(getTempFile(lines)));
+        List<LatencyItem> latencyItems =
+                new EventsLogParser().parseLatencyInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Latency list should have 2 items", 2, latencyItems.size());
         assertEquals("First latency id is not 1", 1, latencyItems.get(0).getActionId());
         assertEquals("Second latency id is not 2", 2, latencyItems.get(1).getActionId());
@@ -257,5 +257,4 @@ public class EventsLogParserTest extends TestCase {
     public BufferedReader readInputBuffer(File tempFile) throws IOException {
         return (new BufferedReader(new InputStreamReader(new FileInputStream(tempFile))));
     }
-
 }

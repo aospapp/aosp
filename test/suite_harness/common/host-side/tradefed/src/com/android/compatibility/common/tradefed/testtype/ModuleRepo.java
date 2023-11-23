@@ -56,7 +56,10 @@ import java.util.Set;
 
 /**
  * Retrieves Compatibility test module definitions from the repository.
+ *
+ * @deprecated This class is associated with {@link CompatibilityTest} which is deprecate
  */
+@Deprecated
 public class ModuleRepo implements IModuleRepo {
 
     private static final String CONFIG_EXT = ".config";

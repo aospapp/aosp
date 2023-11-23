@@ -37,10 +37,9 @@ class WifiLinkProbeTest(WifiBaseTest):
     * One Wi-Fi network visible to the device, with an attenuator
     """
 
-    def __init__(self, controllers):
-        super().__init__(controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
         self.unpack_userparams(req_param_names=[],
@@ -48,6 +47,7 @@ class WifiLinkProbeTest(WifiBaseTest):
 
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start()
+        self.configure_packet_capture()
 
         asserts.assert_true(len(self.reference_networks) > 0,
                             "Need at least one reference network with psk.")
@@ -59,13 +59,19 @@ class WifiLinkProbeTest(WifiBaseTest):
         wutils.wifi_toggle_state(self.dut, True)
         self.attenuators[0].set_atten(0)
         self.attenuators[1].set_atten(0)
+        self.pcap_procs = wutils.start_pcap(
+            self.packet_capture, 'dual', self.test_name)
 
     def teardown_test(self):
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()
         wutils.reset_wifi(self.dut)
 
+    def on_pass(self, test_name, begin_time):
+        wutils.stop_pcap(self.packet_capture, self.pcap_procs, True)
+
     def on_fail(self, test_name, begin_time):
+        wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
         self.dut.take_bug_report(test_name, begin_time)
         self.dut.cat_adb_log(test_name, begin_time)
 

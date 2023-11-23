@@ -36,6 +36,7 @@ class VoldNativeService : public BinderService<VoldNativeService>, public os::Bn
     binder::Status monitor();
     binder::Status reset();
     binder::Status shutdown();
+    binder::Status abortFuse();
 
     binder::Status onUserAdded(int32_t userId, int32_t userSerial);
     binder::Status onUserRemoved(int32_t userId);
@@ -52,7 +53,8 @@ class VoldNativeService : public BinderService<VoldNativeService>, public os::Bn
     binder::Status partition(const std::string& diskId, int32_t partitionType, int32_t ratio);
     binder::Status forgetPartition(const std::string& partGuid, const std::string& fsUuid);
 
-    binder::Status mount(const std::string& volId, int32_t mountFlags, int32_t mountUserId);
+    binder::Status mount(const std::string& volId, int32_t mountFlags, int32_t mountUserId,
+                         const android::sp<android::os::IVoldMountCallback>& callback);
     binder::Status unmount(const std::string& volId);
     binder::Status format(const std::string& volId, const std::string& fsType);
     binder::Status benchmark(const std::string& volId,
@@ -63,8 +65,11 @@ class VoldNativeService : public BinderService<VoldNativeService>, public os::Bn
                                const android::sp<android::os::IVoldTaskListener>& listener);
 
     binder::Status remountUid(int32_t uid, int32_t remountMode);
+    binder::Status remountAppStorageDirs(int uid, int pid,
+                               const std::vector<std::string>& packageNames);
 
-    binder::Status mkdirs(const std::string& path);
+    binder::Status setupAppDir(const std::string& path, int32_t appUid);
+    binder::Status fixupAppDir(const std::string& path, int32_t appUid);
 
     binder::Status createObb(const std::string& sourcePath, const std::string& sourceKey,
                              int32_t ownerGid, std::string* _aidl_return);
@@ -72,7 +77,8 @@ class VoldNativeService : public BinderService<VoldNativeService>, public os::Bn
 
     binder::Status createStubVolume(const std::string& sourcePath, const std::string& mountPath,
                                     const std::string& fsType, const std::string& fsUuid,
-                                    const std::string& fsLabel, std::string* _aidl_return);
+                                    const std::string& fsLabel, int32_t flags,
+                                    std::string* _aidl_return);
     binder::Status destroyStubVolume(const std::string& volId);
 
     binder::Status fstrim(int32_t fstrimFlags,
@@ -112,6 +118,8 @@ class VoldNativeService : public BinderService<VoldNativeService>, public os::Bn
 
     binder::Status addUserKeyAuth(int32_t userId, int32_t userSerial, const std::string& token,
                                   const std::string& secret);
+    binder::Status clearUserKeyAuth(int32_t userId, int32_t userSerial, const std::string& token,
+                                    const std::string& secret);
     binder::Status fixateNewestUserKeyAuth(int32_t userId);
 
     binder::Status unlockUserKey(int32_t userId, int32_t userSerial, const std::string& token,
@@ -131,6 +139,7 @@ class VoldNativeService : public BinderService<VoldNativeService>, public os::Bn
     binder::Status startCheckpoint(int32_t retry);
     binder::Status needsCheckpoint(bool* _aidl_return);
     binder::Status needsRollback(bool* _aidl_return);
+    binder::Status isCheckpointing(bool* _aidl_return);
     binder::Status commitChanges();
     binder::Status prepareCheckpoint();
     binder::Status restoreCheckpoint(const std::string& mountPoint);
@@ -140,6 +149,17 @@ class VoldNativeService : public BinderService<VoldNativeService>, public os::Bn
     binder::Status supportsCheckpoint(bool* _aidl_return);
     binder::Status supportsBlockCheckpoint(bool* _aidl_return);
     binder::Status supportsFileCheckpoint(bool* _aidl_return);
+    binder::Status resetCheckpoint();
+
+    binder::Status incFsEnabled(bool* _aidl_return) override;
+    binder::Status mountIncFs(
+            const std::string& backingPath, const std::string& targetDir, int32_t flags,
+            ::android::os::incremental::IncrementalFileSystemControlParcel* _aidl_return) override;
+    binder::Status unmountIncFs(const std::string& dir) override;
+    binder::Status setIncFsMountOptions(
+            const ::android::os::incremental::IncrementalFileSystemControlParcel& control,
+            bool enableReadLogs) override;
+    binder::Status bindMount(const std::string& sourceDir, const std::string& targetDir) override;
 };
 
 }  // namespace vold

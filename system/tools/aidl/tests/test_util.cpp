@@ -164,5 +164,5 @@ void PrintDiff(const string& a, const string& b) {
 }
 
 }  // namespace test
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

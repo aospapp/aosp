@@ -17,14 +17,23 @@ if [[ -n "${verbose}" ]]; then
   echo
 fi
 
+if [[ "$(tty)" == 'not a tty' ]]; then
+  echo 'not a tty? perhaps not quite real kernel default /dev/console - trying to fix.'
+  if [[ -c /dev/console ]]; then
+    [[ "$(readlink /proc/$$/fd/0)" != '/dev/console' ]] || exec < /dev/console
+    [[ "$(readlink /proc/$$/fd/1)" != '/dev/console' ]] || exec > /dev/console
+    [[ "$(readlink /proc/$$/fd/2)" != '/dev/console' ]] || exec 2> /dev/console
+  fi
+fi
+
 if [[ "$(tty)" == '/dev/console' ]]; then
   ARCH="$(uname -m)"
   # Underscore is illegal in hostname, replace with hyphen
   ARCH="${ARCH//_/-}"
 
   # setsid + /dev/tty{,AMA,S}0 allows bash's job control to work, ie. Ctrl+C/Z
-  if [[ -c '/dev/tty0' ]]; then
-    # exists in UML, does not exist on graphics/vga/curses-less QEMU
+  if [[ -e '/proc/exitcode' ]]; then
+    # exists only in UML
     CON='/dev/tty0'
     hostname "uml-${ARCH}"
   elif [[ -c '/dev/ttyAMA0' ]]; then
@@ -140,7 +149,7 @@ ip link set lo mtu 16436
 ip link set eth0 up
 
 # Allow people to run ping.
-echo "0 65536" > /proc/sys/net/ipv4/ping_group_range
+echo '0 2147483647' > /proc/sys/net/ipv4/ping_group_range
 
 # Read environment variables passed to the kernel to determine if script is
 # running on builder and to find which test to run.

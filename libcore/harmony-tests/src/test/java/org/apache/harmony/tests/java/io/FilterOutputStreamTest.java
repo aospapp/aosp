@@ -17,13 +17,15 @@
 
 package org.apache.harmony.tests.java.io;
 
+import junit.framework.TestCase;
+
+import org.mockito.Mockito;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-
-import junit.framework.TestCase;
 
 public class FilterOutputStreamTest extends TestCase {
 
@@ -56,6 +58,29 @@ public class FilterOutputStreamTest extends TestCase {
         os.flush();
         assertEquals("Bytes not written after flush", 500, bos.size());
         os.close();
+    }
+
+    /**
+     * java.io.FilterOutputStream#close()
+     */
+    public void test_doubleClose() throws IOException {
+        OutputStream outputStream = Mockito.mock(OutputStream.class);
+        IOException testException = new IOException("test exception");
+        Mockito.doThrow(testException).when(outputStream).flush();
+        FilterOutputStream filterOutputStream = new FilterOutputStream(outputStream);
+        // FilterOutputStream.close() flushes and closes the underlying stream.
+        try {
+            filterOutputStream.close();
+            fail();
+        } catch (IOException expected) {
+            assertEquals(testException, expected);
+        }
+        Mockito.verify(outputStream, Mockito.times(1)).flush();
+        Mockito.verify(outputStream, Mockito.times(1)).close();
+        // A second close() does not delegate to the already-closed underlying stream again.
+        filterOutputStream.close();
+        Mockito.verify(outputStream, Mockito.times(1)).flush();
+        Mockito.verify(outputStream, Mockito.times(1)).close();
     }
 
     /**

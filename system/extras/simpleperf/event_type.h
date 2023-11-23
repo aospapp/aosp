@@ -24,14 +24,6 @@
 #include <string>
 #include <vector>
 
-// A uint32_t value far from 0 is picked, so it is unlikely to conflict with further
-// PERF_TYPE_* events.
-static constexpr uint32_t SIMPLEPERF_TYPE_USER_SPACE_SAMPLERS = 32768;
-
-enum {
-  SIMPLEPERF_CONFIG_INPLACE_SAMPLER,
-};
-
 // EventType represents one type of event, like cpu_cycle_event, cache_misses_event.
 // The user knows one event type by its name, and the kernel knows one event type by its
 // (type, config) pair. EventType connects the two representations, and tells the user if
@@ -50,6 +42,12 @@ struct EventType {
   bool operator<(const EventType& other) const {
     return strcasecmp(name.c_str(), other.name.c_str()) < 0;
   }
+
+  bool IsPmuEvent() const {
+    return name.find('/') != std::string::npos;
+  }
+
+  std::vector<int> GetPmuCpumask();
 
   std::string name;
   uint32_t type;
@@ -71,6 +69,7 @@ class ScopedEventTypes {
 
  private:
   std::set<EventType> saved_event_types_;
+  uint32_t saved_etm_event_type_;
 };
 
 const std::set<EventType>& GetAllEventTypes();
@@ -98,5 +97,6 @@ struct EventTypeAndModifier {
 };
 
 std::unique_ptr<EventTypeAndModifier> ParseEventType(const std::string& event_type_str);
+bool IsEtmEventType(uint32_t type);
 
 #endif  // SIMPLE_PERF_EVENT_H_

@@ -28,7 +28,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_MODULE := CtsCameraUtils
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := test_current
 -include cts/error_prone_rules_tests.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -49,11 +49,16 @@ LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt \
 	truth-prebuilt \
 	androidx.test.rules
 
+LOCAL_MANIFEST_FILE := AndroidManifest-lib.xml
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 LOCAL_SRC_FILES := \
-	src/android/hardware/camera2/cts/testcases/Camera2AndroidTestCase.java \
+	src/android/hardware/camera2/cts/testcases/Camera2AndroidTestRule.java \
+	src/android/hardware/camera2/cts/Camera2SurfaceViewCtsActivity.java \
+	src/android/hardware/camera2/cts/testcases/Camera2SurfaceViewTestCase.java \
 	src/android/hardware/camera2/cts/PerformanceTest.java \
-	src/android/hardware/cts/CameraTestCase.java \
-	src/android/hardware/cts/LegacyCameraPerformanceTest.java
+	src/android/hardware/cts/CameraPerformanceTestHelper.java \
+	src/android/hardware/cts/LegacyCameraPerformanceTest.java \
+	src/android/hardware/camera2/cts/RecordingTest.java
 
 LOCAL_SDK_VERSION := test_current
 
@@ -90,7 +95,7 @@ LOCAL_SRC_FILES := \
 	$(call all-renderscript-files-under, src)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_PACKAGE_NAME := CtsCameraTestCases
 

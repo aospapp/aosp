@@ -1,6 +1,10 @@
+// Below lists the TEST_MAPPING tests to do TF integration tests to make sure
+// the expectation of setup with different target_preparers + run are still good.
 {
   "presubmit": [
     {
+      // Instrumentation Test with Annotation Filter/PushFilePreparer/
+      // RumCommandTargetPreparer/TestFilePushSetup
       "name": "HelloWorldTests",
       "options": [
         {
@@ -13,15 +17,15 @@
       "host": true
     },
     {
-      "name": "CtsPerfettoTestCases"
-    },
-    {
+      // Instrumentation Test with FilePusher/ApkInstaller/RumCommandTargetPreparer.
       "name": "CtsApacheHttpLegacy27ApiSignatureTestCases"
     },
     {
+      // Gtest with FilePusher to push the whole testdata(libs/files).
       "name": "ziparchive-tests"
     },
     {
+      // Instrumentation Test with Class Filter/ApkInstaller.
       "name": "CtsDpiTestCases",
       "options": [
         {
@@ -30,7 +34,19 @@
       ]
     },
     {
+      // Jar Host with ApkInstaller.
       "name": "CtsSampleHostTestCases"
+    }
+  ],
+  // TODO(b/144852628): Remove after actual platinum tests are added to TEST_MAPPING files.
+  "staged-platinum-postsubmit": [
+    {
+      "name": "HelloWorldTests"
+    }
+  ],
+  "platinum-postsubmit": [
+    {
+      "name": "HelloWorldTests"
     }
   ]
 }

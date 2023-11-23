@@ -22,7 +22,7 @@ LOCAL_C_INCLUDES := external/flatbuffers/include external/tensorflow
 LOCAL_SHARED_LIBRARIES := libandroid liblog
 LOCAL_STATIC_LIBRARIES := libtflite_static
 LOCAL_CFLAGS := -Wno-sign-compare -Wno-unused-parameter
-LOCAL_SDK_VERSION := 27
+LOCAL_SDK_VERSION := 28
 LOCAL_NDK_STL_VARIANT := c++_static
 
 include $(BUILD_SHARED_LIBRARY)

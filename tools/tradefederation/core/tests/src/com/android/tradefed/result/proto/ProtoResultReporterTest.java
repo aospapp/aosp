@@ -22,13 +22,18 @@ import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.proto.TestRecordProto.ChildReference;
+import com.android.tradefed.result.proto.TestRecordProto.DebugInfo;
+import com.android.tradefed.result.proto.TestRecordProto.DebugInfoContext;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.result.proto.TestRecordProto.TestStatus;
 import com.android.tradefed.testtype.suite.ModuleDefinition;
+import com.android.tradefed.util.SerializationUtil;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Before;
@@ -91,12 +96,14 @@ public class ProtoResultReporterTest {
         mReporter.testModuleStarted(createModuleContext("arm32 module1"));
         mReporter.testModuleEnded();
         // Invocation ends
+        mReporter.invocationFailed(new NullPointerException());
         mReporter.invocationEnded(500L);
 
         //  ------ Verify that everything was populated ------
         assertNotNull(mFinalRecord.getTestRecordId());
         assertNotNull(mFinalRecord.getStartTime().getSeconds());
         assertNotNull(mFinalRecord.getEndTime().getSeconds());
+        assertNotNull(mFinalRecord.getDebugInfo());
 
         // The invocation has 2 modules
         assertEquals(2, mFinalRecord.getChildrenCount());
@@ -114,10 +121,10 @@ public class ProtoResultReporterTest {
         assertEquals(TestStatus.FAIL, testRecord2.getStatus());
         assertEquals("I failed", testRecord2.getDebugInfo().getTrace());
         // test 2 has 1 metric and 1 log artifact
-        assertEquals(1, testRecord2.getMetrics().size());
-        assertEquals(1, testRecord2.getArtifacts().size());
+        assertEquals(1, testRecord2.getMetricsMap().size());
+        assertEquals(1, testRecord2.getArtifactsMap().size());
         // run 1 has one log file
-        assertEquals(1, run1.getArtifacts().size());
+        assertEquals(1, run1.getArtifactsMap().size());
     }
 
     /** Test when testRunFailed in called from within a test context (testStarted/TestEnded). */
@@ -141,6 +148,35 @@ public class ProtoResultReporterTest {
         assertEquals(1, mFinalRecord.getChildrenCount());
         TestRecord run1 = mFinalRecord.getChildrenList().get(0).getInlineTestRecord();
         assertEquals("run failure", run1.getDebugInfo().getErrorMessage());
+    }
+
+    /** Test an invocation with the proto invocation failure being populated. */
+    @Test
+    public void testInvocationFailure() throws Exception {
+        // Invocation start
+        mReporter.invocationStarted(mInvocationContext);
+        // Invocation ends
+        FailureDescription invocationFailure = FailureDescription.create("error");
+        invocationFailure.setFailureStatus(FailureStatus.INFRA_FAILURE);
+        invocationFailure.setCause(new NullPointerException("error"));
+        mReporter.invocationFailed(invocationFailure);
+        mReporter.invocationEnded(500L);
+
+        //  ------ Verify that everything was populated ------
+        assertNotNull(mFinalRecord.getTestRecordId());
+        assertNotNull(mFinalRecord.getStartTime().getSeconds());
+        assertNotNull(mFinalRecord.getEndTime().getSeconds());
+        assertNotNull(mFinalRecord.getDebugInfo());
+
+        DebugInfo invocFailure = mFinalRecord.getDebugInfo();
+        assertEquals("error", invocFailure.getErrorMessage());
+        assertEquals(FailureStatus.INFRA_FAILURE, invocFailure.getFailureStatus());
+        assertNotNull(invocFailure.getDebugInfoContext());
+        DebugInfoContext debugContext = invocFailure.getDebugInfoContext();
+        String serializedException = debugContext.getErrorType();
+        NullPointerException npe =
+                (NullPointerException) SerializationUtil.deserialize(serializedException);
+        assertEquals("error", npe.getMessage());
     }
 
     /** Helper to create a module context. */

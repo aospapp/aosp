@@ -68,7 +68,7 @@ $(2) : $(1) $(HOST_OUT_EXECUTABLES)/extract_lsdump
 endef
 
 # $(1): The target tuple. e.g., arm:arm:armv7-a-neon:32
-# $(2): The output directory. e.g., $(VTS_TESTCASES_OUT)/vts/testcases/vndk/golden.
+# $(2): The output directory. e.g., $(VTS10_TESTCASES_OUT)/vts/testcases/vndk/golden.
 # Evaluates to a list of destination files. (i.e. suitable for dependency list)
 define create-vndk-abi-dump-from-target
 $(strip \

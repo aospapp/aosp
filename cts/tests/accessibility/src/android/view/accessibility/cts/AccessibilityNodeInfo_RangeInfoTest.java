@@ -16,22 +16,36 @@
 
 package android.view.accessibility.cts;
 
+import static org.junit.Assert.assertEquals;
+
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.platform.test.annotations.Presubmit;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.RangeInfo;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Class for testing {@link AccessibilityNodeInfo.RangeInfo}.
  */
 @Presubmit
-public class AccessibilityNodeInfo_RangeInfoTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityNodeInfo_RangeInfoTest {
 
     /** Allowed tolerance for floating point equality comparisons. */
     public static final float FLOAT_TOLERANCE = 0.001f;
 
+    @Rule
+    public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
     @SmallTest
+    @Test
     public void testObtain() {
         RangeInfo r;
 

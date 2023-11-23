@@ -19,7 +19,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             1f:47:af:aa:62:00:70:50:54:4c:01:9e:9b:63:99:2a
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO ECC Certification Authority
         Validity
             Not Before: Mar  6 00:00:00 2008 GMT

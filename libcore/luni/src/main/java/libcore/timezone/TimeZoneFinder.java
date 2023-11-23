@@ -16,30 +16,31 @@
 
 package libcore.timezone;
 
+import static libcore.timezone.XmlUtils.checkOnEndTag;
+import static libcore.timezone.XmlUtils.consumeText;
+import static libcore.timezone.XmlUtils.consumeUntilEndTag;
+import static libcore.timezone.XmlUtils.findNextStartTagOrEndTagNoRecurse;
+import static libcore.timezone.XmlUtils.findNextStartTagOrThrowNoRecurse;
+import static libcore.timezone.XmlUtils.normalizeCountryIso;
+import static libcore.timezone.XmlUtils.parseBooleanAttribute;
+import static libcore.timezone.XmlUtils.parseLongAttribute;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 
-import android.icu.util.TimeZone;
-
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Reader;
-import java.io.StringReader;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import libcore.timezone.CountryTimeZones.TimeZoneMapping;
+import libcore.timezone.XmlUtils.ReaderSupplier;
 
 /**
  * A class that can find matching time zones by loading data from the tzlookup.xml file.
@@ -48,7 +49,8 @@ import libcore.timezone.CountryTimeZones.TimeZoneMapping;
 @libcore.api.CorePlatformApi
 public final class TimeZoneFinder {
 
-    private static final String TZLOOKUP_FILE_NAME = "tzlookup.xml";
+    // VisibleForTesting
+    public static final String TZLOOKUP_FILE_NAME = "tzlookup.xml";
 
     // Root element. e.g. <timezones ianaversion="2017b">
     private static final String TIMEZONES_ELEMENT = "timezones";
@@ -57,10 +59,12 @@ public final class TimeZoneFinder {
     // Country zones section. e.g. <countryzones>
     private static final String COUNTRY_ZONES_ELEMENT = "countryzones";
 
-    // Country data. e.g. <country code="gb" default="Europe/London" everutc="y">
+    // Country data. e.g.
+    // <country code="gb" default="Europe/London" defaultBoost="y" everutc="y">
     private static final String COUNTRY_ELEMENT = "country";
     private static final String COUNTRY_CODE_ATTRIBUTE = "code";
     private static final String DEFAULT_TIME_ZONE_ID_ATTRIBUTE = "default";
+    private static final String DEFAULT_TIME_ZONE_BOOST_ATTRIBUTE = "defaultBoost";
     private static final String EVER_USES_UTC_ATTRIBUTE = "everutc";
 
     // Country -> Time zone mapping. e.g. <id>ZoneId</id>, <id picker="n">ZoneId</id>,
@@ -72,9 +76,6 @@ public final class TimeZoneFinder {
     private static final String ZONE_ID_ELEMENT = "id";
     private static final String ZONE_SHOW_IN_PICKER_ATTRIBUTE = "picker";
     private static final String ZONE_NOT_USED_AFTER_ATTRIBUTE = "notafter";
-
-    private static final String TRUE_ATTRIBUTE_VALUE = "y";
-    private static final String FALSE_ATTRIBUTE_VALUE = "n";
 
     private static TimeZoneFinder instance;
 
@@ -191,72 +192,6 @@ public final class TimeZoneFinder {
     }
 
     /**
-     * Returns a frozen ICU time zone that has / would have had the specified offset and DST value
-     * at the specified moment in the specified country.
-     *
-     * <p>In order to be considered a configured zone must match the supplied offset information.
-     *
-     * <p>Matches are considered in a well-defined order. If multiple zones match and one of them
-     * also matches the (optional) bias parameter then the bias time zone will be returned.
-     * Otherwise the first match found is returned.
-     */
-    @libcore.api.CorePlatformApi
-    public TimeZone lookupTimeZoneByCountryAndOffset(
-            String countryIso, int offsetMillis, boolean isDst, long whenMillis, TimeZone bias) {
-
-        CountryTimeZones countryTimeZones = lookupCountryTimeZones(countryIso);
-        if (countryTimeZones == null) {
-            return null;
-        }
-        CountryTimeZones.OffsetResult offsetResult =
-                countryTimeZones.lookupByOffsetWithBias(offsetMillis, isDst, whenMillis, bias);
-        return offsetResult != null ? offsetResult.mTimeZone : null;
-    }
-
-    /**
-     * Returns a "default" time zone ID known to be used in the specified country. This is
-     * the time zone ID that can be used if only the country code is known and can be presumed to be
-     * the "best" choice in the absence of other information. For countries with more than one zone
-     * the time zone will not be correct for everybody.
-     *
-     * <p>If the country code is not recognized or there is an error during lookup this can return
-     * null.
-     */
-    @libcore.api.CorePlatformApi
-    public String lookupDefaultTimeZoneIdByCountry(String countryIso) {
-        CountryTimeZones countryTimeZones = lookupCountryTimeZones(countryIso);
-        return countryTimeZones == null ? null : countryTimeZones.getDefaultTimeZoneId();
-    }
-
-    /**
-     * Returns an immutable list of frozen ICU time zones known to be used in the specified country.
-     * If the country code is not recognized or there is an error during lookup this can return
-     * null. The TimeZones returned will never contain {@link TimeZone#UNKNOWN_ZONE}. This method
-     * can return an empty list in a case when the underlying data files reference only unknown
-     * zone IDs.
-     */
-    @libcore.api.CorePlatformApi
-    public List<TimeZone> lookupTimeZonesByCountry(String countryIso) {
-        CountryTimeZones countryTimeZones = lookupCountryTimeZones(countryIso);
-        return countryTimeZones == null ? null : countryTimeZones.getIcuTimeZones();
-    }
-
-    /**
-     * Returns an immutable list of time zone IDs known to be used in the specified country.
-     * If the country code is not recognized or there is an error during lookup this can return
-     * null. The IDs returned will all be valid for use with
-     * {@link java.util.TimeZone#getTimeZone(String)} and
-     * {@link android.icu.util.TimeZone#getTimeZone(String)}. This method can return an empty list
-     * in a case when the underlying data files reference only unknown zone IDs.
-     */
-    @libcore.api.CorePlatformApi
-    public List<String> lookupTimeZoneIdsByCountry(String countryIso) {
-        CountryTimeZones countryTimeZones = lookupCountryTimeZones(countryIso);
-        return countryTimeZones == null
-                ? null : extractTimeZoneIds(countryTimeZones.getTimeZoneMappings());
-    }
-
-    /**
      * Returns a {@link CountryTimeZones} object associated with the specified country code.
      * Caching is handled as needed. If the country code is not recognized or there is an error
      * during lookup this method can return null.
@@ -295,9 +230,9 @@ public final class TimeZoneFinder {
 
     /**
      * Processes the XML, applying the {@link TimeZonesProcessor} to the &lt;countryzones&gt;
-     * element. Processing can terminate early if the
-     * {@link TimeZonesProcessor#processCountryZones(String, String, boolean, List, String)} returns
-     * {@link TimeZonesProcessor#HALT} or it throws an exception.
+     * element. Processing can terminate early if the {@link TimeZonesProcessor#processCountryZones(
+     * String, String, boolean, boolean, List, String)} returns {@link TimeZonesProcessor#HALT} or
+     * it throws an exception.
      */
     private void processXml(TimeZonesProcessor processor)
             throws XmlPullParserException, IOException {
@@ -319,14 +254,14 @@ public final class TimeZoneFinder {
              *       ...
              *       <id>America/Los_Angeles</id>
              *     </country>
-             *     <country code="gb" default="Europe/London">
+             *     <country code="gb" default="Europe/London" defaultBoost="y">
              *       <id>Europe/London</id>
              *     </country>
              *   </countryzones>
              * </timezones>
              */
 
-            findRequiredStartTag(parser, TIMEZONES_ELEMENT);
+            findNextStartTagOrThrowNoRecurse(parser, TIMEZONES_ELEMENT);
 
             // We do not require the ianaversion attribute be present. It is metadata that helps
             // with versioning but is not required.
@@ -338,7 +273,7 @@ public final class TimeZoneFinder {
 
             // There is only one expected sub-element <countryzones> in the format currently, skip
             // over anything before it.
-            findRequiredStartTag(parser, COUNTRY_ZONES_ELEMENT);
+            findNextStartTagOrThrowNoRecurse(parser, COUNTRY_ZONES_ELEMENT);
 
             if (processCountryZones(parser, processor) == TimeZonesProcessor.HALT) {
                 return;
@@ -363,38 +298,39 @@ public final class TimeZoneFinder {
             TimeZonesProcessor processor) throws IOException, XmlPullParserException {
 
         // Skip over any unexpected elements and process <country> elements.
-        while (findOptionalStartTag(parser, COUNTRY_ELEMENT)) {
-            if (processor == null) {
-                consumeUntilEndTag(parser, COUNTRY_ELEMENT);
-            } else {
-                String code = parser.getAttributeValue(
-                        null /* namespace */, COUNTRY_CODE_ATTRIBUTE);
-                if (code == null || code.isEmpty()) {
-                    throw new XmlPullParserException(
-                            "Unable to find country code: " + parser.getPositionDescription());
-                }
-                String defaultTimeZoneId = parser.getAttributeValue(
-                        null /* namespace */, DEFAULT_TIME_ZONE_ID_ATTRIBUTE);
-                if (defaultTimeZoneId == null || defaultTimeZoneId.isEmpty()) {
-                    throw new XmlPullParserException("Unable to find default time zone ID: "
-                            + parser.getPositionDescription());
-                }
-                Boolean everUsesUtc = parseBooleanAttribute(
-                        parser, EVER_USES_UTC_ATTRIBUTE, null /* defaultValue */);
-                if (everUsesUtc == null) {
-                    // There is no valid default: we require this to be specified.
-                    throw new XmlPullParserException(
-                            "Unable to find UTC hint attribute (" + EVER_USES_UTC_ATTRIBUTE + "): "
-                            + parser.getPositionDescription());
-                }
+        while (findNextStartTagOrEndTagNoRecurse(parser, COUNTRY_ELEMENT)) {
+            String code = parser.getAttributeValue(
+                    null /* namespace */, COUNTRY_CODE_ATTRIBUTE);
+            if (code == null || code.isEmpty()) {
+                throw new XmlPullParserException(
+                        "Unable to find country code: " + parser.getPositionDescription());
+            }
 
-                String debugInfo = parser.getPositionDescription();
-                List<TimeZoneMapping> timeZoneMappings = parseTimeZoneMappings(parser);
-                boolean result = processor.processCountryZones(code, defaultTimeZoneId, everUsesUtc,
-                        timeZoneMappings, debugInfo);
-                if (result == TimeZonesProcessor.HALT) {
-                    return TimeZonesProcessor.HALT;
-                }
+            String defaultTimeZoneId = parser.getAttributeValue(
+                    null /* namespace */, DEFAULT_TIME_ZONE_ID_ATTRIBUTE);
+            if (defaultTimeZoneId == null || defaultTimeZoneId.isEmpty()) {
+                throw new XmlPullParserException("Unable to find default time zone ID: "
+                        + parser.getPositionDescription());
+            }
+
+            boolean defaultTimeZoneBoost = parseBooleanAttribute(parser,
+                    DEFAULT_TIME_ZONE_BOOST_ATTRIBUTE, false);
+
+            Boolean everUsesUtc = parseBooleanAttribute(
+                    parser, EVER_USES_UTC_ATTRIBUTE, null /* defaultValue */);
+            if (everUsesUtc == null) {
+                // There is no valid default: we require this to be specified.
+                throw new XmlPullParserException(
+                        "Unable to find UTC hint attribute (" + EVER_USES_UTC_ATTRIBUTE + "): "
+                        + parser.getPositionDescription());
+            }
+
+            String debugInfo = parser.getPositionDescription();
+            List<TimeZoneMapping> timeZoneMappings = parseTimeZoneMappings(parser);
+            boolean result = processor.processCountryZones(code, defaultTimeZoneId,
+                    defaultTimeZoneBoost, everUsesUtc, timeZoneMappings, debugInfo);
+            if (result == TimeZonesProcessor.HALT) {
+                return TimeZonesProcessor.HALT;
             }
 
             // Make sure we are on the </country> element.
@@ -409,7 +345,7 @@ public final class TimeZoneFinder {
         List<TimeZoneMapping> timeZoneMappings = new ArrayList<>();
 
         // Skip over any unexpected elements and process <id> elements.
-        while (findOptionalStartTag(parser, ZONE_ID_ELEMENT)) {
+        while (findNextStartTagOrEndTagNoRecurse(parser, ZONE_ID_ELEMENT)) {
             // The picker attribute is optional and defaulted to true.
             boolean showInPicker = parseBooleanAttribute(
                     parser, ZONE_SHOW_IN_PICKER_ATTRIBUTE, true /* defaultValue */);
@@ -433,177 +369,6 @@ public final class TimeZoneFinder {
 
         // The list is made unmodifiable to avoid callers changing it.
         return Collections.unmodifiableList(timeZoneMappings);
-    }
-
-    /**
-     * Parses an attribute value, which must be either {@code null} or a valid signed long value.
-     * If the attribute value is {@code null} then {@code defaultValue} is returned. If the
-     * attribute is present but not a valid long value then an XmlPullParserException is thrown.
-     */
-    private static Long parseLongAttribute(XmlPullParser parser, String attributeName,
-            Long defaultValue) throws XmlPullParserException {
-        String attributeValueString = parser.getAttributeValue(null /* namespace */, attributeName);
-        if (attributeValueString == null) {
-            return defaultValue;
-        }
-        try {
-            return Long.parseLong(attributeValueString);
-        } catch (NumberFormatException e) {
-            throw new XmlPullParserException("Attribute \"" + attributeName
-                    + "\" is not a long value: " + parser.getPositionDescription());
-        }
-    }
-
-    /**
-     * Parses an attribute value, which must be either {@code null}, {@code "y"} or {@code "n"}.
-     * If the attribute value is {@code null} then {@code defaultValue} is returned. If the
-     * attribute is present but not "y" or "n" then an XmlPullParserException is thrown.
-     */
-    private static Boolean parseBooleanAttribute(XmlPullParser parser,
-            String attributeName, Boolean defaultValue) throws XmlPullParserException {
-        String attributeValueString = parser.getAttributeValue(null /* namespace */, attributeName);
-        if (attributeValueString == null) {
-            return defaultValue;
-        }
-        boolean isTrue = TRUE_ATTRIBUTE_VALUE.equals(attributeValueString);
-        if (!(isTrue || FALSE_ATTRIBUTE_VALUE.equals(attributeValueString))) {
-            throw new XmlPullParserException("Attribute \"" + attributeName
-                    + "\" is not \"y\" or \"n\": " + parser.getPositionDescription());
-        }
-        return isTrue;
-    }
-
-    private static void findRequiredStartTag(XmlPullParser parser, String elementName)
-            throws IOException, XmlPullParserException {
-        findStartTag(parser, elementName, true /* elementRequired */);
-    }
-
-    /** Called when on a START_TAG. When returning false, it leaves the parser on the END_TAG. */
-    private static boolean findOptionalStartTag(XmlPullParser parser, String elementName)
-            throws IOException, XmlPullParserException {
-        return findStartTag(parser, elementName, false /* elementRequired */);
-    }
-
-    /**
-     * Find a START_TAG with the specified name without decreasing the depth, or increasing the
-     * depth by more than one. More deeply nested elements and text are skipped, even START_TAGs
-     * with matching names. Returns when the START_TAG is found or the next (non-nested) END_TAG is
-     * encountered. The return can take the form of an exception or a false if the START_TAG is not
-     * found. True is returned when it is.
-     */
-    private static boolean findStartTag(
-            XmlPullParser parser, String elementName, boolean elementRequired)
-            throws IOException, XmlPullParserException {
-
-        int type;
-        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT) {
-            switch (type) {
-                case XmlPullParser.START_TAG:
-                    String currentElementName = parser.getName();
-                    if (elementName.equals(currentElementName)) {
-                        return true;
-                    }
-
-                    // It was not the START_TAG we were looking for. Consume until the end.
-                    parser.next();
-                    consumeUntilEndTag(parser, currentElementName);
-                    break;
-                case XmlPullParser.END_TAG:
-                    if (elementRequired) {
-                        throw new XmlPullParserException(
-                                "No child element found with name " + elementName);
-                    }
-                    return false;
-                default:
-                    // Ignore.
-                    break;
-            }
-        }
-        throw new XmlPullParserException("Unexpected end of document while looking for "
-                + elementName);
-    }
-
-    /**
-     * Consume the remaining contents of an element and move to the END_TAG. Used when processing
-     * within an element can stop. The parser must be pointing at either the END_TAG we are looking
-     * for, a TEXT, or a START_TAG nested within the element to be consumed.
-     */
-    private static void consumeUntilEndTag(XmlPullParser parser, String elementName)
-            throws IOException, XmlPullParserException {
-
-        if (parser.getEventType() == XmlPullParser.END_TAG
-                && elementName.equals(parser.getName())) {
-            // Early return - we are already there.
-            return;
-        }
-
-        // Keep track of the required depth in case there are nested elements to be consumed.
-        // Both the name and the depth must match our expectation to complete.
-
-        int requiredDepth = parser.getDepth();
-        // A TEXT tag would be at the same depth as the END_TAG we are looking for.
-        if (parser.getEventType() == XmlPullParser.START_TAG) {
-            // A START_TAG would have incremented the depth, so we're looking for an END_TAG one
-            // higher than the current tag.
-            requiredDepth--;
-        }
-
-        while (parser.getEventType() != XmlPullParser.END_DOCUMENT) {
-            int type = parser.next();
-
-            int currentDepth = parser.getDepth();
-            if (currentDepth < requiredDepth) {
-                throw new XmlPullParserException(
-                        "Unexpected depth while looking for end tag: "
-                                + parser.getPositionDescription());
-            } else if (currentDepth == requiredDepth) {
-                if (type == XmlPullParser.END_TAG) {
-                    if (elementName.equals(parser.getName())) {
-                        return;
-                    }
-                    throw new XmlPullParserException(
-                            "Unexpected eng tag: " + parser.getPositionDescription());
-                }
-            }
-            // Everything else is either a type we are not interested in or is too deep and so is
-            // ignored.
-        }
-        throw new XmlPullParserException("Unexpected end of document");
-    }
-
-    /**
-     * Reads the text inside the current element. Should be called when the parser is currently
-     * on the START_TAG before the TEXT. The parser will be positioned on the END_TAG after this
-     * call when it completes successfully.
-     */
-    private static String consumeText(XmlPullParser parser)
-            throws IOException, XmlPullParserException {
-
-        int type = parser.next();
-        String text;
-        if (type == XmlPullParser.TEXT) {
-            text = parser.getText();
-        } else {
-            throw new XmlPullParserException("Text not found. Found type=" + type
-                    + " at " + parser.getPositionDescription());
-        }
-
-        type = parser.next();
-        if (type != XmlPullParser.END_TAG) {
-            throw new XmlPullParserException(
-                    "Unexpected nested tag or end of document when expecting text: type=" + type
-                            + " at " + parser.getPositionDescription());
-        }
-        return text;
-    }
-
-    private static void checkOnEndTag(XmlPullParser parser, String elementName)
-            throws XmlPullParserException {
-        if (!(parser.getEventType() == XmlPullParser.END_TAG
-                && parser.getName().equals(elementName))) {
-            throw new XmlPullParserException(
-                    "Unexpected tag encountered: " + parser.getPositionDescription());
-        }
     }
 
     /**
@@ -633,7 +398,8 @@ public final class TimeZoneFinder {
          * <p>The default implementation returns {@link #CONTINUE}.
          */
         default boolean processCountryZones(String countryIso, String defaultTimeZoneId,
-                boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo)
+                boolean defaultTimeZoneBoost, boolean everUsesUtc,
+                List<TimeZoneMapping> timeZoneMappings, String debugInfo)
                 throws XmlPullParserException {
             return CONTINUE;
         }
@@ -653,7 +419,8 @@ public final class TimeZoneFinder {
 
         @Override
         public boolean processCountryZones(String countryIso, String defaultTimeZoneId,
-                boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo)
+                boolean defaultTimeZoneBoost, boolean everUsesUtc,
+                List<TimeZoneMapping> timeZoneMappings, String debugInfo)
                 throws XmlPullParserException {
             if (!normalizeCountryIso(countryIso).equals(countryIso)) {
                 throw new XmlPullParserException("Country code: " + countryIso
@@ -706,11 +473,13 @@ public final class TimeZoneFinder {
 
         @Override
         public boolean processCountryZones(String countryIso, String defaultTimeZoneId,
-                boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo)
+                boolean defaultTimeZoneBoost, boolean everUsesUtc,
+                List<TimeZoneMapping> timeZoneMappings, String debugInfo)
                 throws XmlPullParserException {
 
             CountryTimeZones countryTimeZones = CountryTimeZones.createValidated(
-                    countryIso, defaultTimeZoneId, everUsesUtc, timeZoneMappings, debugInfo);
+                    countryIso, defaultTimeZoneId, defaultTimeZoneBoost, everUsesUtc,
+                    timeZoneMappings, debugInfo);
             countryTimeZonesList.add(countryTimeZones);
             return CONTINUE;
         }
@@ -736,13 +505,15 @@ public final class TimeZoneFinder {
 
         @Override
         public boolean processCountryZones(String countryIso, String defaultTimeZoneId,
-                boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo) {
+                boolean defaultTimeZoneBoost, boolean everUsesUtc,
+                List<TimeZoneMapping> timeZoneMappings, String debugInfo) {
             countryIso = normalizeCountryIso(countryIso);
             if (!countryCodeToMatch.equals(countryIso)) {
                 return CONTINUE;
             }
             validatedCountryTimeZones = CountryTimeZones.createValidated(countryIso,
-                    defaultTimeZoneId, everUsesUtc, timeZoneMappings, debugInfo);
+                    defaultTimeZoneId, defaultTimeZoneBoost, everUsesUtc, timeZoneMappings,
+                    debugInfo);
 
             return HALT;
         }
@@ -755,40 +526,4 @@ public final class TimeZoneFinder {
         }
     }
 
-    /**
-     * A source of Readers that can be used repeatedly.
-     */
-    private interface ReaderSupplier {
-        /** Returns a Reader. Throws an IOException if the Reader cannot be created. */
-        Reader get() throws IOException;
-
-        static ReaderSupplier forFile(String fileName, Charset charSet) throws IOException {
-            Path file = Paths.get(fileName);
-            if (!Files.exists(file)) {
-                throw new FileNotFoundException(fileName + " does not exist");
-            }
-            if (!Files.isRegularFile(file) && Files.isReadable(file)) {
-                throw new IOException(fileName + " must be a regular readable file.");
-            }
-            return () -> Files.newBufferedReader(file, charSet);
-        }
-
-        static ReaderSupplier forString(String xml) {
-            return () -> new StringReader(xml);
-        }
-    }
-
-    private static List<String> extractTimeZoneIds(List<TimeZoneMapping> timeZoneMappings) {
-        List<String> zoneIds = new ArrayList<>(timeZoneMappings.size());
-        for (TimeZoneMapping timeZoneMapping : timeZoneMappings) {
-            zoneIds.add(timeZoneMapping.timeZoneId);
-        }
-        return Collections.unmodifiableList(zoneIds);
-    }
-
-    static String normalizeCountryIso(String countryIso) {
-        // Lowercase ASCII is normalized for the purposes of the input files and the code in this
-        // class and related classes.
-        return countryIso.toLowerCase(Locale.US);
-    }
 }

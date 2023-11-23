@@ -94,9 +94,9 @@ public abstract class SelectorImpl extends java.nio.channels.spi.AbstractSelecto
 
     private java.util.Set<java.nio.channels.SelectionKey> publicKeys;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private java.util.Set<java.nio.channels.SelectionKey> publicSelectedKeys;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     protected java.util.Set<java.nio.channels.SelectionKey> selectedKeys;
 }

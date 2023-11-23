@@ -30,11 +30,9 @@ from acts.test_utils.coex.coex_test_utils import start_fping
 
 class CoexBasicFunctionalityTest(CoexBaseTest):
 
-    def __init__(self, controllers):
-        super().__init__(controllers)
-
     def setup_class(self):
         super().setup_class()
+
         req_params = ["iterations", "fping_params"]
         self.unpack_userparams(req_params)
 

@@ -17,12 +17,23 @@
 package libcore.testing.io;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Random;
 
 public class TestIoUtils {
     private final static Random random = new Random();
 
     private TestIoUtils() {}
+
+    /**
+     * Returns the contents of 'path' as a string. The contents are assumed to be UTF-8.
+     */
+    public static String readFileAsString(String absolutePath) throws IOException {
+        return new String(Files.readAllBytes(Paths.get(absolutePath)), StandardCharsets.UTF_8);
+    }
 
     /**
      * Creates a unique new temporary directory under "java.io.tmpdir".

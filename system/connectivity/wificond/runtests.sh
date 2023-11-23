@@ -25,7 +25,7 @@ set -e # fail early
 # NOTE We can't actually run these commands, since they rely on functions added by
 #      build/envsetup.sh to the bash shell environment.
 echo "+ mmma -j32 $ANDROID_BUILD_TOP/system/connectivity/wificond"
-make -j32 -C $ANDROID_BUILD_TOP -f build/core/main.mk \
+$ANDROID_BUILD_TOP/build/soong/soong_ui.bash --make-mode \
     MODULES-IN-system-connectivity-wificond \
     MODULES-IN-frameworks-opt-net-wifi-libwifi_system
 

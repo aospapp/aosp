@@ -11,6 +11,6 @@
     <target_preparer class="com.android.tradefed.targetprep.TemperatureThrottlingWaiter" />
     <test class="com.android.media.tests.Camera2FrameworkStressTest">
         <option name="test-runner"
-                value="com.android.mediaframeworktest.Camera2InstrumentationTestRunner" />
+                value="androidx.test.runner.AndroidJUnitRunner" />
     </test>
 </configuration>

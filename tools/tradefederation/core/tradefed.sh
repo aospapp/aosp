@@ -18,8 +18,8 @@
 
 shdir=`dirname $0`/
 source "${shdir}/script_help.sh"
-# At this point, we're guaranteed to have the right Java version, and the following
-# env variables will be set, if appropriate:
+# At this point, we're guaranteed to have the right Java version, and the
+# following env variables will be set, if appropriate:
 # JAVA_VERSION, RDBG_FLAG, TF_PATH, TRADEFED_OPTS
 checkPath adb
 
@@ -29,6 +29,8 @@ if [ ! -z "${ENTRY_CLASS}" ]; then
   CONSOLE_CLASS=${ENTRY_CLASS}
 fi
 
-# Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
-exec java $RDBG_FLAG -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow $TRADEFED_OPTS \
+# Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away
+# when unset
+exec ${TF_JAVA} $ADD_OPENS_FLAG $RDBG_FLAG -XX:+HeapDumpOnOutOfMemoryError \
+  -XX:-OmitStackTraceInFastThrow $TRADEFED_OPTS \
   -cp "${TF_PATH}" -DTF_JAR_DIR=${TF_JAR_DIR} $CONSOLE_CLASS "$@"

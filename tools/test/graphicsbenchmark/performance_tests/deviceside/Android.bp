@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test {
-    name: "GameQualificationDevice",
+android_test_helper_app {
+    name: "GameCoreDevice",
     sdk_version: "26", // Oreo
     manifest: "AndroidManifest.xml",
     static_libs: [
         "androidx.test.rules",
-        "GameQualificationHelper",
+        "GameCoreHelper",
         "repackaged.android.test.base",
     ],
     test_suites: ["device-tests"],

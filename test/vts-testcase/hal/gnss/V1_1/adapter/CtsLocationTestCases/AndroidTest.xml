@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Config for VTS VtsHalGnssV1_1AdapterCtsLocationTestCases test cases">
+<configuration description="Config for VTS VtsHalGnssV1_1AdapterCtsLocationGnssTestCases test cases">
     <option key="plan" name="config-descriptor:metadata" value="vts-hal-adapter"/>
     <object class="com.android.tradefed.module.VtsHalAdapterModuleController" type="module_controller">
         <option name="hal-package-name" value="android.hardware.gnss@1.1"/>
@@ -26,5 +26,5 @@
         <option name="package" value="com.android.devicehealth.tests"/>
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner"/>
     </test>
-    <include name="CtsLocationTestCases.config"/>
+    <include name="CtsLocationGnssTestCases.config"/>
 </configuration>

@@ -16,6 +16,7 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibility.cts.common.InstrumentedAccessibilityService.enableService;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterForEventType;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterForEventTypeWithResource;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.findWindowByTitle;
@@ -45,6 +46,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.accessibility.cts.common.ShellCommandBuilder;
 import android.accessibilityservice.AccessibilityServiceInfo;
@@ -101,6 +103,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 import java.util.Iterator;
@@ -119,10 +122,10 @@ public class AccessibilityEndToEndTest {
     private static final String LOG_TAG = "AccessibilityEndToEndTest";
 
     private static final String GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND =
-            "appwidget grantbind --package android.accessibilityservice.cts --user 0";
+            "appwidget grantbind --package android.accessibilityservice.cts --user ";
 
     private static final String REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND =
-            "appwidget revokebind --package android.accessibilityservice.cts --user 0";
+            "appwidget revokebind --package android.accessibilityservice.cts --user ";
 
     private static final String APP_WIDGET_PROVIDER_PACKAGE = "foo.bar.baz";
 
@@ -131,9 +134,16 @@ public class AccessibilityEndToEndTest {
 
     private AccessibilityEndToEndActivity mActivity;
 
-    @Rule
-    public ActivityTestRule<AccessibilityEndToEndActivity> mActivityRule =
+    private ActivityTestRule<AccessibilityEndToEndActivity> mActivityRule =
             new ActivityTestRule<>(AccessibilityEndToEndActivity.class, false, false);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mActivityRule)
+            .around(mDumpOnFailureRule);
 
     @BeforeClass
     public static void oneTimeSetup() throws Exception {
@@ -502,8 +512,9 @@ public class AccessibilityEndToEndTest {
     public void testInterrupt_notifiesService() {
         sInstrumentation
                 .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
-        InstrumentedAccessibilityService service = InstrumentedAccessibilityService.enableService(
-                sInstrumentation, InstrumentedAccessibilityService.class);
+        InstrumentedAccessibilityService service =
+                enableService(InstrumentedAccessibilityService.class);
+
         try {
             assertFalse(service.wasOnInterruptCalled());
 
@@ -1053,12 +1064,12 @@ public class AccessibilityEndToEndTest {
 
     private void grantBindAppWidgetPermission() throws Exception {
         ShellCommandBuilder.execShellCommand(sUiAutomation,
-                GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND);
+                GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND + getCurrentUser());
     }
 
     private void revokeBindAppWidgetPermission() throws Exception {
         ShellCommandBuilder.execShellCommand(sUiAutomation,
-                REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND);
+                REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND + getCurrentUser());
     }
 
     private AppWidgetManager getAppWidgetManager() {
@@ -1141,5 +1152,9 @@ public class AccessibilityEndToEndTest {
             final View tooltipView = viewWithTooltip.getTooltipView();
             return (tooltipView != null) && (tooltipView.getParent() != null);
         });
+    }
+
+    private static int getCurrentUser() {
+        return android.os.Process.myUserHandle().getIdentifier();
     }
 }

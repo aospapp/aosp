@@ -23,23 +23,27 @@ import com.android.tools.metalava.Severity.INFO
 import com.android.tools.metalava.Severity.INHERIT
 import com.android.tools.metalava.Severity.LINT
 import com.android.tools.metalava.Severity.WARNING
-import com.android.tools.metalava.doclava1.Errors
+import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.AnnotationArrayAttributeValue
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.configuration
 import com.android.tools.metalava.model.psi.PsiItem
 import com.android.tools.metalava.model.text.TextItem
+import com.google.common.annotations.VisibleForTesting
 import com.intellij.openapi.util.TextRange
-import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VfsUtilCore
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiCompiledElement
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiModifierListOwner
 import com.intellij.psi.impl.light.LightElement
 import java.io.File
+import java.io.PrintWriter
 
-var reporter = Reporter()
+/**
+ * "Global" [Reporter] used by most operations.
+ * Certain operations, such as api-lint and compatibility check, may use a custom [Reporter]
+ */
+lateinit var reporter: Reporter
 
 enum class Severity(private val displayName: String) {
     INHERIT("inherit"),
@@ -73,7 +77,17 @@ enum class Severity(private val displayName: String) {
     override fun toString(): String = displayName
 }
 
-open class Reporter(private val rootFolder: File? = null) {
+class Reporter(
+    /** [Baseline] file associated with this [Reporter]. If null, the global baseline is used. */
+    // See the comment on [getBaseline] for why it's nullable.
+    private val customBaseline: Baseline?,
+
+    /**
+     * An error message associated with this [Reporter], which should be shown to the user
+     * when metalava finishes with errors.
+     */
+    private val errorMessage: String?
+) {
     var errorCount = 0
         private set
     var warningCount = 0
@@ -82,29 +96,33 @@ open class Reporter(private val rootFolder: File? = null) {
 
     private var hasErrors = false
 
-    fun report(id: Errors.Error, element: PsiElement?, message: String): Boolean {
+    // Note we can't set [options.baseline] as the default for [customBaseline], because
+    // options.baseline will be initialized after the global [Reporter] is instantiated.
+    fun getBaseline(): Baseline? = customBaseline ?: options.baseline
+
+    fun report(id: Issues.Issue, element: PsiElement?, message: String): Boolean {
         val severity = configuration.getSeverity(id)
 
         if (severity == HIDDEN) {
             return false
         }
 
-        val baseline = options.baseline
+        val baseline = getBaseline()
         if (element != null && baseline != null && baseline.mark(element, message, id)) {
             return false
         }
 
-        return report(severity, element, message, id)
+        return report(severity, elementToLocation(element), message, id)
     }
 
-    fun report(id: Errors.Error, file: File?, message: String): Boolean {
+    fun report(id: Issues.Issue, file: File?, message: String): Boolean {
         val severity = configuration.getSeverity(id)
 
         if (severity == HIDDEN) {
             return false
         }
 
-        val baseline = options.baseline
+        val baseline = getBaseline()
         if (file != null && baseline != null && baseline.mark(file, message, id)) {
             return false
         }
@@ -112,14 +130,26 @@ open class Reporter(private val rootFolder: File? = null) {
         return report(severity, file?.path, message, id)
     }
 
-    fun report(id: Errors.Error, item: Item?, message: String, psi: PsiElement? = null): Boolean {
-        if (isSuppressed(id, item, message)) {
+    fun report(id: Issues.Issue, item: Item?, message: String, psi: PsiElement? = null): Boolean {
+        val severity = configuration.getSeverity(id)
+        if (severity == HIDDEN) {
             return false
         }
 
-        val severity = configuration.getSeverity(id)
+        fun dispatch(
+            which: (severity: Severity, location: String?, message: String, id: Issues.Issue) -> Boolean
+        ) = when {
+            psi != null -> which(severity, elementToLocation(psi), message, id)
+            item is PsiItem -> which(severity, elementToLocation(item.psi()), message, id)
+            item is TextItem ->
+                which(severity, (item as? TextItem)?.position.toString(), message, id)
+            else -> which(severity, null as String?, message, id)
+        }
 
-        if (severity == HIDDEN) {
+        // Optionally write to the --report-even-if-suppressed file.
+        dispatch(this::reportEvenIfSuppressed)
+
+        if (isSuppressed(id, item, message)) {
             return false
         }
 
@@ -135,26 +165,17 @@ open class Reporter(private val rootFolder: File? = null) {
             }
         }
 
-        val baseline = options.baseline
+        val baseline = getBaseline()
         if (item != null && baseline != null && baseline.mark(item, message, id)) {
             return false
         } else if (psi != null && baseline != null && baseline.mark(psi, message, id)) {
             return false
         }
 
-        return when {
-            psi != null -> {
-                report(severity, psi, message, id)
-            }
-            item is PsiItem -> {
-                report(severity, item.psi(), message, id)
-            }
-            item is TextItem -> report(severity, (item as? TextItem)?.position.toString(), message, id)
-            else -> report(severity, null as String?, message, id)
-        }
+        return dispatch(this::doReport)
     }
 
-    fun isSuppressed(id: Errors.Error, item: Item? = null, message: String? = null): Boolean {
+    fun isSuppressed(id: Issues.Issue, item: Item? = null, message: String? = null): Boolean {
         val severity = configuration.getSeverity(id)
         if (severity == HIDDEN) {
             return true
@@ -233,13 +254,7 @@ open class Reporter(private val rootFolder: File? = null) {
         val virtualFile = psiFile.virtualFile ?: return null
         val file = VfsUtilCore.virtualToIoFile(virtualFile)
 
-        val path =
-            if (rootFolder != null) {
-                val root: VirtualFile? = StandardFileSystems.local().findFileByPath(rootFolder.path)
-                if (root != null) VfsUtilCore.getRelativePath(virtualFile, root) ?: file.path else file.path
-            } else {
-                file.path
-            }
+        val path = (rootFolder?.toPath()?.relativize(file.toPath()) ?: file.toPath()).toString()
 
         // Skip doc comments for classes, methods and fields; we usually want to point right to
         // the class/method/field definition
@@ -258,7 +273,7 @@ open class Reporter(private val rootFolder: File? = null) {
         return if (lineNumber > 0) "$path:$lineNumber" else path
     }
 
-    /** Returns the 0-based line number */
+    /** Returns the 0-based line number of character position <offset> in <text> */
     private fun getLineNumber(text: String, offset: Int): Int {
         var line = 0
         var curr = 0
@@ -271,19 +286,15 @@ open class Reporter(private val rootFolder: File? = null) {
         return line
     }
 
-    private fun report(severity: Severity, element: PsiElement?, message: String, id: Errors.Error? = null): Boolean {
-        if (severity == HIDDEN) {
-            return false
-        }
+    /** Alias to allow method reference in [report.dispatch] */
+    private fun doReport(severity: Severity, location: String?, message: String, id: Issues.Issue?) =
+        report(severity, location, message, id)
 
-        return report(severity, elementToLocation(element), message, id)
-    }
-
-    open fun report(
+    fun report(
         severity: Severity,
         location: String?,
         message: String,
-        id: Errors.Error? = null,
+        id: Issues.Issue? = null,
         color: Boolean = options.color
     ): Boolean {
         if (severity == HIDDEN) {
@@ -299,23 +310,38 @@ open class Reporter(private val rootFolder: File? = null) {
                 severity
             }
 
-        if (severity == ERROR) {
+        if (effectiveSeverity == ERROR) {
             hasErrors = true
             errorCount++
         } else if (severity == WARNING) {
             warningCount++
         }
 
+        reportPrinter(
+            format(effectiveSeverity, location, message, id, color, options.omitLocations),
+            effectiveSeverity
+        )
+        return true
+    }
+
+    private fun format(
+        severity: Severity,
+        location: String?,
+        message: String,
+        id: Issues.Issue?,
+        color: Boolean,
+        omitLocations: Boolean
+    ): String {
         val sb = StringBuilder(100)
 
         if (color && !isUnderTest()) {
             sb.append(terminalAttributes(bold = true))
-            if (!options.omitLocations) {
+            if (!omitLocations) {
                 location?.let {
                     sb.append(it).append(": ")
                 }
             }
-            when (effectiveSeverity) {
+            when (severity) {
                 LINT -> sb.append(terminalAttributes(foreground = TerminalColor.CYAN)).append("lint: ")
                 INFO -> sb.append(terminalAttributes(foreground = TerminalColor.CYAN)).append("info: ")
                 WARNING -> sb.append(terminalAttributes(foreground = TerminalColor.YELLOW)).append("warning: ")
@@ -325,14 +351,16 @@ open class Reporter(private val rootFolder: File? = null) {
             }
             sb.append(resetTerminal())
             sb.append(message)
-            id?.let { sb.append(" [").append(if (it.name != null) it.name else it.code).append("]") }
+            id?.let {
+                sb.append(" [").append(it.name).append("]")
+            }
         } else {
-            if (!options.omitLocations) {
+            if (!omitLocations) {
                 location?.let { sb.append(it).append(": ") }
             }
             if (compatibility.oldErrorOutputFormat) {
                 // according to doclava1 there are some people or tools parsing old format
-                when (effectiveSeverity) {
+                when (severity) {
                     LINT -> sb.append("lint ")
                     INFO -> sb.append("info ")
                     WARNING -> sb.append("warning ")
@@ -340,10 +368,10 @@ open class Reporter(private val rootFolder: File? = null) {
                     INHERIT, HIDDEN -> {
                     }
                 }
-                id?.let { sb.append(if (it.name != null) it.name else it.code).append(": ") }
+                id?.let { sb.append(it.name).append(": ") }
                 sb.append(message)
             } else {
-                when (effectiveSeverity) {
+                when (severity) {
                     LINT -> sb.append("lint: ")
                     INFO -> sb.append("info: ")
                     WARNING -> sb.append("warning: ")
@@ -354,13 +382,9 @@ open class Reporter(private val rootFolder: File? = null) {
                 sb.append(message)
                 id?.let {
                     sb.append(" [")
-                    if (it.name != null) {
-                        sb.append(it.name)
-                    }
-                    if (compatibility.includeExitCode || it.name == null) {
-                        if (it.name != null) {
-                            sb.append(":")
-                        }
+                    sb.append(it.name)
+                    if (compatibility.includeExitCode) {
+                        sb.append(":")
                         sb.append(it.code)
                     }
                     sb.append("]")
@@ -375,15 +399,60 @@ open class Reporter(private val rootFolder: File? = null) {
                 }
             }
         }
-        print(sb.toString())
+        return sb.toString()
+    }
+
+    private fun reportEvenIfSuppressed(
+        severity: Severity,
+        location: String?,
+        message: String,
+        id: Issues.Issue
+    ): Boolean {
+        options.reportEvenIfSuppressedWriter?.println(
+            format(
+                severity,
+                location,
+                message,
+                id,
+                color = false,
+                omitLocations = false
+            ))
         return true
     }
 
-    open fun print(message: String) {
-        options.stdout.println()
-        options.stdout.print(message.trim())
-        options.stdout.flush()
+    fun hasErrors(): Boolean = hasErrors
+
+    /** Write the error message set to this [Reporter], if any errors have been detected. */
+    fun writeErrorMessage(writer: PrintWriter) {
+        if (hasErrors()) {
+            errorMessage ?. let { writer.write(it) }
+        }
     }
 
-    fun hasErrors(): Boolean = hasErrors
+    fun getBaselineDescription(): String {
+        val file = getBaseline()?.file
+        return if (file != null) {
+            "baseline ${file.path}"
+        } else {
+            "no baseline"
+        }
+    }
+
+    companion object {
+        /** root folder, which needs to be changed for unit tests. */
+        @VisibleForTesting
+        internal var rootFolder: File? = File("").absoluteFile
+
+        /** Injection point for unit tests. */
+        internal var reportPrinter: (String, Severity) -> Unit = { message, severity ->
+            val output = if (severity == ERROR) {
+                options.stderr
+            } else {
+                options.stdout
+            }
+            output.println()
+            output.print(message.trim())
+            output.flush()
+        }
+    }
 }

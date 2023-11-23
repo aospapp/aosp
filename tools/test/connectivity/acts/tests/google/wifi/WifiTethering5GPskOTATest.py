@@ -52,7 +52,7 @@ class WifiTethering5GPskOTATest(BaseTestClass):
         try:
           ota_updater.update(self.hotspot_device)
         except Exception as err:
-            raise signals.TestSkipClass(
+            raise signals.TestAbortClass(
                 "Failed up apply OTA update. Aborting tests")
 
     def on_fail(self, test_name, begin_time):

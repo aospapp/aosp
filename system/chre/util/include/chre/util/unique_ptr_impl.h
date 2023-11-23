@@ -28,48 +28,48 @@
 
 namespace chre {
 
-template<typename ObjectType>
+template <typename ObjectType>
 UniquePtr<ObjectType>::UniquePtr() : mObject(nullptr) {}
 
-template<typename ObjectType>
+template <typename ObjectType>
 UniquePtr<ObjectType>::UniquePtr(ObjectType *object) : mObject(object) {}
 
-template<typename ObjectType>
-UniquePtr<ObjectType>::UniquePtr(UniquePtr<ObjectType>&& other) {
+template <typename ObjectType>
+UniquePtr<ObjectType>::UniquePtr(UniquePtr<ObjectType> &&other) {
   mObject = other.mObject;
   other.mObject = nullptr;
 }
 
-template<typename ObjectType>
-template<typename OtherObjectType>
-UniquePtr<ObjectType>::UniquePtr(UniquePtr<OtherObjectType>&& other) {
+template <typename ObjectType>
+template <typename OtherObjectType>
+UniquePtr<ObjectType>::UniquePtr(UniquePtr<OtherObjectType> &&other) {
   mObject = other.mObject;
   other.mObject = nullptr;
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 UniquePtr<ObjectType>::~UniquePtr() {
   reset();
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 bool UniquePtr<ObjectType>::isNull() const {
   return (mObject == nullptr);
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 ObjectType *UniquePtr<ObjectType>::get() const {
   return mObject;
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 ObjectType *UniquePtr<ObjectType>::release() {
   ObjectType *obj = mObject;
   mObject = nullptr;
   return obj;
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 void UniquePtr<ObjectType>::reset(ObjectType *object) {
   CHRE_ASSERT(object == nullptr || mObject != object);
 
@@ -77,8 +77,8 @@ void UniquePtr<ObjectType>::reset(ObjectType *object) {
   mObject = object;
 }
 
-template<typename ObjectType>
-void UniquePtr<ObjectType>::reset()  {
+template <typename ObjectType>
+void UniquePtr<ObjectType>::reset() {
   if (mObject != nullptr) {
     mObject->~ObjectType();
     memoryFree(mObject);
@@ -86,49 +86,49 @@ void UniquePtr<ObjectType>::reset()  {
   }
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 ObjectType *UniquePtr<ObjectType>::operator->() const {
   return get();
 }
 
-template<typename ObjectType>
-ObjectType& UniquePtr<ObjectType>::operator*() const {
+template <typename ObjectType>
+ObjectType &UniquePtr<ObjectType>::operator*() const {
   return *get();
 }
 
-template<typename ObjectType>
-ObjectType& UniquePtr<ObjectType>::operator[](size_t index) const {
+template <typename ObjectType>
+ObjectType &UniquePtr<ObjectType>::operator[](size_t index) const {
   return get()[index];
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 bool UniquePtr<ObjectType>::operator==(
     const UniquePtr<ObjectType> &other) const {
   return mObject == other.get();
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 bool UniquePtr<ObjectType>::operator!=(
     const UniquePtr<ObjectType> &other) const {
   return !(*this == other);
 }
 
-template<typename ObjectType>
-UniquePtr<ObjectType>& UniquePtr<ObjectType>::operator=(
-    UniquePtr<ObjectType>&& other) {
+template <typename ObjectType>
+UniquePtr<ObjectType> &UniquePtr<ObjectType>::operator=(
+    UniquePtr<ObjectType> &&other) {
   reset();
   mObject = other.mObject;
   other.mObject = nullptr;
   return *this;
 }
 
-template<typename ObjectType, typename... Args>
-inline UniquePtr<ObjectType> MakeUnique(Args&&... args) {
-  return UniquePtr<ObjectType>(memoryAlloc<ObjectType>(
-      std::forward<Args>(args)...));
+template <typename ObjectType, typename... Args>
+inline UniquePtr<ObjectType> MakeUnique(Args &&... args) {
+  return UniquePtr<ObjectType>(
+      memoryAlloc<ObjectType>(std::forward<Args>(args)...));
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 inline UniquePtr<ObjectType> MakeUniqueZeroFill() {
   // For simplicity, we call memset *after* memoryAlloc<ObjectType>() - this is
   // only valid for types that have a trivial constructor. This utility function

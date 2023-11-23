@@ -20,6 +20,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+
 import java.net.InetAddress;
 
 /**

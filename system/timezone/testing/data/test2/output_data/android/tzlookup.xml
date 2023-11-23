@@ -40,7 +40,7 @@
    <id>Antarctica/Rothera</id>
    <id>Antarctica/Palmer</id>
   </country>
-  <country code="ar" default="America/Argentina/Buenos_Aires" everutc="n">
+  <country code="ar" default="America/Argentina/Buenos_Aires" defaultBoost="y" everutc="n">
    <id>America/Argentina/Buenos_Aires</id>
    <id notafter="687931200000">America/Argentina/Cordoba</id>
    <id notafter="1096171200000">America/Argentina/Salta</id>
@@ -159,34 +159,34 @@
   <country code="bz" default="America/Belize" everutc="n">
    <id>America/Belize</id>
   </country>
-  <country code="ca" default="America/St_Johns" everutc="n">
-   <id>America/St_Johns</id>
+  <country code="ca" default="America/Toronto" everutc="n">
+   <id>America/Toronto</id>
+   <id>America/Vancouver</id>
+   <id>America/Edmonton</id>
+   <id>America/Winnipeg</id>
    <id>America/Halifax</id>
+   <id>America/St_Johns</id>
    <id notafter="57733200000">America/Glace_Bay</id>
    <id notafter="1162098000000">America/Moncton</id>
    <id notafter="1299996000000">America/Goose_Bay</id>
    <id>America/Blanc-Sablon</id>
-   <id>America/Toronto</id>
    <id notafter="89186400000">America/Nipigon</id>
    <id notafter="120636000000">America/Thunder_Bay</id>
    <id notafter="972802800000">America/Iqaluit</id>
    <id notafter="796806000000">America/Pangnirtung</id>
    <id>America/Atikokan</id>
-   <id>America/Winnipeg</id>
    <id>America/Regina</id>
    <id notafter="1130659200000">America/Rankin_Inlet</id>
    <id notafter="986112000000">America/Rainy_River</id>
    <id notafter="73472400000">America/Swift_Current</id>
    <id notafter="1173600000000">America/Resolute</id>
-   <id>America/Edmonton</id>
    <id notafter="986115600000">America/Cambridge_Bay</id>
    <id notafter="309945600000">America/Yellowknife</id>
    <id notafter="294228000000">America/Inuvik</id>
-   <id>America/Dawson_Creek</id>
+   <id>America/Whitehorse</id>
+   <id notafter="1583661600000">America/Dawson_Creek</id>
    <id notafter="84013200000">America/Creston</id>
    <id notafter="1425808800000">America/Fort_Nelson</id>
-   <id>America/Vancouver</id>
-   <id notafter="309949200000">America/Whitehorse</id>
    <id notafter="120646800000">America/Dawson</id>
   </country>
   <country code="cc" default="Indian/Cocos" everutc="n">
@@ -219,7 +219,7 @@
   <country code="cm" default="Africa/Douala" everutc="n">
    <id>Africa/Douala</id>
   </country>
-  <country code="cn" default="Asia/Shanghai" everutc="n">
+  <country code="cn" default="Asia/Shanghai" defaultBoost="y" everutc="n">
    <id>Asia/Shanghai</id>
    <id>Asia/Urumqi</id>
   </country>
@@ -267,7 +267,7 @@
   <country code="dz" default="Africa/Algiers" everutc="n">
    <id>Africa/Algiers</id>
   </country>
-  <country code="ec" default="America/Guayaquil" everutc="n">
+  <country code="ec" default="America/Guayaquil" defaultBoost="y" everutc="n">
    <id>America/Guayaquil</id>
    <id>Pacific/Galapagos</id>
   </country>
@@ -335,10 +335,10 @@
   <country code="gi" default="Europe/Gibraltar" everutc="n">
    <id>Europe/Gibraltar</id>
   </country>
-  <country code="gl" default="America/Godthab" everutc="y">
+  <country code="gl" default="America/Nuuk" everutc="y">
    <id>America/Danmarkshavn</id>
    <id>America/Scoresbysund</id>
-   <id>America/Godthab</id>
+   <id>America/Nuuk</id>
    <id>America/Thule</id>
   </country>
   <country code="gm" default="Africa/Banjul" everutc="y">
@@ -621,7 +621,7 @@
   <country code="nu" default="Pacific/Niue" everutc="n">
    <id>Pacific/Niue</id>
   </country>
-  <country code="nz" default="Pacific/Auckland" everutc="n">
+  <country code="nz" default="Pacific/Auckland" defaultBoost="y" everutc="n">
    <id>Pacific/Auckland</id>
    <id>Pacific/Chatham</id>
   </country>

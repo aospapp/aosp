@@ -104,13 +104,13 @@ static int _network_loopback_server(bool ipv6, int port, int type, std::string* 
     socklen_t addrlen = sizeof(addr_storage);
     sockaddr* addr = (ipv6 ? loopback_addr6 : loopback_addr4)(&addr_storage, &addrlen, port);
 
-    if (bind(s, addr, addrlen) != 0) {
+    if (bind(s.get(), addr, addrlen) != 0) {
         set_error(error);
         return -1;
     }
 
     if (type == SOCK_STREAM || type == SOCK_SEQPACKET) {
-        if (listen(s, SOMAXCONN) != 0) {
+        if (listen(s.get(), SOMAXCONN) != 0) {
             set_error(error);
             return -1;
         }
@@ -119,12 +119,15 @@ static int _network_loopback_server(bool ipv6, int port, int type, std::string* 
     return s.release();
 }
 
-int network_loopback_server(int port, int type, std::string* error) {
-    int rc = _network_loopback_server(false, port, type, error);
+int network_loopback_server(int port, int type, std::string* error, bool prefer_ipv4) {
+    int rc = -1;
+    if (prefer_ipv4) {
+        rc = _network_loopback_server(false, port, type, error);
+    }
 
-    // Only attempt to listen on IPv6 if IPv4 is unavailable.
+    // Only attempt to listen on IPv6 if IPv4 is unavailable or prefer_ipv4 is false
     // We don't want to start an IPv6 server if there's already an IPv4 one running.
-    if (rc == -1 && (errno == EADDRNOTAVAIL || errno == EAFNOSUPPORT)) {
+    if (rc == -1 && (errno == EADDRNOTAVAIL || errno == EAFNOSUPPORT || !prefer_ipv4)) {
         return _network_loopback_server(true, port, type, error);
     }
     return rc;

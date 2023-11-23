@@ -689,8 +689,12 @@ public class DecimalFormatTest extends TestCase {
         format.setPositivePrefix("");
         assertEquals("", format.getPositivePrefix());
 
-        format.setPositivePrefix(null);
-        assertNull(format.getPositivePrefix());
+        try {
+            format.setPositivePrefix(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+        assertNotNull(format.getPositivePrefix());
     }
 
     public void test_setPositiveSuffix() throws Exception {
@@ -704,8 +708,12 @@ public class DecimalFormatTest extends TestCase {
         format.setPositiveSuffix("");
         assertEquals("", format.getPositiveSuffix());
 
-        format.setPositiveSuffix(null);
-        assertNull(format.getPositiveSuffix());
+        try {
+            format.setPositiveSuffix(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+        assertNotNull(format.getPositiveSuffix());
     }
 
     public void test_setNegativePrefix() throws Exception {
@@ -718,8 +726,12 @@ public class DecimalFormatTest extends TestCase {
         format.setNegativePrefix("");
         assertEquals("", format.getNegativePrefix());
 
-        format.setNegativePrefix(null);
-        assertNull(format.getNegativePrefix());
+        try {
+            format.setNegativePrefix(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+        assertNotNull(format.getNegativePrefix());
     }
 
     public void test_setNegativeSuffix() throws Exception {
@@ -733,8 +745,12 @@ public class DecimalFormatTest extends TestCase {
         format.setNegativeSuffix("");
         assertEquals("", format.getNegativeSuffix());
 
-        format.setNegativeSuffix(null);
-        assertNull(format.getNegativeSuffix());
+        try {
+            format.setNegativeSuffix(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+        assertNotNull(format.getNegativeSuffix());
     }
 
     public void test_setGroupingUsed() {
@@ -867,13 +883,18 @@ public class DecimalFormatTest extends TestCase {
         }
     }
 
+    /**
+     * Test the constructor and applyPattern with various format patterns and what toPattern()
+     * returns. These have changed on Android over time: we are not particularly opinionated about
+     * the output of toPattern() in invalid cases.
+     */
     public void test_applyPattern() {
         DecimalFormat format = new DecimalFormat("#.#");
-        assertEquals("Wrong pattern 1", "#0.#", format.toPattern());
+        assertEquals("Wrong pattern 1", "0.#", format.toPattern());
         format = new DecimalFormat("#.");
-        assertEquals("Wrong pattern 2", "#0.", format.toPattern());
+        assertEquals("Wrong pattern 2", "0.", format.toPattern());
         format = new DecimalFormat("#");
-        assertEquals("Wrong pattern 3", "#", format.toPattern());
+        assertEquals("Wrong pattern 3", "0", format.toPattern());
         format = new DecimalFormat(".#");
         assertEquals("Wrong pattern 4", "#.0", format.toPattern());
 
@@ -906,7 +927,10 @@ public class DecimalFormatTest extends TestCase {
         }
     }
 
-    // AndroidOnly: icu supports 2 grouping sizes
+    /**
+     * Test applyPattern() with different grouping sizes and what toPattern() returns.
+     * AndroidOnly: icu supports 2 grouping sizes
+     */
     public void test_applyPattern_icu2GroupingSizes() {
         DecimalFormat decFormat = new DecimalFormat("#.#");
         String[] patterns = {
@@ -917,12 +941,12 @@ public class DecimalFormatTest extends TestCase {
         };
 
         String[] expResult = {
-                "#0.##", "#0.######", "#000000.000000",
-                "#.000000", "#000000.######", " #0.###", "$#0.######",
-                "$$#0.######",
-                "%#,###,####", // icu only. icu supports two grouping sizes
+                "0.##", "0.######", "000000.000000",
+                "#.000000", "000000.######", " 0.###", "$0.######",
+                "$$0.######",
+                "%#,###,###0", // icu only. icu supports two grouping sizes
                 "#,##0.00;(#,##0.00)",
-                "#0.##-E"
+                "0.##-E"
                 // icu only. E in the suffix does not need to be quoted.
         };
 
@@ -940,11 +964,11 @@ public class DecimalFormatTest extends TestCase {
 
         // case 1: Try to apply correct variants of pattern.
         format.applyLocalizedPattern("#.#");
-        assertEquals("Wrong pattern 1", "#0.#", format.toLocalizedPattern());
+        assertEquals("Wrong pattern 1", "0.#", format.toLocalizedPattern());
         format.applyLocalizedPattern("#.");
-        assertEquals("Wrong pattern 2", "#0.", format.toLocalizedPattern());
+        assertEquals("Wrong pattern 2", "0.", format.toLocalizedPattern());
         format.applyLocalizedPattern("#");
-        assertEquals("Wrong pattern 3", "#", format.toLocalizedPattern());
+        assertEquals("Wrong pattern 3", "0", format.toLocalizedPattern());
         format.applyLocalizedPattern(".#");
         assertEquals("Wrong pattern 4", "#.0", format.toLocalizedPattern());
 
@@ -966,11 +990,11 @@ public class DecimalFormatTest extends TestCase {
     public void test_toPattern() {
         DecimalFormat format = new DecimalFormat();
         format.applyPattern("#.#");
-        assertEquals("Wrong pattern 1", "#0.#", format.toPattern());
+        assertEquals("Wrong pattern 1", "0.#", format.toPattern());
         format.applyPattern("#.");
-        assertEquals("Wrong pattern 2", "#0.", format.toPattern());
+        assertEquals("Wrong pattern 2", "0.", format.toPattern());
         format.applyPattern("#");
-        assertEquals("Wrong pattern 3", "#", format.toPattern());
+        assertEquals("Wrong pattern 3", "0", format.toPattern());
         format.applyPattern(".#");
         assertEquals("Wrong pattern 4", "#.0", format.toPattern());
     }
@@ -979,11 +1003,11 @@ public class DecimalFormatTest extends TestCase {
         DecimalFormat format = new DecimalFormat();
         format.setDecimalFormatSymbols(new DecimalFormatSymbols(Locale.US));
         format.applyLocalizedPattern("#.#");
-        assertEquals("Wrong pattern 1", "#0.#", format.toLocalizedPattern());
+        assertEquals("Wrong pattern 1", "0.#", format.toLocalizedPattern());
         format.applyLocalizedPattern("#.");
-        assertEquals("Wrong pattern 2", "#0.", format.toLocalizedPattern());
+        assertEquals("Wrong pattern 2", "0.", format.toLocalizedPattern());
         format.applyLocalizedPattern("#");
-        assertEquals("Wrong pattern 3", "#", format.toLocalizedPattern());
+        assertEquals("Wrong pattern 3", "0", format.toLocalizedPattern());
         format.applyLocalizedPattern(".#");
         assertEquals("Wrong pattern 4", "#.0", format.toLocalizedPattern());
     }
@@ -1136,12 +1160,12 @@ public class DecimalFormatTest extends TestCase {
         // Scientific notation => use significant digit logic
         // '@' not present: Significant digits: Min: 1,
         // Max: "min integer digits" (0) + "max fractional digits (1) == 1
-        formatTester.format(df, "0.0E0", 0.0);
-        formatTester.format(df, "1.0E0", 1.0);
-        formatTester.format(df, "1.0E1", 12.0);
-        formatTester.format(df, "1.0E2", 123.0);
-        formatTester.format(df, "1.0E3", 1234.0);
-        formatTester.format(df, "1.0E4", 9999.0);
+        formatTester.format(df, "0E0", 0.0);
+        formatTester.format(df, "1E0", 1.0);
+        formatTester.format(df, "1E1", 12.0);
+        formatTester.format(df, "1E2", 123.0);
+        formatTester.format(df, "1E3", 1234.0);
+        formatTester.format(df, "1E4", 9999.0);
 
         df = new DecimalFormat("0.E0", dfs);
         // ["0.E0",isDecimalSeparatorAlwaysShown=true,groupingSize=0,multiplier=1,negativePrefix=-,
@@ -1308,8 +1332,8 @@ public class DecimalFormatTest extends TestCase {
         // Because maximum integer digit count is set: The exponent must be a multiple of it (1).
         // Scientific notation => use significant digit logic
         // '@' not present: Significant digits: Min: 1,
-        // Max: "min integer digits" (0) + "max fractional digits (1) == 2
-        formatTester.format(df, "-0.0E0", -0.0);
+        // Max: "min integer digits" (0) + "max fractional digits (1) == 1
+        formatTester.format(df, "-0E0", -0.0);
 
         df = new DecimalFormat("0.#E0", dfs);
         // ["0.#E0",isDecimalSeparatorAlwaysShown=false,groupingSize=0,multiplier=1,
@@ -1425,12 +1449,12 @@ public class DecimalFormatTest extends TestCase {
         // Scientific notation => use significant digit logic
         // '@' not present: Significant digits: Min: 1,
         // Max: "min integer digits" (0) + "max fractional digits (1) == 1
-        formatTester.format(df, "0.0E0", 0);
-        formatTester.format(df, "1.0E0", 1);
-        formatTester.format(df, "1.0E1", 12);
-        formatTester.format(df, "1.0E2", 123);
-        formatTester.format(df, "1.0E3", 1234);
-        formatTester.format(df, "1.0E4", 9999);
+        formatTester.format(df, "0E0", 0);
+        formatTester.format(df, "1E0", 1);
+        formatTester.format(df, "1E1", 12);
+        formatTester.format(df, "1E2", 123);
+        formatTester.format(df, "1E3", 1234);
+        formatTester.format(df, "1E4", 9999);
 
         df = new DecimalFormat("0.#E0", dfs);
         // ["0.#E0",isDecimalSeparatorAlwaysShown=false,groupingSize=0,multiplier=1,

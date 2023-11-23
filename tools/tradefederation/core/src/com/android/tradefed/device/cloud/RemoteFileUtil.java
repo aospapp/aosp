@@ -25,6 +25,7 @@ import com.android.tradefed.util.IRunUtil;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 /** Utility class to handle file from a remote instance */
@@ -39,7 +40,7 @@ public class RemoteFileUtil {
      * @param runUtil a {@link IRunUtil} to execute commands.
      * @param timeout in millisecond for the fetch to complete
      * @param remoteFilePath The remote path where to find the file.
-     * @return True if successful, False otherwise
+     * @return The pulled filed if successful, null otherwise
      */
     public static File fetchRemoteFile(
             GceAvdInfo remoteInstance,
@@ -52,7 +53,7 @@ public class RemoteFileUtil {
         try {
             localFile =
                     FileUtil.createTempFile(
-                            FileUtil.getBaseName(fileName), FileUtil.getExtension(fileName));
+                            FileUtil.getBaseName(fileName) + "_", FileUtil.getExtension(fileName));
             if (fetchRemoteFile(
                     remoteInstance, options, runUtil, timeout, remoteFilePath, localFile)) {
                 return localFile;
@@ -92,6 +93,75 @@ public class RemoteFileUtil {
                 remoteFilePath,
                 localFile,
                 ScpMode.PULL);
+    }
+
+    /**
+     * Fetch a remote directory from the remote host.
+     *
+     * @param remoteInstance The {@link GceAvdInfo} that describe the device.
+     * @param options a {@link TestDeviceOptions} describing the device options to be used for the
+     *     GCE device.
+     * @param runUtil a {@link IRunUtil} to execute commands.
+     * @param timeout in millisecond for the fetch to complete
+     * @param remoteDirPath The remote path where to find the directory.
+     * @param localDir The local directory where to put the pulled files.
+     * @return True if successful, False otherwise
+     */
+    public static boolean fetchRemoteDir(
+            GceAvdInfo remoteInstance,
+            TestDeviceOptions options,
+            IRunUtil runUtil,
+            long timeout,
+            String remoteDirPath,
+            File localDir) {
+        return internalScpExec(
+                remoteInstance,
+                options,
+                Arrays.asList("-r"),
+                runUtil,
+                timeout,
+                remoteDirPath,
+                localDir,
+                ScpMode.PULL);
+    }
+
+    /**
+     * Fetch a remote directory from the remote host.
+     *
+     * @param remoteInstance The {@link GceAvdInfo} that describe the device.
+     * @param options a {@link TestDeviceOptions} describing the device options to be used for the
+     *     GCE device.
+     * @param runUtil a {@link IRunUtil} to execute commands.
+     * @param timeout in millisecond for the fetch to complete
+     * @param remoteDirPath The remote path where to find the directory.
+     * @return The pulled directory {@link File} if successful, null otherwise
+     */
+    public static File fetchRemoteDir(
+            GceAvdInfo remoteInstance,
+            TestDeviceOptions options,
+            IRunUtil runUtil,
+            long timeout,
+            String remoteDirPath) {
+        String dirName = new File(remoteDirPath).getName();
+        File localFile = null;
+        try {
+            localFile = FileUtil.createTempDir(dirName);
+            if (internalScpExec(
+                    remoteInstance,
+                    options,
+                    Arrays.asList("-r"),
+                    runUtil,
+                    timeout,
+                    remoteDirPath,
+                    localFile,
+                    ScpMode.PULL)) {
+                return localFile;
+            }
+        } catch (IOException e) {
+            CLog.e(e);
+        }
+        FileUtil.deleteFile(localFile);
+        return null;
     }
 
     /**
@@ -140,7 +210,7 @@ public class RemoteFileUtil {
                         options.getSshPrivateKeyPath(),
                         scpArgs,
                         options.getInstanceUser(),
-                        remoteInstance.hostAndPort().getHostText(),
+                        remoteInstance.hostAndPort().getHost(),
                         remoteFilePath,
                         localFile.getAbsolutePath(),
                         mode);

@@ -26,8 +26,8 @@ from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
 class ThreeButtonDongleTest(BluetoothBaseTest):
     iterations = 10
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.dut = self.android_devices[0]
         self.dongle = self.relay_devices[0]
         self.log.info("Target dongle is {}".format(self.dongle.name))

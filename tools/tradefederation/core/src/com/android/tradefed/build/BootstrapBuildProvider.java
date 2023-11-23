@@ -16,12 +16,19 @@
 
 package com.android.tradefed.build;
 
+import com.android.annotations.VisibleForTesting;
+import com.android.tradefed.build.IBuildInfo.BuildInfoProperties;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.StubDevice;
-import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.invoker.ExecutionFiles;
+import com.android.tradefed.invoker.ExecutionFiles.FilesKey;
+import com.android.tradefed.invoker.logger.CurrentInvocation;
+import com.android.tradefed.invoker.logger.CurrentInvocation.InvocationInfo;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
+import com.android.tradefed.util.BuildInfoUtil;
 import com.android.tradefed.util.FileUtil;
 
 import java.io.File;
@@ -73,36 +80,20 @@ public class BootstrapBuildProvider implements IDeviceBuildProvider {
     @Option(name="tests-dir", description="Path to top directory of expanded tests zip")
     private File mTestsDir = null;
 
-    private boolean mCreatedTestDir = false;
-
     @Override
     public IBuildInfo getBuild() throws BuildRetrievalError {
         throw new UnsupportedOperationException("Call getBuild(ITestDevice)");
     }
 
     @Override
-    public void buildNotTested(IBuildInfo info) {
-        // no op
-        CLog.i("ignoring buildNotTested call, build = %s ", info.getBuildId());
-    }
-
-    @Override
     public void cleanUp(IBuildInfo info) {
-        // If we created the tests dir, we delete it.
-        if (mCreatedTestDir) {
-            FileUtil.recursiveDelete(((IDeviceBuildInfo) info).getTestsDir());
-        }
     }
 
     @Override
     public IBuildInfo getBuild(ITestDevice device) throws BuildRetrievalError,
             DeviceNotAvailableException {
-        String buildId = mBuildId;
-        // If mBuildId is set, do not use the device build-id
-        if (buildId == null) {
-            buildId = device.getBuildId();
-        }
-        IBuildInfo info = new DeviceBuildInfo(buildId, mBuildTargetName);
+        IBuildInfo info = new DeviceBuildInfo(mBuildId, mBuildTargetName);
+        info.setProperties(BuildInfoProperties.DO_NOT_COPY_ON_SHARDING);
         if (!(device.getIDevice() instanceof StubDevice)) {
             if (!device.waitForDeviceShell(mShellAvailableTimeout * 1000)) {
                 throw new DeviceNotAvailableException(
@@ -111,35 +102,51 @@ public class BootstrapBuildProvider implements IDeviceBuildProvider {
                                 mShellAvailableTimeout),
                         device.getSerialNumber());
             }
-            if (mBranch == null) {
-                mBranch =
-                        String.format(
-                                "%s-%s-%s-%s",
-                                device.getProperty("ro.product.brand"),
-                                device.getProperty("ro.product.name"),
-                                device.getProductVariant(),
-                                device.getProperty("ro.build.version.release"));
-            }
         } else {
             // In order to avoid issue with a null branch, use a placeholder stub for StubDevice.
             mBranch = "stub";
         }
-        info.setBuildBranch(mBranch);
-        info.setBuildFlavor(device.getBuildFlavor());
-        info.addBuildAttribute("build_alias", device.getBuildAlias());
+        BuildInfoUtil.bootstrapDeviceBuildAttributes(
+                info,
+                device,
+                mBuildId,
+                null /* override build flavor */,
+                mBranch,
+                null /* override build alias */);
         if (mTestsDir != null && mTestsDir.isDirectory()) {
-            info.setFile("testsdir", mTestsDir, buildId);
+            info.setFile("testsdir", mTestsDir, info.getBuildId());
         }
         // Avoid tests dir being null, by creating a temporary dir.
+        boolean createdTestDir = false;
         if (mTestsDir == null) {
-            mCreatedTestDir = true;
+            createdTestDir = true;
             try {
-                mTestsDir = FileUtil.createTempDir("bootstrap-test-dir");
+                mTestsDir =
+                        FileUtil.createTempDir(
+                                "bootstrap-test-dir",
+                                CurrentInvocation.getInfo(InvocationInfo.WORK_FOLDER));
             } catch (IOException e) {
-                throw new BuildRetrievalError(e.getMessage(), e);
+                throw new BuildRetrievalError(
+                        e.getMessage(), e, InfraErrorIdentifier.FAIL_TO_CREATE_FILE);
             }
             ((IDeviceBuildInfo) info).setTestsDir(mTestsDir, "1");
         }
+        if (getInvocationFiles() != null) {
+            getInvocationFiles()
+                    .put(
+                            FilesKey.TESTS_DIRECTORY,
+                            mTestsDir,
+                            !createdTestDir /* shouldNotDelete */);
+        }
         return info;
+    }
+
+    @VisibleForTesting
+    ExecutionFiles getInvocationFiles() {
+        return CurrentInvocation.getInvocationFiles();
+    }
+
+    public final File getTestsDir() {
+        return mTestsDir;
     }
 }

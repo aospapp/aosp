@@ -35,12 +35,12 @@ import java.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class MessageHeader {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public MessageHeader() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public MessageHeader(java.io.InputStream is) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -53,7 +53,7 @@ public class MessageHeader {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public synchronized java.lang.String findValue(java.lang.String k) {
         throw new RuntimeException("Stub!");
     }
@@ -99,17 +99,17 @@ public class MessageHeader {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public synchronized void print(java.io.PrintStream p) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public synchronized void add(java.lang.String k, java.lang.String v) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public synchronized void prepend(java.lang.String k, java.lang.String v) {
         throw new RuntimeException("Stub!");
     }
@@ -126,7 +126,7 @@ public class MessageHeader {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public synchronized void set(java.lang.String k, java.lang.String v) {
         throw new RuntimeException("Stub!");
     }

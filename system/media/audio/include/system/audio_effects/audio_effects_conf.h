@@ -66,5 +66,6 @@
 #define AUDIO_STREAM_ENFORCED_AUDIBLE_TAG "enforced_audible"
 #define AUDIO_STREAM_DTMF_TAG "dtmf"
 #define AUDIO_STREAM_TTS_TAG "tts"
+#define AUDIO_STREAM_ASSISTANT_TAG "assistant"
 
 #endif  // ANDROID_AUDIO_EFFECTS_CONF_H

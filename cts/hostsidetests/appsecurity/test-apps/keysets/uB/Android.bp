@@ -13,7 +13,7 @@
 // limitations under the License.
 
 //apks signed cts-keyset-test-a
-android_test {
+android_test_helper_app {
     name: "CtsKeySetSigningAUpgradeB",
     defaults: ["cts_support_defaults"],
     sdk_version: "current",
@@ -25,13 +25,13 @@ android_test {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }
 
 //apks signed cts-keyset-test-b
-android_test {
+android_test_helper_app {
     name: "CtsKeySetSigningBUpgradeB",
     defaults: ["cts_support_defaults"],
     sdk_version: "current",
@@ -43,13 +43,13 @@ android_test {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }
 
 //apks signed by cts-keyset-test-a and cts-keyset-test-c
-android_test {
+android_test_helper_app {
     name: "CtsKeySetSigningAAndCUpgradeB",
     defaults: ["cts_support_defaults"],
     sdk_version: "current",
@@ -62,7 +62,7 @@ android_test {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }

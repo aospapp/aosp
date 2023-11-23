@@ -27,7 +27,10 @@
 
 namespace art {
 
+class ArtMethod;
+class ArtField;
 class JavaVMExt;
+class ScopedObjectAccessAlreadyRunnable;
 
 namespace mirror {
 class Object;
@@ -107,7 +110,8 @@ class JNIEnvExt : public JNIEnv {
   }
   JavaVMExt* GetVm() const { return vm_; }
 
-  bool IsRuntimeDeleted() const { return runtime_deleted_; }
+  void SetRuntimeDeleted() { runtime_deleted_.store(true, std::memory_order_relaxed); }
+  bool IsRuntimeDeleted() const { return runtime_deleted_.load(std::memory_order_relaxed); }
   bool IsCheckJniEnabled() const { return check_jni_; }
 
 
@@ -131,6 +135,9 @@ class JNIEnvExt : public JNIEnv {
   // Set the functions to the runtime shutdown functions.
   void SetFunctionsToRuntimeShutdownFunctions();
 
+  // Set the functions to the new JNI functions based on Runtime::GetJniIdType.
+  void UpdateJniFunctionsPointer();
+
   // Set the function table override. This will install the override (or original table, if null)
   // to all threads.
   // Note: JNI function table overrides are sensitive to the order of operations wrt/ CheckJNI.
@@ -142,6 +149,9 @@ class JNIEnvExt : public JNIEnv {
   // if it is not null.
   static const JNINativeInterface* GetFunctionTable(bool check_jni)
       REQUIRES(Locks::jni_function_table_lock_);
+
+  static void ResetFunctionTable()
+      REQUIRES(!Locks::thread_list_lock_, !Locks::jni_function_table_lock_);
 
  private:
   // Checking "locals" requires the mutator lock, but at creation time we're
@@ -179,7 +189,7 @@ class JNIEnvExt : public JNIEnv {
   ReferenceTable monitors_;
 
   // Used by -Xcheck:jni.
-  const JNINativeInterface* unchecked_functions_;
+  JNINativeInterface const* unchecked_functions_;
 
   // All locked objects, with the (Java caller) stack frame that locked them. Used in CheckJNI
   // to ensure that only monitors locked in this native frame are being unlocked, and that at
@@ -197,11 +207,12 @@ class JNIEnvExt : public JNIEnv {
   bool check_jni_;
 
   // If we are a JNI env for a daemon thread with a deleted runtime.
-  bool runtime_deleted_;
+  std::atomic<bool> runtime_deleted_;
 
-  friend class JNI;
+  template<bool kEnableIndexIds> friend class JNI;
   friend class ScopedJniEnvLocalRefState;
   friend class Thread;
+  friend void ThreadResetFunctionTable(Thread* thread, void* arg);
   ART_FRIEND_TEST(JniInternalTest, JNIEnvExtOffsets);
 };
 

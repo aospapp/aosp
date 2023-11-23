@@ -26,7 +26,7 @@
 
 package java.util.jar;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class JarFile extends java.util.zip.ZipFile {

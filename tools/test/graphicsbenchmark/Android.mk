@@ -16,9 +16,9 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
-gamecore_dist_host_jar := GameQualificationHelperHost GameQualificationHostTestCases GameQualificationPerformanceTest truth-prebuilt
-gamecore_dist_test_exe := GameQualificationNativeTestCases
-gamecore_dist_test_apk := GameQualificationDevice GameQualificationSampleApp GameQualificationJavaTestCases GameQualificationAllocstress
+gamecore_dist_host_jar := GameCoreHelperHost GameCoreHostTestCases GameCorePerformanceTest truth-prebuilt
+gamecore_dist_test_exe := GameCoreNativeTestCases
+gamecore_dist_test_apk := GameCoreDevice GameCoreSampleApp GameCoreJavaTestCases GameCoreAllocStress
 
 tradefed_jars := tradefed tools-common-prebuilt
 tradefed_files := \
@@ -68,7 +68,7 @@ $(gamecore_dist_zip) : $(SOONG_ZIP) $(foreach p,$(gamecore_dist_copy_pairs),$(ca
 gamecore: $(gamecore_dist_host_jar) $(gamecore_dist_test_apk)
 
 .PHONY: gamecore-test
-gamecore-test: GameQualificationPerformanceTestTest GameQualificationHelperTest
+gamecore-test: GameCorePerformanceTestTest GameCoreHelperTest
 
 .PHONY: gamecore-all
 gamecore-all: gamecore gamecore-test

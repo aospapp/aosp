@@ -17,12 +17,12 @@
 package android.server.wm;
 
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static android.server.wm.UiDeviceUtils.pressHomeButton;
+import static android.server.wm.ActivityManagerTestBase.launchHomeActivityNoWait;
 import static android.server.wm.UiDeviceUtils.pressUnlockButton;
 import static android.server.wm.UiDeviceUtils.pressWakeupButton;
 import static android.view.Display.DEFAULT_DISPLAY;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
 
@@ -31,33 +31,46 @@ import android.app.ActivityOptions;
 import android.content.Intent;
 import android.os.Bundle;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import org.junit.Before;
+
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.annotation.concurrent.GuardedBy;
 
-public class WindowManagerTestBase {
+public class WindowManagerTestBase extends MultiDisplayTestBase {
     static final long TIMEOUT_WINDOW_FOCUS_CHANGED = 1000; // milliseconds
 
     @Before
     public void setupBase() {
         pressWakeupButton();
         pressUnlockButton();
-        pressHomeButton();
+        launchHomeActivityNoWait();
     }
 
-    static <T extends FocusableActivity> T startActivity(Class<T> cls) throws InterruptedException {
+    static <T extends FocusableActivity> T startActivity(Class<T> cls) {
         return startActivity(cls, DEFAULT_DISPLAY);
     }
 
-    static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId)
-            throws InterruptedException {
+    static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId,
+            boolean hasFocus) {
         final Bundle options = (displayId == DEFAULT_DISPLAY
                 ? null : ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle());
-        final T activity = (T) getInstrumentation().startActivitySync(
-                new Intent(getInstrumentation().getTargetContext(), cls)
-                        .addFlags(FLAG_ACTIVITY_NEW_TASK), options);
-        activity.waitAndAssertWindowFocusState(true /* hasFocus */);
-        return activity;
+        final T[] activity = (T[]) Array.newInstance(FocusableActivity.class, 1);
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            activity[0] = (T) getInstrumentation().startActivitySync(
+                    new Intent(getInstrumentation().getTargetContext(), cls)
+                            .addFlags(FLAG_ACTIVITY_NEW_TASK), options);
+            activity[0].waitAndAssertWindowFocusState(hasFocus);
+        });
+        return activity[0];
+    }
+
+    static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId) {
+      return startActivity(cls, displayId, true /* hasFocus */);
     }
 
     static class FocusableActivity extends Activity {
@@ -85,10 +98,13 @@ public class WindowManagerTestBase {
             }
         }
 
-        void waitAndAssertWindowFocusState(boolean hasFocus) throws InterruptedException {
+        void waitAndAssertWindowFocusState(boolean hasFocus) {
             synchronized (mLockWindowFocus) {
                 if (mHasWindowFocus != hasFocus) {
-                    mLockWindowFocus.wait(TIMEOUT_WINDOW_FOCUS_CHANGED);
+                    try {
+                        mLockWindowFocus.wait(TIMEOUT_WINDOW_FOCUS_CHANGED);
+                    } catch (InterruptedException e) {
+                    }
                 }
             }
             assertWindowFocusState(hasFocus);

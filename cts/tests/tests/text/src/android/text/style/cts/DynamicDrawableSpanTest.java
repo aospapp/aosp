@@ -100,25 +100,26 @@ public class DynamicDrawableSpanTest {
         final DynamicDrawableSpan dynamicDrawableSpan =
                 new MyDynamicDrawableSpan(DynamicDrawableSpan.ALIGN_CENTER);
         final int padding = 10;
-        final int bottom = DRAWABLE_SIZE + padding;
+        final int top = 10;
+        final int bottom = top + DRAWABLE_SIZE + padding;
 
         final Bitmap bitmap = Bitmap.createBitmap(DRAWABLE_SIZE, bottom, Bitmap.Config.ARGB_8888);
         final Canvas canvas = new Canvas(bitmap);
         canvas.drawColor(Color.RED);
         dynamicDrawableSpan.draw(canvas, null /* text */, 0 /* start */, 0 /* end */, 0f /* x */,
-                0 /* top */, 0 /* y */, bottom, null /* paint */);
+                top, 0 /* y */, bottom, null /* paint */);
 
         // Top should be completely red.
-        for (int i = 0; i < padding / 2; i++) {
+        for (int i = 0; i < top + padding / 2; i++) {
             assertThat(bitmap.getColor(0, i).toArgb()).isEqualTo(Color.RED);
         }
         // Center should have been filled with drawable.
         for (int i = 0; i < DRAWABLE_SIZE; i++) {
-            assertThat(bitmap.getColor(0, i + padding / 2).toArgb()).isNotEqualTo(Color.RED);
+            assertThat(bitmap.getColor(0, top + i + padding / 2).toArgb()).isNotEqualTo(Color.RED);
         }
         // Bottom should be also red.
         for (int i = 0; i < padding / 2; i++) {
-            assertThat(bitmap.getColor(0, i + DRAWABLE_SIZE + padding / 2).toArgb())
+            assertThat(bitmap.getColor(0, top + i + DRAWABLE_SIZE + padding / 2).toArgb())
                     .isEqualTo(Color.RED);
         }
         bitmap.recycle();

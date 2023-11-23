@@ -41,6 +41,9 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
+
+import java.lang.ref.WeakReference;
 
 /**
  * Activity that registers broadcast receiver .
@@ -48,15 +51,20 @@ import android.view.Window;
 public class BroadcastReceiverActivity extends Activity {
     private static final String TAG = BroadcastReceiverActivity.class.getSimpleName();
 
-    private TestBroadcastReceiver mBroadcastReceiver = new TestBroadcastReceiver();
+    private TestBroadcastReceiver mBroadcastReceiver;
 
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
-        IntentFilter broadcastFilter = new IntentFilter(ACTION_TRIGGER_BROADCAST);
-
-        registerReceiver(mBroadcastReceiver, broadcastFilter);
+        final Object receiver = getLastNonConfigurationInstance();
+        if (receiver instanceof TestBroadcastReceiver) {
+            mBroadcastReceiver = (TestBroadcastReceiver) receiver;
+            mBroadcastReceiver.associate(this);
+        } else {
+            mBroadcastReceiver = new TestBroadcastReceiver(this);
+            mBroadcastReceiver.register();
+        }
 
         // Determine if a display cutout is present
         final View view = new View(this);
@@ -66,51 +74,91 @@ public class BroadcastReceiverActivity extends Activity {
         view.setLayoutParams(new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
         view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-        view.setOnApplyWindowInsetsListener((v, insets) -> {
-            final boolean cutoutExists = (insets.getDisplayCutout() != null);
-            Log.i(TAG, "cutout=" + cutoutExists);
-            TestJournalProvider.putExtras(BroadcastReceiverActivity.this,
-                    bundle -> bundle.putBoolean(EXTRA_CUTOUT_EXISTS, cutoutExists));
-            return insets;
-        });
         setContentView(view);
+
+        WindowInsets insets = getWindowManager().getCurrentWindowMetrics().getWindowInsets();
+        final boolean cutoutExists = (insets.getDisplayCutout() != null);
+        Log.i(TAG, "cutout=" + cutoutExists);
+        TestJournalProvider.putExtras(BroadcastReceiverActivity.this,
+                bundle -> bundle.putBoolean(EXTRA_CUTOUT_EXISTS, cutoutExists));
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-        unregisterReceiver(mBroadcastReceiver);
+        mBroadcastReceiver.destroy();
     }
 
-    public class TestBroadcastReceiver extends BroadcastReceiver {
+    @Override
+    public Object onRetainNonConfigurationInstance() {
+        return mBroadcastReceiver;
+    }
+
+    /**
+     * The receiver to perform action on the associated activity. If a broadcast intent is received
+     * while the activity is relaunching, it will be handled after the activity is recreated.
+     */
+    private static class TestBroadcastReceiver extends BroadcastReceiver {
+        final Context mAppContext;
+        WeakReference<Activity> mRef;
+
+        TestBroadcastReceiver(Activity activity) {
+            mAppContext = activity.getApplicationContext();
+            associate(activity);
+        }
+
+        void register() {
+            mAppContext.registerReceiver(this, new IntentFilter(ACTION_TRIGGER_BROADCAST));
+        }
+
+        void associate(Activity activity) {
+            mRef = new WeakReference<>(activity);
+        }
+
+        void destroy() {
+            final Activity activity = mRef != null ? mRef.get() : null;
+            if (activity != null && activity.isChangingConfigurations()) {
+                // The activity is destroyed for configuration change. Because it will be recreated
+                // immediately the receiver only needs to associate to the new instance.
+                return;
+            }
+            // The case of real finish.
+            mAppContext.unregisterReceiver(this);
+        }
+
         @Override
         public void onReceive(Context context, Intent intent) {
             final Bundle extras = intent.getExtras();
-            Log.i(TAG, "onReceive: extras=" + extras);
-
             if (extras == null) {
                 return;
             }
+            // Trigger unparcel so the log can show the content of extras.
+            extras.size();
+            Log.i(TAG, "onReceive: extras=" + extras);
+
+            final Activity activity = mRef.get();
+            if (activity == null) {
+                return;
+            }
+
             if (extras.getBoolean(EXTRA_FINISH_BROADCAST)) {
-                finish();
+                activity.finish();
             }
             if (extras.getBoolean(EXTRA_MOVE_BROADCAST_TO_BACK)) {
-                moveTaskToBack(true);
+                activity.moveTaskToBack(true);
             }
             if (extras.containsKey(EXTRA_BROADCAST_ORIENTATION)) {
-                setRequestedOrientation(extras.getInt(EXTRA_BROADCAST_ORIENTATION));
+                activity.setRequestedOrientation(extras.getInt(EXTRA_BROADCAST_ORIENTATION));
             }
             if (extras.getBoolean(EXTRA_DISMISS_KEYGUARD)) {
-                getWindow().addFlags(FLAG_DISMISS_KEYGUARD);
+                activity.getWindow().addFlags(FLAG_DISMISS_KEYGUARD);
             }
             if (extras.getBoolean(EXTRA_DISMISS_KEYGUARD_METHOD)) {
-                getSystemService(KeyguardManager.class).requestDismissKeyguard(
-                        BroadcastReceiverActivity.this,
+                activity.getSystemService(KeyguardManager.class).requestDismissKeyguard(activity,
                         new KeyguardDismissLoggerCallback(context, BROADCAST_RECEIVER_ACTIVITY));
             }
 
-            ActivityLauncher.launchActivityFromExtras(BroadcastReceiverActivity.this, extras);
+            ActivityLauncher.launchActivityFromExtras(activity, extras);
         }
     }
 }

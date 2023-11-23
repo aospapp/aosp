@@ -185,10 +185,10 @@ public abstract class BaseCalendar extends sun.util.calendar.AbstractCalendar {
             throw new RuntimeException("Stub!");
         }
 
-        @dalvik.annotation.compat.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage
         public abstract int getNormalizedYear();
 
-        @dalvik.annotation.compat.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage
         public abstract void setNormalizedYear(int normalizedYear);
 
         protected final boolean hit(int year) {

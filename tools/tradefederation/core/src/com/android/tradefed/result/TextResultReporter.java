@@ -44,14 +44,12 @@ public class TextResultReporter extends InvocationToJUnitResultForwarder
      */
     @Override
     public void testFailed(TestDescription testId, String trace) {
-        ResultPrinter printer = (ResultPrinter)getJUnitListener();
-        printer.getWriter().format("\nTest %s: failed \n stack: %s ", testId, trace);
+        super.testFailed(testId, trace);
     }
 
     @Override
     public void testAssumptionFailure(TestDescription testId, String trace) {
-        ResultPrinter printer = (ResultPrinter)getJUnitListener();
-        printer.getWriter().format("\nTest %s: assumption failed \n stack: %s ", testId, trace);
+        super.testAssumptionFailure(testId, trace);
     }
 
     /** Overrides parent to explicitly print out test metrics. */

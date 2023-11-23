@@ -16,6 +16,10 @@
 
 package android.server.wm;
 
+import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
+import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -34,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import android.app.Instrumentation;
 import android.app.Presentation;
 import android.content.Context;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.graphics.Color;
@@ -47,6 +52,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.platform.test.annotations.Presubmit;
 import android.server.wm.cts.R;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -85,6 +91,7 @@ import org.junit.runner.RunWith;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+@Presubmit
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class WindowTest {
@@ -413,9 +420,9 @@ public class WindowTest {
     public void testSetBackgroundDrawable() throws Throwable {
         // DecorView holds the background
         View decor = mWindow.getDecorView();
-        if (!mWindow.hasFeature(Window.FEATURE_SWIPE_TO_DISMISS)) {
-            assertEquals(PixelFormat.OPAQUE, decor.getBackground().getOpacity());
-        }
+
+        assertEquals(PixelFormat.OPAQUE, decor.getBackground().getOpacity());
+
         // setBackgroundDrawableResource(int resId) has the same
         // functionality with setBackgroundDrawable(Drawable drawable), just different in
         // parameter.
@@ -633,6 +640,62 @@ public class WindowTest {
         WindowManager.LayoutParams attrs = mWindow.getAttributes();
         assertEquals(R.anim.alpha, attrs.windowAnimations);
         verify(mWindowCallback, times(1)).onWindowAttributesChanged(attrs);
+    }
+
+    @Test
+    public void testSetFitsContentForInsets_false() throws Throwable {
+        mActivityRule.runOnUiThread(() -> mWindow.setDecorFitsSystemWindows(false));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(mActivity.getContentView().getRootWindowInsets().getSystemWindowInsets(),
+                mActivity.getLastInsets().getSystemWindowInsets());
+    }
+
+    @Test
+    public void testSetFitsContentForInsets_defaultLegacy_sysuiFlags()
+            throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            mWindow.getDecorView().setSystemUiVisibility(SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+            mWindow.getDecorView().setSystemUiVisibility(SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        });
+        mInstrumentation.waitForIdleSync();
+        assertEquals(mActivity.getContentView().getRootWindowInsets().getSystemWindowInsets(),
+                mActivity.getLastInsets().getSystemWindowInsets());
+    }
+
+    @Test
+    public void testSetFitsContentForInsets_displayCutoutInsets_areApplied()
+            throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+            mWindow.setDecorFitsSystemWindows(true);
+            WindowManager.LayoutParams attrs = mWindow.getAttributes();
+            attrs.layoutInDisplayCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+            mWindow.setAttributes(attrs);
+        });
+        mInstrumentation.waitForIdleSync();
+        assertEquals(mActivity.getContentView().getRootWindowInsets().getSystemWindowInsets(),
+                mActivity.getAppliedInsets());
+    }
+
+    @Test
+    public void testSetFitsContentForInsets_defaultLegacy_none()
+            throws Throwable {
+        mInstrumentation.waitForIdleSync();
+
+        // We don't expect that we even got called.
+        assertNull(mActivity.getLastInsets());
+    }
+
+    @Test
+    public void testSetFitsContentForInsets_true()
+            throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            mWindow.setDecorFitsSystemWindows(true);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // We don't expect that we even got called.
+        assertNull(mActivity.getLastInsets());
     }
 
     /**

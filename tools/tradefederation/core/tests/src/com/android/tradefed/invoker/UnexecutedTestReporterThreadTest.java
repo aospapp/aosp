@@ -76,7 +76,8 @@ public class UnexecutedTestReporterThreadTest {
 
     class TestReport implements IRemoteTest, IReportNotExecuted {
         @Override
-        public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {}
+        public void run(TestInformation testInfo, ITestInvocationListener listener)
+                throws DeviceNotAvailableException {}
 
         @Override
         public void reportNotExecuted(ITestInvocationListener listener) {

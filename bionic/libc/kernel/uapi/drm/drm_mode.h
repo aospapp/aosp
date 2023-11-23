@@ -22,7 +22,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#define DRM_DISPLAY_INFO_LEN 32
 #define DRM_CONNECTOR_NAME_LEN 32
 #define DRM_DISPLAY_MODE_LEN 32
 #define DRM_PROP_NAME_LEN 32
@@ -74,7 +73,12 @@ extern "C" {
 #define DRM_MODE_FLAG_PIC_AR_16_9 (DRM_MODE_PICTURE_ASPECT_16_9 << 19)
 #define DRM_MODE_FLAG_PIC_AR_64_27 (DRM_MODE_PICTURE_ASPECT_64_27 << 19)
 #define DRM_MODE_FLAG_PIC_AR_256_135 (DRM_MODE_PICTURE_ASPECT_256_135 << 19)
-#define DRM_MODE_FLAG_ALL (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_PVSYNC | DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN | DRM_MODE_FLAG_CSYNC | DRM_MODE_FLAG_PCSYNC | DRM_MODE_FLAG_NCSYNC | DRM_MODE_FLAG_HSKEW | DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_CLKDIV2 | DRM_MODE_FLAG_3D_MASK)
+#define DRM_MODE_FLAG_SUPPORTS_RGB (1 << 27)
+#define DRM_MODE_FLAG_SUPPORTS_YUV (1 << 28)
+#define DRM_MODE_FLAG_VID_MODE_PANEL (1 << 29)
+#define DRM_MODE_FLAG_CMD_MODE_PANEL (1 << 30)
+#define DRM_MODE_FLAG_SEAMLESS (1 << 31)
+#define DRM_MODE_FLAG_ALL (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_PVSYNC | DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN | DRM_MODE_FLAG_CSYNC | DRM_MODE_FLAG_PCSYNC | DRM_MODE_FLAG_NCSYNC | DRM_MODE_FLAG_HSKEW | DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_CLKDIV2 | DRM_MODE_FLAG_SUPPORTS_RGB | DRM_MODE_FLAG_SUPPORTS_YUV | DRM_MODE_FLAG_VID_MODE_PANEL | DRM_MODE_FLAG_CMD_MODE_PANEL | DRM_MODE_FLAG_3D_MASK)
 #define DRM_MODE_DPMS_ON 0
 #define DRM_MODE_DPMS_STANDBY 1
 #define DRM_MODE_DPMS_SUSPEND 2
@@ -218,6 +222,7 @@ enum drm_mode_subconnector {
 #define DRM_MODE_CONNECTOR_DSI 16
 #define DRM_MODE_CONNECTOR_DPI 17
 #define DRM_MODE_CONNECTOR_WRITEBACK 18
+#define DRM_MODE_CONNECTOR_SPI 19
 struct drm_mode_get_connector {
   __u64 encoders_ptr;
   __u64 modes_ptr;
@@ -304,6 +309,7 @@ struct drm_mode_fb_cmd {
 };
 #define DRM_MODE_FB_INTERLACED (1 << 0)
 #define DRM_MODE_FB_MODIFIERS (1 << 1)
+#define DRM_MODE_FB_SECURE (1 << 2)
 struct drm_mode_fb_cmd2 {
   __u32 fb_id;
   __u32 width;
@@ -368,6 +374,26 @@ struct drm_color_lut {
   __u16 green;
   __u16 blue;
   __u16 reserved;
+};
+struct hdr_metadata_infoframe {
+  __u8 eotf;
+  __u8 metadata_type;
+  struct {
+    __u16 x, y;
+  } display_primaries[3];
+  struct {
+    __u16 x, y;
+  } white_point;
+  __u16 max_display_mastering_luminance;
+  __u16 min_display_mastering_luminance;
+  __u16 max_cll;
+  __u16 max_fall;
+};
+struct hdr_output_metadata {
+  __u32 metadata_type;
+  union {
+    struct hdr_metadata_infoframe hdmi_metadata_type1;
+  };
 };
 #define DRM_MODE_PAGE_FLIP_EVENT 0x01
 #define DRM_MODE_PAGE_FLIP_ASYNC 0x02

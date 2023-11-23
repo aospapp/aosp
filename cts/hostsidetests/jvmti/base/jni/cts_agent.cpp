@@ -29,6 +29,7 @@ extern void register_art_Main(jvmtiEnv*, JNIEnv*);
 extern void register_android_jvmti_cts_JvmtiRedefineClassesTest(jvmtiEnv*, JNIEnv*);
 extern void register_android_jvmti_cts_JvmtiTaggingTest(jvmtiEnv*, JNIEnv*);
 extern void register_android_jvmti_cts_JvmtiTrackingTest(jvmtiEnv*, JNIEnv*);
+extern void register_android_jvmti_cts_JvmtiRunTestBasedTest(jvmtiEnv*, JNIEnv*);
 
 static void InformMainAttach(jvmtiEnv* jenv,
                              JNIEnv* env,
@@ -42,6 +43,7 @@ static void InformMainAttach(jvmtiEnv* jenv,
   register_android_jvmti_cts_JvmtiRedefineClassesTest(jenv, env);
   register_android_jvmti_cts_JvmtiTaggingTest(jenv, env);
   register_android_jvmti_cts_JvmtiTrackingTest(jenv, env);
+  register_android_jvmti_cts_JvmtiRunTestBasedTest(jenv, env);
 
   // Use JNI to load the class.
   ScopedLocalRef<jclass> klass(env, GetClass(jenv, env, class_name, nullptr));

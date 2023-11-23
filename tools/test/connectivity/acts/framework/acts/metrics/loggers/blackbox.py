@@ -14,12 +14,15 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import shutil
+
 from acts.metrics.core import ProtoMetric
 from acts.metrics.logger import MetricLogger
 
 
-class BlackboxMetricLogger(MetricLogger):
-    """A MetricLogger for logging and publishing Blackbox metrics.
+class BlackboxMappedMetricLogger(MetricLogger):
+    """A MetricLogger for logging and publishing Blackbox metrics from a dict.
+    The dict maps the metric name to the metric value.
 
     The logger will publish an ActsBlackboxMetricResult message, containing
     data intended to be uploaded to Blackbox. The message itself contains only
@@ -32,61 +35,68 @@ class BlackboxMetricLogger(MetricLogger):
 
     Attributes:
         proto_module: The proto module for ActsBlackboxMetricResult.
-        metric_name: The name of the metric, used to determine output filename.
-        result_attr: The name of the attribute of the test class where the
-                     result is stored.
         metric_key: The metric key to use. If unset, the logger will use the
                     context's identifier.
-        metric_value: The metric value. If this value is set, result_attr is
-                      ignored.
+        _metric_map: the map of metric_name -> metric_value to publish
+                to blackbox. If the metric value is set to None, the
+                metric will not be reported.
     """
 
     PROTO_FILE = 'protos/acts_blackbox.proto'
 
-    def __init__(self,
-                 metric_name,
-                 result_attr='result',
-                 metric_key=None,
-                 event=None):
+    def __init__(self, metric_key=None, event=None, compiler_out=None):
         """Initializes a logger for Blackbox metrics.
 
         Args:
-            metric_name: The name of the metric.
-            result_attr: The name of the attribute of the test class where the
-                         result is stored.
             metric_key: The metric key to use. If unset, the logger will use
                         the context's identifier.
             event: The event triggering the creation of this logger.
+            compiler_out: The directory to store the compiled proto module.
         """
         super().__init__(event=event)
-        self.proto_module = self._compile_proto(self.PROTO_FILE)
-        if not metric_name:
-            raise ValueError("metric_name must be supplied.")
-        self.metric_name = metric_name
-        self.result_attr = result_attr
+        self.proto_module = self._compile_proto(self.PROTO_FILE,
+                                                compiler_out=compiler_out)
         self.metric_key = metric_key
-        self.metric_value = None
+        self._metric_map = {}
 
-    def _get_metric_value(self):
-        """Extracts the metric value from the current context."""
-        return getattr(self.context.test_class, self.result_attr)
-
-    def _get_metric_key(self):
+    def _get_metric_key(self, metric_name):
         """Gets the metric key to use.
 
         If the metric_key is explicitly set, returns that value. Otherwise,
         extracts an identifier from the context.
+
+        Args:
+            metric_name: The name of the metric to report.
         """
         if self.metric_key:
             key = self.metric_key
         else:
             key = self._get_blackbox_identifier()
-        key = '%s.%s' % (key, self.metric_name)
+        key = '%s.%s' % (key, metric_name)
         return key
 
-    def _get_file_name(self):
-        """Gets the base file name to publish to."""
-        return 'blackbox_%s' % self.metric_name
+    def set_metric_data(self, metric_map):
+        """Sets the map of metrics to be uploaded to Blackbox. Note that
+        this will overwrite all existing added by this function or add_metric.
+
+        Args:
+            metric_map: the map of metric_name -> metric_value to publish
+                to blackbox. If the metric value is set to None, the
+                metric will not be reported.
+        """
+        self._metric_map = metric_map
+
+    def add_metric(self, metric_name, metric_value):
+        """Adds a metric value to be published later.
+
+        Note that if the metric name has already been added, the metric value
+        will be overwritten.
+
+        Args:
+            metric_name: the name of the metric.
+            metric_value: the value of the metric.
+        """
+        self._metric_map[metric_name] = metric_value
 
     def _get_blackbox_identifier(self):
         """Returns the testcase identifier, as expected by Blackbox."""
@@ -96,24 +106,63 @@ class BlackboxMetricLogger(MetricLogger):
         parts = identifier.rsplit('.', 1)
         return '#'.join(parts)
 
-    def end(self, event):
+    def end(self, _):
         """Creates and publishes a ProtoMetric with blackbox data.
 
-        Builds an ActsBlackboxMetricResult message based on the result
-        generated, and passes it off to the publisher.
+        Builds a list of ActsBlackboxMetricResult messages from the set
+        metric data, and sends them to the publisher.
+        """
+        metrics = []
+        for metric_name, metric_value in self._metric_map.items():
+            if metric_value is None:
+                continue
+            result = self.proto_module.ActsBlackboxMetricResult()
+            result.test_identifier = self._get_blackbox_identifier()
+            result.metric_key = self._get_metric_key(metric_name)
+            result.metric_value = metric_value
+
+            metrics.append(
+                ProtoMetric(name='blackbox_%s' % metric_name, data=result))
+
+        return self.publisher.publish(metrics)
+
+
+class BlackboxMetricLogger(BlackboxMappedMetricLogger):
+    """A MetricLogger for logging and publishing individual Blackbox metrics.
+
+    For additional information on reporting to Blackbox, see
+    BlackboxMappedMetricLogger.
+
+    Attributes:
+        proto_module: The proto module for ActsBlackboxMetricResult.
+        metric_name: The name of the metric, used to determine output filename.
+        metric_key: The metric key to use. If unset, the logger will use the
+                    context's identifier.
+        metric_value: The metric value.
+    """
+
+    def __init__(self, metric_name, metric_key=None, event=None,
+                 compiler_out=None):
+        """Initializes a logger for Blackbox metrics.
 
         Args:
-            event: The triggering event.
+            metric_name: The name of the metric.
+            metric_key: The metric key to use. If unset, the logger will use
+                        the context's identifier.
+            event: The event triggering the creation of this logger.
+            compiler_out: The directory to store the compiled proto module
         """
-        result = self.proto_module.ActsBlackboxMetricResult()
-        result.test_identifier = self._get_blackbox_identifier()
-        result.metric_key = self._get_metric_key()
-        if self.result_attr is None or self.metric_value is not None:
-            result.metric_value = self.metric_value
-        else:
-            result.metric_value = self._get_metric_value()
+        super().__init__(metric_key=metric_key, event=event,
+                         compiler_out=compiler_out)
+        if not metric_name:
+            raise ValueError("metric_name must be supplied.")
+        self.metric_name = metric_name
+        self.metric_value = None
 
-        metric = ProtoMetric(
-            name=self._get_file_name(),
-            data=result)
-        return self.publisher.publish(metric)
+    @property
+    def metric_value(self):
+        return self._metric_map[self.metric_name]
+
+    @metric_value.setter
+    def metric_value(self, value):
+        self.add_metric(self.metric_name, value)

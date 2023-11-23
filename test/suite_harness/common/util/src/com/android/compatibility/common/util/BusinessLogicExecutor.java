@@ -21,6 +21,8 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.AssumptionViolatedException;
 
@@ -34,6 +36,10 @@ public abstract class BusinessLogicExecutor {
     /** String representations of the String class and String[] class */
     protected static final String STRING_CLASS = "java.lang.String";
     protected static final String STRING_ARRAY_CLASS = "[Ljava.lang.String;";
+
+    private static final String REDACTED_PLACEHOLDER = "[redacted]";
+    /* List of regexes indicating a method arg should be redacted in the logs */
+    protected List<String> mRedactionRegexes = new ArrayList<>();
 
     /**
      * Execute a business logic condition.
@@ -91,6 +97,26 @@ public abstract class BusinessLogicExecutor {
      * Format invokation information as "method(args[0], args[1], ...)".
      */
     protected abstract String formatExecutionString(String method, String... args);
+
+    /** Substitute sensitive information with REDACTED_PLACEHOLDER if necessary. */
+    protected String[] formatArgs(String[] args) {
+        List<String> formattedArgs = new ArrayList<>();
+        for (String arg : args) {
+            formattedArgs.add(formatArg(arg));
+        }
+        return formattedArgs.toArray(new String[0]);
+    }
+
+    private String formatArg(String arg) {
+        for (String regex : mRedactionRegexes) {
+            Pattern pattern = Pattern.compile(regex);
+            Matcher matcher = pattern.matcher(arg);
+            if (matcher.find()) {
+                return REDACTED_PLACEHOLDER;
+            }
+        }
+        return arg;
+    }
 
     /**
      * Execute a business logic method.

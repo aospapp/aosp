@@ -31,8 +31,8 @@ class BtAirplaneModeTest(BluetoothBaseTest):
     grace_timeout = 4
     WAIT_TIME_ANDROID_STATE_SETTLING = 5
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.dut = self.android_devices[0]
 
     def setup_test(self):

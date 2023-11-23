@@ -15,9 +15,8 @@
  */
 package com.android.cts.deviceowner;
 
-import android.app.admin.DevicePolicyManager;
+import android.app.PendingIntent;
 import android.content.ContentResolver;
-import android.content.Context;
 import android.os.Process;
 import android.provider.Settings;
 
@@ -26,6 +25,7 @@ import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 public class AdminActionBookkeepingTest extends BaseDeviceOwnerTest {
     /*
@@ -107,6 +107,10 @@ public class AdminActionBookkeepingTest extends BaseDeviceOwnerTest {
      * Test: Requesting a bug report should update the corresponding timestamp.
      */
     public void testRequestBugreport() throws Exception {
+        // This test leaves a notification which will block future tests that request bug reports
+        // to fix this - we dismiss the bug report before returning
+        CountDownLatch notificationDismissedLatch = initTestRequestBugreport();
+
         Thread.sleep(1);
         final long previousTimestamp = mDevicePolicyManager.getLastBugReportRequestTime();
 
@@ -118,6 +122,34 @@ public class AdminActionBookkeepingTest extends BaseDeviceOwnerTest {
         assertTrue(newTimestamp > previousTimestamp);
         assertTrue(newTimestamp >= timeBefore);
         assertTrue(newTimestamp <= timeAfter);
+
+        cleanupTestRequestBugreport(notificationDismissedLatch);
+    }
+
+    private CountDownLatch initTestRequestBugreport() {
+        CountDownLatch notificationDismissedLatch = new CountDownLatch(1);
+        NotificationListener.getInstance().addListener((sbt) -> {
+            // The notification we are looking for is the one which confirms the bug report is
+            // ready and asks for consent to send it
+            if (sbt.getPackageName().equals("android") &&
+                    sbt.getTag().equals("DevicePolicyManager") &&
+                    sbt.getNotification().actions != null) {
+                try {
+                    // The first action is to decline
+                    sbt.getNotification().actions[0].actionIntent.send();
+                    notificationDismissedLatch.countDown();
+                } catch (PendingIntent.CanceledException e) {
+                    fail("Could not dismiss bug report notification");
+                }
+            }
+        });
+        return notificationDismissedLatch;
+    }
+
+    private void cleanupTestRequestBugreport(CountDownLatch notificationDismissedLatch)
+            throws Exception {
+        notificationDismissedLatch.await();
+        NotificationListener.getInstance().clearListeners();
     }
 
     /**

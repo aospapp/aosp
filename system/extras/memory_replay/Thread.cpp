@@ -16,7 +16,6 @@
 
 #include <pthread.h>
 
-#include "Action.h"
 #include "Thread.h"
 
 Thread::Thread() {
@@ -55,8 +54,4 @@ void Thread::ClearPending() {
   pending_ = false;
   pthread_mutex_unlock(&mutex_);
   pthread_cond_signal(&cond_);
-}
-
-Action* Thread::CreateAction(uintptr_t key_pointer, const char* type, const char* line) {
-  return Action::CreateAction(key_pointer, type, line, action_memory_);
 }

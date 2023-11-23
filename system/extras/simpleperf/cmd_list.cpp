@@ -24,30 +24,47 @@
 
 #include "command.h"
 #include "environment.h"
+#include "ETMRecorder.h"
 #include "event_attr.h"
 #include "event_fd.h"
 #include "event_selection_set.h"
 #include "event_type.h"
 
-static bool IsEventTypeSupported(const EventType& event_type) {
+using namespace simpleperf;
+
+namespace {
+
+enum EventTypeStatus {
+  NOT_SUPPORTED,
+  MAY_NOT_SUPPORTED,
+  SUPPORTED,
+};
+
+static EventTypeStatus IsEventTypeSupported(const EventType& event_type) {
+  // Because PMU events are provided by kernel, we assume it's supported.
+  if (event_type.IsPmuEvent()) {
+    return EventTypeStatus::SUPPORTED;
+  }
   if (event_type.type != PERF_TYPE_RAW) {
     perf_event_attr attr = CreateDefaultPerfEventAttr(event_type);
     // Exclude kernel to list supported events even when
     // /proc/sys/kernel/perf_event_paranoid is 2.
     attr.exclude_kernel = 1;
-    return IsEventAttrSupported(attr);
+    return IsEventAttrSupported(attr, event_type.name) ? EventTypeStatus::SUPPORTED
+                                                       : EventTypeStatus::NOT_SUPPORTED;
   }
   if (event_type.limited_arch == "arm" && GetBuildArch() != ARCH_ARM &&
       GetBuildArch() != ARCH_ARM64) {
-    return false;
+    return EventTypeStatus::NOT_SUPPORTED;
   }
   // Because the kernel may not check whether the raw event is supported by the cpu pmu.
   // We can't decide whether the raw event is supported by calling perf_event_open().
   // Instead, we can check if it can collect some real number.
   perf_event_attr attr = CreateDefaultPerfEventAttr(event_type);
-  std::unique_ptr<EventFd> event_fd = EventFd::OpenEventFile(attr, gettid(), -1, nullptr);
+  std::unique_ptr<EventFd> event_fd =
+      EventFd::OpenEventFile(attr, gettid(), -1, nullptr, event_type.name, false);
   if (event_fd == nullptr) {
-    return false;
+    return EventTypeStatus::NOT_SUPPORTED;
   }
   auto work_function = []() {
     TemporaryFile tmpfile;
@@ -63,27 +80,44 @@ static bool IsEventTypeSupported(const EventType& event_type) {
   work_function();
   PerfCounter counter;
   if (!event_fd->ReadCounter(&counter)) {
-    return false;
+    return EventTypeStatus::NOT_SUPPORTED;
   }
-  return (counter.value != 0u);
+  // For raw events, we may not be able to detect whether it is supported on device.
+  return (counter.value != 0u) ? EventTypeStatus::SUPPORTED : EventTypeStatus::MAY_NOT_SUPPORTED;
 }
 
-static void PrintEventTypesOfType(uint32_t type, const std::string& type_name,
+static void PrintEventTypesOfType(const std::string& type_name, const std::string& type_desc,
+                                  const std::function<bool(const EventType&)>& is_type_fn,
                                   const std::set<EventType>& event_types) {
-  printf("List of %s:\n", type_name.c_str());
-  if (type == PERF_TYPE_RAW && (GetBuildArch() == ARCH_ARM || GetBuildArch() == ARCH_ARM64)) {
-    printf("  # Please refer to PMU event numbers listed in ARMv8 manual for details.\n");
-    printf("  # A possible link is https://developer.arm.com/docs/ddi0487/latest/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile.\n");
+  printf("List of %s:\n", type_desc.c_str());
+  if (GetBuildArch() == ARCH_ARM || GetBuildArch() == ARCH_ARM64) {
+    if (type_name == "raw") {
+      printf(
+          // clang-format off
+"  # Please refer to \"PMU common architectural and microarchitectural event numbers\"\n"
+"  # and \"ARM recommendations for IMPLEMENTATION DEFINED event numbers\" listed in\n"
+"  # ARMv8 manual for details.\n"
+"  # A possible link is https://developer.arm.com/docs/ddi0487/latest/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile.\n"
+          // clang-format on
+      );
+    } else if (type_name == "cache") {
+      printf("  # More cache events are available in `simpleperf list raw`.\n");
+    }
   }
   for (auto& event_type : event_types) {
-    if (event_type.type == type) {
-      if (IsEventTypeSupported(event_type)) {
-        printf("  %s", event_type.name.c_str());
-        if (!event_type.description.empty()) {
-          printf("\t\t# %s", event_type.description.c_str());
-        }
-        printf("\n");
+    if (is_type_fn(event_type)) {
+      EventTypeStatus status = IsEventTypeSupported(event_type);
+      if (status == EventTypeStatus::NOT_SUPPORTED) {
+        continue;
       }
+      printf("  %s", event_type.name.c_str());
+      if (status == EventTypeStatus::MAY_NOT_SUPPORTED) {
+        printf(" (may not supported)");
+      }
+      if (!event_type.description.empty()) {
+        printf("\t\t# %s", event_type.description.c_str());
+      }
+      printf("\n");
     }
   }
   printf("\n");
@@ -94,14 +128,16 @@ class ListCommand : public Command {
   ListCommand()
       : Command("list", "list available event types",
                 // clang-format off
-"Usage: simpleperf list [options] [hw|sw|cache|raw|tracepoint]\n"
+"Usage: simpleperf list [options] [hw|sw|cache|raw|tracepoint|pmu]\n"
 "       List all available event types.\n"
 "       Filters can be used to show only event types belong to selected types:\n"
 "         hw          hardware events\n"
 "         sw          software events\n"
 "         cache       hardware cache events\n"
-"         raw         raw pmu events\n"
+"         raw         raw cpu pmu events\n"
 "         tracepoint  tracepoint events\n"
+"         cs-etm      coresight etm instruction tracing events\n"
+"         pmu         system-specific pmu events\n"
 "Options:\n"
 "--show-features    Show features supported on the device, including:\n"
 "                     dwarf-based-call-graph\n"
@@ -121,14 +157,29 @@ bool ListCommand::Run(const std::vector<std::string>& args) {
     return false;
   }
 
-  static std::map<std::string, std::pair<int, std::string>> type_map = {
-      {"hw", {PERF_TYPE_HARDWARE, "hardware events"}},
-      {"sw", {PERF_TYPE_SOFTWARE, "software events"}},
-      {"cache", {PERF_TYPE_HW_CACHE, "hw-cache events"}},
-      {"raw", {PERF_TYPE_RAW, "raw events provided by cpu pmu"}},
-      {"tracepoint", {PERF_TYPE_TRACEPOINT, "tracepoint events"}},
-      {"user-space-sampler", {SIMPLEPERF_TYPE_USER_SPACE_SAMPLERS, "user-space samplers"}},
-  };
+  static std::map<std::string, std::pair<std::string, std::function<bool(const EventType&)>>>
+      type_map = {
+          {"hw",
+           {"hardware events", [](const EventType& e) { return e.type == PERF_TYPE_HARDWARE; }}},
+          {"sw",
+           {"software events", [](const EventType& e) { return e.type == PERF_TYPE_SOFTWARE; }}},
+          {"cache",
+           {"hw-cache events", [](const EventType& e) { return e.type == PERF_TYPE_HW_CACHE; }}},
+          {"raw",
+           {"raw events provided by cpu pmu",
+            [](const EventType& e) { return e.type == PERF_TYPE_RAW; }}},
+          {"tracepoint",
+           {"tracepoint events",
+            [](const EventType& e) { return e.type == PERF_TYPE_TRACEPOINT; }}},
+#if defined(__arm__) || defined(__aarch64__)
+          {"cs-etm",
+           {"coresight etm events",
+            [](const EventType& e) {
+              return e.type == ETMRecorder::GetInstance().GetEtmEventType();
+            }}},
+#endif
+          {"pmu", {"pmu events", [](const EventType& e) { return e.IsPmuEvent(); }}},
+      };
 
   std::vector<std::string> names;
   if (args.empty()) {
@@ -153,7 +204,7 @@ bool ListCommand::Run(const std::vector<std::string>& args) {
 
   for (auto& name : names) {
     auto it = type_map.find(name);
-    PrintEventTypesOfType(it->second.first, it->second.second, event_types);
+    PrintEventTypesOfType(name, it->second.first, it->second.second, event_types);
   }
   return true;
 }
@@ -169,6 +220,8 @@ void ListCommand::ShowFeatures() {
     printf("set-clockid\n");
   }
 }
+
+}  // namespace
 
 void RegisterListCommand() {
   RegisterCommand("list", [] { return std::unique_ptr<Command>(new ListCommand); });

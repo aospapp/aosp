@@ -15,11 +15,15 @@
  */
 package com.android.tradefed.build;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.android.ddmlib.IDevice;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.StubDevice;
+import com.android.tradefed.invoker.ExecutionFiles;
+import com.android.tradefed.invoker.TestInformation;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -35,7 +39,13 @@ public class BootstrapBuildProviderTest {
 
     @Before
     public void setUp() {
-        mProvider = new BootstrapBuildProvider();
+        mProvider =
+                new BootstrapBuildProvider() {
+                    @Override
+                    ExecutionFiles getInvocationFiles() {
+                        return TestInformation.newBuilder().build().executionFiles();
+                    }
+                };
         mMockDevice = EasyMock.createMock(ITestDevice.class);
     }
 

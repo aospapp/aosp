@@ -177,7 +177,7 @@ void smp_generate_stk(tSMP_CB* p_cb, UNUSED_ATTR tSMP_INT_DATA* p_data) {
   SMP_TRACE_DEBUG("%s", __func__);
 
   if (p_cb->le_secure_connections_mode_is_used) {
-    SMP_TRACE_WARNING("FOR LE SC LTK IS USED INSTEAD OF STK");
+    SMP_TRACE_DEBUG("FOR LE SC LTK IS USED INSTEAD OF STK");
     output = p_cb->ltk;
   } else {
     output = smp_calculate_legacy_short_term_key(p_cb);
@@ -691,8 +691,7 @@ void smp_process_private_key(tSMP_CB* p_cb) {
   SMP_TRACE_DEBUG("%s", __func__);
 
   memcpy(private_key, p_cb->private_key, BT_OCTET32_LEN);
-  ECC_PointMult(&public_key, &(curve_p256.G), (uint32_t*)private_key,
-                KEY_LENGTH_DWORDS_P256);
+  ECC_PointMult(&public_key, &(curve_p256.G), (uint32_t*)private_key);
   memcpy(p_cb->loc_publ_key.x, public_key.x, BT_OCTET32_LEN);
   memcpy(p_cb->loc_publ_key.y, public_key.y, BT_OCTET32_LEN);
 
@@ -728,8 +727,7 @@ void smp_compute_dhkey(tSMP_CB* p_cb) {
   memcpy(peer_publ_key.x, p_cb->peer_publ_key.x, BT_OCTET32_LEN);
   memcpy(peer_publ_key.y, p_cb->peer_publ_key.y, BT_OCTET32_LEN);
 
-  ECC_PointMult(&new_publ_key, &peer_publ_key, (uint32_t*)private_key,
-                KEY_LENGTH_DWORDS_P256);
+  ECC_PointMult(&new_publ_key, &peer_publ_key, (uint32_t*)private_key);
 
   memcpy(p_cb->dhkey, new_publ_key.x, BT_OCTET32_LEN);
 
@@ -989,7 +987,8 @@ bool smp_calculate_link_key_from_long_term_key(tSMP_CB* p_cb) {
 
   link_key_type += BTM_LTK_DERIVED_LKEY_OFFSET;
 
-  Octet16 notif_link_key = link_key;
+  Octet16 notif_link_key;
+  std::reverse_copy(link_key.begin(), link_key.end(), notif_link_key.begin());
   btm_sec_link_key_notification(bda_for_lk, notif_link_key, link_key_type);
 
   SMP_TRACE_EVENT("%s is completed", __func__);

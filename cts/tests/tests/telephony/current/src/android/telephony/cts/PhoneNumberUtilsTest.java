@@ -31,6 +31,7 @@ import android.os.RemoteException;
 import android.provider.Contacts;
 import android.provider.Contacts.People;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.Spannable;
@@ -38,14 +39,31 @@ import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.style.TtsSpan;
 
-import java.util.Locale;
-
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Locale;
+
 public class PhoneNumberUtilsTest {
+    private static final int MIN_MATCH = 7;
+
     // mPhoneNumber ~ "+17005550020", length == 7.
     private byte[] mPhoneNumber = { (byte) 0x91, (byte) 0x71, (byte) 0x00, (byte) 0x55,
             (byte) 0x05, (byte) 0x20, (byte) 0xF0 };
+
+    private int mOldMinMatch;
+
+    @Before
+    public void setUp() throws Exception {
+        mOldMinMatch = PhoneNumberUtils.getMinMatchForTest();
+        PhoneNumberUtils.setMinMatchForTest(MIN_MATCH);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        PhoneNumberUtils.setMinMatchForTest(mOldMinMatch);
+    }
 
     @Test
     public void testExtractMethods() {
@@ -75,6 +93,7 @@ public class PhoneNumberUtilsTest {
                         String.format("+1 (700).555-41NN%c1-2.34 %c%cN", PhoneNumberUtils.WAIT,
                                 PhoneNumberUtils.PAUSE,
                                 PhoneNumberUtils.WAIT)));
+        assertEquals("example", PhoneNumberUtils.getUsernameFromUriNumber("example@example.com"));
     }
 
     @Test
@@ -315,6 +334,18 @@ public class PhoneNumberUtilsTest {
         // Test isWellFormedSmsAddress
         assertTrue(PhoneNumberUtils.isWellFormedSmsAddress("+17005554141"));
         assertFalse(PhoneNumberUtils.isWellFormedSmsAddress("android"));
+
+        // Test isUriNumber
+        assertTrue(PhoneNumberUtils.isUriNumber("example@example.com"));
+        assertFalse(PhoneNumberUtils.isUriNumber("+18005555555"));
+
+        // Test isVoicemailNumber -- this is closely tied to the SIM so we'll just test some basic
+        // cases
+        assertFalse(PhoneNumberUtils.isVoiceMailNumber(getContext(),
+                SubscriptionManager.getDefaultSubscriptionId(), null));
+        assertFalse(PhoneNumberUtils.isVoiceMailNumber(getContext(),
+                SubscriptionManager.getDefaultSubscriptionId(), ""));
+
     }
 
     @Test

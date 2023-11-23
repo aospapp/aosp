@@ -64,8 +64,8 @@ class FilteringTest(BluetoothBaseTest):
     service_uuid_2 = "FFFFFFFF-0000-1000-8000-00805f9b34fb"
     service_uuid_3 = "3846D7A0-69C8-11E4-BA00-0002A5D5C51B"
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
         self.log.info("Scanner device model: {}".format(

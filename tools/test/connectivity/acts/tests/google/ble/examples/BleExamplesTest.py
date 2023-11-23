@@ -34,8 +34,8 @@ class BleExamplesTest(BluetoothBaseTest):
     scn_droid = None
     adv_droid = None
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.scn_droid, self.scn_ed = (self.android_devices[0].droid,
                                        self.android_devices[0].ed)
         self.adv_droid, self.adv_ed = (self.android_devices[1].droid,

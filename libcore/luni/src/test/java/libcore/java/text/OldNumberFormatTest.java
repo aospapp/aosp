@@ -68,7 +68,10 @@ public class OldNumberFormatTest extends TestCase {
         assertEquals("Wrong result: case 1", "23", format.format(123));
 
         format.setMaximumIntegerDigits(Integer.MIN_VALUE);
-        assertEquals("Wrong result: case 2", "0", format.format(123));
+        assertEquals("Wrong result: case 2", ".0", format.format(123));
+
+        format.setMaximumIntegerDigits(0);
+        assertEquals("Wrong result: case 2", ".0", format.format(123));
     }
 
     public void test_setCurrencyLjava_util_Currency() {
@@ -196,7 +199,7 @@ public class OldNumberFormatTest extends TestCase {
         nf2.setMaximumIntegerDigits(100);
         assertFalse("Different NumberFormat are equal", nf1.equals(nf2));
 
-        nf2.setMaximumIntegerDigits(nf1.getMaximumIntegerDigits());
+        nf1.setMaximumIntegerDigits(100);
         assertTrue("Equivalent Objects are not equal", nf1.equals(nf2));
 
         nf1 = NumberFormat.getIntegerInstance();

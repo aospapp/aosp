@@ -119,4 +119,20 @@ public interface IDeviceFlasher {
      */
     public CommandStatus getSystemFlashingStatus();
 
+    /**
+     * Sets if an additional ramdisk should be flashed after updating device via image zip
+     *
+     * @param shouldFlashRamdisk
+     */
+    public default void setShouldFlashRamdisk(boolean shouldFlashRamdisk) {
+        // Ignore
+    }
+
+    /**
+     * Checks if the flasher is set to have an additional ramdisk should be flashed after updating
+     * device via image zip
+     */
+    public default boolean shouldFlashRamdisk() {
+        return false;
+    }
 }

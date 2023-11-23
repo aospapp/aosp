@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-#include <VtsHalHidlTargetTestBase.h>
+#include <android/log.h>
+
+#include <wifi_system/interface_tool.h>
 
 #include "wifi_hidl_call_util.h"
 #include "wifi_hidl_test_utils.h"
@@ -22,6 +24,7 @@
 using ::android::hardware::wifi::V1_0::IWifi;
 using ::android::hardware::wifi::V1_0::IWifiApIface;
 using ::android::hardware::wifi::V1_0::IWifiChip;
+using ::android::hardware::wifi::V1_0::IWifiIface;
 using ::android::hardware::wifi::V1_0::IWifiNanIface;
 using ::android::hardware::wifi::V1_0::IWifiP2pIface;
 using ::android::hardware::wifi::V1_0::IWifiRttController;
@@ -34,8 +37,7 @@ using ::android::hardware::wifi::V1_0::WifiStatusCode;
 using ::android::sp;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
-
-extern WifiHidlEnvironment* gEnv;
+using ::android::wifi_system::InterfaceTool;
 
 namespace {
 constexpr uint32_t kHalStartRetryMaxCount = 5;
@@ -87,14 +89,8 @@ bool configureChipToSupportIfaceTypeInternal(const sp<IWifiChip>& wifi_chip,
 }
 }  // namespace
 
-sp<IWifi> getWifi() {
-    sp<IWifi> wifi = ::testing::VtsHalHidlTargetTestBase::getService<IWifi>(
-        gEnv->getServiceName<IWifi>());
-    return wifi;
-}
-
-sp<IWifiChip> getWifiChip() {
-    sp<IWifi> wifi = getWifi();
+sp<IWifiChip> getWifiChip(const std::string& instance_name) {
+    sp<IWifi> wifi = IWifi::getService(instance_name);
     if (!wifi.get()) {
         return nullptr;
     }
@@ -122,8 +118,18 @@ sp<IWifiChip> getWifiChip() {
     return status_and_chip.second;
 }
 
-sp<IWifiApIface> getWifiApIface() {
-    sp<IWifiChip> wifi_chip = getWifiChip();
+void setIfaceUp(const sp<IWifiIface>& iface) {
+    // Set the iface up before retrurning the object.
+    const auto& status_and_name = HIDL_INVOKE(iface, getName);
+    if (status_and_name.first.code == WifiStatusCode::SUCCESS) {
+        const auto& iface_name = status_and_name.second;
+        InterfaceTool iface_tool;
+        iface_tool.SetUpState(iface_name.c_str(), true);
+    }
+}
+
+sp<IWifiApIface> getWifiApIface(const std::string& instance_name) {
+    sp<IWifiChip> wifi_chip = getWifiChip(instance_name);
     if (!wifi_chip.get()) {
         return nullptr;
     }
@@ -134,11 +140,12 @@ sp<IWifiApIface> getWifiApIface() {
     if (status_and_iface.first.code != WifiStatusCode::SUCCESS) {
         return nullptr;
     }
+    setIfaceUp(status_and_iface.second);
     return status_and_iface.second;
 }
 
-sp<IWifiNanIface> getWifiNanIface() {
-    sp<IWifiChip> wifi_chip = getWifiChip();
+sp<IWifiNanIface> getWifiNanIface(const std::string& instance_name) {
+    sp<IWifiChip> wifi_chip = getWifiChip(instance_name);
     if (!wifi_chip.get()) {
         return nullptr;
     }
@@ -149,11 +156,12 @@ sp<IWifiNanIface> getWifiNanIface() {
     if (status_and_iface.first.code != WifiStatusCode::SUCCESS) {
         return nullptr;
     }
+    setIfaceUp(status_and_iface.second);
     return status_and_iface.second;
 }
 
-sp<IWifiP2pIface> getWifiP2pIface() {
-    sp<IWifiChip> wifi_chip = getWifiChip();
+sp<IWifiP2pIface> getWifiP2pIface(const std::string& instance_name) {
+    sp<IWifiChip> wifi_chip = getWifiChip(instance_name);
     if (!wifi_chip.get()) {
         return nullptr;
     }
@@ -164,11 +172,12 @@ sp<IWifiP2pIface> getWifiP2pIface() {
     if (status_and_iface.first.code != WifiStatusCode::SUCCESS) {
         return nullptr;
     }
+    setIfaceUp(status_and_iface.second);
     return status_and_iface.second;
 }
 
-sp<IWifiStaIface> getWifiStaIface() {
-    sp<IWifiChip> wifi_chip = getWifiChip();
+sp<IWifiStaIface> getWifiStaIface(const std::string& instance_name) {
+    sp<IWifiChip> wifi_chip = getWifiChip(instance_name);
     if (!wifi_chip.get()) {
         return nullptr;
     }
@@ -179,24 +188,8 @@ sp<IWifiStaIface> getWifiStaIface() {
     if (status_and_iface.first.code != WifiStatusCode::SUCCESS) {
         return nullptr;
     }
+    setIfaceUp(status_and_iface.second);
     return status_and_iface.second;
-}
-
-sp<IWifiRttController> getWifiRttController() {
-    sp<IWifiChip> wifi_chip = getWifiChip();
-    if (!wifi_chip.get()) {
-        return nullptr;
-    }
-    sp<IWifiStaIface> wifi_sta_iface = getWifiStaIface();
-    if (!wifi_sta_iface.get()) {
-        return nullptr;
-    }
-    const auto& status_and_controller =
-        HIDL_INVOKE(wifi_chip, createRttController, wifi_sta_iface);
-    if (status_and_controller.first.code != WifiStatusCode::SUCCESS) {
-        return nullptr;
-    }
-    return status_and_controller.second;
 }
 
 bool configureChipToSupportIfaceType(const sp<IWifiChip>& wifi_chip,
@@ -206,8 +199,8 @@ bool configureChipToSupportIfaceType(const sp<IWifiChip>& wifi_chip,
                                                    configured_mode_id);
 }
 
-void stopWifi() {
-    sp<IWifi> wifi = getWifi();
+void stopWifi(const std::string& instance_name) {
+    sp<IWifi> wifi = IWifi::getService(instance_name);
     ASSERT_NE(wifi, nullptr);
     HIDL_INVOKE(wifi, stop);
 }

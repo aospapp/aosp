@@ -25,8 +25,6 @@
 
 package sun.security.provider;
 
-import java.security.cert.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class X509Factory {
 
@@ -34,25 +32,25 @@ public class X509Factory {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static synchronized sun.security.x509.X509CertImpl intern(
             java.security.cert.X509Certificate c) throws java.security.cert.CertificateException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static synchronized sun.security.x509.X509CRLImpl intern(java.security.cert.X509CRL c)
             throws java.security.cert.CRLException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static synchronized <K, V> V getFromCache(
             sun.security.util.Cache<K, V> cache, byte[] encoding) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static synchronized <V> void addToCache(
             sun.security.util.Cache<java.lang.Object, V> cache, byte[] encoding, V value) {
         throw new RuntimeException("Stub!");
@@ -60,7 +58,7 @@ public class X509Factory {
 
     private static final int ENC_MAX_LENGTH = 4194304; // 0x400000
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static final sun.security.util.Cache<java.lang.Object, sun.security.x509.X509CertImpl>
             certCache;
 
@@ -68,7 +66,7 @@ public class X509Factory {
         certCache = null;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static final sun.security.util.Cache<java.lang.Object, sun.security.x509.X509CRLImpl>
             crlCache;
 

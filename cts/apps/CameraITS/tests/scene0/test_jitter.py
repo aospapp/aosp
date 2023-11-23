@@ -23,6 +23,7 @@ import matplotlib
 from matplotlib import pylab
 
 # PASS/FAIL thresholds
+TEST_FPS = 30
 MIN_AVG_FRAME_DELTA = 30  # at least 30ms delta between frames
 MAX_VAR_FRAME_DELTA = 0.01  # variance of frame deltas
 MAX_FRAME_DELTA_JITTER = 0.3  # max ms gap from the average frame delta
@@ -39,6 +40,7 @@ def main():
                              its.caps.sensor_fusion(props))
 
         req, fmt = its.objects.get_fastest_manual_capture_settings(props)
+        req["android.control.aeTargetFpsRange"] = [TEST_FPS, TEST_FPS]
         caps = cam.do_capture([req]*50, [fmt])
 
         # Print out the millisecond delta between the start of each exposure

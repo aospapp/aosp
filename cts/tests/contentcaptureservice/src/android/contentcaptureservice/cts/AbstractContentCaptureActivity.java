@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Base class for all activities.
  */
-abstract class AbstractContentCaptureActivity extends Activity {
+public abstract class AbstractContentCaptureActivity extends Activity {
 
     private final String mTag = getClass().getSimpleName();
 

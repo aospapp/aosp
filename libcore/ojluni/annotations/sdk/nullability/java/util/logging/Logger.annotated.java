@@ -75,7 +75,7 @@ public void logp(@libcore.util.NonNull java.util.logging.Level level, @libcore.u
 
 public void logp(@libcore.util.NonNull java.util.logging.Level level, @libcore.util.Nullable java.lang.String sourceClass, @libcore.util.Nullable java.lang.String sourceMethod, @libcore.util.Nullable java.lang.String msg, @libcore.util.Nullable java.lang.Object param1) { throw new RuntimeException("Stub!"); }
 
-public void logp(@libcore.util.NonNull java.util.logging.Level level, @libcore.util.Nullable java.lang.String sourceClass, @libcore.util.Nullable java.lang.String sourceMethod, @libcore.util.Nullable java.lang.String msg, java.lang.@libcore.util.Nullable Object @Nu [] params) { throw new RuntimeException("Stub!"); }
+public void logp(@libcore.util.NonNull java.util.logging.Level level, @libcore.util.Nullable java.lang.String sourceClass, @libcore.util.Nullable java.lang.String sourceMethod, @libcore.util.Nullable java.lang.String msg, java.lang.@libcore.util.Nullable Object @libcore.util.Nullable [] params) { throw new RuntimeException("Stub!"); }
 
 public void logp(@libcore.util.NonNull java.util.logging.Level level, @libcore.util.Nullable java.lang.String sourceClass, @libcore.util.Nullable java.lang.String sourceMethod, @libcore.util.Nullable java.lang.String msg, @libcore.util.Nullable java.lang.Throwable thrown) { throw new RuntimeException("Stub!"); }
 

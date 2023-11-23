@@ -93,6 +93,8 @@ class CompilerDriver {
 
   ~CompilerDriver();
 
+  void PrepareDexFilesForOatFile(TimingLogger* timings);
+
   // Set dex files classpath.
   void SetClasspathDexFiles(const std::vector<const DexFile*>& dex_files);
 
@@ -121,7 +123,8 @@ class CompilerDriver {
   }
 
   // Generate the trampolines that are invoked by unresolved direct methods.
-  std::unique_ptr<const std::vector<uint8_t>> CreateJniDlsymLookup() const;
+  std::unique_ptr<const std::vector<uint8_t>> CreateJniDlsymLookupTrampoline() const;
+  std::unique_ptr<const std::vector<uint8_t>> CreateJniDlsymLookupCriticalTrampoline() const;
   std::unique_ptr<const std::vector<uint8_t>> CreateQuickGenericJniTrampoline() const;
   std::unique_ptr<const std::vector<uint8_t>> CreateQuickImtConflictTrampoline() const;
   std::unique_ptr<const std::vector<uint8_t>> CreateQuickResolutionTrampoline() const;

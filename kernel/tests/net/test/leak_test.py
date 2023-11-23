@@ -65,18 +65,18 @@ class ForceSocketBufferOptionTest(net_test.NetworkTest):
     s.setsockopt(SOL_SOCKET, force_option, val)
     self.assertEquals(2 * val, s.getsockopt(SOL_SOCKET, option))
 
-    # Check that the force option sets the minimum value instead of a negative
-    # value on integer overflow. Because the kernel multiplies passed-in values
-    # by 2, pick a value that becomes a small negative number if treated as
-    # unsigned.
+    # Check that the force option sets at least the minimum value instead
+    # of a negative value on integer overflow. Because the kernel multiplies
+    # passed-in values by 2, pick a value that becomes a small negative number
+    # if treated as unsigned.
     bogusval = 2 ** 31 - val
     s.setsockopt(SOL_SOCKET, force_option, bogusval)
-    self.assertEquals(minbuf, s.getsockopt(SOL_SOCKET, option))
+    self.assertLessEqual(minbuf, s.getsockopt(SOL_SOCKET, option))
 
   def testRcvBufForce(self):
     self.CheckForceSocketBufferOption(SO_RCVBUF, self.SO_RCVBUFFORCE)
 
-  def testRcvBufForce(self):
+  def testSndBufForce(self):
     self.CheckForceSocketBufferOption(SO_SNDBUF, self.SO_SNDBUFFORCE)
 
 

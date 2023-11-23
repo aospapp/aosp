@@ -16,22 +16,18 @@
 
 package com.android.tradefed.targetprep;
 
-import com.android.compatibility.common.tradefed.build.VtsCompatibilityInvocationHelper;
 import com.android.annotations.VisibleForTesting;
+import com.android.compatibility.common.tradefed.build.VtsCompatibilityInvocationHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.targetprep.TargetSetupError;
-import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.util.CmdUtil;
 import com.android.tradefed.util.FileUtil;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.NoSuchElementException;

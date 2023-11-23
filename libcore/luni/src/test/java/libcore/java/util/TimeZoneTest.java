@@ -59,7 +59,7 @@ public class TimeZoneTest extends TestCase {
 
     // http://code.google.com/p/android/issues/detail?id=14395
     public void testPreHistoricInDaylightTime() {
-        // A replacement for testPreHistoricInDaylightTime_old() using a zone that still lacks an
+        // A replacement for testPreHistoricInDaylightTime_old() using a zone that lacks an
         // explicit transition at Integer.MIN_VALUE with zic 2019a and 2019a data.
         TimeZone tz = TimeZone.getTimeZone("CET");
 
@@ -76,9 +76,7 @@ public class TimeZoneTest extends TestCase {
     public void testPreHistoricInDaylightTime_old() throws Exception {
         // Originally this test was intended to assert what happens when the first transition for a
         // time zone was a "to DST" transition. i.e. that the (implicit) offset / DST state before
-        // the first was treated as a non-DST state. Since zic version 2014c some zones have an
-        // explicit non-DST transition at time -2^31 seconds so it is no longer possible to test
-        // this with America/Los_Angeles.
+        // the first was treated as a non-DST state. With the latest data this is no longer true.
         // This regression test has been kept in case that changes again in future and to prove the
         // behavior has remained consistent.
 
@@ -92,7 +90,7 @@ public class TimeZoneTest extends TestCase {
         assertFalse(tz.inDaylightTime(date));
         assertEquals("Fri Oct 31 08:00:00 PST 1902", date.toString());
         assertEquals("31 Oct 1902 16:00:00 GMT", date.toGMTString());
-        // For zic versions <= 2014b, this would be before the first transition.
+        // For zic versions <= 2014b with 32-bit data, this would be before the first transition.
         date = sdf.parse("1902-06-01T00:00:00.000+0800");
         assertEquals(-28800000, tz.getOffset(date.getTime()));
         assertFalse(tz.inDaylightTime(date));
@@ -109,7 +107,7 @@ public class TimeZoneTest extends TestCase {
         // prehistoric offsets. http://b/118835133
         // "Africa/Bissau" has just a few known transitions:
         // Transition time             : Offset    : DST / non-DST
-        // <Integer.MIN_VALUE secs>[1] : -01:02:20 : non-DST
+        // <Before first transition>[1]: -01:02:20 : non-DST
         // 1912-01-01 01:00:00 GMT     : -01:00:00 : non-DST
         // 1975-01-01 01:00:00 GMT     :  00:00:00 : non-DST
         //
@@ -117,7 +115,8 @@ public class TimeZoneTest extends TestCase {
         // generate the data. When implicit, the first non-DST type defn should be used.
         TimeZone tz = TimeZone.getTimeZone("Africa/Bissau");
 
-        // Times before Integer.MIN_VALUE should assume we're using the first non-DST type.
+        // Integer.MIN_VALUE seconds should not be significant for TimeZone on Android since it
+        // switched to using 64-bit data but we try a time before to make sure that is true.
         assertNonDaylightOffset(-3740, parseIsoTime("1900-01-01T00:00:00.0+0000"), tz);
 
         // Time before 1912-01-01 01:00:00 but after Integer.MIN_VALUE.
@@ -351,11 +350,6 @@ public class TimeZoneTest extends TestCase {
      * calculations. A bug (http://b/18839557) was reported when someone noticed that Android's
      * TimeZone didn't produce the same answers as other libraries at times just outside the range
      * of Integer seconds. The reason was because of int overflow / underflow which has been fixed.
-     * At the time of writing, Android's java.util.TimeZone implementation only supports reading
-     * TZif version 1 data (32-bit times) and provides one additional "before first transition"
-     * type. This makes Android's time zone information outside of the Integer range unreliable and
-     * unlikely to match libraries that use 64-bit times for transitions and/or calculate times
-     * outside of the range using rules (e.g. like ICU4J does).
      */
     public void testOverflowing32BitUnixDates() {
         final TimeZone tz = TimeZone.getTimeZone("America/New_York");
@@ -370,14 +364,8 @@ public class TimeZoneTest extends TestCase {
         // This timezone didn't have any daylight savings prior to 1917 and this date is in 1900.
         assertFalse(tz.inDaylightTime(new Date(lowerTimeMillis)));
 
-        // http://b/118835133:
-        // zic <= 2014b produces data that suggests before -1633280400 seconds (Sun, 31 Mar 1918
-        // 07:00:00 GMT) the offset was -18000000.
-        // zic > 2014b produces data that suggests before Integer.MIN_VALUE seconds the offset was
-        // -17762000 and between Integer.MIN_VALUE and -1633280400 it was -18000000. Once Android
-        // moves to zic > 2014b the -18000000 can be removed. http://b/73719425
         int actualOffset = tz.getOffset(lowerTimeMillis);
-        assertTrue(-18000000 == actualOffset || -17762000 == actualOffset);
+        assertEquals(-18000000, actualOffset);
 
         // Nov 30th 2039, no daylight savings as per current rules.
         assertFalse(tz.inDaylightTime(new Date(upperTimeMillis)));

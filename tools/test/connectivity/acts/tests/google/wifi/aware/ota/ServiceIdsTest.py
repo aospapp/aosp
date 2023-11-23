@@ -29,9 +29,6 @@ class ServiceIdsTest(AwareBaseTest):
   Note: this test is an OTA (over-the-air) and requires a Sniffer.
   """
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     def start_discovery_session(self, dut, session_id, is_publish, dtype,
                                 service_name):
         """Start a discovery session

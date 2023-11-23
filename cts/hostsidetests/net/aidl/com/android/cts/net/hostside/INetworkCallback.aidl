@@ -17,9 +17,11 @@
 package com.android.cts.net.hostside;
 
 import android.net.Network;
+import android.net.NetworkCapabilities;
 
 interface INetworkCallback {
     void onBlockedStatusChanged(in Network network, boolean blocked);
     void onAvailable(in Network network);
     void onLost(in Network network);
+    void onCapabilitiesChanged(in Network network, in NetworkCapabilities cap);
 }

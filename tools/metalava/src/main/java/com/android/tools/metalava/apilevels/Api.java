@@ -16,6 +16,7 @@
 package com.android.tools.metalava.apilevels;
 
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -102,6 +103,12 @@ public class Api extends ApiElement {
         }
         for (ApiClass classElement : mClasses.values()) {
             classElement.inlineFromHiddenSuperClasses(hidden);
+        }
+    }
+
+    public void prunePackagePrivateClasses() {
+        for (ApiClass cls : mClasses.values()) {
+            cls.removeHiddenSuperClasses(mClasses);
         }
     }
 }

@@ -37,9 +37,12 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import java.util.Arrays;
 
+import com.androidplot.xy.PointLabelFormatter;
+import com.androidplot.xy.LineAndPointFormatter;
 import com.androidplot.xy.SimpleXYSeries;
+import com.androidplot.xy.XYPlot;
 import com.androidplot.xy.XYSeries;
-import com.androidplot.xy.*;
+import com.androidplot.xy.XYStepMode;
 
 public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
 
@@ -236,9 +239,9 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
             Arrays.asList(powerWrap),
             "");
         LineAndPointFormatter seriesFormat = new LineAndPointFormatter();
+        seriesFormat.setPointLabelFormatter(new PointLabelFormatter());
         seriesFormat.configure(getApplicationContext(),
             R.xml.ultrasound_line_formatter_trials);
-        seriesFormat.setPointLabelFormatter(null);
         plot.addSeries(series, seriesFormat);
       }
 
@@ -253,9 +256,9 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
           Arrays.asList(noiseDBWrap),
           "background noise");
       LineAndPointFormatter noiseSeriesFormat = new LineAndPointFormatter();
+      noiseSeriesFormat.setPointLabelFormatter(new PointLabelFormatter());
       noiseSeriesFormat.configure(getApplicationContext(),
           R.xml.ultrasound_line_formatter_noise);
-      noiseSeriesFormat.setPointLabelFormatter(null);
       plot.addSeries(noiseSeries, noiseSeriesFormat);
 
       double[] dB = wavAnalyzerTask.getDB();
@@ -269,9 +272,9 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
           Arrays.asList(dBWrap),
           "median");
       LineAndPointFormatter seriesFormat = new LineAndPointFormatter();
+      seriesFormat.setPointLabelFormatter(new PointLabelFormatter());
       seriesFormat.configure(getApplicationContext(),
           R.xml.ultrasound_line_formatter_median);
-      seriesFormat.setPointLabelFormatter(null);
       plot.addSeries(series, seriesFormat);
 
       Double[] passX = new Double[] {Common.MIN_FREQUENCY_HZ, Common.MAX_FREQUENCY_HZ};
@@ -279,9 +282,9 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
       XYSeries passSeries = new SimpleXYSeries(
           Arrays.asList(passX), Arrays.asList(passY), "passing");
       LineAndPointFormatter passSeriesFormat = new LineAndPointFormatter();
+      passSeriesFormat.setPointLabelFormatter(new PointLabelFormatter());
       passSeriesFormat.configure(getApplicationContext(),
           R.xml.ultrasound_line_formatter_pass);
-      passSeriesFormat.setPointLabelFormatter(null);
       plot.addSeries(passSeries, passSeriesFormat);
     }
   }

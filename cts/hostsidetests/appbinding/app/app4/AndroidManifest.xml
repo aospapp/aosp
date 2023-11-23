@@ -91,5 +91,5 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-            android:targetPackage="com.android.cts.deviceadminservice" />
+        android:targetPackage="com.android.cts.appbinding.app" />
 </manifest>

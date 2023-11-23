@@ -26,7 +26,6 @@ cc_library_static {
         "android.hardware.wifi.hostapd@1.0",
         "android.hardware.wifi.hostapd@1.1",
         "android.hardware.wifi@1.0",
-        "libcrypto",
         "libgmock",
         "libwifi-system",
         "libwifi-system-iface",
@@ -37,7 +36,6 @@ cc_test {
     name: "VtsHalWifiHostapdV1_0TargetTest",
     defaults: ["VtsHalTargetTestDefaults"],
     srcs: [
-        "VtsHalWifiHostapdV1_0TargetTest.cpp",
         "hostapd_hidl_test.cpp",
     ],
     static_libs: [
@@ -46,10 +44,9 @@ cc_test {
         "android.hardware.wifi.hostapd@1.0",
         "android.hardware.wifi.hostapd@1.1",
         "android.hardware.wifi@1.0",
-        "libcrypto",
         "libgmock",
         "libwifi-system",
         "libwifi-system-iface",
     ],
-    test_suites: ["general-tests"],
+    test_suites: ["general-tests", "vts"],
 }

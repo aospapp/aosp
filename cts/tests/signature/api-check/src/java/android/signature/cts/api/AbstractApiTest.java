@@ -21,8 +21,11 @@ import android.signature.cts.ClassProvider;
 import android.signature.cts.ExcludingClassProvider;
 import android.signature.cts.FailureType;
 import android.signature.cts.JDiffClassDescription;
+import android.signature.cts.VirtualPath;
+import android.signature.cts.VirtualPath.LocalFilePath;
+import android.signature.cts.VirtualPath.ResourcePath;
+import android.util.Log;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -30,21 +33,19 @@ import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.stream.Stream;
 import java.util.zip.ZipFile;
-import org.xmlpull.v1.XmlPullParserException;
 import repackaged.android.test.InstrumentationTestCase;
 import repackaged.android.test.InstrumentationTestRunner;
-
-import static android.signature.cts.CurrentApi.API_FILE_DIRECTORY;
 
 /**
  */
 public class AbstractApiTest extends InstrumentationTestCase {
+
+    private static final String TAG = "SignatureTest";
 
     private TestResultObserver mResultObserver;
 
@@ -109,63 +110,63 @@ public class AbstractApiTest extends InstrumentationTestCase {
         return argument.split(",");
     }
 
-    Stream<Object> readFileOptimized(File file) {
+    private Stream<VirtualPath> readResource(String resourceName) {
         try {
-            if (file.getName().endsWith(".zip")) {
-                @SuppressWarnings("resource")
-                ZipFile zip = new ZipFile(file);
-                return zip.stream().map(entry -> {
-                    try {
-                        return zip.getInputStream(entry);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+            ResourcePath resourcePath =
+                    VirtualPath.get(getClass().getClassLoader(), resourceName);
+            if (resourceName.endsWith(".zip")) {
+                // Extract to a temporary file and read from there.
+                Path file = extractResourceToFile(resourceName, resourcePath.newInputStream());
+                return flattenPaths(VirtualPath.get(file.toString()));
             } else {
-                try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(file.toPath(),
-                        EnumSet.of(StandardOpenOption.READ))) {
-                    ByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0,
-                            fileChannel.size());
-                    if (mappedByteBuffer == null) {
-                        throw new IllegalStateException("Could not map " + file);
-                    }
-                    return Stream.of(mappedByteBuffer);
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-    Stream<InputStream> readFile(File file) {
-        try {
-            if (file.getName().endsWith(".zip")) {
-                @SuppressWarnings("resource")
-                ZipFile zip = new ZipFile(file);
-                return zip.stream().map(entry -> {
-                    try {
-                        return zip.getInputStream(entry);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }});
-            } else {
-                return Stream.of(new FileInputStream(file));
+                return Stream.of(resourcePath);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    Stream<JDiffClassDescription> parseApiFilesAsStream(
-            ApiDocumentParser apiDocumentParser, String[] apiFiles) {
-        return Stream.of(apiFiles)
-                .map(name -> new File(API_FILE_DIRECTORY + "/" + name))
-                .flatMap(this::readFile)
-                .flatMap(stream -> {
-                    try {
-                        return apiDocumentParser.parseAsStream(stream);
-                    } catch (IOException | XmlPullParserException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+    Path extractResourceToFile(String resourceName, InputStream is) throws IOException {
+        Path tempDirectory = Files.createTempDirectory("signature");
+        Path file = tempDirectory.resolve(resourceName);
+        Log.i(TAG, "extractResourceToFile: extracting " + resourceName + " to " + file);
+        Files.copy(is, file);
+        is.close();
+        return file;
+    }
+
+    /**
+     * Given a path in the local file system (possibly of a zip file) flatten it into a stream of
+     * virtual paths.
+     */
+    private Stream<VirtualPath> flattenPaths(LocalFilePath path) {
+        try {
+            if (path.toString().endsWith(".zip")) {
+                return getZipEntryFiles(path);
+            } else {
+                return Stream.of(path);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    Stream<JDiffClassDescription> parseApiResourcesAsStream(
+            ApiDocumentParser apiDocumentParser, String[] apiResources) {
+        return Stream.of(apiResources)
+                .flatMap(this::readResource)
+                .flatMap(apiDocumentParser::parseAsStream);
+    }
+
+    /**
+     * Get the zip entries that are files.
+     *
+     * @param path the path to the zip file.
+     * @return paths to zip entries
+     */
+    protected Stream<VirtualPath> getZipEntryFiles(LocalFilePath path) throws IOException {
+        @SuppressWarnings("resource")
+        ZipFile zip = new ZipFile(path.toFile());
+        return zip.stream().map(entry -> VirtualPath.get(zip, entry));
     }
 }

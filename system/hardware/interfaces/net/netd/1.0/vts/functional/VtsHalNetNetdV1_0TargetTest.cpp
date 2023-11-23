@@ -16,8 +16,10 @@
 
 #define LOG_TAG "netd_hidl_test"
 
-#include <VtsHalHidlTargetTestBase.h>
 #include <android/system/net/netd/1.0/INetd.h>
+#include <gtest/gtest.h>
+#include <hidl/GtestPrinter.h>
+#include <hidl/ServiceManagement.h>
 #include <log/log.h>
 
 #include "VtsHalNetNetdTestUtils.h"
@@ -26,26 +28,10 @@ using ::android::system::net::netd::V1_0::INetd;
 using ::android::hardware::Return;
 using ::android::sp;
 
-// Test environment for Netd HIDL HAL.
-class NetdHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
-   public:
-    // get the test environment singleton
-    static NetdHidlEnvironment* Instance() {
-        static NetdHidlEnvironment* instance = new NetdHidlEnvironment;
-        return instance;
-    }
-
-    virtual void registerTestServices() override { registerTestService<INetd>(); }
-
-   private:
-    NetdHidlEnvironment() {}
-};
-
-class NetdHidlTest : public ::testing::VtsHalHidlTargetTestBase {
+class NetdHidlTest : public ::testing::TestWithParam<std::string> {
    public:
     virtual void SetUp() override {
-        netd = ::testing::VtsHalHidlTargetTestBase::getService<INetd>(
-            NetdHidlEnvironment::Instance()->getServiceName<INetd>());
+        netd = INetd::getService(GetParam());
         ASSERT_NE(netd, nullptr) << "Could not get HIDL instance";
     }
 
@@ -53,7 +39,7 @@ class NetdHidlTest : public ::testing::VtsHalHidlTargetTestBase {
 };
 
 // positive test. Ensure netd creates an oem network and returns valid netHandle, and destroys it.
-TEST_F(NetdHidlTest, TestCreateAndDestroyOemNetworkOk) {
+TEST_P(NetdHidlTest, TestCreateAndDestroyOemNetworkOk) {
     net_handle_t netHandle;
     uint32_t packetMark;
     INetd::StatusCode status;
@@ -79,18 +65,14 @@ TEST_F(NetdHidlTest, TestCreateAndDestroyOemNetworkOk) {
 }
 
 // negative test. Ensure destroy for invalid OEM network fails appropriately
-TEST_F(NetdHidlTest, TestDestroyOemNetworkInvalid) {
+TEST_P(NetdHidlTest, TestDestroyOemNetworkInvalid) {
     const uint64_t nh = 0x6600FACADE;
 
     Return<INetd::StatusCode> retStatus = netd->destroyOemNetwork(nh);
     ASSERT_EQ(INetd::StatusCode::INVALID_ARGUMENTS, retStatus);
 }
 
-int main(int argc, char** argv) {
-    ::testing::AddGlobalTestEnvironment(NetdHidlEnvironment::Instance());
-    ::testing::InitGoogleTest(&argc, argv);
-    NetdHidlEnvironment::Instance()->init(&argc, argv);
-    int status = RUN_ALL_TESTS();
-    ALOGE("Test result with status=%d", status);
-    return status;
-}
+INSTANTIATE_TEST_SUITE_P(
+    PerInstance, NetdHidlTest,
+    testing::ValuesIn(android::hardware::getAllHalInstanceNames(INetd::descriptor)),
+    android::hardware::PrintInstanceNameToString);

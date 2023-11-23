@@ -26,7 +26,7 @@ class BindingTest(unittest.TestCase):
 
     def test_instance_binding(self):
         instance = object()
-        binding = Binding(None)
+        binding = Binding(object)
 
         instance_binding = binding.__get__(instance, None)
 
@@ -76,7 +76,7 @@ class BindingTest(unittest.TestCase):
 
     def test_call_inner_fail_on_false(self):
 
-        def inner(*args, **kwargs):
+        def inner(*_, **__):
             return False
 
         binding = Binding(inner, instance_args=['test'])
@@ -88,7 +88,7 @@ class BindingTest(unittest.TestCase):
 
     def test_call_inner_pass_through_signal(self):
 
-        def inner(*args, **kwargs):
+        def inner(*_, **__):
             raise signals.TestPass('DETAILS')
 
         binding = Binding(inner, instance_args=['test'])
@@ -102,7 +102,7 @@ class BindingTest(unittest.TestCase):
         self.inner_args = []
         self.inner_kwargs = {}
 
-        def arg_modifier(inner, *args, **kwargs):
+        def arg_modifier(_, *args, **kwargs):
             new_args = list(args) + ['new arg']
             new_kwargs = dict(kwargs, kw='value')
 
@@ -126,10 +126,10 @@ class BindingTest(unittest.TestCase):
 
         self.has_called_before = False
 
-        def before(*args, **kwargs):
+        def before(*_, **__):
             self.has_called_before = True
 
-        def inner(*args, **kwargs):
+        def inner(*_, **__):
             self.assertTrue(self.has_called_before)
 
         binding = Binding(inner, before=before)
@@ -145,10 +145,10 @@ class BindingTest(unittest.TestCase):
 
         self.has_called_after = False
 
-        def after(*args, **kwargs):
+        def after(*_, **__):
             self.has_called_after = True
 
-        def inner(*args, **kwargs):
+        def inner(*_, **__):
             self.assertFalse(self.has_called_after)
 
         binding = Binding(inner, after=after)
@@ -162,10 +162,10 @@ class BindingTest(unittest.TestCase):
 
     def test_signal_modify(self):
 
-        def inner(*args, **kwargs):
+        def inner(*_, **__):
             raise signals.TestPass('DETAILS')
 
-        def signal_modifier(inner, signal, *args, **kwargs):
+        def signal_modifier(_, signal, *__, **___):
             raise signals.TestFailure(signal.details)
 
         binding = Binding(inner, signal_modifier=signal_modifier)
@@ -176,7 +176,10 @@ class BindingTest(unittest.TestCase):
             self.assertEqual(signal.details, 'DETAILS')
 
     def test_inner_attr_proxy_test(self):
-        inner = mock.Mock()
+        def some_func():
+            pass
+
+        inner = some_func
         inner.x = 10
 
         binding = Binding(inner)

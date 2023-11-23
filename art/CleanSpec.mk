@@ -62,6 +62,49 @@ $(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest*/)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest*/)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest*/)
 
+# Clean up duplicate compiles between static and shared compiles of libart and libartd
+$(call add-clean-step, rm -rf $(OUT_DIR)/soong/.intermediates/art/runtime/libart/*shared*/obj)
+$(call add-clean-step, rm -rf $(OUT_DIR)/soong/.intermediates/art/runtime/libartd/*shared*/obj)
+
+# Force regeneration of .apex files after removal of time zone data files from the runtime APEX
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/apex/com.android.runtime.*)
+
+# Remove artifacts that used to be generated (as a workaround for
+# improper Runtime APEX support) by tools/buildbot-build.sh via the
+# `standalone-apex-files` Make rule.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/bin)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib*)
+# Remove artifacts that used to be generated (as a workaround for
+# improper Runtime APEX support) by tools/buildbot-build.sh via the
+# `icu-data-art-test` Make rule.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/icu)
+
+# Remove ART test target artifacts.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest*/)
+
+# Remove all APEX artifacts after the change to use the Testing
+# Runtime APEX in lieu of the Debug Runtime APEX for ART testing.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/apex)
+
+# Remove the icu .dat file from /apex/com.android.runtime and the host equivalent.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/apex)
+$(call add-clean-step, rm -rf $(HOST_OUT)/com.android.runtime/etc/icu/*)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/icu)
+
+# Remove all APEX artifacts for the Runtime/ART APEX split.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/apex)
+$(call add-clean-step, rm -rf $(HOST_OUT)/apex)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/apex)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/symbols/apex)
+
+# Remove dex2oat artifacts for boot image extensions (workaround for broken dependencies).
+$(call add-clean-step, find $(OUT_DIR) -name "*.oat" -o -name "*.odex" -o -name "*.art" -o -name '*.vdex' | xargs rm -f)
+$(call add-clean-step, find $(OUT_DIR) -name "*.oat" -o -name "*.odex" -o -name "*.art" -o -name '*.vdex' | xargs rm -f)
+$(call add-clean-step, find $(OUT_DIR) -name "*.oat" -o -name "*.odex" -o -name "*.art" -o -name '*.vdex' | xargs rm -f)
+
+# Remove empty dir for art APEX because it will be created on demand while mounting release|debug
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/apex/com.android.art)
+
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

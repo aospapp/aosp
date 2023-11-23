@@ -52,6 +52,17 @@ $(call add-clean-step, rm -f $(HOST_OUT)/usr/share/zoneinfo/tzlookup.xml)
 $(call add-clean-step, rm -f $(PRODUCT_OUT)/system/usr/share/zoneinfo/tzlookup.xml)
 $(call add-clean-step, rm -f $(OUT_DIR)/host/linux-x86/usr/share/zoneinfo/tzlookup.xml)
 
+# Remove host files that simulate time zone data files in the runtime mainline module APEX.
+$(call add-clean-step, rm -rf $(HOST_OUT)/com.android.runtime/etc/tz/*)
+
+# Remove on-device files that simulate time zone data files in the runtime
+# mainline module APEX in ART's special on-device test environment.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/tz)
+
+# Remove on-device files that simulate time zone data files in the TZ data
+# mainline module APEX in ART's special on-device test environment.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/tzdata_module)
+
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

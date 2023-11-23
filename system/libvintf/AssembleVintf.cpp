@@ -108,10 +108,12 @@ class AssembleVintfImpl : public AssembleVintf {
 
     /**
      * Set *out to environment variable only if *out is a dummy value (i.e. default constructed).
-     * Return true if *out is set to environment variable, otherwise false.
+     * Return false if a fatal error has occurred:
+     * - The environment variable has an unknown format
+     * - The value of the environment variable does not match a predefined variable in the files
      */
     template <typename T>
-    bool getFlagIfUnset(const std::string& envKey, T* out, bool log = true) const {
+    bool getFlagIfUnset(const std::string& envKey, T* out) const {
         bool hasExistingValue = !(*out == T{});
 
         bool hasEnvValue = false;
@@ -119,29 +121,23 @@ class AssembleVintfImpl : public AssembleVintf {
         std::string envStrValue = getEnv(envKey);
         if (!envStrValue.empty()) {
             if (!parse(envStrValue, &envValue)) {
-                if (log) {
-                    std::cerr << "Cannot parse " << envValue << "." << std::endl;
-                }
+                std::cerr << "Cannot parse " << envValue << "." << std::endl;
                 return false;
             }
             hasEnvValue = true;
         }
 
         if (hasExistingValue) {
-            if (hasEnvValue && log) {
-                std::cerr << "Warning: cannot override existing value " << *out << " with "
-                          << envKey << " (which is " << envValue << ")." << std::endl;
+            if (hasEnvValue && (*out != envValue)) {
+                std::cerr << "Cannot override existing value " << *out << " with " << envKey
+                          << " (which is " << envValue << ")." << std::endl;
+                return false;
             }
-            return false;
+            return true;
         }
-        if (!hasEnvValue) {
-            if (log) {
-                std::cerr << "Warning: " << envKey << " is not specified. Default to " << T{} << "."
-                          << std::endl;
-            }
-            return false;
+        if (hasEnvValue) {
+            *out = envValue;
         }
-        *out = envValue;
         return true;
     }
 
@@ -166,19 +162,35 @@ class AssembleVintfImpl : public AssembleVintf {
         return ss.str();
     }
 
+    // Return true if name of file is "android-base.config". This file must be specified
+    // exactly once for each kernel version. These requirements do not have any conditions.
     static bool isCommonConfig(const std::string& path) {
         return ::android::base::Basename(path) == gBaseConfig;
     }
 
+    // Return true if name of file matches "android-base-foo.config".
+    // Zero or more conditional configs may be specified for each kernel version. These
+    // requirements are conditional on CONFIG_FOO=y.
+    static bool isConditionalConfig(const std::string& path) {
+        auto fname = ::android::base::Basename(path);
+        return ::android::base::StartsWith(fname, gConfigPrefix) &&
+               ::android::base::EndsWith(fname, gConfigSuffix);
+    }
+
+    // Return true for all other file names (i.e. not android-base.config, and not conditional
+    // configs.)
+    // Zero or more conditional configs may be specified for each kernel version.
+    // These requirements do not have any conditions.
+    static bool isExtraCommonConfig(const std::string& path) {
+        return !isCommonConfig(path) && !isConditionalConfig(path);
+    }
+
     // nullptr on any error, otherwise the condition.
     static Condition generateCondition(const std::string& path) {
-        std::string fname = ::android::base::Basename(path);
-        if (fname.size() <= gConfigPrefix.size() + gConfigSuffix.size() ||
-            !std::equal(gConfigPrefix.begin(), gConfigPrefix.end(), fname.begin()) ||
-            !std::equal(gConfigSuffix.rbegin(), gConfigSuffix.rend(), fname.rbegin())) {
+        if (!isConditionalConfig(path)) {
             return nullptr;
         }
-
+        auto fname = ::android::base::Basename(path);
         std::string sub = fname.substr(gConfigPrefix.size(),
                                        fname.size() - gConfigPrefix.size() - gConfigSuffix.size());
         if (sub.empty()) {
@@ -233,12 +245,22 @@ class AssembleVintfImpl : public AssembleVintf {
         bool ret = true;
 
         for (auto& namedStream : *streams) {
-            if (isCommonConfig(namedStream.name())) {
-                ret &= parseFileForKernelConfigs(namedStream.stream(), &commonConfig.second);
-                foundCommonConfig = true;
+            if (isCommonConfig(namedStream.name()) || isExtraCommonConfig(namedStream.name())) {
+                if (!parseFileForKernelConfigs(namedStream.stream(), &commonConfig.second)) {
+                    std::cerr << "Failed to generate common configs for file "
+                              << namedStream.name();
+                    ret = false;
+                }
+                if (isCommonConfig(namedStream.name())) {
+                    foundCommonConfig = true;
+                }
             } else {
                 Condition condition = generateCondition(namedStream.name());
-                ret &= (condition != nullptr);
+                if (condition == nullptr) {
+                    std::cerr << "Failed to generate conditional configs for file "
+                              << namedStream.name();
+                    ret = false;
+                }
 
                 std::vector<KernelConfig> kernelConfigs;
                 if ((ret &= parseFileForKernelConfigs(namedStream.stream(), &kernelConfigs)))
@@ -251,8 +273,8 @@ class AssembleVintfImpl : public AssembleVintf {
             for (auto& namedStream : *streams) {
                 std::cerr << "    " << namedStream.name() << std::endl;
             }
+            ret = false;
         }
-        ret &= foundCommonConfig;
         // first element is always common configs (no conditions).
         out->insert(out->begin(), std::move(commonConfig));
         return ret;
@@ -264,27 +286,8 @@ class AssembleVintfImpl : public AssembleVintf {
     bool checkDualFile(const HalManifest& manifest, const CompatibilityMatrix& matrix) {
         if (getBooleanFlag("PRODUCT_ENFORCE_VINTF_MANIFEST")) {
             std::string error;
-            if (!manifest.checkCompatibility(matrix, &error)) {
+            if (!manifest.checkCompatibility(matrix, &error, mCheckFlags)) {
                 std::cerr << "Not compatible: " << error << std::endl;
-                return false;
-            }
-        }
-
-        // Check HALs in device manifest that are not in framework matrix.
-        if (getBooleanFlag("VINTF_ENFORCE_NO_UNUSED_HALS")) {
-            auto unused = manifest.checkUnusedHals(matrix);
-            if (!unused.empty()) {
-                std::cerr << "Error: The following instances are in the device manifest but "
-                          << "not specified in framework compatibility matrix: " << std::endl
-                          << "    " << android::base::Join(unused, "\n    ") << std::endl
-                          << "Suggested fix:" << std::endl
-                          << "1. Check for any typos in device manifest or framework compatibility "
-                          << "matrices with FCM version >= " << matrix.level() << "." << std::endl
-                          << "2. Add them to any framework compatibility matrix with FCM "
-                          << "version >= " << matrix.level() << " where applicable." << std::endl
-                          << "3. Add them to DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE "
-                          << "or DEVICE_PRODUCT_COMPATIBILITY_MATRIX_FILE." << std::endl;
-
                 return false;
             }
         }
@@ -332,10 +335,33 @@ class AssembleVintfImpl : public AssembleVintf {
             std::cerr << parser.error();
             return false;
         }
-        manifest->device.mKernel = std::make_optional<KernelInfo>();
-        manifest->device.mKernel->mVersion = kernelVer;
-        manifest->device.mKernel->mConfigs = parser.configs();
+
+        // Set version and configs in manifest.
+        auto kernel_info = std::make_optional<KernelInfo>();
+        kernel_info->mVersion = kernelVer;
+        kernel_info->mConfigs = parser.configs();
+        std::string error;
+        if (!manifest->mergeKernel(&kernel_info, &error)) {
+            std::cerr << error << "\n";
+            return false;
+        }
+
         return true;
+    }
+
+    void inferDeviceManifestKernelFcm(HalManifest* manifest) {
+        // No target FCM version.
+        if (manifest->level() == Level::UNSPECIFIED) return;
+        // target FCM version < R: leave value untouched.
+        if (manifest->level() < Level::R) return;
+        // Inject empty <kernel> tag if missing.
+        if (!manifest->kernel().has_value()) {
+            manifest->device.mKernel = std::make_optional<KernelInfo>();
+        }
+        // Kernel FCM already set.
+        if (manifest->kernel()->level() != Level::UNSPECIFIED) return;
+
+        manifest->device.mKernel->mLevel = manifest->level();
     }
 
     bool assembleHalManifest(HalManifests* halManifests) {
@@ -365,7 +391,9 @@ class AssembleVintfImpl : public AssembleVintf {
         }
 
         if (halManifest->mType == SchemaType::DEVICE) {
-            (void)getFlagIfUnset("BOARD_SEPOLICY_VERS", &halManifest->device.mSepolicyVersion);
+            if (!getFlagIfUnset("BOARD_SEPOLICY_VERS", &halManifest->device.mSepolicyVersion)) {
+                return false;
+            }
 
             if (!setDeviceFcmVersion(halManifest)) {
                 return false;
@@ -374,6 +402,8 @@ class AssembleVintfImpl : public AssembleVintf {
             if (!setDeviceManifestKernel(halManifest)) {
                 return false;
             }
+
+            inferDeviceManifestKernelFcm(halManifest);
         }
 
         if (halManifest->mType == SchemaType::FRAMEWORK) {
@@ -390,7 +420,7 @@ class AssembleVintfImpl : public AssembleVintf {
 
         if (mOutputMatrix) {
             CompatibilityMatrix generatedMatrix = halManifest->generateCompatibleMatrix();
-            if (!halManifest->checkCompatibility(generatedMatrix, &error)) {
+            if (!halManifest->checkCompatibility(generatedMatrix, &error, mCheckFlags)) {
                 std::cerr << "FATAL ERROR: cannot generate a compatible matrix: " << error
                           << std::endl;
             }
@@ -584,10 +614,13 @@ class AssembleVintfImpl : public AssembleVintf {
                                                                                 v.minorVer);
             }
 
-            getFlagIfUnset("POLICYVERS", &matrix->framework.mSepolicy.mKernelSepolicyVersion,
-                           false /* log */);
-            getFlagIfUnset("FRAMEWORK_VBMETA_VERSION", &matrix->framework.mAvbMetaVersion,
-                           false /* log */);
+            if (!getFlagIfUnset("POLICYVERS",
+                                &matrix->framework.mSepolicy.mKernelSepolicyVersion)) {
+                return false;
+            }
+            if (!getFlagIfUnset("FRAMEWORK_VBMETA_VERSION", &matrix->framework.mAvbMetaVersion)) {
+                return false;
+            }
             // Hard-override existing AVB version
             getFlag("FRAMEWORK_VBMETA_VERSION_OVERRIDE", &matrix->framework.mAvbMetaVersion,
                     false /* log */);
@@ -725,6 +758,7 @@ class AssembleVintfImpl : public AssembleVintf {
 
     bool setNoKernelRequirements() override {
         mSerializeFlags = mSerializeFlags.disableKernelConfigs().disableKernelMinorRevision();
+        mCheckFlags = mCheckFlags.disableKernel();
         return true;
     }
 
@@ -737,6 +771,7 @@ class AssembleVintfImpl : public AssembleVintf {
     SerializeFlags::Type mSerializeFlags = SerializeFlags::EVERYTHING;
     std::map<KernelVersion, std::vector<NamedIstream>> mKernels;
     std::map<std::string, std::string> mFakeEnv;
+    CheckFlags::Type mCheckFlags = CheckFlags::DEFAULT;
 };
 
 bool AssembleVintf::openOutFile(const std::string& path) {

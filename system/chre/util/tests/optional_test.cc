@@ -123,12 +123,12 @@ class MovableButNonCopyable : public chre::NonCopyable {
  public:
   MovableButNonCopyable() = default;
   MovableButNonCopyable(int value) : mValue(value) {}
-  MovableButNonCopyable(MovableButNonCopyable&& other) {
+  MovableButNonCopyable(MovableButNonCopyable &&other) {
     mValue = other.mValue;
     other.mValue = kInvalidValue;
   }
 
-  MovableButNonCopyable& operator=(MovableButNonCopyable&& other) {
+  MovableButNonCopyable &operator=(MovableButNonCopyable &&other) {
     assert(mMagic == kConstructedMagic);
     mValue = other.mValue;
     other.mValue = kInvalidValue;

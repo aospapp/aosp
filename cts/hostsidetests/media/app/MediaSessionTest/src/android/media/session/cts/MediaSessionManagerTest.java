@@ -72,14 +72,19 @@ public class MediaSessionManagerTest extends NotificationListenerService {
      */
     @Test
     public void testGetActiveSessions_hasMediaSessionFromMediaSessionTestHelper() throws Exception {
+        boolean found = false;
         List<MediaController> controllers = mMediaSessionManager.getActiveSessions(mComponentName);
         for (MediaController controller : controllers) {
             if (controller.getPackageName().equals(MEDIA_SESSION_TEST_HELPER_PKG)) {
-                // Test success
-                return;
+                if (found) {
+                    fail("Multiple media session for the media session app is unexpected");
+                }
+                found = true;
             }
         }
-        fail("Media session for the media session app is expected");
+        if (!found) {
+            fail("Media session for the media session app is expected");
+        }
     }
 
     /**

@@ -102,9 +102,6 @@ public class CrossProfileCalendarTest extends AndroidTestCase {
     private static final long TEST_VIEW_EVENT_END = 10000;
     private static final boolean TEST_VIEW_EVENT_ALL_DAY = false;
     private static final int TEST_VIEW_EVENT_FLAG = Intent.FLAG_ACTIVITY_NEW_TASK;
-    private static final int TIMEOUT_SEC = 10;
-    private static final String ID_TEXTVIEW =
-            "com.android.cts.managedprofile:id/view_event_text";
 
     private ContentResolver mResolver;
     private DevicePolicyManager mDevicePolicyManager;
@@ -333,29 +330,6 @@ public class CrossProfileCalendarTest extends AndroidTestCase {
         // There are two events that meet the search criteria.
         assertThat(cursor).isNotNull();
         assertThat(cursor.getCount()).isEqualTo(1);
-    }
-
-    // This test should be run when the test package is whitelisted.
-    public void testViewEventCrossProfile_intentReceivedWhenWhitelisted() throws Exception {
-        requireRunningOnPrimaryProfile();
-
-        // Get UiDevice and start view event activity.
-        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        device.wakeUp();
-
-        assertThat(CalendarContract.startViewCalendarEventInManagedProfile(mContext,
-                TEST_VIEW_EVENT_ID, TEST_VIEW_EVENT_START, TEST_VIEW_EVENT_END,
-                TEST_VIEW_EVENT_ALL_DAY, TEST_VIEW_EVENT_FLAG)).isTrue();
-        final String textviewString = getViewEventCrossProfileString(TEST_VIEW_EVENT_ID,
-                TEST_VIEW_EVENT_START, TEST_VIEW_EVENT_END, TEST_VIEW_EVENT_ALL_DAY,
-                TEST_VIEW_EVENT_FLAG);
-
-        // Look for the text view to verify that activity is started in work profile.
-        UiObject2 textView = device.wait(
-                Until.findObject(By.res(ID_TEXTVIEW)),
-                TIMEOUT_SEC);
-        assertThat(textView).isNotNull();
-        assertThat(textView.getText()).isEqualTo(textviewString);
     }
 
     // This test should be run when the test package is whitelisted and cross-profile calendar

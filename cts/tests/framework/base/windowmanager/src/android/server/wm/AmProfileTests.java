@@ -17,18 +17,23 @@
 package android.server.wm;
 
 import static android.server.wm.ComponentNameUtils.getActivityName;
-import static android.server.wm.UiDeviceUtils.pressHomeButton;
 import static android.server.wm.profileable.Components.PROFILEABLE_APP_ACTIVITY;
+import static android.server.wm.profileable.Components.ProfileableAppActivity.COMMAND_WAIT_FOR_PROFILE_OUTPUT;
+import static android.server.wm.profileable.Components.ProfileableAppActivity.OUTPUT_FILE_PATH;
+import static android.server.wm.profileable.Components.ProfileableAppActivity.OUTPUT_DIR;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
 
 import android.content.ComponentName;
+import android.content.Intent;
 import android.platform.test.annotations.Presubmit;
+import android.server.wm.CommandSession.ActivitySession;
+import android.server.wm.CommandSession.DefaultLaunchProxy;
 
-import androidx.test.filters.FlakyTest;
-
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -40,9 +45,19 @@ import org.junit.Test;
 @Presubmit
 public class AmProfileTests extends ActivityManagerTestBase {
 
-    private static final String OUTPUT_FILE_PATH = "/data/local/tmp/profile.trace";
     private static final String FIRST_WORD_NO_STREAMING = "*version\n";
     private static final String FIRST_WORD_STREAMING = "SLOW";  // Magic word set by runtime.
+
+    @BeforeClass
+    public static void setUpClass() {
+        // Allow ProfileableAppActivity to monitor the path.
+        executeShellCommand("mkdir -m 777 -p " + OUTPUT_DIR);
+    }
+
+    @AfterClass
+    public static void tearDownClass() {
+        executeShellCommand("rm -rf " + OUTPUT_DIR);
+    }
 
     /**
      * Test am profile functionality with the following 3 configurable options:
@@ -61,7 +76,6 @@ public class AmProfileTests extends ActivityManagerTestBase {
      * only different in the three configuration options.
      */
     @Test
-    @FlakyTest(bugId = 131005232)
     public void testAmProfileStartNoSamplingStreaming() throws Exception {
         testProfile(true, false, true);
     }
@@ -83,7 +97,6 @@ public class AmProfileTests extends ActivityManagerTestBase {
     }
 
     @Test
-    @FlakyTest(bugId = 131005232)
     public void testAmStartStartProfilerNoSamplingStreaming() throws Exception {
         testProfile(false, false, true);
     }
@@ -100,48 +113,64 @@ public class AmProfileTests extends ActivityManagerTestBase {
 
     private void testProfile(final boolean startActivityFirst, final boolean sampling,
             final boolean streaming) throws Exception {
+        final ActivitySession activitySession;
         if (startActivityFirst) {
-            launchActivity(PROFILEABLE_APP_ACTIVITY);
+            activitySession = createManagedActivityClientSession().startActivity(
+                    new Intent().setComponent(PROFILEABLE_APP_ACTIVITY));
+            startProfiling(PROFILEABLE_APP_ACTIVITY.getPackageName(), sampling, streaming);
+        } else {
+            activitySession = startActivityProfiling(PROFILEABLE_APP_ACTIVITY, sampling, streaming);
         }
 
-        executeShellCommand(
-                getStartCmd(PROFILEABLE_APP_ACTIVITY, startActivityFirst, sampling, streaming));
         // Go to home screen and then warm start the activity to generate some interesting trace.
-        pressHomeButton();
+        launchHomeActivity();
         launchActivity(PROFILEABLE_APP_ACTIVITY);
 
         executeShellCommand(getStopProfileCmd(PROFILEABLE_APP_ACTIVITY));
 
-        // Sleep for 0.3 second (300 milliseconds) so the generation of the profiling
-        // file is complete.
-        try {
-            Thread.sleep(300);
-        } catch (InterruptedException e) {
-            //ignored
-        }
+        activitySession.sendCommandAndWaitReply(COMMAND_WAIT_FOR_PROFILE_OUTPUT);
         verifyOutputFileFormat(streaming);
     }
 
-    private static String getStartCmd(final ComponentName activityName,
-            final boolean activityAlreadyStarted, final boolean sampling, final boolean streaming) {
-        final StringBuilder builder = new StringBuilder("am");
-        if (activityAlreadyStarted) {
-            builder.append(" profile start");
-        } else {
-            builder.append(String.format(" start -n %s -W -S --start-profiler %s",
-                    getActivityName(activityName), OUTPUT_FILE_PATH));
-        }
+    /** Starts profiler on a started process. */
+    private static void startProfiling(String processName, boolean sampling, boolean streaming) {
+        final StringBuilder builder = new StringBuilder("am profile start");
+        appendProfileParameters(builder, sampling, streaming);
+        builder.append(String.format(" %s %s", processName, OUTPUT_FILE_PATH));
+        executeShellCommand(builder.toString());
+    }
+
+    /** Starts the activity with profiler. */
+    private ActivitySession startActivityProfiling(ComponentName activityName, boolean sampling,
+            boolean streaming) {
+        return createManagedActivityClientSession().startActivity(new DefaultLaunchProxy() {
+
+            @Override
+            public boolean shouldWaitForLaunched() {
+                // The shell command included "-W".
+                return false;
+            }
+
+            @Override
+            public void execute() {
+                final StringBuilder builder = new StringBuilder();
+                builder.append(String.format("am start -n %s -W -S --start-profiler %s",
+                        getActivityName(activityName), OUTPUT_FILE_PATH));
+                appendProfileParameters(builder, sampling, streaming);
+                mLaunchInjector.setupShellCommand(builder);
+                executeShellCommand(builder.toString());
+            }
+        });
+    }
+
+    private static void appendProfileParameters(StringBuilder builder, boolean sampling,
+            boolean streaming) {
         if (sampling) {
             builder.append(" --sampling 1000");
         }
         if (streaming) {
             builder.append(" --streaming");
         }
-        if (activityAlreadyStarted) {
-            builder.append(String.format(
-                    " %s %s", activityName.getPackageName(), OUTPUT_FILE_PATH));
-        }
-        return builder.toString();
     }
 
     private static String getStopProfileCmd(final ComponentName activityName) {

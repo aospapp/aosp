@@ -39,8 +39,11 @@ Usage:  check_target_file_signatures [flags] target_files
 
 """
 
+from __future__ import print_function
+
 import logging
 import os
+import os.path
 import re
 import subprocess
 import sys
@@ -49,7 +52,7 @@ import zipfile
 import common
 
 if sys.hexversion < 0x02070000:
-  print >> sys.stderr, "Python 2.7 or newer is required."
+  print("Python 2.7 or newer is required.", file=sys.stderr)
   sys.exit(1)
 
 
@@ -65,7 +68,9 @@ logger = logging.getLogger(__name__)
 class MyZipInfo(zipfile.ZipInfo):
   def _decodeExtra(self):
     pass
+
 zipfile.ZipInfo = MyZipInfo
+
 
 OPTIONS = common.OPTIONS
 
@@ -76,28 +81,34 @@ OPTIONS.local_cert_dirs = ("vendor", "build")
 PROBLEMS = []
 PROBLEM_PREFIX = []
 
+
 def AddProblem(msg):
   PROBLEMS.append(" ".join(PROBLEM_PREFIX) + " " + msg)
+
+
 def Push(msg):
   PROBLEM_PREFIX.append(msg)
+
+
 def Pop():
   PROBLEM_PREFIX.pop()
 
 
 def Banner(msg):
-  print "-" * 70
-  print "  ", msg
-  print "-" * 70
+  print("-" * 70)
+  print("  ", msg)
+  print("-" * 70)
 
 
 def GetCertSubject(cert):
   p = common.Run(["openssl", "x509", "-inform", "DER", "-text"],
                  stdin=subprocess.PIPE,
-                 stdout=subprocess.PIPE)
+                 stdout=subprocess.PIPE,
+                 universal_newlines=False)
   out, err = p.communicate(cert)
   if err and not err.strip():
     return "(error reading cert subject)"
-  for line in out.split("\n"):
+  for line in out.decode().split("\n"):
     line = line.strip()
     if line.startswith("Subject:"):
       return line[8:].strip()
@@ -105,22 +116,22 @@ def GetCertSubject(cert):
 
 
 class CertDB(object):
+
   def __init__(self):
     self.certs = {}
 
-  def Add(self, cert, name=None):
-    if cert in self.certs:
+  def Add(self, cert_digest, subject, name=None):
+    if cert_digest in self.certs:
       if name:
-        self.certs[cert] = self.certs[cert] + "," + name
+        self.certs[cert_digest] = self.certs[cert_digest] + "," + name
     else:
       if name is None:
-        name = "unknown cert %s (%s)" % (common.sha1(cert).hexdigest()[:12],
-                                         GetCertSubject(cert))
-      self.certs[cert] = name
+        name = "unknown cert %s (%s)" % (cert_digest[:12], subject)
+      self.certs[cert_digest] = name
 
-  def Get(self, cert):
-    """Return the name for a given cert."""
-    return self.certs.get(cert, None)
+  def Get(self, cert_digest):
+    """Return the name for a given cert digest."""
+    return self.certs.get(cert_digest, None)
 
   def FindLocalCerts(self):
     to_load = []
@@ -132,12 +143,15 @@ class CertDB(object):
           to_load.extend(certs)
 
     for i in to_load:
-      f = open(i)
-      cert = common.ParseCertificate(f.read())
-      f.close()
+      with open(i) as f:
+        cert = common.ParseCertificate(f.read())
       name, _ = os.path.splitext(i)
       name, _ = os.path.splitext(name)
-      self.Add(cert, name)
+
+      cert_sha1 = common.sha1(cert).hexdigest()
+      cert_subject = GetCertSubject(cert)
+      self.Add(cert_sha1, cert_subject, name)
+
 
 ALL_CERTS = CertDB()
 
@@ -152,13 +166,14 @@ def CertFromPKCS7(data, filename):
                     "-outform", "PEM",
                     "-print_certs"],
                    stdin=subprocess.PIPE,
-                   stdout=subprocess.PIPE)
+                   stdout=subprocess.PIPE,
+                   universal_newlines=False)
     out, err = p.communicate(data)
     if err and not err.strip():
-      AddProblem("error reading cert:\n" + err)
+      AddProblem("error reading cert:\n" + err.decode())
       return None
 
-    cert = common.ParseCertificate(out)
+    cert = common.ParseCertificate(out.decode())
     if not cert:
       AddProblem("error parsing cert output")
       return None
@@ -171,7 +186,7 @@ class APK(object):
 
   def __init__(self, full_filename, filename):
     self.filename = filename
-    self.certs = None
+    self.cert_digests = frozenset()
     self.shared_uid = None
     self.package = None
 
@@ -182,27 +197,71 @@ class APK(object):
     finally:
       Pop()
 
-  def RecordCerts(self, full_filename):
-    out = set()
-    try:
-      f = open(full_filename)
-      apk = zipfile.ZipFile(f, "r")
-      pkcs7 = None
+  def ReadCertsDeprecated(self, full_filename):
+    print("reading certs in deprecated way for {}".format(full_filename))
+    cert_digests = set()
+    with zipfile.ZipFile(full_filename) as apk:
       for info in apk.infolist():
-        if info.filename.startswith("META-INF/") and \
-           (info.filename.endswith(".DSA") or info.filename.endswith(".RSA")):
-          pkcs7 = apk.read(info.filename)
-          cert = CertFromPKCS7(pkcs7, info.filename)
-          out.add(cert)
-          ALL_CERTS.Add(cert)
-      if not pkcs7:
-        AddProblem("no signature")
-    finally:
-      f.close()
-      self.certs = frozenset(out)
+        filename = info.filename
+        if (filename.startswith("META-INF/") and
+            info.filename.endswith((".DSA", ".RSA"))):
+          pkcs7 = apk.read(filename)
+          cert = CertFromPKCS7(pkcs7, filename)
+          if not cert:
+            continue
+          cert_sha1 = common.sha1(cert).hexdigest()
+          cert_subject = GetCertSubject(cert)
+          ALL_CERTS.Add(cert_sha1, cert_subject)
+          cert_digests.add(cert_sha1)
+    if not cert_digests:
+      AddProblem("No signature found")
+      return
+    self.cert_digests = frozenset(cert_digests)
+
+  def RecordCerts(self, full_filename):
+    """Parse and save the signature of an apk file."""
+
+    # Dump the cert info with apksigner
+    cmd = ["apksigner", "verify", "--print-certs", full_filename]
+    p = common.Run(cmd, stdout=subprocess.PIPE)
+    output, _ = p.communicate()
+    if p.returncode != 0:
+      self.ReadCertsDeprecated(full_filename)
+      return
+
+    # Sample output:
+    # Signer #1 certificate DN: ...
+    # Signer #1 certificate SHA-256 digest: ...
+    # Signer #1 certificate SHA-1 digest: ...
+    # ...
+    certs_info = {}
+    certificate_regex = re.compile(r"(Signer #[0-9]+) (certificate .*):(.*)")
+    for line in output.splitlines():
+      m = certificate_regex.match(line)
+      if not m:
+        continue
+      signer, key, val = m.group(1), m.group(2), m.group(3)
+      if certs_info.get(signer):
+        certs_info[signer].update({key.strip(): val.strip()})
+      else:
+        certs_info.update({signer: {key.strip(): val.strip()}})
+    if not certs_info:
+      AddProblem("Failed to parse cert info")
+      return
+
+    cert_digests = set()
+    for signer, props in certs_info.items():
+      subject = props.get("certificate DN")
+      digest = props.get("certificate SHA-1 digest")
+      if not subject or not digest:
+        AddProblem("Failed to parse cert subject or digest")
+        return
+      ALL_CERTS.Add(digest, subject)
+      cert_digests.add(digest)
+    self.cert_digests = frozenset(cert_digests)
 
   def ReadManifest(self, full_filename):
-    p = common.Run(["aapt", "dump", "xmltree", full_filename,
+    p = common.Run(["aapt2", "dump", "xmltree", full_filename, "--file",
                     "AndroidManifest.xml"],
                    stdout=subprocess.PIPE)
     manifest, err = p.communicate()
@@ -247,8 +306,8 @@ class TargetFiles(object):
     # This is the list of wildcards of files we extract from |filename|.
     apk_extensions = ['*.apk', '*.apex']
 
-    self.certmap, compressed_extension = common.ReadApkCerts(
-        zipfile.ZipFile(filename))
+    with zipfile.ZipFile(filename) as input_zip:
+      self.certmap, compressed_extension = common.ReadApkCerts(input_zip)
     if compressed_extension:
       apk_extensions.append('*.apk' + compressed_extension)
 
@@ -287,7 +346,7 @@ class TargetFiles(object):
     """Look for any instances where packages signed with different
     certs request the same sharedUserId."""
     apks_by_uid = {}
-    for apk in self.apks.itervalues():
+    for apk in self.apks.values():
       if apk.shared_uid:
         apks_by_uid.setdefault(apk.shared_uid, []).append(apk)
 
@@ -302,49 +361,54 @@ class TargetFiles(object):
 
       AddProblem("different cert sets for packages with uid %s" % (uid,))
 
-      print "uid %s is shared by packages with different cert sets:" % (uid,)
+      print("uid %s is shared by packages with different cert sets:" % (uid,))
       for apk in apks:
-        print "%-*s  [%s]" % (self.max_pkg_len, apk.package, apk.filename)
-        for cert in apk.certs:
-          print "   ", ALL_CERTS.Get(cert)
-      print
+        print("%-*s  [%s]" % (self.max_pkg_len, apk.package, apk.filename))
+        for digest in apk.cert_digests:
+          print("   ", ALL_CERTS.Get(digest))
+      print()
 
   def CheckExternalSignatures(self):
-    for apk_filename, certname in self.certmap.iteritems():
+    for apk_filename, certname in self.certmap.items():
       if certname == "EXTERNAL":
         # Apps marked EXTERNAL should be signed with the test key
         # during development, then manually re-signed after
         # predexopting.  Consider it an error if this app is now
         # signed with any key that is present in our tree.
         apk = self.apks_by_basename[apk_filename]
-        name = ALL_CERTS.Get(apk.cert)
-        if not name.startswith("unknown "):
+        signed_with_external = False
+        for digest in apk.cert_digests:
+          name = ALL_CERTS.Get(digest)
+          if name and name.startswith("unknown "):
+            signed_with_external = True
+
+        if not signed_with_external:
           Push(apk.filename)
           AddProblem("hasn't been signed with EXTERNAL cert")
           Pop()
 
   def PrintCerts(self):
     """Display a table of packages grouped by cert."""
-    by_cert = {}
-    for apk in self.apks.itervalues():
-      for cert in apk.certs:
-        by_cert.setdefault(cert, []).append((apk.package, apk))
+    by_digest = {}
+    for apk in self.apks.values():
+      for digest in apk.cert_digests:
+        by_digest.setdefault(digest, []).append((apk.package, apk))
 
-    order = [(-len(v), k) for (k, v) in by_cert.iteritems()]
+    order = [(-len(v), k) for (k, v) in by_digest.items()]
     order.sort()
 
-    for _, cert in order:
-      print "%s:" % (ALL_CERTS.Get(cert),)
-      apks = by_cert[cert]
+    for _, digest in order:
+      print("%s:" % (ALL_CERTS.Get(digest),))
+      apks = by_digest[digest]
       apks.sort()
       for _, apk in apks:
         if apk.shared_uid:
-          print "  %-*s  %-*s  [%s]" % (self.max_fn_len, apk.filename,
+          print("  %-*s  %-*s  [%s]" % (self.max_fn_len, apk.filename,
                                         self.max_pkg_len, apk.package,
-                                        apk.shared_uid)
+                                        apk.shared_uid))
         else:
-          print "  %-*s  %s" % (self.max_fn_len, apk.filename, apk.package)
-      print
+          print("  %-*s  %s" % (self.max_fn_len, apk.filename, apk.package))
+      print()
 
   def CompareWith(self, other):
     """Look for instances where a given package that exists in both
@@ -355,46 +419,46 @@ class TargetFiles(object):
 
     max_pkg_len = max(self.max_pkg_len, other.max_pkg_len)
 
-    by_certpair = {}
+    by_digestpair = {}
 
     for i in all_apks:
       if i in self.apks:
         if i in other.apks:
           # in both; should have same set of certs
-          if self.apks[i].certs != other.apks[i].certs:
-            by_certpair.setdefault((other.apks[i].certs,
-                                    self.apks[i].certs), []).append(i)
+          if self.apks[i].cert_digests != other.apks[i].cert_digests:
+            by_digestpair.setdefault((other.apks[i].cert_digests,
+                                      self.apks[i].cert_digests), []).append(i)
         else:
-          print "%s [%s]: new APK (not in comparison target_files)" % (
-              i, self.apks[i].filename)
+          print("%s [%s]: new APK (not in comparison target_files)" % (
+              i, self.apks[i].filename))
       else:
         if i in other.apks:
-          print "%s [%s]: removed APK (only in comparison target_files)" % (
-              i, other.apks[i].filename)
+          print("%s [%s]: removed APK (only in comparison target_files)" % (
+              i, other.apks[i].filename))
 
-    if by_certpair:
+    if by_digestpair:
       AddProblem("some APKs changed certs")
       Banner("APK signing differences")
-      for (old, new), packages in sorted(by_certpair.items()):
+      for (old, new), packages in sorted(by_digestpair.items()):
         for i, o in enumerate(old):
           if i == 0:
-            print "was", ALL_CERTS.Get(o)
+            print("was", ALL_CERTS.Get(o))
           else:
-            print "   ", ALL_CERTS.Get(o)
+            print("   ", ALL_CERTS.Get(o))
         for i, n in enumerate(new):
           if i == 0:
-            print "now", ALL_CERTS.Get(n)
+            print("now", ALL_CERTS.Get(n))
           else:
-            print "   ", ALL_CERTS.Get(n)
+            print("   ", ALL_CERTS.Get(n))
         for i in sorted(packages):
           old_fn = other.apks[i].filename
           new_fn = self.apks[i].filename
           if old_fn == new_fn:
-            print "  %-*s  [%s]" % (max_pkg_len, i, old_fn)
+            print("  %-*s  [%s]" % (max_pkg_len, i, old_fn))
           else:
-            print "  %-*s  [was: %s; now: %s]" % (max_pkg_len, i,
-                                                  old_fn, new_fn)
-        print
+            print("  %-*s  [was: %s; now: %s]" % (max_pkg_len, i,
+                                                  old_fn, new_fn))
+        print()
 
 
 def main(argv):
@@ -451,9 +515,9 @@ def main(argv):
     target_files.CompareWith(compare_files)
 
   if PROBLEMS:
-    print "%d problem(s) found:\n" % (len(PROBLEMS),)
+    print("%d problem(s) found:\n" % (len(PROBLEMS),))
     for p in PROBLEMS:
-      print p
+      print(p)
     return 1
 
   return 0
@@ -464,9 +528,7 @@ if __name__ == '__main__':
     r = main(sys.argv[1:])
     sys.exit(r)
   except common.ExternalError as e:
-    print
-    print "   ERROR: %s" % (e,)
-    print
+    print("\n   ERROR: %s\n" % (e,))
     sys.exit(1)
   finally:
     common.Cleanup()

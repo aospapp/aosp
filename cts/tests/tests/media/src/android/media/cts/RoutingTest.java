@@ -567,11 +567,20 @@ public class RoutingTest extends AndroidTestCase {
     }
 
     private MediaPlayer allocMediaPlayer() {
+        return allocMediaPlayer(null, true);
+    }
+
+    private MediaPlayer allocMediaPlayer(AudioDeviceInfo device, boolean start) {
         final int resid = R.raw.testmp3_2;
         MediaPlayer mediaPlayer = MediaPlayer.create(mContext, resid);
         mediaPlayer.setAudioAttributes(
                 new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build());
-        mediaPlayer.start();
+        if (device != null) {
+            mediaPlayer.setPreferredDevice(device);
+        }
+        if (start) {
+            mediaPlayer.start();
+        }
         return mediaPlayer;
     }
 
@@ -753,15 +762,19 @@ public class RoutingTest extends AndroidTestCase {
         MediaPlayer mediaPlayer = null;
 
         try {
-            mediaPlayer = allocMediaPlayer();
-
-            mediaPlayer.setPreferredDevice(telephonyDevice);
+            mediaPlayer = allocMediaPlayer(telephonyDevice, false);
             assertEquals(AudioDeviceInfo.TYPE_TELEPHONY, mediaPlayer.getPreferredDevice().getType());
-
-            // Sleep for 1s to ensure the output device open
+            mediaPlayer.start();
+            // Sleep for 1s to ensure the underlying AudioTrack is created and started
             SystemClock.sleep(1000);
-            assertTrue(mediaPlayer.getRoutedDevice().getType() != AudioDeviceInfo.TYPE_TELEPHONY);
-
+            telephonyDevice = mediaPlayer.getRoutedDevice();
+            // 3 behaviors are accepted when permission to play to telephony device is rejected:
+            // - indicate a null routed device
+            // - fallback to another device for playback
+            // - stop playback in error.
+            assertTrue(telephonyDevice == null
+                    || telephonyDevice.getType() != AudioDeviceInfo.TYPE_TELEPHONY
+                    || !mediaPlayer.isPlaying());
         } finally {
             if (mediaPlayer != null) {
                 mediaPlayer.stop();

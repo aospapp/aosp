@@ -31,6 +31,8 @@ public class SessionUpdateBroadcastReceiver extends BroadcastReceiver {
 
     static final BlockingQueue<PackageInstaller.SessionInfo> sessionBroadcasts
             = new LinkedBlockingQueue<>();
+    static final BlockingQueue<PackageInstaller.SessionInfo> sessionCommittedBroadcasts
+            = new LinkedBlockingQueue<>();
 
     private static final String TAG = "StagedInstallTest";
 
@@ -39,6 +41,19 @@ public class SessionUpdateBroadcastReceiver extends BroadcastReceiver {
         PackageInstaller.SessionInfo info =
                 intent.getParcelableExtra(PackageInstaller.EXTRA_SESSION);
         assertThat(info).isNotNull();
+        switch (intent.getAction()) {
+            case PackageInstaller.ACTION_SESSION_UPDATED:
+                handleSessionUpdatedBroadcast(info);
+                break;
+            case PackageInstaller.ACTION_SESSION_COMMITTED:
+                handleSessionCommittedBroadcast(info);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void handleSessionUpdatedBroadcast(PackageInstaller.SessionInfo info) {
         Log.i(TAG, "Received SESSION_UPDATED for session " + info.getSessionId()
                 + " isReady:" + info.isStagedSessionReady()
                 + " isFailed:" + info.isStagedSessionFailed()
@@ -47,6 +62,17 @@ public class SessionUpdateBroadcastReceiver extends BroadcastReceiver {
             sessionBroadcasts.put(info);
         } catch (InterruptedException e) {
 
+        }
+    }
+
+    private void handleSessionCommittedBroadcast(PackageInstaller.SessionInfo info) {
+        Log.e(TAG, "Received SESSION_COMMITTED for session " + info.getSessionId());
+        try {
+            sessionCommittedBroadcasts.put(info);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Interrupted while handling SESSION_COMMITTED broadcast", e);
         }
     }
 }

@@ -41,6 +41,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 /**
  * <p>
  * This class covers the {@link CameraCharacteristics} tests that are not
@@ -50,6 +57,8 @@ import java.util.Set;
  * Note that most of the tests in this class don't require camera open.
  * </p>
  */
+
+@RunWith(Parameterized.class)
 public class StaticMetadataTest extends Camera2AndroidTestCase {
     private static final String TAG = "StaticMetadataTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -59,6 +68,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
     /**
      * Test the available capability for different hardware support level devices.
      */
+    @Test
     public void testHwSupportedLevel() throws Exception {
         Key<StreamConfigurationMap> key =
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
@@ -135,6 +145,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
     /**
      * Test max number of output stream reported by device
      */
+    @Test
     public void testMaxNumOutputStreams() throws Exception {
         for (String id : mAllCameraIds) {
             initStaticMetadata(id);
@@ -163,6 +174,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
     /**
      * Test advertised capability does match available keys and vice versa
      */
+    @Test
     public void testCapabilities() throws Exception {
         for (String id : mAllCameraIds) {
             initStaticMetadata(id);
@@ -298,6 +310,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                 requestKeys.add(CaptureRequest.CONTROL_MODE);
                 requestKeys.add(CaptureRequest.CONTROL_SCENE_MODE);
                 requestKeys.add(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE);
+                requestKeys.add(CaptureRequest.CONTROL_ZOOM_RATIO);
                 requestKeys.add(CaptureRequest.FLASH_MODE);
                 requestKeys.add(CaptureRequest.JPEG_GPS_LOCATION);
                 requestKeys.add(CaptureRequest.JPEG_ORIENTATION);
@@ -533,6 +546,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
     /**
      * Test lens facing.
      */
+    @Test
     public void testLensFacing() throws Exception {
         for (String id : mAllCameraIds) {
             initStaticMetadata(id);

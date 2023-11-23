@@ -34,6 +34,8 @@
 #define DOT11_OUI_LEN             3
 #define DOT11_MAX_SSID_LEN        32
 
+#define ETHERTYPE_IP            0x0800          /* IP */
+#define ETHERTYPE_IPV6          0x86dd          /* IP protocol version 6 */
 #define MAX_PROBE_RESP_IE_LEN      2048
 /*
  Vendor OUI - This is a unique identifier that identifies organization. Lets
@@ -45,12 +47,21 @@ const uint32_t GOOGLE_OUI = 0x001A11;
 /* TODO: define vendor OUI here */
 
 
+#define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
+
+#define NMR2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5], (a)[6], (a)[7]
+#define NMRSTR "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
+#define NAN_MASTER_RANK_LEN 8
+
+
 /*
  This enum defines ranges for various commands; commands themselves
  can be defined in respective feature headers; i.e. find gscan command
  definitions in gscan.cpp
  */
 
+typedef int (*nl_recvmsg_msg_cb_t)(struct nl_msg *msg, void *arg);
 typedef enum {
     /* don't use 0 as a valid subcommand */
     VENDOR_NL80211_SUBCMD_UNSPECIFIED,
@@ -90,6 +101,10 @@ typedef enum {
     ANDROID_NL80211_SUBCMD_PKT_FILTER_RANGE_START = 0x1800,
     ANDROID_NL80211_SUBCMD_PKT_FILTER_RANGE_END   = 0x18FF,
 
+    /* define all tx power related commands between 0x1900 and 0x1910 */
+    ANDROID_NL80211_SUBCMD_TX_POWER_RANGE_START	= 0x1900,
+    ANDROID_NL80211_SUBCMD_TX_POWER_RANGE_END	= 0x1910,
+
     /* This is reserved for future usage */
 
 } ANDROID_VENDOR_SUB_COMMAND;
@@ -115,42 +130,92 @@ typedef enum {
     WIFI_SUBCMD_GET_FEATURE_SET_MATRIX,                  /* 0x100B */
     WIFI_SUBCMD_SET_PNO_RANDOM_MAC_OUI,                  /* 0x100C */
     WIFI_SUBCMD_NODFS_SET,                               /* 0x100D */
-    WIFI_SUBCMD_SET_COUNTRY_CODE,                             /* 0x100E */
+    WIFI_SUBCMD_SET_COUNTRY_CODE,                        /* 0x100E */
     /* Add more sub commands here */
     GSCAN_SUBCMD_SET_EPNO_SSID,                          /* 0x100F */
 
-    WIFI_SUBCMD_SET_SSID_WHITE_LIST,                    /* 0x1010 */
-    WIFI_SUBCMD_SET_ROAM_PARAMS,                        /* 0x1011 */
-    WIFI_SUBCMD_ENABLE_LAZY_ROAM,                       /* 0x1012 */
-    WIFI_SUBCMD_SET_BSSID_PREF,                         /* 0x1013 */
+    WIFI_SUBCMD_SET_SSID_WHITE_LIST,                     /* 0x1010 */
+    WIFI_SUBCMD_SET_ROAM_PARAMS,                         /* 0x1011 */
+    WIFI_SUBCMD_ENABLE_LAZY_ROAM,                        /* 0x1012 */
+    WIFI_SUBCMD_SET_BSSID_PREF,                          /* 0x1013 */
     WIFI_SUBCMD_SET_BSSID_BLACKLIST,                     /* 0x1014 */
 
-    GSCAN_SUBCMD_ANQPO_CONFIG,                          /* 0x1015 */
-    WIFI_SUBCMD_SET_RSSI_MONITOR,                       /* 0x1016 */
-    WIFI_SUBCMD_CONFIG_ND_OFFLOAD,                      /* 0x1017 */
-    /* Add more sub commands here */
+    GSCAN_SUBCMD_ANQPO_CONFIG,                           /* 0x1015 */
+    WIFI_SUBCMD_SET_RSSI_MONITOR,                        /* 0x1016 */
+    WIFI_SUBCMD_CONFIG_ND_OFFLOAD,                       /* 0x1017 */
+    WIFI_SUBCMD_CONFIG_TCPACK_SUP,                       /* 0x1018 */
+    WIFI_SUBCMD_FW_ROAM_POLICY,                          /* 0x1019 */
+    WIFI_SUBCMD_ROAM_CAPABILITY,                         /* 0x101a */
+    WIFI_SUBCMD_SET_LATENCY_MODE,                        /* 0x101b */
 
     GSCAN_SUBCMD_MAX,
 
+    /* NAN related */
+    NAN_SUBCMD_ENABLE = ANDROID_NL80211_SUBCMD_NAN_RANGE_START,
+    NAN_SUBCMD_DISABLE,                                 /* 0x1701 */
+    NAN_SUBCMD_PUBLISH,                                 /* 0x1702 */
+    NAN_SUBCMD_SUBSCRIBE,                               /* 0x1703 */
+    NAN_SUBCMD_PUBLISH_CANCEL,                          /* 0x1704 */
+    NAN_SUBCMD_SUBSCRIBE_CANCEL,                        /* 0x1705 */
+    NAN_SUBCMD_TRANSMIT_FOLLOWUP,                       /* 0x1706 */
+    NAN_SUBCMD_CONFIG,                                  /* 0x1707 */
+    NAN_SUBCMD_TCA,                                     /* 0x1708 */
+    NAN_SUBCMD_STATS,                                   /* 0x1709 */
+    NAN_SUBCMD_GET_CAPABILITIES,                        /* 0x170A */
+    NAN_SUBCMD_DATA_PATH_IFACE_CREATE,                  /* 0x170B */
+    NAN_SUBCMD_DATA_PATH_IFACE_DELETE,                  /* 0x170C */
+    NAN_SUBCMD_DATA_PATH_REQUEST,                       /* 0x170D */
+    NAN_SUBCMD_DATA_PATH_RESPONSE,                      /* 0x170E */
+    NAN_SUBCMD_DATA_PATH_END,                           /* 0x170F */
+    NAN_SUBCMD_DATA_PATH_SEC_INFO,                      /* 0x1710 */
+    NAN_SUBCMD_VERSION_INFO,                            /* 0x1711 */
+    NAN_SUBCMD_ENABLE_MERGE,                            /* 0x1712 */
     APF_SUBCMD_GET_CAPABILITIES = ANDROID_NL80211_SUBCMD_PKT_FILTER_RANGE_START,
     APF_SUBCMD_SET_FILTER,
+    WIFI_SUBCMD_TX_POWER_SCENARIO = ANDROID_NL80211_SUBCMD_TX_POWER_RANGE_START,
 } WIFI_SUB_COMMAND;
 
 typedef enum {
-    BRCM_RESERVED1,
-    BRCM_RESERVED2,
-    GSCAN_EVENT_SIGNIFICANT_CHANGE_RESULTS ,
-    GSCAN_EVENT_HOTLIST_RESULTS_FOUND,
-    GSCAN_EVENT_SCAN_RESULTS_AVAILABLE,
-    GSCAN_EVENT_FULL_SCAN_RESULTS,
-    RTT_EVENT_COMPLETE,
-    GSCAN_EVENT_COMPLETE_SCAN,
-    GSCAN_EVENT_HOTLIST_RESULTS_LOST,
-    GSCAN_EVENT_EPNO_EVENT,
-    GOOGLE_DEBUG_RING_EVENT,
-    GOOGLE_DEBUG_MEM_DUMP_EVENT,
-    GSCAN_EVENT_ANQPO_HOTSPOT_MATCH,
-    GOOGLE_RSSI_MONITOR_EVENT
+    BRCM_RESERVED1				= 0,
+    BRCM_RESERVED2				= 1,
+    GSCAN_EVENT_SIGNIFICANT_CHANGE_RESULTS	= 2,
+    GSCAN_EVENT_HOTLIST_RESULTS_FOUND		= 3,
+    GSCAN_EVENT_SCAN_RESULTS_AVAILABLE		= 4,
+    GSCAN_EVENT_FULL_SCAN_RESULTS		= 5,
+    RTT_EVENT_COMPLETE				= 6,
+    GSCAN_EVENT_COMPLETE_SCAN			= 7,
+    GSCAN_EVENT_HOTLIST_RESULTS_LOST		= 8,
+    GSCAN_EVENT_EPNO_EVENT			= 9,
+    GOOGLE_DEBUG_RING_EVENT			= 10,
+    GOOGLE_DEBUG_MEM_DUMP_EVENT			= 11,
+    GSCAN_EVENT_ANQPO_HOTSPOT_MATCH		= 12,
+    GOOGLE_RSSI_MONITOR_EVENT			= 13,
+    GOOGLE_MKEEP_ALIVE				= 14,
+
+    /*
+     * BRCM specific events should be placed after the Generic events
+     * in order to match between the DHD and HAL
+     */
+    NAN_EVENT_ENABLED				= 15,
+    NAN_EVENT_DISABLED				= 16,
+    NAN_EVENT_SUBSCRIBE_MATCH			= 17,
+    NAN_EVENT_PUBLISH_REPLIED_IND		= 18,
+    NAN_EVENT_PUBLISH_TERMINATED		= 19,
+    NAN_EVENT_SUBSCRIBE_TERMINATED		= 20,
+    NAN_EVENT_DE_EVENT				= 21,
+    NAN_EVENT_FOLLOWUP				= 22,
+    NAN_EVENT_TRANSMIT_FOLLOWUP_IND		= 23,
+    NAN_EVENT_DATA_REQUEST			= 24,
+    NAN_EVENT_DATA_CONFIRMATION			= 25,
+    NAN_EVENT_DATA_END				= 26,
+    NAN_EVENT_BEACON				= 27,
+    NAN_EVENT_SDF				= 28,
+    NAN_EVENT_TCA				= 29,
+    NAN_EVENT_SUBSCRIBE_UNMATCH			= 30,
+    NAN_EVENT_UNKNOWN,
+    ROAM_EVENT_START,
+    GOOGLE_FILE_DUMP_EVENT			= 37,
+    NAN_ASYNC_RESPONSE_DISABLED			= 40
 } WIFI_EVENT;
 
 typedef void (*wifi_internal_event_handler) (wifi_handle handle, int events);
@@ -256,6 +321,17 @@ hal_info *getHalInfo(wifi_interface_handle handle);
 wifi_handle getWifiHandle(hal_info *info);
 wifi_interface_handle getIfaceHandle(interface_info *info);
 wifi_error wifi_cancel_cmd(wifi_request_id id, wifi_interface_handle iface);
+wifi_error nan_deinit_handler();
+wifi_error wifi_start_hal(wifi_interface_handle iface);
+wifi_error wifi_stop_hal(wifi_interface_handle iface);
+wifi_interface_handle wifi_get_wlan_interface(wifi_handle info,
+	    wifi_interface_handle *ifaceHandles, int numIfaceHandles);
+wifi_error wifi_hal_preInit(wifi_interface_handle iface);
+/* API to get wake reason statistics */
+wifi_error wifi_get_wake_reason_stats(wifi_interface_handle handle,
+        WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt);
+void set_hautil_mode(bool halutil_mode);
+bool get_halutil_mode();
 
 // some common macros
 

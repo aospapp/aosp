@@ -28,14 +28,12 @@ import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.SerializationUtil;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -66,6 +64,7 @@ public class BuildInfoTest {
     /** Test method for {@link BuildInfo#clone()}. */
     @Test
     public void testClone() throws Exception {
+        mBuildInfo.setDeviceSerial("tobecloned");
         BuildInfo copy = (BuildInfo) mBuildInfo.clone();
         assertEquals(mBuildInfo.getBuildAttributes().get(ATTRIBUTE_KEY),
                 copy.getBuildAttributes().get(ATTRIBUTE_KEY));
@@ -74,6 +73,7 @@ public class BuildInfoTest {
             assertEquals(VERSION, copy.getVersion(FILE_KEY));
             assertTrue(!mFile.getAbsolutePath().equals(copy.getFile(FILE_KEY).getAbsolutePath()));
             assertTrue(FileUtil.compareFileContents(mFile, copy.getFile(FILE_KEY)));
+            assertEquals("tobecloned", copy.getDeviceSerial());
         } finally {
             FileUtil.deleteFile(copy.getFile(FILE_KEY));
         }
@@ -184,11 +184,20 @@ public class BuildInfoTest {
     /** Test that the build info can be described in its proto format. */
     @Test
     public void testProtoSerialization() throws Exception {
+        List<String> remoteFiles = Arrays.asList("remote/file1", "remote/file2");
+        for (String file : remoteFiles) {
+            mBuildInfo.setFile(
+                    IBuildInfo.REMOTE_FILE_PREFIX + file,
+                    new File(file),
+                    IBuildInfo.REMOTE_FILE_VERSION);
+        }
+
         BuildInformation.BuildInfo proto = mBuildInfo.toProto();
+
         assertEquals("1", proto.getBuildId());
         assertEquals(BuildInfo.class.getCanonicalName(), proto.getBuildInfoClass());
-        assertEquals("value", proto.getAttributes().get("attribute"));
-        assertEquals(1, proto.getVersionedFileList().size());
+        assertEquals("value", proto.getAttributesMap().get("attribute"));
+        assertEquals(3, proto.getVersionedFileList().size());
         assertNotNull(proto.getVersionedFileList().get(0));
 
         IBuildInfo deserialized = BuildInfo.fromProto(proto);
@@ -196,29 +205,10 @@ public class BuildInfoTest {
         // Build flavor was not set, so it's null
         assertNull(deserialized.getBuildFlavor());
         assertNotNull(deserialized.getVersionedFile(FILE_KEY));
-    }
 
-    /** Test {@link BuildInfo#getTestResource(List, String)} */
-    @Test
-    public void testGetTestResource() {
-        List<IBuildInfo> buildInfos = new ArrayList<IBuildInfo>();
-        BuildInfo testResourceBuild = new BuildInfo();
-        testResourceBuild.setTestResourceBuild(true);
-        File testResourceFile = new File("test-resource1");
-        testResourceBuild.setFile("test-resource1", testResourceFile, "");
-        buildInfos.add(testResourceBuild);
-        File file = BuildInfo.getTestResource(buildInfos, "test-resource1");
-        Assert.assertEquals(testResourceFile, file);
-    }
-
-    /** Test {@link BuildInfo#getTestResource(List, String)} */
-    @Test
-    public void testGetTestResource_notExist() {
-        List<IBuildInfo> buildInfos = new ArrayList<IBuildInfo>();
-        BuildInfo testResourceBuild = new BuildInfo();
-        testResourceBuild.setTestResourceBuild(true);
-        buildInfos.add(testResourceBuild);
-        File file = BuildInfo.getTestResource(buildInfos, "test-resource1");
-        Assert.assertNull(file);
+        // Check the remote files are restored.
+        for (String file : remoteFiles) {
+            assertTrue(deserialized.getRemoteFiles().contains(new File(file)));
+        }
     }
 }

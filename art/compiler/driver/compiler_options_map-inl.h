@@ -45,8 +45,6 @@ inline bool ReadCompilerOptions(Base& map, CompilerOptions* options, std::string
   }
   map.AssignIfExists(Base::HugeMethodMaxThreshold, &options->huge_method_threshold_);
   map.AssignIfExists(Base::LargeMethodMaxThreshold, &options->large_method_threshold_);
-  map.AssignIfExists(Base::SmallMethodMaxThreshold, &options->small_method_threshold_);
-  map.AssignIfExists(Base::TinyMethodMaxThreshold, &options->tiny_method_threshold_);
   map.AssignIfExists(Base::NumDexMethodsThreshold, &options->num_dex_methods_threshold_);
   map.AssignIfExists(Base::InlineMaxCodeUnitsThreshold, &options->inline_max_code_units_);
   map.AssignIfExists(Base::GenerateDebugInfo, &options->generate_debug_info_);
@@ -81,6 +79,7 @@ inline bool ReadCompilerOptions(Base& map, CompilerOptions* options, std::string
     options->count_hotness_in_compiled_code_ = true;
   }
   map.AssignIfExists(Base::ResolveStartupConstStrings, &options->resolve_startup_const_strings_);
+  map.AssignIfExists(Base::InitializeAppImageClasses, &options->initialize_app_image_classes_);
   if (map.Exists(Base::CheckProfiledMethods)) {
     options->check_profiled_methods_ = *map.Get(Base::CheckProfiledMethods);
   }
@@ -117,12 +116,6 @@ inline void AddCompilerOptionsArgumentParserOptions(Builder& b) {
       .Define("--large-method-max=_")
           .template WithType<unsigned int>()
           .IntoKey(Map::LargeMethodMaxThreshold)
-      .Define("--small-method-max=_")
-          .template WithType<unsigned int>()
-          .IntoKey(Map::SmallMethodMaxThreshold)
-      .Define("--tiny-method-max=_")
-          .template WithType<unsigned int>()
-          .IntoKey(Map::TinyMethodMaxThreshold)
       .Define("--num-dex-methods=_")
           .template WithType<unsigned int>()
           .IntoKey(Map::NumDexMethodsThreshold)
@@ -199,6 +192,11 @@ inline void AddCompilerOptionsArgumentParserOptions(Builder& b) {
           .template WithType<bool>()
           .WithValueMap({{"false", false}, {"true", true}})
           .IntoKey(Map::ResolveStartupConstStrings)
+
+      .Define("--initialize-app-image-classes=_")
+          .template WithType<bool>()
+          .WithValueMap({{"false", false}, {"true", true}})
+          .IntoKey(Map::InitializeAppImageClasses)
 
       .Define("--verbose-methods=_")
           .template WithType<ParseStringList<','>>()

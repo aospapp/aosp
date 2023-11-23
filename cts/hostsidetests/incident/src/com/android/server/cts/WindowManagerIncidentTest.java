@@ -22,6 +22,7 @@ import com.android.server.wm.IdentifierProto;
 import com.android.server.wm.RootWindowContainerProto;
 import com.android.server.wm.WindowManagerPolicyProto;
 import com.android.server.wm.WindowManagerServiceDumpProto;
+import com.android.server.wm.WindowStateProto;
 
 /**
  * Tests for the WindowManagerService proto dump.
@@ -46,8 +47,8 @@ public class WindowManagerIncidentTest extends ProtoDumpTestCase {
     }
 
     private static void verifyRootWindowContainerProto(RootWindowContainerProto rwcp, final int filterLevel) throws Exception {
-        for (IdentifierProto ip : rwcp.getWindowsList()) {
-            verifyIdentifierProto(ip, filterLevel);
+        for (WindowStateProto window : rwcp.getWindowsList()) {
+            verifyIdentifierProto(window.getIdentifier(), filterLevel);
         }
     }
 }

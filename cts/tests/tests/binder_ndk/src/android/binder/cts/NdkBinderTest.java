@@ -17,6 +17,7 @@
 package android.binder.cts;
 
 import android.os.IBinder;
+import android.os.Parcel;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -55,5 +56,8 @@ public class NdkBinderTest {
         return new SyncTestServiceConnection(
             InstrumentationRegistry.getTargetContext(), NativeService.RemoteOld.class)
         .get().asBinder();
+    }
+    static Parcel getEmptyParcel() {
+        return Parcel.obtain();
     }
 }

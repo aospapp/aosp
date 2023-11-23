@@ -103,7 +103,7 @@ def find_unique_entries(node):
       for entry in i.entries:
           d[entry.name] = entry
 
-  for k,v in d.iteritems():
+  for k,v in d.items():
       yield v.merge()
 
 def path_name(node):
@@ -169,6 +169,7 @@ def protobuf_type(entry):
     "mandatoryStreamCombination" : "MandatoryStreamCombination",
     "rangeInt"               : "RangeInt",
     "rangeLong"              : "RangeLong",
+    "rangeFloat"             : "RangeFloat",
     "colorSpaceTransform"    : "ColorSpaceTransform",
     "blackLevelPattern"      : "BlackLevelPattern",
     "byte"                   : "int32", # protocol buffer don't support byte
@@ -178,13 +179,13 @@ def protobuf_type(entry):
     "int32"                  : "int32",
     "int64"                  : "int64",
     "enumList"               : "int32",
-    "string"                 : "string"
+    "string"                 : "string",
+    "capability"             : "Capability"
   }
 
   if typeName not in typename_to_protobuftype:
-    print >> sys.stderr,\
-      "  ERROR: Could not find protocol buffer type for {%s} type {%s} typedef {%s}" % \
-          (entry.name, entry.type, entry.typedef)
+    print("  ERROR: Could not find protocol buffer type for {%s} type {%s} typedef {%s}" % \
+          (entry.name, entry.type, entry.typedef), file=sys.stderr)
 
   proto_type = typename_to_protobuftype[typeName]
 
@@ -674,7 +675,10 @@ def enumerate_with_last(iterable):
   """
   it = (i for i in iterable)
 
-  first = next(it)  # OK: raises exception if it is empty
+  try:
+    first = next(it)  # OK: raises exception if it is empty
+  except StopIteration:
+    return
 
   second = first  # for when we have only 1 element in iterable
 
@@ -1137,7 +1141,7 @@ def md(text, img_src_prefix="", table_ext=True):
     # full list of extensions at http://pythonhosted.org/Markdown/extensions/
     md_extensions = ['tables'] if table_ext else []# make <table> with ASCII |_| tables
     # render with markdown
-    text = markdown.markdown(text, md_extensions)
+    text = markdown.markdown(text, extensions=md_extensions)
 
     # prepend a prefix to each <img src="foo"> -> <img src="${prefix}foo">
     text = re.sub(r'src="([^"]*)"', 'src="' + img_src_prefix + r'\1"', text)
@@ -1227,8 +1231,8 @@ def filter_tags(text, metadata, filter_function, summary_function = None):
           tag_set.add(node)
           return whole_match.replace(candidate,filter_function(node))
         else:
-          print >> sys.stderr,\
-            "  WARNING: Could not crossref likely reference {%s}" % (match.group(0))
+          print("  WARNING: Could not crossref likely reference {%s}" % (match.group(0)),
+                file=sys.stderr)
           return whole_match
 
       text = re.sub(tag_match, filter_sub, text)
@@ -1292,7 +1296,7 @@ def filter_links(text, filter_function, summary_function = None):
       target_ndk = match.group(2)
       shortname = match.group(3).strip()
 
-      #print "Found link '%s' ndk '%s' as '%s' -> '%s'" % (target, target_ndk, shortname, filter_function(target, target_ndk, shortname))
+      #print("Found link '%s' ndk '%s' as '%s' -> '%s'" % (target, target_ndk, shortname, filter_function(target, target_ndk, shortname)))
 
       # Replace match with crossref
       target_set.add(target)

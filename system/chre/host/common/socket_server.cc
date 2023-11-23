@@ -72,8 +72,7 @@ void SocketServer::run(const char *socketName, bool allowSocketCreation,
   mSockFd = android_get_control_socket(socketName);
   if (mSockFd == INVALID_SOCKET && allowSocketCreation) {
     LOGI("Didn't inherit socket, creating...");
-    mSockFd = socket_local_server(socketName,
-                                  ANDROID_SOCKET_NAMESPACE_RESERVED,
+    mSockFd = socket_local_server(socketName, ANDROID_SOCKET_NAMESPACE_RESERVED,
                                   SOCK_SEQPACKET);
   }
 
@@ -89,7 +88,7 @@ void SocketServer::run(const char *socketName, bool allowSocketCreation,
 
     {
       std::lock_guard<std::mutex> lock(mClientsMutex);
-      for (const auto& pair : mClients) {
+      for (const auto &pair : mClients) {
         int clientSocket = pair.first;
         if (close(clientSocket) != 0) {
           LOGI("Couldn't close client %" PRIu16 "'s socket: %s",
@@ -106,7 +105,7 @@ void SocketServer::sendToAllClients(const void *data, size_t length) {
   std::lock_guard<std::mutex> lock(mClientsMutex);
 
   int deliveredCount = 0;
-  for (const auto& pair : mClients) {
+  for (const auto &pair : mClients) {
     int clientSocket = pair.first;
     uint16_t clientId = pair.second.clientId;
     if (sendToClientSocket(data, length, clientSocket, clientId)) {
@@ -128,7 +127,7 @@ bool SocketServer::sendToClientById(const void *data, size_t length,
   std::lock_guard<std::mutex> lock(mClientsMutex);
 
   bool sent = false;
-  for (const auto& pair : mClients) {
+  for (const auto &pair : mClients) {
     uint16_t thisClientId = pair.second.clientId;
     if (thisClientId == clientId) {
       int clientSocket = pair.first;
@@ -178,18 +177,20 @@ void SocketServer::acceptClientConnection() {
         std::lock_guard<std::mutex> lock(mClientsMutex);
         mClients[clientSocket] = clientData;
       }
-      LOGI("Accepted new client connection (count %zu), assigned client ID %"
-           PRIu16, mClients.size(), clientData.clientId);
+      LOGI(
+          "Accepted new client connection (count %zu), assigned client ID "
+          "%" PRIu16,
+          mClients.size(), clientData.clientId);
     }
   }
 }
 
 void SocketServer::handleClientData(int clientSocket) {
-  const ClientData& clientData = mClients[clientSocket];
+  const ClientData &clientData = mClients[clientSocket];
   uint16_t clientId = clientData.clientId;
 
-  ssize_t packetSize = recv(
-      clientSocket, mRecvBuffer.data(), mRecvBuffer.size(), MSG_DONTWAIT);
+  ssize_t packetSize =
+      recv(clientSocket, mRecvBuffer.data(), mRecvBuffer.size(), MSG_DONTWAIT);
   if (packetSize < 0) {
     LOGE("Couldn't get packet from client %" PRIu16 ": %s", clientId,
          strerror(errno));
@@ -229,8 +230,8 @@ bool SocketServer::sendToClientSocket(const void *data, size_t length,
   errno = 0;
   ssize_t bytesSent = send(clientSocket, data, length, 0);
   if (bytesSent < 0) {
-    LOGE("Error sending packet of size %zu to client %" PRIu16 ": %s",
-         length, clientId, strerror(errno));
+    LOGE("Error sending packet of size %zu to client %" PRIu16 ": %s", length,
+         clientId, strerror(errno));
   } else if (bytesSent == 0) {
     LOGW("Client %" PRIu16 " disconnected before message could be delivered",
          clientId);
@@ -244,8 +245,9 @@ bool SocketServer::sendToClientSocket(const void *data, size_t length,
 
 void SocketServer::serviceSocket() {
   constexpr size_t kListenIndex = 0;
-  static_assert(kListenIndex == 0, "Code assumes that the first index is "
-                "always the listen socket");
+  static_assert(kListenIndex == 0,
+                "Code assumes that the first index is always the listen "
+                "socket");
 
   mPollFds[kListenIndex].fd = mSockFd;
   mPollFds[kListenIndex].events = POLLIN;

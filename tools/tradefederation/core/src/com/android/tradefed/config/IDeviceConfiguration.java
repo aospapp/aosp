@@ -59,6 +59,14 @@ public interface IDeviceConfiguration {
     public void addSpecificConfig(Object config) throws ConfigurationException;
 
     /**
+     * Remove the specified object type from the device configuration holder.
+     *
+     * @param type The type of the object to remove.
+     * @throws ConfigurationException in case the type is not supported.
+     */
+    public void removeObjectType(String type) throws ConfigurationException;
+
+    /**
      * Keep track of the frequency of the object so we can properly inject option against it.
      *
      * @param config the object we are tracking the frequency.
@@ -96,4 +104,7 @@ public interface IDeviceConfiguration {
      * Return a shallow copy of this {@link IDeviceConfiguration} object.
      */
     public IDeviceConfiguration clone();
+
+    /** Return a shallow copy of this {@link IDeviceConfiguration} object, under a new name. */
+    public IDeviceConfiguration clone(String newName);
 }

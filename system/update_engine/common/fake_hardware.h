@@ -128,6 +128,8 @@ class FakeHardware : public HardwareInterface {
 
   int64_t GetBuildTimestamp() const override { return build_timestamp_; }
 
+  bool AllowDowngrade() const override { return false; }
+
   bool GetFirstActiveOmahaPingSent() const override {
     return first_active_omaha_ping_sent_;
   }
@@ -189,6 +191,8 @@ class FakeHardware : public HardwareInterface {
     build_timestamp_ = build_timestamp;
   }
 
+  void SetWarmReset(bool warm_reset) { warm_reset_ = warm_reset; }
+
   // Getters to verify state.
   int GetMaxKernelKeyRollforward() const { return kernel_max_rollforward_; }
 
@@ -216,6 +220,7 @@ class FakeHardware : public HardwareInterface {
   bool is_rollback_powerwash_{false};
   int64_t build_timestamp_{0};
   bool first_active_omaha_ping_sent_{false};
+  bool warm_reset_{false};
 
   DISALLOW_COPY_AND_ASSIGN(FakeHardware);
 };

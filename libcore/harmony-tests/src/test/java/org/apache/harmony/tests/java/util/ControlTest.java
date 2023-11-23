@@ -27,6 +27,7 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,6 +45,8 @@ import static java.util.ResourceBundle.Control.*;
  * @since 1.6
  */
 public class ControlTest extends TestCase {
+
+    public static final String RESOURCE_PACKAGE_NAME = "tests.resources.control_test";
 
     /**
      * Control with format:FORMAT_PROPERTIES
@@ -374,13 +377,9 @@ public class ControlTest extends TestCase {
     }
 
     @SuppressWarnings("nls")
-    static File copyFile(final URL src) throws IOException {
+    static File copyFile(final URL src, final String targetDir) throws IOException {
         String tail = src.getFile().split("hyts_resource")[1];
-        String tmpdir = System.getProperty("java.io.tmpdir");
-        if (null == tmpdir) {
-            return null;
-        }
-        String copyName = tmpdir + File.separator + "hyts_resource_copy" + tail;
+        String copyName = targetDir + File.separator + "hyts_resource_copy" + tail;
         File copy = new File(copyName);
         if (copy.exists()) {
             copy.delete();
@@ -454,23 +453,27 @@ public class ControlTest extends TestCase {
     public void test_needsReload_LStringLLocaleLStringLClassLoaderResourceBundleJ()
             throws Exception {
         String className = "tests.support.Support_TestResource";
-        String propertiesName = Support_Resources.RESOURCE_PACKAGE_NAME
-                + ".hyts_resource";
+        String propertiesName = RESOURCE_PACKAGE_NAME + ".hyts_resource";
         String propertiesNameCopy = "hyts_resource_copy";
         String CLASS = "java.class";
         String PROPERTIES = "java.properties";
         Locale frFR = new Locale("fr", "FR");
-        ClassLoader systemLoader = ClassLoader.getSystemClassLoader();
-        ClassLoader URLLoader = systemLoader;
+        ClassLoader testCodeClassLoader = this.getClass().getClassLoader();
         ResourceBundle bundle = null;
         long time = 0L;
-        final URL srcFile = URLLoader.getResource(control.toResourceName(
+        final URL srcFile = testCodeClassLoader.getResource(control.toResourceName(
                 control.toBundleName(propertiesName, frFR), "properties"));
         assertNotNull(srcFile);
-        final File copyFile = copyFile(srcFile);
+
+        String tmpdir = System.getProperty("java.io.tmpdir");
+        assertNotNull(tmpdir);
+        final File copyFile = copyFile(srcFile, tmpdir);
+        ClassLoader URLLoader = new URLClassLoader(
+                new URL[] { new File(tmpdir).toURL() },
+                testCodeClassLoader);
 
         // 1. format = "java.properties"
-        if (null != URLLoader.getResourceAsStream(copyFile.toURL().toString())) {
+        if (null != URLLoader.getResourceAsStream(copyFile.getName())) {
             Thread.sleep(1000);
             bundle = control.newBundle(propertiesNameCopy, frFR, PROPERTIES,
                     URLLoader, false);
@@ -492,15 +495,10 @@ public class ControlTest extends TestCase {
                     PROPERTIES, URLLoader, bundle, 2006L));
             // other loader
             assertFalse(control.needsReload(propertiesNameCopy, frFR,
-                    PROPERTIES, systemLoader, bundle, time));
+                    PROPERTIES, testCodeClassLoader, bundle, time));
             // other bundle
             ResourceBundle otherBundle = control.newBundle(propertiesName,
-                    Locale.ROOT, PROPERTIES, systemLoader, false);
-            assertEquals("parent", otherBundle.getString("property"));
-            assertTrue(control.needsReload(propertiesNameCopy, frFR,
-                    PROPERTIES, URLLoader, otherBundle, time));
-            otherBundle = control.newBundle(propertiesName, Locale.ROOT,
-                    PROPERTIES, URLLoader, false);
+                    Locale.ROOT, PROPERTIES, URLLoader, false);
             assertEquals("resource", otherBundle.getString("property"));
             assertTrue(control.needsReload(propertiesNameCopy, frFR,
                     PROPERTIES, URLLoader, otherBundle, time));
@@ -508,16 +506,14 @@ public class ControlTest extends TestCase {
             assertFalse(control.needsReload(propertiesNameCopy, frFR,
                     PROPERTIES, URLLoader, bundle, System.currentTimeMillis()));
         } else {
-            System.err
-                    .println("Can not find the test file, some code of this test 'test_needsReload_LStringLLocaleLStringLClassLoaderResourceBundleJ' did not run.");
-
+            fail("Can not find the test file:" + copyFile);
         }
 
         // 2. format = "java.class"
-        bundle = control.newBundle(className, frFR, CLASS, systemLoader, false);
+        bundle = control.newBundle(className, frFR, CLASS, testCodeClassLoader, false);
         time = System.currentTimeMillis();
         assertEquals("frFRValue3", bundle.getString("parent3"));
-        assertFalse(control.needsReload(className, frFR, CLASS, systemLoader,
+        assertFalse(control.needsReload(className, frFR, CLASS, testCodeClassLoader,
                 bundle, time));
         // exceptions
         control.needsReload(propertiesName, frFR, PROPERTIES, URLLoader,

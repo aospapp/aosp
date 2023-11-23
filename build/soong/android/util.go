@@ -16,6 +16,8 @@ package android
 
 import (
 	"fmt"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"sort"
@@ -52,10 +54,54 @@ func JoinWithPrefix(strs []string, prefix string) string {
 	return string(ret)
 }
 
-func sortedKeys(m map[string][]string) []string {
-	s := make([]string, 0, len(m))
-	for k := range m {
-		s = append(s, k)
+func JoinWithSuffix(strs []string, suffix string, separator string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+
+	if len(strs) == 1 {
+		return strs[0] + suffix
+	}
+
+	n := len(" ") * (len(strs) - 1)
+	for _, s := range strs {
+		n += len(suffix) + len(s)
+	}
+
+	ret := make([]byte, 0, n)
+	for i, s := range strs {
+		if i != 0 {
+			ret = append(ret, separator...)
+		}
+		ret = append(ret, s...)
+		ret = append(ret, suffix...)
+	}
+	return string(ret)
+}
+
+func SortedStringKeys(m interface{}) []string {
+	v := reflect.ValueOf(m)
+	if v.Kind() != reflect.Map {
+		panic(fmt.Sprintf("%#v is not a map", m))
+	}
+	keys := v.MapKeys()
+	s := make([]string, 0, len(keys))
+	for _, key := range keys {
+		s = append(s, key.String())
+	}
+	sort.Strings(s)
+	return s
+}
+
+func SortedStringMapValues(m interface{}) []string {
+	v := reflect.ValueOf(m)
+	if v.Kind() != reflect.Map {
+		panic(fmt.Sprintf("%#v is not a map", m))
+	}
+	keys := v.MapKeys()
+	s := make([]string, 0, len(keys))
+	for _, key := range keys {
+		s = append(s, v.MapIndex(key).String())
 	}
 	sort.Strings(s)
 	return s
@@ -75,13 +121,35 @@ func InList(s string, list []string) bool {
 	return IndexList(s, list) != -1
 }
 
-func PrefixInList(s string, list []string) bool {
-	for _, prefix := range list {
+// Returns true if the given string s is prefixed with any string in the given prefix list.
+func HasAnyPrefix(s string, prefixList []string) bool {
+	for _, prefix := range prefixList {
 		if strings.HasPrefix(s, prefix) {
 			return true
 		}
 	}
 	return false
+}
+
+// Returns true if any string in the given list has the given prefix.
+func PrefixInList(list []string, prefix string) bool {
+	for _, s := range list {
+		if strings.HasPrefix(s, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// IndexListPred returns the index of the element which in the given `list` satisfying the predicate, or -1 if there is no such element.
+func IndexListPred(pred func(s string) bool, list []string) int {
+	for i, l := range list {
+		if pred(l) {
+			return i
+		}
+	}
+
+	return -1
 }
 
 func FilterList(list []string, filter []string) (remainder []string, filtered []string) {
@@ -155,6 +223,13 @@ func LastUniqueStrings(list []string) []string {
 		totalSkip += skip
 	}
 	return list[totalSkip:]
+}
+
+// SortedUniqueStrings returns what the name says
+func SortedUniqueStrings(list []string) []string {
+	unique := FirstUniqueStrings(list)
+	sort.Strings(unique)
+	return unique
 }
 
 // checkCalledFromInit panics if a Go package's init function is not on the
@@ -242,4 +317,74 @@ func matchPattern(pat, str string) bool {
 		return pat == str
 	}
 	return strings.HasPrefix(str, pat[:i]) && strings.HasSuffix(str, pat[i+1:])
+}
+
+var shlibVersionPattern = regexp.MustCompile("(?:\\.\\d+(?:svn)?)+")
+
+// splitFileExt splits a file name into root, suffix and ext. root stands for the file name without
+// the file extension and the version number (e.g. "libexample"). suffix stands for the
+// concatenation of the file extension and the version number (e.g. ".so.1.0"). ext stands for the
+// file extension after the version numbers are trimmed (e.g. ".so").
+func SplitFileExt(name string) (string, string, string) {
+	// Extract and trim the shared lib version number if the file name ends with dot digits.
+	suffix := ""
+	matches := shlibVersionPattern.FindAllStringIndex(name, -1)
+	if len(matches) > 0 {
+		lastMatch := matches[len(matches)-1]
+		if lastMatch[1] == len(name) {
+			suffix = name[lastMatch[0]:lastMatch[1]]
+			name = name[0:lastMatch[0]]
+		}
+	}
+
+	// Extract the file name root and the file extension.
+	ext := filepath.Ext(name)
+	root := strings.TrimSuffix(name, ext)
+	suffix = ext + suffix
+
+	return root, suffix, ext
+}
+
+// ShardPaths takes a Paths, and returns a slice of Paths where each one has at most shardSize paths.
+func ShardPaths(paths Paths, shardSize int) []Paths {
+	if len(paths) == 0 {
+		return nil
+	}
+	ret := make([]Paths, 0, (len(paths)+shardSize-1)/shardSize)
+	for len(paths) > shardSize {
+		ret = append(ret, paths[0:shardSize])
+		paths = paths[shardSize:]
+	}
+	if len(paths) > 0 {
+		ret = append(ret, paths)
+	}
+	return ret
+}
+
+// ShardStrings takes a slice of strings, and returns a slice of slices of strings where each one has at most shardSize
+// elements.
+func ShardStrings(s []string, shardSize int) [][]string {
+	if len(s) == 0 {
+		return nil
+	}
+	ret := make([][]string, 0, (len(s)+shardSize-1)/shardSize)
+	for len(s) > shardSize {
+		ret = append(ret, s[0:shardSize])
+		s = s[shardSize:]
+	}
+	if len(s) > 0 {
+		ret = append(ret, s)
+	}
+	return ret
+}
+
+func CheckDuplicate(values []string) (duplicate string, found bool) {
+	seen := make(map[string]string)
+	for _, v := range values {
+		if duplicate, found = seen[v]; found {
+			return
+		}
+		seen[v] = v
+	}
+	return
 }

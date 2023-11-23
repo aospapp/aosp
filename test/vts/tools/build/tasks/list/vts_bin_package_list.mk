@@ -22,6 +22,6 @@ vts_bin_packages := \
   vts_coverage_configure \
   vts_testability_checker \
 
-# Extra apk utils for VTS framework.
+# Extra apk utils for VTS10 framework.
 vts_bin_packages += \
     WifiUtil \

@@ -24,6 +24,8 @@ import com.android.cts.verifier.nfc.hce.HceEmulatorTestActivity;
 import com.android.cts.verifier.nfc.hce.HceReaderTestActivity;
 import com.android.cts.verifier.nfc.hcef.HceFEmulatorTestActivity;
 import com.android.cts.verifier.nfc.hcef.HceFReaderTestActivity;
+import com.android.cts.verifier.nfc.offhost.OffhostUiccEmulatorTestActivity;
+import com.android.cts.verifier.nfc.offhost.OffhostUiccReaderTestActivity;
 
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -95,6 +97,16 @@ public class NfcTestActivity extends PassFailButtons.TestListActivity {
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_f_emulator_tests,
                     HceFEmulatorTestActivity.class.getName(),
                     new Intent(this, HceFEmulatorTestActivity.class), null));
+        }
+
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC_OFF_HOST_CARD_EMULATION_UICC)) {
+            adapter.add(TestListItem.newCategory(this, R.string.nfc_offhost_uicc));
+            adapter.add(TestListItem.newTest(this, R.string.nfc_offhost_uicc_reader_tests,
+                    OffhostUiccReaderTestActivity.class.getName(),
+                    new Intent(this, OffhostUiccReaderTestActivity.class), null));
+            adapter.add(TestListItem.newTest(this, R.string.nfc_offhost_uicc_emulator_tests,
+                    OffhostUiccEmulatorTestActivity.class.getName(),
+                    new Intent(this, OffhostUiccEmulatorTestActivity.class), null));
         }
 
         setTestListAdapter(adapter);

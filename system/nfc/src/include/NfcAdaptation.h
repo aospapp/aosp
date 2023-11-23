@@ -24,6 +24,8 @@
 
 #include <utils/RefBase.h>
 
+using ::android::sp;
+
 namespace android {
 namespace hardware {
 namespace nfc {
@@ -81,6 +83,8 @@ class AutoThreadMutex {
   ThreadMutex& mm;
 };
 
+class NfcHalDeathRecipient;
+
 class NfcAdaptation {
  public:
   virtual ~NfcAdaptation();
@@ -105,6 +109,7 @@ class NfcAdaptation {
   static android::sp<android::hardware::nfc::V1_1::INfc> mHal_1_1;
   static android::sp<android::hardware::nfc::V1_2::INfc> mHal_1_2;
   static android::hardware::nfc::V1_1::INfcClientCallback* mCallback;
+  sp<NfcHalDeathRecipient> mNfcHalDeathRecipient;
   static tHAL_NFC_CBACK* mHalCallback;
   static tHAL_NFC_DATA_CBACK* mHalDataCallback;
   static ThreadCondVar mHalOpenCompletedEvent;

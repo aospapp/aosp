@@ -16,24 +16,30 @@
 
 package com.android.cts.devicepolicy;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import org.junit.Test;
+
 /**
  * Tests for ephemeral users and profiles.
  */
 public class EphemeralUserTest extends BaseDevicePolicyTest {
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
         mHasFeature = canCreateAdditionalUsers(1);
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         removeTestUsers();
         super.tearDown();
     }
 
     /** The user should have the ephemeral flag set if it was created as ephemeral. */
+    @Test
     public void testCreateEphemeralUser() throws Exception {
         if (!mHasFeature) {
             return;
@@ -44,6 +50,7 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
     }
 
     /** The user should not have the ephemeral flag set if it was not created as ephemeral. */
+    @Test
     public void testCreateLongLivedUser() throws Exception {
         if (!mHasFeature) {
             return;
@@ -57,6 +64,7 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
      * The profile should have the ephemeral flag set automatically if its parent user is
      * ephemeral.
      */
+    @Test
     public void testProfileInheritsEphemeral() throws Exception {
         if (!mHasFeature || !hasDeviceFeature("android.software.managed_users")
                 || !canCreateAdditionalUsers(2)
@@ -72,6 +80,7 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
     /**
      * Ephemeral user should be automatically removed after it is stopped.
      */
+    @Test
     public void testRemoveEphemeralOnStop() throws Exception {
         if (!mHasFeature) {
             return;
@@ -87,6 +96,7 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
      * The guest should be automatically created ephemeral when the ephemeral-guest feature is set
      * and not ephemeral when the feature is not set.
      */
+    @Test
     public void testEphemeralGuestFeature() throws Exception {
         if (!mHasFeature) {
             return;

@@ -3,4 +3,4 @@
         linePaint.strokeWidth="3dp"
         linePaint.color="#AA0000"
         vertexPaint.color="#770000"
-        fillPaint.color="#00000000" />
+        fillPaint.color="#770000" />

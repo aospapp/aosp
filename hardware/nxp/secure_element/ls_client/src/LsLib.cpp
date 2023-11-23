@@ -95,7 +95,7 @@ LSCSTATUS LSC_update_seq_handler(
   ALOGD_IF(ese_debug_enabled, "%s: enter", fn);
   memset(&update_info, 0, sizeof(Lsc_ImageInfo_t));
   if (dest != NULL) {
-    strcat(update_info.fls_RespPath, dest);
+    strlcat(update_info.fls_RespPath, dest, sizeof(update_info.fls_RespPath));
     ALOGD_IF(ese_debug_enabled,
              "%s: Loader Service response data path/destination: %s", fn, dest);
     update_info.bytes_wrote = 0xAA;
@@ -106,7 +106,7 @@ LSCSTATUS LSC_update_seq_handler(
     return LSCSTATUS_FAILED;
   }
   // memcpy(update_info.fls_path, (char*)Lsc_path, sizeof(Lsc_path));
-  strcat(update_info.fls_path, name);
+  strlcat(update_info.fls_path, name, sizeof(update_info.fls_path));
   ALOGD_IF(ese_debug_enabled, "Selected applet to install is: %s",
            update_info.fls_path);
 
@@ -435,10 +435,6 @@ LSCSTATUS LSC_loadapplet(Lsc_ImageInfo_t* Os_info, LSCSTATUS status,
   while (!feof(Os_info->fp) && (Os_info->bytes_read < Os_info->fls_size)) {
     len_byte = 0;
     offset = 0;
-    /*Check if the certificate/ is verified or not*/
-    if (status != LSCSTATUS_SUCCESS) {
-      goto exit;
-    }
 
     uint8_t temp_buf[1024];
     memset(temp_buf, 0, sizeof(temp_buf));
@@ -572,7 +568,7 @@ LSCSTATUS LSC_Check_KeyIdentifier(Lsc_ImageInfo_t* Os_info, LSCSTATUS status,
                                   int32_t wNewLen) {
   static const char fn[] = "LSC_Check_KeyIdentifier";
   status = LSCSTATUS_FAILED;
-  uint8_t read_buf[1024];
+  uint8_t read_buf[1024] = {0};
   uint16_t offset = 0, len_byte = 0;
   int32_t wLen;
   uint8_t certf_found = LSCSTATUS_FAILED;

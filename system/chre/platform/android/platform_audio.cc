@@ -42,17 +42,17 @@ constexpr uint32_t kAndroidAudioMaxBufferSize = kAndroidAudioSampleRate * 10;
 void PlatformAudioBase::audioReadCallback(void *cookie) {
   auto *platformAudio = static_cast<PlatformAudio *>(cookie);
 
-  auto& dataEvent = platformAudio->mDataEvent;
+  auto &dataEvent = platformAudio->mDataEvent;
   Nanoseconds samplingTime =
       AudioRequestManager::getDurationFromSampleCountAndRate(
-        platformAudio->mNumSamples, kAndroidAudioSampleRate);
-  dataEvent.timestamp = (SystemTime::getMonotonicTime() - samplingTime)
-      .toRawNanoseconds();
+          platformAudio->mNumSamples, kAndroidAudioSampleRate);
+  dataEvent.timestamp =
+      (SystemTime::getMonotonicTime() - samplingTime).toRawNanoseconds();
 
   if (dataEvent.format == CHRE_AUDIO_DATA_FORMAT_16_BIT_SIGNED_PCM) {
     uint32_t intervalNumSamples =
         AudioRequestManager::getSampleCountFromRateAndDuration(
-          kAndroidAudioSampleRate, platformAudio->mEventDelay);
+            kAndroidAudioSampleRate, platformAudio->mEventDelay);
 
     // Determine how much new audio data is required to be read from the device.
     // Samples that are already buffered by this implementation may be reused.
@@ -69,12 +69,13 @@ void PlatformAudioBase::audioReadCallback(void *cookie) {
     // timer ensures that we wait approximately long enough to read the
     // requested number of samples and the timeout ensures that they match
     // exactly.
-    int32_t framesRead = AAudioStream_read(
-        platformAudio->mStream, audioBuffer, readAmount, 1);
+    int32_t framesRead =
+        AAudioStream_read(platformAudio->mStream, audioBuffer, readAmount, 1);
     if (framesRead != static_cast<int32_t>(platformAudio->mNumSamples)) {
       FATAL_ERROR("Failed to read requested number of audio samples");
     } else {
-      EventLoopManagerSingleton::get()->getAudioRequestManager()
+      EventLoopManagerSingleton::get()
+          ->getAudioRequestManager()
           .handleAudioDataEvent(&dataEvent);
     }
   } else {
@@ -107,13 +108,14 @@ PlatformAudio::PlatformAudio() {
   }
 
   int32_t bufferSize = AAudioStream_getBufferCapacityInFrames(mStream);
-  LOGD("Created audio stream with %" PRId32 " frames buffer size",
-       bufferSize);
+  LOGD("Created audio stream with %" PRId32 " frames buffer size", bufferSize);
 
   mMinBufferDuration = AudioRequestManager::getDurationFromSampleCountAndRate(
-      kAndroidAudioMinBufferSize, kAndroidAudioSampleRate).toRawNanoseconds();
+                           kAndroidAudioMinBufferSize, kAndroidAudioSampleRate)
+                           .toRawNanoseconds();
   mMaxBufferDuration = AudioRequestManager::getDurationFromSampleCountAndRate(
-      bufferSize, kAndroidAudioSampleRate).toRawNanoseconds();
+                           bufferSize, kAndroidAudioSampleRate)
+                           .toRawNanoseconds();
 
   result = AAudioStream_requestStart(mStream);
   if (result != AAUDIO_OK) {
@@ -137,8 +139,7 @@ void PlatformAudio::setHandleEnabled(uint32_t handle, bool enabled) {
   // TODO: Implement this.
 }
 
-bool PlatformAudio::requestAudioDataEvent(uint32_t handle,
-                                          uint32_t numSamples,
+bool PlatformAudio::requestAudioDataEvent(uint32_t handle, uint32_t numSamples,
                                           Nanoseconds eventDelay) {
   mNumSamples = numSamples;
   mEventDelay = eventDelay;
@@ -150,8 +151,7 @@ void PlatformAudio::cancelAudioDataEventRequest(uint32_t handle) {
   mTimer.cancel();
 }
 
-void PlatformAudio::releaseAudioDataEvent(struct chreAudioDataEvent *event) {
-}
+void PlatformAudio::releaseAudioDataEvent(struct chreAudioDataEvent *event) {}
 
 size_t PlatformAudio::getSourceCount() {
   // Hardcoded at one as the Android platform only surfaces the default mic.

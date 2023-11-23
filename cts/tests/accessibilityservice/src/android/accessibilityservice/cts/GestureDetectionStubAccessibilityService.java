@@ -14,32 +14,41 @@
 
 package android.accessibilityservice.cts;
 
-import android.accessibility.cts.common.InstrumentedAccessibilityService;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-import android.app.Instrumentation;
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
+import android.accessibilityservice.AccessibilityGestureEvent;
+import android.view.Display;
 import android.view.accessibility.AccessibilityEvent;
+
 import java.util.ArrayList;
+import java.util.List;
 
 /** Accessibility service stub, which will collect recognized gestures. */
 public class GestureDetectionStubAccessibilityService extends InstrumentedAccessibilityService {
     private static final long GESTURE_RECOGNIZE_TIMEOUT_MS = 3000;
-    private static final long EVENT_RECOGNIZE_TIMEOUT_MS = 3000;
+    private static final long EVENT_RECOGNIZE_TIMEOUT_MS = 5000;
     // Member variables
-    private final Object mLock = new Object();
+    protected final Object mLock = new Object();
     private ArrayList<Integer> mCollectedGestures = new ArrayList();
-    private ArrayList<Integer> mCollectedEvents = new ArrayList();
-
-    public static GestureDetectionStubAccessibilityService enableSelf(
-            Instrumentation instrumentation) {
-        return InstrumentedAccessibilityService.enableService(
-                instrumentation, GestureDetectionStubAccessibilityService.class);
-    }
+    private ArrayList<AccessibilityGestureEvent> mCollectedGestureEvents = new ArrayList();
+    protected ArrayList<Integer> mCollectedEvents = new ArrayList();
 
     @Override
     protected boolean onGesture(int gestureId) {
         synchronized (mCollectedGestures) {
             mCollectedGestures.add(gestureId);
-            mCollectedGestures.notifyAll(); // Stop waiting for gesture.
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onGesture(AccessibilityGestureEvent gestureEvent) {
+        super.onGesture(gestureEvent);
+        synchronized (mCollectedGestureEvents) {
+            mCollectedGestureEvents.add(gestureEvent);
+            mCollectedGestureEvents.notifyAll(); // Stop waiting for gesture.
         }
         return true;
     }
@@ -47,6 +56,9 @@ public class GestureDetectionStubAccessibilityService extends InstrumentedAccess
     public void clearGestures() {
         synchronized (mCollectedGestures) {
             mCollectedGestures.clear();
+        }
+        synchronized (mCollectedGestureEvents) {
+            mCollectedGestureEvents.clear();
         }
     }
 
@@ -62,17 +74,30 @@ public class GestureDetectionStubAccessibilityService extends InstrumentedAccess
         }
     }
 
-    /** Wait for onGesture() to collect next gesture. */
-    public void waitUntilGesture() {
-        synchronized (mCollectedGestures) {
-            if (mCollectedGestures.size() > 0) {
+    /** Waits for {@link #onGesture(AccessibilityGestureEvent)} to collect next gesture. */
+    public void waitUntilGestureInfo() {
+        synchronized (mCollectedGestureEvents) {
+            //Assume the size of mCollectedGestures is changed before mCollectedGestureEvents.
+            if (mCollectedGestureEvents.size() > 0) {
                 return;
             }
             try {
-                mCollectedGestures.wait(GESTURE_RECOGNIZE_TIMEOUT_MS);
+                mCollectedGestureEvents.wait(GESTURE_RECOGNIZE_TIMEOUT_MS);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    public int getGestureInfoSize() {
+        synchronized (mCollectedGestureEvents) {
+            return mCollectedGestureEvents.size();
+        }
+    }
+
+    public AccessibilityGestureEvent getGestureInfo(int index) {
+        synchronized (mCollectedGestureEvents) {
+            return mCollectedGestureEvents.get(index);
         }
     }
 
@@ -122,6 +147,57 @@ public class GestureDetectionStubAccessibilityService extends InstrumentedAccess
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    /** Ensure that the specified accessibility gesture event has been received. */
+    public void assertGestureReceived(int gestureId, int displayId) {
+        // Wait for gesture recognizer, and check recognized gesture.
+        waitUntilGestureInfo();
+        if(displayId == Display.DEFAULT_DISPLAY) {
+            assertEquals(1, getGesturesSize());
+            assertEquals(gestureId, getGesture(0));
+        }
+        assertEquals(1, getGestureInfoSize());
+        AccessibilityGestureEvent expectedGestureEvent =
+                new AccessibilityGestureEvent(gestureId, displayId);
+        AccessibilityGestureEvent actualGestureEvent = getGestureInfo(0);
+        if (!expectedGestureEvent.toString().equals(actualGestureEvent.toString())) {
+            fail("Unexpected gesture received, "
+                    + "Received " + actualGestureEvent + ", Expected " + expectedGestureEvent);
+        }
+    }
+
+    /** Insure that the specified accessibility events have been received. */
+    public void assertPropagated(int... events) {
+        waitUntilEvent(events.length);
+        // Set up readable error reporting.
+        List<String> received = new ArrayList<>();
+        List<String> expected = new ArrayList<>();
+        for (int event : events) {
+            expected.add(AccessibilityEvent.eventTypeToString(event));
+        }
+        for (int i = 0; i < getEventsSize(); ++i) {
+            received.add(AccessibilityEvent.eventTypeToString(getEvent(i)));
+        }
+
+        if (events.length != getEventsSize()) {
+            String message =
+                    String.format(
+                            "Received %d events when expecting %d. Received %s, expected %s",
+                            received.size(),
+                            expected.size(),
+                            received.toString(),
+                            expected.toString());
+            fail(message);
+        }
+        else if (!expected.equals(received)) {
+            String message =
+                    String.format(
+                            "Received %s, expected %s",
+                            received.toString(),
+                            expected.toString());
+            fail(message);
         }
     }
 }

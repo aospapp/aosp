@@ -16,11 +16,12 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.signature.cts.api.android_test_base_28">
+          package="android.signature.cts.api.android_test_base_28"
+          android:targetSandboxVersion="2">
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
-    <uses-sdk android:minSdkVersion="25" android:targetSdkVersion="28"/>
+    <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="28"/>
 
     <application android:debuggable="true"
                  android:extractNativeLibs="true"

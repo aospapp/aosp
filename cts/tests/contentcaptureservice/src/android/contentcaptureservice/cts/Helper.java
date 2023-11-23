@@ -23,8 +23,10 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.util.ArraySet;
 import android.util.Log;
+import android.view.View;
 import android.view.contentcapture.ContentCaptureSession;
 import android.widget.TextView;
 
@@ -83,25 +85,28 @@ public final class Helper {
      * Sets the content capture service.
      */
     public static void setService(@NonNull String service) {
-        Log.d(TAG, "Setting service to " + service);
+        final int userId = getCurrentUserId();
+        Log.d(TAG, "Setting service for user " + userId + " to " + service);
         // TODO(b/123540602): use @TestingAPI to get max duration constant
-        runShellCommand("cmd content_capture set temporary-service 0 " + service + " 12000");
+        runShellCommand("cmd content_capture set temporary-service %d %s 12000", userId, service);
     }
 
     /**
      * Resets the content capture service.
      */
     public static void resetService() {
-        Log.d(TAG, "Resetting back to default service");
-        runShellCommand("cmd content_capture set temporary-service 0");
+        final int userId = getCurrentUserId();
+        Log.d(TAG, "Resetting back user " + userId + " to default service");
+        runShellCommand("cmd content_capture set temporary-service %d", userId);
     }
 
     /**
      * Enables / disables the default service.
      */
     public static void setDefaultServiceEnabled(boolean enabled) {
-        Log.d(TAG, "setDefaultServiceEnabled(): " + enabled);
-        runShellCommand("cmd content_capture set default-service-enabled 0 %s",
+        final int userId = getCurrentUserId();
+        Log.d(TAG, "setDefaultServiceEnabled(user=" + userId + ", enabled= " + enabled + ")");
+        runShellCommand("cmd content_capture set default-service-enabled %d %s", userId,
                 Boolean.toString(enabled));
     }
 
@@ -118,6 +123,7 @@ public final class Helper {
     public static TextView newImportantView(@NonNull Context context, @NonNull String text) {
         final TextView child = new TextView(context);
         child.setText(text);
+        child.setImportantForContentCapture(View.IMPORTANT_FOR_CONTENT_CAPTURE_YES);
         Log.v(TAG, "newImportantView(text=" + text + ", id=" + child.getAutofillId() + ")");
         return child;
     }
@@ -170,6 +176,10 @@ public final class Helper {
         Log.d(TAG, "Reading " + file);
         final byte[] bytes = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
         return bytes == null ? null : new String(bytes);
+    }
+
+    private static int getCurrentUserId() {
+        return UserHandle.myUserId();
     }
 
     private Helper() {

@@ -78,11 +78,13 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
 
     private static final byte[] MSG_PUB_TO_SUB = "Ready".getBytes();
     private static final String PASSPHRASE = "Some super secret password";
+    private static final byte[] PMK = "01234567890123456789012345678901".getBytes();
 
     private static final byte[] MSG_CLIENT_TO_SERVER = "GET SOME BYTES".getBytes();
     private static final byte[] MSG_SERVER_TO_CLIENT = "PUT SOME OTHER BYTES".getBytes();
 
     private boolean mIsSecurityOpen;
+    private boolean mUsePmk;
     private boolean mIsPublish;
     private Thread mClientServerThread;
     private ConnectivityManager mCm;
@@ -91,10 +93,11 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
     private static int sSDKLevel = android.os.Build.VERSION.SDK_INT;
 
     public DataPathInBandTestCase(Context context, boolean isSecurityOpen, boolean isPublish,
-            boolean isUnsolicited) {
+            boolean isUnsolicited, boolean usePmk) {
         super(context, isUnsolicited, false);
 
         mIsSecurityOpen = isSecurityOpen;
+        mUsePmk = usePmk;
         mIsPublish = isPublish;
     }
 
@@ -170,7 +173,11 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
         WifiAwareNetworkSpecifier.Builder nsBuilder =
                 new WifiAwareNetworkSpecifier.Builder(mWifiAwareDiscoverySession, mPeerHandle);
         if (!mIsSecurityOpen) {
-            nsBuilder.setPskPassphrase(PASSPHRASE);
+            if (mUsePmk) {
+                nsBuilder.setPmk(PMK);
+            } else {
+                nsBuilder.setPskPassphrase(PASSPHRASE);
+            }
         }
         NetworkRequest nr = new NetworkRequest.Builder().addTransportType(
                 NetworkCapabilities.TRANSPORT_WIFI_AWARE).setNetworkSpecifier(
@@ -270,7 +277,8 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
                     Log.e(TAG, "executeTestSubscriber: did not get expected message from server.");
                     return false;
                 }
-
+                // Sleep 3 second for transmit and receive.
+                Thread.sleep(3000);
                 currentMethod = "close()";
                 os.close();
             } catch (IOException e) {
@@ -344,9 +352,11 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
                     OutputStream os = socket.getOutputStream();
                     currentMethod = "write()";
                     os.write(MSG_SERVER_TO_CLIENT, 0, MSG_SERVER_TO_CLIENT.length);
+                    // Sleep 3 second for transmit and receive.
+                    Thread.sleep(3000);
                     currentMethod = "close()";
                     os.close();
-                } catch (IOException e) {
+                } catch (IOException | InterruptedException e) {
                     setFailureReason(mContext.getString(R.string.aware_status_socket_failure));
                     Log.e(TAG, "executeTestPublisher: failure while executing " + currentMethod);
                     return;
@@ -359,8 +369,12 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
         WifiAwareNetworkSpecifier.Builder nsBuilder =
                 new WifiAwareNetworkSpecifier.Builder(mWifiAwareDiscoverySession, mPeerHandle);
         if (!mIsSecurityOpen) {
-            nsBuilder.setPskPassphrase(PASSPHRASE).setPort(port).setTransportProtocol(
-                    6); // 6 == TCP
+            if (mUsePmk) {
+                nsBuilder.setPmk(PMK);
+            } else {
+                nsBuilder.setPskPassphrase(PASSPHRASE);
+            }
+            nsBuilder.setPort(port).setTransportProtocol(6); // 6 == TCP
         }
         NetworkRequest nr = new NetworkRequest.Builder().addTransportType(
                 NetworkCapabilities.TRANSPORT_WIFI_AWARE).setNetworkSpecifier(

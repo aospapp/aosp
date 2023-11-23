@@ -16,12 +16,18 @@
 
 package com.android.cts.verifier.audio;
 
+import android.app.AlertDialog;
+import com.android.compatibility.common.util.ReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.view.View;
+import android.view.View.OnClickListener;
 import android.widget.TextView;
 
 import com.android.cts.verifier.audio.peripheralprofile.PeripheralProfile;
@@ -54,6 +60,68 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
     private TextView mProfileDescriptionTx;
 
     private TextView mPeripheralNameTx;
+
+    private OnBtnClickListener mBtnClickListener = new OnBtnClickListener();
+
+    //
+    // Common UI Handling
+    //
+    protected void connectUSBPeripheralUI() {
+        findViewById(R.id.uap_tests_yes_btn).setOnClickListener(mBtnClickListener);
+        findViewById(R.id.uap_tests_no_btn).setOnClickListener(mBtnClickListener);
+        findViewById(R.id.uap_test_info_btn).setOnClickListener(mBtnClickListener);
+
+        // Leave the default state in tact
+        // enableTestUI(false);
+    }
+
+    private void showUAPInfoDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.uap_mic_dlg_caption)
+                .setMessage(R.string.uap_mic_dlg_text)
+                .setPositiveButton(R.string.audio_general_ok, null)
+                .show();
+    }
+
+    private class OnBtnClickListener implements OnClickListener {
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()) {
+                case R.id.uap_tests_yes_btn:
+                    recordUSBAudioStatus(true);
+                    enableTestUI(true);
+                    // disable test button so that they will now run the test(s)
+                    getPassButton().setEnabled(false);
+                    break;
+
+                case R.id.uap_tests_no_btn:
+                    recordUSBAudioStatus(false);
+                    enableTestUI(false);
+                    // Allow the user to "pass" the test.
+                    getPassButton().setEnabled(true);
+                    break;
+
+                case R.id.uap_test_info_btn:
+                    showUAPInfoDialog();
+                    break;
+            }
+        }
+    }
+
+    private void recordUSBAudioStatus(boolean has) {
+        getReportLog().addValue(
+                "User reported USB Host Audio Support: ",
+                has ? 1.0 : 0,
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
+    }
+
+    //
+    // Overrides
+    //
+    void enableTestUI(boolean enable) {
+
+    }
 
     public USBAudioPeripheralActivity(boolean mandatedRequired) {
         super();

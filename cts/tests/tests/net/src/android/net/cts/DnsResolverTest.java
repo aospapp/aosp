@@ -21,6 +21,7 @@ import static android.net.DnsResolver.FLAG_EMPTY;
 import static android.net.DnsResolver.FLAG_NO_CACHE_LOOKUP;
 import static android.net.DnsResolver.TYPE_A;
 import static android.net.DnsResolver.TYPE_AAAA;
+import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
 import static android.system.OsConstants.ETIMEDOUT;
 
 import android.annotation.NonNull;
@@ -29,13 +30,13 @@ import android.content.Context;
 import android.content.ContentResolver;
 import android.net.ConnectivityManager;
 import android.net.ConnectivityManager.NetworkCallback;
-import android.net.DnsPacket;
 import android.net.DnsResolver;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.ParseException;
+import android.net.cts.util.CtsNetUtils;
 import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
@@ -44,6 +45,9 @@ import android.provider.Settings;
 import android.system.ErrnoException;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.net.module.util.DnsPacket;
+import com.android.testutils.SkipPresubmit;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -62,7 +66,9 @@ public class DnsResolverTest extends AndroidTestCase {
     };
 
     static final String TEST_DOMAIN = "www.google.com";
+    static final String TEST_NX_DOMAIN = "test1-nx.metric.gstatic.com";
     static final String INVALID_PRIVATE_DNS_SERVER = "invalid.google";
+    static final String GOOGLE_PRIVATE_DNS_SERVER = "dns.google";
     static final byte[] TEST_BLOB = new byte[]{
             /* Header */
             0x55, 0x66, /* Transaction ID */
@@ -82,10 +88,10 @@ public class DnsResolverTest extends AndroidTestCase {
     static final int CANCEL_RETRY_TIMES = 5;
     static final int QUERY_TIMES = 10;
     static final int NXDOMAIN = 3;
-    static final int PRIVATE_DNS_SETTING_TIMEOUT_MS = 2_000;
 
     private ContentResolver mCR;
     private ConnectivityManager mCM;
+    private CtsNetUtils mCtsNetUtils;
     private Executor mExecutor;
     private Executor mExecutorInline;
     private DnsResolver mDns;
@@ -101,25 +107,14 @@ public class DnsResolverTest extends AndroidTestCase {
         mExecutor = new Handler(Looper.getMainLooper())::post;
         mExecutorInline = (Runnable r) -> r.run();
         mCR = getContext().getContentResolver();
-        storePrivateDnsSetting();
+        mCtsNetUtils = new CtsNetUtils(getContext());
+        mCtsNetUtils.storePrivateDnsSetting();
     }
 
     @Override
     protected void tearDown() throws Exception {
-        restorePrivateDnsSetting();
+        mCtsNetUtils.restorePrivateDnsSetting();
         super.tearDown();
-    }
-
-    private void storePrivateDnsSetting() {
-        // Store private DNS setting
-        mOldMode = Settings.Global.getString(mCR, Settings.Global.PRIVATE_DNS_MODE);
-        mOldDnsSpecifier = Settings.Global.getString(mCR, Settings.Global.PRIVATE_DNS_SPECIFIER);
-    }
-
-    private void restorePrivateDnsSetting() {
-        // restore private DNS setting
-        Settings.Global.putString(mCR, Settings.Global.PRIVATE_DNS_MODE, mOldMode);
-        Settings.Global.putString(mCR, Settings.Global.PRIVATE_DNS_SPECIFIER, mOldDnsSpecifier);
     }
 
     private static String byteArrayToHexString(byte[] bytes) {
@@ -197,6 +192,7 @@ public class DnsResolverTest extends AndroidTestCase {
         private final CancellationSignal mCancelSignal;
         private int mRcode;
         private DnsAnswer mDnsAnswer;
+        private String mErrorMsg = null;
 
         VerifyCancelCallback(@NonNull String msg, @Nullable CancellationSignal cancel) {
             mMsg = msg;
@@ -222,14 +218,18 @@ public class DnsResolverTest extends AndroidTestCase {
         @Override
         public void onAnswer(@NonNull byte[] answer, int rcode) {
             if (mCancelSignal != null && mCancelSignal.isCanceled()) {
-                fail(mMsg + " should not have returned any answers");
+                mErrorMsg = mMsg + " should not have returned any answers";
+                mLatch.countDown();
+                return;
             }
 
             mRcode = rcode;
             try {
                 mDnsAnswer = new DnsAnswer(answer);
             } catch (ParseException | DnsParseException e) {
-                fail(mMsg + e.getMessage());
+                mErrorMsg = mMsg + e.getMessage();
+                mLatch.countDown();
+                return;
             }
             Log.d(TAG, "Reported blob: " + byteArrayToHexString(answer));
             mLatch.countDown();
@@ -237,10 +237,12 @@ public class DnsResolverTest extends AndroidTestCase {
 
         @Override
         public void onError(@NonNull DnsResolver.DnsException error) {
-            fail(mMsg + error.getMessage());
+            mErrorMsg = mMsg + error.getMessage();
+            mLatch.countDown();
         }
 
         private void assertValidAnswer() {
+            assertNull(mErrorMsg);
             assertNotNull(mMsg + " No valid answer", mDnsAnswer);
             assertEquals(mMsg + " Unexpected error: reported rcode" + mRcode +
                     " blob's rcode " + mDnsAnswer.getRcode(), mRcode, mDnsAnswer.getRcode());
@@ -309,6 +311,14 @@ public class DnsResolverTest extends AndroidTestCase {
         doTestRawQueryNXDomain(mExecutorInline);
     }
 
+    public void testRawQueryNXDomainWithPrivateDns() throws Exception {
+        doTestRawQueryNXDomainWithPrivateDns(mExecutor);
+    }
+
+    public void testRawQueryNXDomainInlineWithPrivateDns() throws Exception {
+        doTestRawQueryNXDomainWithPrivateDns(mExecutorInline);
+    }
+
     public void doTestRawQuery(Executor executor) throws InterruptedException {
         final String msg = "RawQuery " + TEST_DOMAIN;
         for (Network network : getTestableNetworks()) {
@@ -364,11 +374,41 @@ public class DnsResolverTest extends AndroidTestCase {
     }
 
     public void doTestRawQueryNXDomain(Executor executor) throws InterruptedException {
-        final String dname = "test1-nx.metric.gstatic.com";
-        final String msg = "RawQuery " + dname;
+        final String msg = "RawQuery " + TEST_NX_DOMAIN;
+
         for (Network network : getTestableNetworks()) {
+            final NetworkCapabilities nc = (network != null)
+                    ? mCM.getNetworkCapabilities(network)
+                    : mCM.getNetworkCapabilities(mCM.getActiveNetwork());
+            assertNotNull("Couldn't determine NetworkCapabilities for " + network, nc);
+            // Some cellular networks configure their DNS servers never to return NXDOMAIN, so don't
+            // test NXDOMAIN on these DNS servers.
+            // b/144521720
+            if (nc.hasTransport(TRANSPORT_CELLULAR)) continue;
             final VerifyCancelCallback callback = new VerifyCancelCallback(msg);
-            mDns.rawQuery(network, dname, CLASS_IN, TYPE_AAAA, FLAG_NO_CACHE_LOOKUP,
+            mDns.rawQuery(network, TEST_NX_DOMAIN, CLASS_IN, TYPE_AAAA, FLAG_NO_CACHE_LOOKUP,
+                    executor, null, callback);
+
+            assertTrue(msg + " but no answer after " + TIMEOUT_MS + "ms.",
+                    callback.waitForAnswer());
+            callback.assertNXDomain();
+        }
+    }
+
+    public void doTestRawQueryNXDomainWithPrivateDns(Executor executor)
+            throws InterruptedException {
+        final String msg = "RawQuery " + TEST_NX_DOMAIN + " with private DNS";
+        // Enable private DNS strict mode and set server to dns.google before doing NxDomain test.
+        // b/144521720
+        mCtsNetUtils.setPrivateDnsStrictMode(GOOGLE_PRIVATE_DNS_SERVER);
+        for (Network network :  getTestableNetworks()) {
+            final Network networkForPrivateDns =
+                    (network != null) ? network : mCM.getActiveNetwork();
+            assertNotNull("Can't find network to await private DNS on", networkForPrivateDns);
+            mCtsNetUtils.awaitPrivateDnsSetting(msg + " wait private DNS setting timeout",
+                    networkForPrivateDns, GOOGLE_PRIVATE_DNS_SERVER, true);
+            final VerifyCancelCallback callback = new VerifyCancelCallback(msg);
+            mDns.rawQuery(network, TEST_NX_DOMAIN, CLASS_IN, TYPE_AAAA, FLAG_NO_CACHE_LOOKUP,
                     executor, null, callback);
 
             assertTrue(msg + " but no answer after " + TIMEOUT_MS + "ms.",
@@ -459,6 +499,7 @@ public class DnsResolverTest extends AndroidTestCase {
         private final String mMsg;
         private final List<InetAddress> mAnswers;
         private final CancellationSignal mCancelSignal;
+        private String mErrorMsg = null;
 
         VerifyCancelInetAddressCallback(@NonNull String msg, @Nullable CancellationSignal cancel) {
             this.mMsg = msg;
@@ -492,10 +533,16 @@ public class DnsResolverTest extends AndroidTestCase {
             return false;
         }
 
+        public void assertNoError() {
+            assertNull(mErrorMsg);
+        }
+
         @Override
         public void onAnswer(@NonNull List<InetAddress> answerList, int rcode) {
             if (mCancelSignal != null && mCancelSignal.isCanceled()) {
-                fail(mMsg + " should not have returned any answers");
+                mErrorMsg = mMsg + " should not have returned any answers";
+                mLatch.countDown();
+                return;
             }
             for (InetAddress addr : answerList) {
                 Log.d(TAG, "Reported addr: " + addr.toString());
@@ -507,7 +554,7 @@ public class DnsResolverTest extends AndroidTestCase {
 
         @Override
         public void onError(@NonNull DnsResolver.DnsException error) {
-            fail(mMsg + error.getMessage());
+            mErrorMsg = mMsg + error.getMessage();
         }
     }
 
@@ -539,6 +586,7 @@ public class DnsResolverTest extends AndroidTestCase {
         doTestContinuousQueries(mExecutor);
     }
 
+    @SkipPresubmit(reason = "Flaky: b/159762682; add to presubmit after fixing")
     public void testContinuousQueriesInline() throws Exception {
         doTestContinuousQueries(mExecutorInline);
     }
@@ -552,6 +600,7 @@ public class DnsResolverTest extends AndroidTestCase {
 
             assertTrue(msg + " but no answer after " + TIMEOUT_MS + "ms.",
                     callback.waitForAnswer());
+            callback.assertNoError();
             assertTrue(msg + " returned 0 results", !callback.isAnswerEmpty());
         }
     }
@@ -595,6 +644,7 @@ public class DnsResolverTest extends AndroidTestCase {
 
             assertTrue(msg + " but no answer after " + TIMEOUT_MS + "ms.",
                     callback.waitForAnswer());
+            callback.assertNoError();
             assertTrue(msg + " returned 0 results", !callback.isAnswerEmpty());
             assertTrue(msg + " returned Ipv6 results", !callback.hasIpv6Answer());
         }
@@ -610,36 +660,17 @@ public class DnsResolverTest extends AndroidTestCase {
 
             assertTrue(msg + " but no answer after " + TIMEOUT_MS + "ms.",
                     callback.waitForAnswer());
+            callback.assertNoError();
             assertTrue(msg + " returned 0 results", !callback.isAnswerEmpty());
             assertTrue(msg + " returned Ipv4 results", !callback.hasIpv4Answer());
         }
-    }
-
-    private void awaitPrivateDnsSetting(@NonNull String msg,
-            @NonNull Network network, @NonNull String server) throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(1);
-        NetworkRequest request = new NetworkRequest.Builder().clearCapabilities().build();
-        NetworkCallback callback = new NetworkCallback() {
-            @Override
-            public void onLinkPropertiesChanged(Network n, LinkProperties lp) {
-                if (network.equals(n) && server.equals(lp.getPrivateDnsServerName())) {
-                    latch.countDown();
-                }
-            }
-        };
-        mCM.registerNetworkCallback(request, callback);
-        assertTrue(msg, latch.await(PRIVATE_DNS_SETTING_TIMEOUT_MS, TimeUnit.MILLISECONDS));
-        mCM.unregisterNetworkCallback(callback);
     }
 
     public void testPrivateDnsBypass() throws InterruptedException {
         final Network[] testNetworks = getTestableNetworks();
 
         // Set an invalid private DNS server
-        Settings.Global.putString(mCR, Settings.Global.PRIVATE_DNS_MODE, "hostname");
-        Settings.Global.putString(mCR,
-                Settings.Global.PRIVATE_DNS_SPECIFIER, INVALID_PRIVATE_DNS_SERVER);
-
+        mCtsNetUtils.setPrivateDnsStrictMode(INVALID_PRIVATE_DNS_SERVER);
         final String msg = "Test PrivateDnsBypass " + TEST_DOMAIN;
         for (Network network : testNetworks) {
             // This test cannot be ran with null network because we need to explicitly pass a
@@ -647,8 +678,8 @@ public class DnsResolverTest extends AndroidTestCase {
             if (network == null) continue;
 
             // wait for private DNS setting propagating
-            awaitPrivateDnsSetting(msg + " wait private DNS setting timeout",
-                    network, INVALID_PRIVATE_DNS_SERVER);
+            mCtsNetUtils.awaitPrivateDnsSetting(msg + " wait private DNS setting timeout",
+                    network, INVALID_PRIVATE_DNS_SERVER, false);
 
             final CountDownLatch latch = new CountDownLatch(1);
             final DnsResolver.Callback<List<InetAddress>> errorCallback =
@@ -680,6 +711,7 @@ public class DnsResolverTest extends AndroidTestCase {
 
             assertTrue(msg + " bypass private DNS round. No answer after " + TIMEOUT_MS + "ms.",
                     callback.waitForAnswer());
+            callback.assertNoError();
             assertTrue(msg + " returned 0 results", !callback.isAnswerEmpty());
 
             // To ensure private DNS bypass still work even if passing null network.
@@ -692,6 +724,7 @@ public class DnsResolverTest extends AndroidTestCase {
 
             assertTrue(msg + " with null network bypass private DNS round. No answer after " +
                     TIMEOUT_MS + "ms.", callbackWithNullNetwork.waitForAnswer());
+            callbackWithNullNetwork.assertNoError();
             assertTrue(msg + " with null network returned 0 results",
                     !callbackWithNullNetwork.isAnswerEmpty());
 
@@ -713,6 +746,7 @@ public class DnsResolverTest extends AndroidTestCase {
 
                 assertTrue(msg + " but no answer after " + TIMEOUT_MS + "ms.",
                         callback.waitForAnswer());
+                callback.assertNoError();
                 assertTrue(msg + " returned 0 results", !callback.isAnswerEmpty());
                 assertTrue(msg + " returned " + (queryV6 ? "Ipv4" : "Ipv6") + " results",
                         queryV6 ? !callback.hasIpv4Answer() : !callback.hasIpv6Answer());

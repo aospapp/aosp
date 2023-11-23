@@ -18,6 +18,7 @@ package android.media.cts;
 
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.ActivityInstrumentationTestCase2;
 
@@ -25,6 +26,7 @@ import androidx.test.filters.SmallTest;
 
 /**
  */
+@Presubmit
 @SmallTest
 @RequiresDevice
 @AppModeFull(reason = "TODO: evaluate and port to instant")

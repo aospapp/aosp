@@ -35,6 +35,7 @@ import android.view.SurfaceHolder;
  * SurfaceFlinger allows a "desired presentation time" value to be passed along with buffers of
  * data.  This exercises that feature.
  */
+@NonMediaMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class PresentationSyncTest extends ActivityInstrumentationTestCase2<MediaStubActivity>
         implements SurfaceHolder.Callback {

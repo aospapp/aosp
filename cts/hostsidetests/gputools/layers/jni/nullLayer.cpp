@@ -14,19 +14,28 @@
  * limitations under the License.
  */
 
-#include <android/log.h>
 #include <cstring>
-#include <vulkan/vulkan.h>
+#include <string>
+
 #include "vk_layer_interface.h"
+#include <android/log.h>
+#include <vulkan/vulkan.h>
 
 #define xstr(a) str(a)
 #define str(a) #a
 
-#define LOG_TAG "nullLayer" xstr(LAYERNAME)
+#define LAYER_FULL_NAME "VK_LAYER_ANDROID_nullLayer" xstr(LAYERNAME)
+#define LOG_TAG LAYER_FULL_NAME
 
 #define ALOGI(msg, ...) \
     __android_log_print(ANDROID_LOG_INFO, LOG_TAG, (msg), __VA_ARGS__)
 
+#ifdef DEBUGUTILSPECVERSION
+const VkExtensionProperties debug_utils_extension = {
+    "VK_EXT_debug_utils",
+    static_cast<uint32_t>(std::atoi(xstr(DEBUGUTILSPECVERSION))),
+};
+#endif
 
 // Announce if anything loads this layer.  LAYERNAME is defined in Android.mk
 class StaticLogMessage {
@@ -35,8 +44,8 @@ class StaticLogMessage {
             ALOGI("%s", msg);
     }
 };
-StaticLogMessage g_initMessage("nullLayer" xstr(LAYERNAME) " loaded");
-
+StaticLogMessage
+    g_initMessage("VK_LAYER_ANDROID_nullLayer" xstr(LAYERNAME) " loaded");
 
 namespace {
 
@@ -68,7 +77,10 @@ VkResult getProperties(const uint32_t count, const T *properties, uint32_t *pCou
 }
 
 static const VkLayerProperties LAYER_PROPERTIES = {
-    "VK_LAYER_ANDROID_nullLayer" xstr(LAYERNAME), VK_MAKE_VERSION(1, 0, VK_HEADER_VERSION), 1, "Layer: nullLayer" xstr(LAYERNAME),
+    LAYER_FULL_NAME,
+    VK_MAKE_VERSION(1, 0, VK_HEADER_VERSION),
+    1,
+    "Layer: nullLayer" xstr(LAYERNAME),
 };
 
 VKAPI_ATTR VkResult VKAPI_CALL EnumerateInstanceLayerProperties(uint32_t *pCount, VkLayerProperties *pProperties) {
@@ -82,7 +94,12 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceLayerProperties(VkPhysicalDevice /
 
 VKAPI_ATTR VkResult VKAPI_CALL EnumerateInstanceExtensionProperties(const char* /* pLayerName */, uint32_t *pCount,
                                                                     VkExtensionProperties *pProperties) {
-    return getProperties<VkExtensionProperties>(0, NULL, pCount, pProperties);
+#ifdef DEBUGUTILSPECVERSION
+  return getProperties<VkExtensionProperties>(1, &debug_utils_extension, pCount,
+                                              pProperties);
+#else
+  return getProperties<VkExtensionProperties>(0, NULL, pCount, pProperties);
+#endif
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceExtensionProperties(VkPhysicalDevice /* physicalDevice */, const char* /* pLayerName */,
@@ -94,16 +111,13 @@ VKAPI_ATTR VkResult VKAPI_CALL nullCreateDevice(VkPhysicalDevice physicalDevice,
                                                 const VkDeviceCreateInfo* pCreateInfo,
                                                 const VkAllocationCallbacks* pAllocator,
                                                 VkDevice* pDevice) {
-
     VkLayerDeviceCreateInfo *layerCreateInfo = (VkLayerDeviceCreateInfo*)pCreateInfo->pNext;
-
-    const char* msg = "nullCreateDevice called in nullLayer" xstr(LAYERNAME);
+    const char *msg = "nullCreateDevice called in " LAYER_FULL_NAME;
     ALOGI("%s", msg);
 
     // Step through the pNext chain until we get to the link function
     while(layerCreateInfo && (layerCreateInfo->sType != VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO ||
                               layerCreateInfo->function != VK_LAYER_FUNCTION_LINK)) {
-
       layerCreateInfo = (VkLayerDeviceCreateInfo *)layerCreateInfo->pNext;
     }
 
@@ -131,16 +145,13 @@ VKAPI_ATTR VkResult VKAPI_CALL nullCreateDevice(VkPhysicalDevice physicalDevice,
 VKAPI_ATTR VkResult VKAPI_CALL nullCreateInstance(const VkInstanceCreateInfo* pCreateInfo,
                                                   const VkAllocationCallbacks* pAllocator,
                                                   VkInstance* pInstance) {
-
     VkLayerInstanceCreateInfo *layerCreateInfo = (VkLayerInstanceCreateInfo *)pCreateInfo->pNext;
-
-    const char* msg = "nullCreateInstance called in nullLayer" xstr(LAYERNAME);
+    const char *msg = "nullCreateInstance called in " LAYER_FULL_NAME;
     ALOGI("%s", msg);
 
     // Step through the pNext chain until we get to the link function
     while(layerCreateInfo && (layerCreateInfo->sType != VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO ||
                               layerCreateInfo->function != VK_LAYER_FUNCTION_LINK)) {
-
       layerCreateInfo = (VkLayerInstanceCreateInfo *)layerCreateInfo->pNext;
     }
 

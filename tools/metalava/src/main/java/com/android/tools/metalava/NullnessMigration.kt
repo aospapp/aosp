@@ -39,7 +39,7 @@ import com.android.tools.metalava.model.TypeItem
 class NullnessMigration : ComparisonVisitor(visitAddedItemsRecursively = true) {
     override fun compare(old: Item, new: Item) {
         if (hasNullnessInformation(new) && !hasNullnessInformation(old)) {
-            markRecent(new)
+            new.markRecent()
         }
     }
 
@@ -92,18 +92,6 @@ class NullnessMigration : ComparisonVisitor(visitAddedItemsRecursively = true) {
                 new.markRecent()
             }
         }
-    }
-
-    private fun markRecent(new: Item) {
-        val annotation = findNullnessAnnotation(new) ?: return
-        // Nullness information change: Add migration annotation
-        val annotationClass = if (annotation.isNullable()) RECENTLY_NULLABLE else RECENTLY_NONNULL
-
-        val modifiers = new.mutableModifiers()
-        modifiers.removeAnnotation(annotation)
-
-        // Don't map annotation names - this would turn newly non null back into non null
-        modifiers.addAnnotation(new.codebase.createAnnotation("@$annotationClass", new, mapName = false))
     }
 
     companion object {

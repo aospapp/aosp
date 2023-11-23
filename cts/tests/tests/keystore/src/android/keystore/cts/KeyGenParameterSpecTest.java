@@ -16,6 +16,8 @@
 
 package android.keystore.cts;
 
+import static org.testng.Assert.assertThrows;
+
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.test.MoreAsserts;
@@ -23,11 +25,13 @@ import android.test.MoreAsserts;
 import junit.framework.TestCase;
 
 import java.math.BigInteger;
+import java.security.ProviderException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;
 import java.util.Arrays;
 import java.util.Date;
 
+import javax.crypto.KeyGenerator;
 import javax.security.auth.x500.X500Principal;
 
 public class KeyGenParameterSpecTest extends TestCase {
@@ -65,7 +69,8 @@ public class KeyGenParameterSpecTest extends TestCase {
         assertTrue(spec.isRandomizedEncryptionRequired());
         MoreAsserts.assertEmpty(Arrays.asList(spec.getSignaturePaddings()));
         assertFalse(spec.isUserAuthenticationRequired());
-        assertEquals(-1, spec.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(0, spec.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(KeyProperties.AUTH_BIOMETRIC_STRONG, spec.getUserAuthenticationType());
         assertFalse(spec.isUnlockedDeviceRequired());
     }
 
@@ -98,7 +103,8 @@ public class KeyGenParameterSpecTest extends TestCase {
                 .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS,
                         KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
                 .setUserAuthenticationRequired(true)
-                .setUserAuthenticationValidityDurationSeconds(12345)
+                .setUserAuthenticationParameters(12345,
+                        KeyProperties.AUTH_DEVICE_CREDENTIAL | KeyProperties.AUTH_BIOMETRIC_STRONG)
                 .setUnlockedDeviceRequired(true)
                 .build();
 
@@ -126,6 +132,8 @@ public class KeyGenParameterSpecTest extends TestCase {
                 KeyProperties.SIGNATURE_PADDING_RSA_PSS, KeyProperties.SIGNATURE_PADDING_RSA_PKCS1);
         assertTrue(spec.isUserAuthenticationRequired());
         assertEquals(12345, spec.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(KeyProperties.AUTH_DEVICE_CREDENTIAL | KeyProperties.AUTH_BIOMETRIC_STRONG,
+                spec.getUserAuthenticationType());
         assertTrue(spec.isUnlockedDeviceRequired());
     }
 
@@ -327,5 +335,19 @@ public class KeyGenParameterSpecTest extends TestCase {
         spec.getSignaturePaddings()[0] = null;
         assertEquals(Arrays.asList(originalSignaturePaddings),
                 Arrays.asList(spec.getSignaturePaddings()));
+    }
+
+    /**
+     * Test that generating a key with UID throws an exception since CTS doesn't have the necessary
+     * permissions.
+     */
+    public void testBuilderSetUidGenerateKeyThrowsException() throws Exception {
+        KeyGenerator keyGenerator = KeyGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_HMAC_SHA256, "AndroidKeyStore");
+        keyGenerator.init(
+                new KeyGenParameterSpec.Builder("alias", KeyProperties.PURPOSE_SIGN)
+                        .setUid(123)
+                        .build());
+        assertThrows(ProviderException.class, keyGenerator::generateKey);
     }
 }

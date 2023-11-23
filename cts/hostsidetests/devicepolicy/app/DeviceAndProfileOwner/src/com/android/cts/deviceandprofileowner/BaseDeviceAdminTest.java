@@ -69,6 +69,7 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
     protected DevicePolicyManager mDevicePolicyManager;
     protected UserManager mUserManager;
     protected Context mContext;
+    protected boolean mHasSecureLockScreen;
     static CountDownLatch mOnPasswordExpiryTimeoutCalled;
 
     private final String mTag = getClass().getSimpleName();
@@ -83,6 +84,9 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
 
         mUserManager = mContext.getSystemService(UserManager.class);
         assertNotNull(mUserManager);
+
+        mHasSecureLockScreen = mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_SECURE_LOCK_SCREEN);
 
         assertTrue(mDevicePolicyManager.isAdminActive(ADMIN_RECEIVER_COMPONENT));
         assertTrue("App is neither device nor profile owner",
@@ -110,18 +114,22 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
         }
     }
 
-    protected void assertPasswordSufficiency(boolean expectPasswordSufficient) {
-        int retries = 15;
-        // isActivePasswordSufficient() gets the result asynchronously so let's retry a few times
-        while (retries >= 0
-                && mDevicePolicyManager.isActivePasswordSufficient() != expectPasswordSufficient) {
+    protected void waitUntilUserUnlocked() {
+        boolean isUserUnlocked = mUserManager.isUserUnlocked();
+        int retries = 30;
+        while (retries >= 0 && !isUserUnlocked) {
             retries--;
             try {
-                Thread.sleep(200);
+                Thread.sleep(500);
             } catch (InterruptedException e) {
                 break;
             }
         }
+        assertTrue("User should have been unlocked", mUserManager.isUserUnlocked());
+    }
+
+    protected void assertPasswordSufficiency(boolean expectPasswordSufficient) {
+        waitUntilUserUnlocked();
         assertEquals(expectPasswordSufficient, mDevicePolicyManager.isActivePasswordSufficient());
     }
 

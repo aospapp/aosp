@@ -29,19 +29,19 @@ package sun.security.pkcs;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class PKCS9Attribute implements sun.security.util.DerEncoder {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS9Attribute(sun.security.util.ObjectIdentifier oid, java.lang.Object value)
             throws java.lang.IllegalArgumentException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS9Attribute(java.lang.String name, java.lang.Object value)
             throws java.lang.IllegalArgumentException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS9Attribute(sun.security.util.DerValue derVal) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -51,7 +51,7 @@ public class PKCS9Attribute implements sun.security.util.DerEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void derEncode(java.io.OutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -60,7 +60,7 @@ public class PKCS9Attribute implements sun.security.util.DerEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.Object getValue() {
         throw new RuntimeException("Stub!");
     }
@@ -69,7 +69,7 @@ public class PKCS9Attribute implements sun.security.util.DerEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.util.ObjectIdentifier getOID() {
         throw new RuntimeException("Stub!");
     }
@@ -116,7 +116,7 @@ public class PKCS9Attribute implements sun.security.util.DerEncoder {
 
     public static final java.lang.String CHALLENGE_PASSWORD_STR = "ChallengePassword";
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier CONTENT_TYPE_OID;
 
     static {
@@ -133,7 +133,7 @@ public class PKCS9Attribute implements sun.security.util.DerEncoder {
 
     public static final java.lang.String COUNTERSIGNATURE_STR = "Countersignature";
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier EMAIL_ADDRESS_OID;
 
     static {
@@ -167,7 +167,7 @@ public class PKCS9Attribute implements sun.security.util.DerEncoder {
 
     public static final java.lang.String ISSUER_SERIALNUMBER_STR = "IssuerAndSerialNumber";
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier MESSAGE_DIGEST_OID;
 
     static {
@@ -220,7 +220,7 @@ public class PKCS9Attribute implements sun.security.util.DerEncoder {
 
     public static final java.lang.String SIGNING_CERTIFICATE_STR = "SigningCertificate";
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier SIGNING_TIME_OID;
 
     static {

@@ -25,7 +25,7 @@
 
 package sun.nio.ch;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public interface DirectBuffer {

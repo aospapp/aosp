@@ -14,18 +14,39 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import os
 import time
+import acts.test_utils.bt.bt_power_test_utils as btputils
+import acts.test_utils.bt.bt_test_utils as btutils
 import acts.test_utils.power.PowerBaseTest as PBT
-from acts.test_utils.bt.bt_test_utils import enable_bluetooth
-from acts.test_utils.bt.bt_test_utils import disable_bluetooth
+from acts.test_utils.abstract_devices.bluetooth_handsfree_abstract_device import BluetoothHandsfreeAbstractDeviceFactory as bt_factory
+from math import copysign
 
-BT_BASE_UUID = '00000000-0000-1000-8000-00805F9B34FB'
-BT_CLASSICAL_DATA = [1, 2, 3]
-BLE_LOCATION_SCAN_ENABLE = 'settings put global ble_scan_always_enabled 1'
-BLE_LOCATION_SCAN_DISABLE = 'settings put global ble_scan_always_enabled 0'
-START_PMC_CMD = 'am start -n com.android.pmc/com.android.pmc.PMCMainActivity'
-PMC_VERBOSE_CMD = 'setprop log.tag.PMC VERBOSE'
-PMC_BASE_SCAN = 'am broadcast -a com.android.pmc.BLESCAN --es ScanMode '
+BLE_LOCATION_SCAN_DISABLE = 'settings put secure location_mode 0'
+PHONE_MUSIC_FILE_DIRECTORY = '/sdcard/Music'
+INIT_ATTEN = [0]
+
+
+def ramp_attenuation(obj_atten, attenuation_target):
+    """Ramp the attenuation up or down for BT tests.
+
+    Ramp the attenuation slowly so it won't have dramatic signal drop to affect
+    Link.
+
+    Args:
+        obj_atten: attenuator object, a single port attenuator
+        attenuation_target: target attenuation level to reach to.
+    """
+    attenuation_step_max = 20
+    sign = lambda x: copysign(1, x)
+    attenuation_delta = obj_atten.get_atten() - attenuation_target
+    while abs(attenuation_delta) > attenuation_step_max:
+        attenuation_intermediate = obj_atten.get_atten(
+        ) - sign(attenuation_delta) * attenuation_step_max
+        obj_atten.set_atten(attenuation_intermediate)
+        time.sleep(5)
+        attenuation_delta = obj_atten.get_atten() - attenuation_target
+    obj_atten.set_atten(attenuation_target)
 
 
 class PowerBTBaseTest(PBT.PowerBaseTest):
@@ -33,17 +54,44 @@ class PowerBTBaseTest(PBT.PowerBaseTest):
 
     Inherited from the PowerBaseTest class
     """
+    def setup_class(self):
+
+        super().setup_class()
+        # Get music file and push it to the phone
+        music_files = self.user_params.get('music_files', [])
+        if music_files:
+            music_src = music_files[0]
+            music_dest = PHONE_MUSIC_FILE_DIRECTORY
+            success = self.dut.push_system_file(music_src, music_dest)
+            if success:
+                self.music_file = os.path.join(PHONE_MUSIC_FILE_DIRECTORY,
+                                               os.path.basename(music_src))
+            # Initialize media_control class
+            self.media = btputils.MediaControl(self.dut, self.music_file)
+        # Set Attenuator to the initial attenuation
+        if hasattr(self, 'attenuators'):
+            self.set_attenuation(INIT_ATTEN)
+            self.attenuator = self.attenuators[0]
+        # Create the BTOE(Bluetooth-Other-End) device object
+        bt_devices = self.user_params.get('bt_devices', [])
+        if bt_devices:
+            attr, idx = bt_devices.split(':')
+            self.bt_device_controller = getattr(self, attr)[int(idx)]
+            self.bt_device = bt_factory().generate(self.bt_device_controller)
+        else:
+            self.log.error('No BT devices config is provided!')
+        # Turn off screen as all tests will be screen off
+        self.dut.droid.goToSleepNow()
 
     def setup_test(self):
 
         super().setup_test()
+        self.unpack_userparams(volume=0.9)
         # Reset BT to factory defaults
         self.dut.droid.bluetoothFactoryReset()
-        time.sleep(2)
-        # Start PMC app.
-        self.log.info('Start PMC app...')
-        self.dut.adb.shell(START_PMC_CMD)
-        self.dut.adb.shell(PMC_VERBOSE_CMD)
+        self.bt_device.reset()
+        self.bt_device.power_on()
+        btutils.enable_bluetooth(self.dut.droid, self.dut.ed)
 
     def teardown_test(self):
         """Tear down necessary objects after test case is finished.
@@ -54,6 +102,14 @@ class PowerBTBaseTest(PBT.PowerBaseTest):
         super().teardown_test()
         self.dut.droid.bluetoothFactoryReset()
         self.dut.adb.shell(BLE_LOCATION_SCAN_DISABLE)
+        if hasattr(self, 'media'):
+            self.media.stop()
+        # Set Attenuator to the initial attenuation
+        if hasattr(self, 'attenuators'):
+            self.set_attenuation(INIT_ATTEN)
+        self.bt_device.reset()
+        self.bt_device.power_off()
+        btutils.disable_bluetooth(self.dut.droid)
 
     def teardown_class(self):
         """Clean up the test class after tests finish running
@@ -61,75 +117,7 @@ class PowerBTBaseTest(PBT.PowerBaseTest):
         """
         super().teardown_class()
         self.dut.droid.bluetoothFactoryReset()
-
-    def phone_setup_for_BT(self, bt_on, ble_on, screen_status):
-        """Sets the phone and Bluetooth in the desired state
-
-        Args:
-            bt_on: Enable/Disable BT
-            ble_on: Enable/Disable BLE
-            screen_status: screen ON or OFF
-        """
-
-        # Check if we are enabling a background scan
-        # TODO: Turn OFF cellular wihtout having to turn ON airplane mode
-        if bt_on == 'OFF' and ble_on == 'ON':
-            self.dut.adb.shell(BLE_LOCATION_SCAN_ENABLE)
-            self.dut.droid.connectivityToggleAirplaneMode(False)
-            time.sleep(2)
-
-        # Turn ON/OFF BT
-        if bt_on == 'ON':
-            enable_bluetooth(self.dut.droid, self.dut.ed)
-            self.dut.log.info('BT is ON')
-        else:
-            disable_bluetooth(self.dut.droid)
-            self.dut.droid.bluetoothDisableBLE()
-            self.dut.log.info('BT is OFF')
-        time.sleep(2)
-
-        # Turn ON/OFF BLE
-        if ble_on == 'ON':
-            self.dut.droid.bluetoothEnableBLE()
-            self.dut.log.info('BLE is ON')
-        else:
-            self.dut.droid.bluetoothDisableBLE()
-            self.dut.log.info('BLE is OFF')
-        time.sleep(2)
-
-        # Set the desired screen status
-        if screen_status == 'OFF':
-            self.dut.droid.goToSleepNow()
-            self.dut.log.info('Screen is OFF')
-        time.sleep(2)
-
-    def start_pmc_ble_scan(self,
-                           scan_mode,
-                           offset_start,
-                           scan_time,
-                           idle_time=None,
-                           num_reps=1):
-        """Starts a generic BLE scan via the PMC app
-
-        Args:
-            dut: object of the android device under test
-            scan mode: desired BLE scan type
-            offset_start: Time delay in seconds before scan starts
-            scan_time: active scan time
-            idle_time: iddle time (i.e., no scans occuring)
-            num_reps: Number of repetions of the ative+idle scan sequence
-        """
-        scan_dur = scan_time
-        if not idle_time:
-            idle_time = 0.2 * scan_time
-            scan_dur = 0.8 * scan_time
-
-        first_part_msg = '%s%s --es StartTime %d --es ScanTime %d' % (
-            PMC_BASE_SCAN, scan_mode, offset_start, scan_dur)
-
-        msg = '%s --es NoScanTime %d --es Repetitions %d' % (first_part_msg,
-                                                             idle_time,
-                                                             num_reps)
-
-        self.dut.log.info('Sent BLE scan broadcast message: %s', msg)
-        self.dut.adb.shell(msg)
+        self.dut.adb.shell(BLE_LOCATION_SCAN_DISABLE)
+        self.bt_device.reset()
+        self.bt_device.power_off()
+        btutils.disable_bluetooth(self.dut.droid)

@@ -67,14 +67,18 @@ public class SecurityFeaturesTest extends TestCase {
      *
      * 3) An app which explicitly calls prctl(PR_SET_DUMPABLE, 1).
      *
-     * For this test, neither #2 nor #3 are true, so we expect ro.debuggable
+     * 4) GraphicsEnv calls prctl(PR_SET_DUMPABLE, 1) in the presence of
+     * <meta-data android:name="com.android.graphics.injectLayers.enable" android:value="true"/>
+     * in the application manifest.
+     *
+     * For this test, neither #2, #3, nor #4 are true, so we expect ro.debuggable
      * to exactly equal prctl(PR_GET_DUMPABLE).
      */
     @AppModeFull(reason = "Instant apps cannot access APIs")
     public void testPrctlDumpable() throws Exception {
         boolean userBuild = "user".equals(Build.TYPE);
         int prctl_dumpable = Os.prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
-        int expected  = userBuild ? 0 : 1;
+        int expected = userBuild ? 0 : 1;
         assertEquals(expected, prctl_dumpable);
     }
 }

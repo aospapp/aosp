@@ -846,12 +846,22 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
                                             xfrm_base._ALGO_CBC_AES_256)
 
       # Add a default SA with no mark that routes to nowhere.
-      self.xfrm.AddSaInfo(local,
-                          remote,
-                          TEST_SPI, xfrm.XFRM_MODE_TUNNEL, 0,
-                          xfrm_base._ALGO_CBC_AES_256,
-                          xfrm_base._ALGO_HMAC_SHA1,
-                          None, None, None, 0, is_update=False)
+      try:
+          self.xfrm.AddSaInfo(local,
+                              remote,
+                              TEST_SPI, xfrm.XFRM_MODE_TUNNEL, 0,
+                              xfrm_base._ALGO_CBC_AES_256,
+                              xfrm_base._ALGO_HMAC_SHA1,
+                              None, None, mark, 0, is_update=False)
+      except IOError as e:
+          self.assertEquals(EEXIST, e.errno, "SA exists")
+          self.xfrm.AddSaInfo(local,
+                              remote,
+                              TEST_SPI, xfrm.XFRM_MODE_TUNNEL, 0,
+                              xfrm_base._ALGO_CBC_AES_256,
+                              xfrm_base._ALGO_HMAC_SHA1,
+                              None, None, mark, 0, is_update=True)
+
       self.assertRaisesErrno(
           ENETUNREACH,
           s.sendto, net_test.UDP_PAYLOAD, (remote, 53))
@@ -862,7 +872,7 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
                           TEST_SPI, xfrm.XFRM_MODE_TUNNEL, 0,
                           xfrm_base._ALGO_CBC_AES_256,
                           xfrm_base._ALGO_HMAC_SHA1,
-                          None, None, None, netid, is_update=True)
+                          None, None, mark, netid, is_update=True)
 
       # Now the payload routes to the updated netid.
       s.sendto(net_test.UDP_PAYLOAD, (remote, 53))
@@ -876,7 +886,7 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
                          TEST_SPI, xfrm.XFRM_MODE_TUNNEL, 0,
                          xfrm_base._ALGO_CBC_AES_256,
                          xfrm_base._ALGO_HMAC_SHA1,
-                         None, None, None, reroute_netid, is_update=True)
+                         None, None, mark, reroute_netid, is_update=True)
 
       s.sendto(net_test.UDP_PAYLOAD, (remote, 53))
       self._ExpectEspPacketOn(reroute_netid, TEST_SPI, 2, length, None, None)
@@ -887,7 +897,7 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
       sainfo, attributes = dump[0]
       self.assertEquals(reroute_netid, attributes["XFRMA_OUTPUT_MARK"])
 
-      self.xfrm.DeleteSaInfo(remote, TEST_SPI, IPPROTO_ESP, None)
+      self.xfrm.DeleteSaInfo(remote, TEST_SPI, IPPROTO_ESP, mark)
       self.xfrm.DeletePolicyInfo(sel, xfrm.XFRM_POLICY_OUT, mark)
 
 if __name__ == "__main__":

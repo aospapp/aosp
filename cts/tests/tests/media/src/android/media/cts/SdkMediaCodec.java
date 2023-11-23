@@ -21,6 +21,7 @@ import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.Callback;
 import android.media.MediaFormat;
 import android.os.Bundle;
+import android.view.Surface;
 import java.nio.ByteBuffer;
 
 public class SdkMediaCodec implements MediaCodecWrapper {
@@ -51,6 +52,11 @@ public class SdkMediaCodec implements MediaCodecWrapper {
     @Override
     public void configure(MediaFormat format, int flags) {
         mCodec.configure(format, null, null, flags);
+    }
+
+    @Override
+    public void configure(MediaFormat format, int flags, Surface surface) {
+        mCodec.configure(format, surface, null, flags);
     }
 
     @Override

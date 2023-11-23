@@ -16,8 +16,10 @@
 
 package android.media.cts.bitstreams;
 
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -138,6 +140,7 @@ abstract class ReportProcessor {
     }
 
     private boolean runDeviceTest(
+            TestInformation testInfo,
             ITestDevice device, String method, String reportKey, int testTimeout,
             long shellTimeout)
             throws DeviceNotAvailableException {
@@ -156,7 +159,10 @@ abstract class ReportProcessor {
         for (Entry<String, String> e : getArgs().entrySet()) {
             instrTest.addInstrumentationArg(e.getKey(), e.getValue());
         }
-        instrTest.run(new MediaBitstreamsListener());
+        // AndroidJUnitTest requires a IConfiguration to work properly, add a stub to this
+        // implementation to avoid an NPE.
+        instrTest.setConfiguration(new Configuration("stub", "stub"));
+        instrTest.run(testInfo, new MediaBitstreamsListener());
 
         return checkFile(reportKey);
 
@@ -174,12 +180,12 @@ abstract class ReportProcessor {
         return true;
     }
 
-    void processDeviceReport(
+    void processDeviceReport(TestInformation testInfo,
             ITestDevice device, String method, String reportKey)
             throws DeviceNotAvailableException, IOException {
         try {
             setUp(device);
-            while (!runDeviceTest(device, method, reportKey, 0, 0)) {
+            while (!runDeviceTest(testInfo, device, method, reportKey, 0, 0)) {
                 if (!recover(device, mMetrics.get(reportKey))) {
                     return;
                 }

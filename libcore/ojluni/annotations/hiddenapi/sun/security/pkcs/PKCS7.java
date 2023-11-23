@@ -44,12 +44,12 @@ public class PKCS7 {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS7(byte[] bytes) throws sun.security.pkcs.ParsingException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS7(
             sun.security.x509.AlgorithmId[] digestAlgorithmIds,
             sun.security.pkcs.ContentInfo contentInfo,
@@ -59,7 +59,7 @@ public class PKCS7 {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS7(
             sun.security.x509.AlgorithmId[] digestAlgorithmIds,
             sun.security.pkcs.ContentInfo contentInfo,
@@ -93,7 +93,7 @@ public class PKCS7 {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void encodeSignedData(java.io.OutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -102,7 +102,7 @@ public class PKCS7 {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.pkcs.SignerInfo verify(sun.security.pkcs.SignerInfo info, byte[] bytes)
             throws java.security.NoSuchAlgorithmException, java.security.SignatureException {
         throw new RuntimeException("Stub!");
@@ -115,7 +115,7 @@ public class PKCS7 {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.pkcs.SignerInfo[] verify(byte[] bytes)
             throws java.security.NoSuchAlgorithmException, java.security.SignatureException {
         throw new RuntimeException("Stub!");
@@ -134,12 +134,12 @@ public class PKCS7 {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.pkcs.ContentInfo getContentInfo() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.security.cert.X509Certificate[] getCertificates() {
         throw new RuntimeException("Stub!");
     }
@@ -148,7 +148,7 @@ public class PKCS7 {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.pkcs.SignerInfo[] getSignerInfos() {
         throw new RuntimeException("Stub!");
     }

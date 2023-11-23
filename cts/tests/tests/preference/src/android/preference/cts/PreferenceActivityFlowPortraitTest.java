@@ -41,7 +41,9 @@ public class PreferenceActivityFlowPortraitTest extends PreferenceActivityFlowTe
     @Before
     public void setup() {
         requirePortraitModeSupport();
-        mTestUtils = new TestUtils();
+        mActivity = launchActivity(null);
+        mTestUtils = new TestUtils(mActivityRule);
+        mActivity.finish();
     }
 
     /**

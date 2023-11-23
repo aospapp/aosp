@@ -32,6 +32,12 @@
 #define MIXER_XML_PATH "/system/etc/mixer_paths.xml"
 #define INITIAL_MIXER_PATH_SIZE 8
 
+enum update_direction {
+    DIRECTION_FORWARD,
+    DIRECTION_REVERSE,
+    DIRECTION_REVERSE_RESET
+};
+
 union ctl_values {
     int *enumerated;
     long *integer;
@@ -783,10 +789,12 @@ int audio_route_reset_path(struct audio_route *ar, const char *name)
  * Operates on the specified path .. controls will be updated in the
  * order listed in the XML file
  */
-static int audio_route_update_path(struct audio_route *ar, const char *name, bool reverse)
+static int audio_route_update_path(struct audio_route *ar, const char *name, int direction)
 {
     struct mixer_path *path;
     unsigned int j;
+    bool reverse = direction != DIRECTION_FORWARD;
+    bool force_reset = direction == DIRECTION_REVERSE_RESET;
 
     if (!ar) {
         ALOGE("invalid audio_route");
@@ -813,7 +821,10 @@ static int audio_route_update_path(struct audio_route *ar, const char *name, boo
         }
 
         if (reverse && ms->active_count > 0) {
-            ms->active_count--;
+            if (force_reset)
+                ms->active_count = 0;
+            else
+                ms->active_count--;
         } else if (!reverse) {
             ms->active_count++;
         }
@@ -873,7 +884,7 @@ int audio_route_apply_and_update_path(struct audio_route *ar, const char *name)
     if (audio_route_apply_path(ar, name) < 0) {
         return -1;
     }
-    return audio_route_update_path(ar, name, false /*reverse*/);
+    return audio_route_update_path(ar, name, DIRECTION_FORWARD);
 }
 
 int audio_route_reset_and_update_path(struct audio_route *ar, const char *name)
@@ -881,7 +892,16 @@ int audio_route_reset_and_update_path(struct audio_route *ar, const char *name)
     if (audio_route_reset_path(ar, name) < 0) {
         return -1;
     }
-    return audio_route_update_path(ar, name, true /*reverse*/);
+    return audio_route_update_path(ar, name, DIRECTION_REVERSE);
+}
+
+int audio_route_force_reset_and_update_path(struct audio_route *ar, const char *name)
+{
+    if (audio_route_reset_path(ar, name) < 0) {
+        return -1;
+    }
+
+    return audio_route_update_path(ar, name, DIRECTION_REVERSE_RESET);
 }
 
 struct audio_route *audio_route_init(unsigned int card, const char *xml_path)

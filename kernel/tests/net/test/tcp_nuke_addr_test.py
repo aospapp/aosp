@@ -105,7 +105,7 @@ class TcpNukeAddrTest(net_test.NetworkTest):
 
   def testIpv6Unsupported(self):
     self.CheckNukeAddrUnsupported(CreateIPv6SocketPair(), IPV6_LOOPBACK_ADDR)
-    self.CheckNukeAddrUnsupported(CreateIPv4SocketPair(), "::")
+    self.CheckNukeAddrUnsupported(CreateIPv6SocketPair(), "::")
 
 
 if __name__ == "__main__":

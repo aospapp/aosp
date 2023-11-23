@@ -40,7 +40,7 @@ class PlatformNanoappBase {
    *        nanoapp. This string is not deep-copied, so the memory must remain
    *        valid for the lifetime of this Nanoapp instance.
    */
-  void loadFromFile(const std::string& filename);
+  void loadFromFile(const std::string &filename);
 
   /**
    * Associate this Nanoapp instance with a nanoapp that is statically built

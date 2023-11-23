@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Tests for TimedMetaData.
  */
+@NonMediaMainlineTest
 public class TimedMetaDataTest extends AndroidTestCase {
     private static final String RAW_METADATA = "RAW_METADATA";
 

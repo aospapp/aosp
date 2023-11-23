@@ -16,8 +16,10 @@
 
 import base64
 import concurrent.futures
+import copy
 import datetime
 import functools
+import ipaddress
 import json
 import logging
 import os
@@ -25,8 +27,10 @@ import random
 import re
 import signal
 import string
+import socket
 import subprocess
 import time
+import threading
 import traceback
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -116,15 +120,6 @@ def abs_path(path):
     return os.path.abspath(os.path.expanduser(path))
 
 
-def create_dir(path):
-    """Creates a directory if it does not exist already.
-
-    Args:
-        path: The path of the directory to create.
-    """
-    os.makedirs(path, exist_ok=True)
-
-
 def get_current_epoch_time():
     """Current epoch time in milliseconds.
 
@@ -178,6 +173,31 @@ def get_timezone_olson_id():
     else:
         gmt = "GMT-{}".format(tzoffset)
     return GMT_to_olson[gmt]
+
+
+def get_next_device(test_bed_controllers, used_devices):
+    """Gets the next device in a list of testbed controllers
+
+    Args:
+        test_bed_controllers: A list of testbed controllers of a particular
+            type, for example a list ACTS Android devices.
+        used_devices: A list of devices that have been used.  This can be a
+            mix of devices, for example a fuchsia device and an Android device.
+    Returns:
+        The next device in the test_bed_controllers list or None if there are
+        no items that are not in the used devices list.
+    """
+    if test_bed_controllers:
+        device_list = test_bed_controllers
+    else:
+        raise ValueError('test_bed_controllers is empty.')
+    for used_device in used_devices:
+        if used_device in device_list:
+            device_list.remove(used_device)
+    if device_list:
+        return device_list[0]
+    else:
+        return None
 
 
 def find_files(paths, file_predicate):
@@ -374,8 +394,10 @@ def exe_cmd(*cmds):
         OSError is raised if an error occurred during the command execution.
     """
     cmd = ' '.join(cmds)
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    proc = subprocess.Popen(cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            shell=True)
     (out, err) = proc.communicate()
     if not err:
         return out
@@ -434,12 +456,11 @@ def start_standing_subprocess(cmd, check_health_delay=0, shell=True):
     Returns:
         The subprocess that got started.
     """
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=shell,
-        preexec_fn=os.setpgrp)
+    proc = subprocess.Popen(cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            shell=shell,
+                            preexec_fn=os.setpgrp)
     logging.debug("Start standing subprocess with cmd: %s", cmd)
     if check_health_delay > 0:
         time.sleep(check_health_delay)
@@ -498,8 +519,8 @@ def sync_device_time(ad):
     Args:
         ad: The android device to sync time on.
     """
-    ad.adb.shell("settings global put auto_time 0", ignore_status=True)
-    ad.adb.shell("settings global put auto_time_zone 0", ignore_status=True)
+    ad.adb.shell("settings put global auto_time 0", ignore_status=True)
+    ad.adb.shell("settings put global auto_time_zone 0", ignore_status=True)
     droid = ad.droid
     droid.setTimeZone(get_timezone_olson_id())
     droid.setTime(get_current_epoch_time())
@@ -534,7 +555,6 @@ def timeout(sec):
     Raises:
         TimeoutError is raised when time out happens.
     """
-
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -612,6 +632,18 @@ def force_airplane_mode(ad, new_state, timeout_value=60):
         # adb wait for device timeout
         return False
     return True
+
+
+def get_battery_level(ad):
+    """Gets battery level from device
+
+    Returns:
+        battery_level: int indicating battery level
+    """
+    output = ad.adb.shell("dumpsys battery")
+    match = re.search(r"level: (?P<battery_level>\S+)", output)
+    battery_level = int(match.group("battery_level"))
+    return battery_level
 
 
 def get_device_usb_charging_status(ad):
@@ -836,8 +868,8 @@ def bypass_setup_wizard(ad):
         if adb_error.stdout == "ADB_CMD_OUTPUT:0":
             if adb_error.stderr and \
                     not adb_error.stderr.startswith("Error type 3\n"):
-                logging.error(
-                    "ADB_CMD_OUTPUT:0, but error is %s " % adb_error.stderr)
+                logging.error("ADB_CMD_OUTPUT:0, but error is %s " %
+                              adb_error.stderr)
                 raise adb_error
             logging.debug("Bypass wizard call received harmless error 3: "
                           "No setup to bypass.")
@@ -973,6 +1005,20 @@ def get_directory_size(path):
         for filename in filenames:
             total += os.path.getsize(os.path.join(dirpath, filename))
     return total
+
+
+def get_command_uptime(command_regex):
+    """Returns the uptime for a given command.
+
+    Args:
+        command_regex: A regex that matches the command line given. Must be
+            pgrep compatible.
+    """
+    pid = job.run('pgrep -f %s' % command_regex).stdout
+    runtime = ''
+    if pid:
+        runtime = job.run('ps -o etime= -p "%s"' % pid).stdout
+    return runtime
 
 
 def get_process_uptime(process):
@@ -1189,7 +1235,7 @@ def run_concurrent_actions(*calls):
     return results
 
 
-def test_concurrent_actions(*calls, failure_exceptions=(Exception,)):
+def test_concurrent_actions(*calls, failure_exceptions=(Exception, )):
     """Concurrently runs all passed in calls using multithreading.
 
     If any callable raises an Exception found within failure_exceptions, the
@@ -1231,3 +1277,188 @@ def test_concurrent_actions(*calls, failure_exceptions=(Exception,)):
         raise
     except failure_exceptions as e:
         raise signals.TestFailure(e)
+
+
+class SuppressLogOutput(object):
+    """Context manager used to suppress all logging output for the specified
+    logger and level(s).
+    """
+    def __init__(self, logger=logging.getLogger(), log_levels=None):
+        """Create a SuppressLogOutput context manager
+
+        Args:
+            logger: The logger object to suppress
+            log_levels: Levels of log handlers to disable.
+        """
+
+        self._logger = logger
+        self._log_levels = log_levels or [
+            logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR,
+            logging.CRITICAL
+        ]
+        if isinstance(self._log_levels, int):
+            self._log_levels = [self._log_levels]
+        self._handlers = copy.copy(self._logger.handlers)
+
+    def __enter__(self):
+        for handler in self._handlers:
+            if handler.level in self._log_levels:
+                self._logger.removeHandler(handler)
+        return self
+
+    def __exit__(self, *_):
+        for handler in self._handlers:
+            self._logger.addHandler(handler)
+
+
+class BlockingTimer(object):
+    """Context manager used to block until a specified amount of time has
+     elapsed.
+     """
+    def __init__(self, secs):
+        """Initializes a BlockingTimer
+
+        Args:
+            secs: Number of seconds to wait before exiting
+        """
+        self._thread = threading.Timer(secs, lambda: None)
+
+    def __enter__(self):
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_):
+        self._thread.join()
+
+
+def is_valid_ipv4_address(address):
+    try:
+        socket.inet_pton(socket.AF_INET, address)
+    except AttributeError:  # no inet_pton here, sorry
+        try:
+            socket.inet_aton(address)
+        except socket.error:
+            return False
+        return address.count('.') == 3
+    except socket.error:  # not a valid address
+        return False
+
+    return True
+
+
+def is_valid_ipv6_address(address):
+    if '%' in address:
+        address = address.split('%')[0]
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
+    except socket.error:  # not a valid address
+        return False
+    return True
+
+
+def merge_dicts(*dict_args):
+    """ Merges args list of dictionaries into a single dictionary.
+
+    Args:
+        dict_args: an args list of dictionaries to be merged. If multiple
+            dictionaries share a key, the last in the list will appear in the
+            final result.
+    """
+    result = {}
+    for dictionary in dict_args:
+        result.update(dictionary)
+    return result
+
+
+def ascii_string(uc_string):
+    """Converts unicode string to ascii"""
+    return str(uc_string).encode('ASCII')
+
+
+def get_interface_ip_addresses(comm_channel, interface):
+    """Gets all of the ip addresses, ipv4 and ipv6, associated with a
+       particular interface name.
+
+    Args:
+        comm_channel: How to send commands to a device.  Can be ssh, adb serial,
+            etc.  Must have the run function implemented.
+        interface: The interface name on the device, ie eth0
+
+    Returns:
+        A list of dictionaries of the the various IP addresses:
+            ipv4_private_local_addresses: Any 192.168, 172.16, or 10
+                addresses
+            ipv4_public_addresses: Any IPv4 public addresses
+            ipv6_link_local_addresses: Any fe80:: addresses
+            ipv6_private_local_addresses: Any fd00:: addresses
+            ipv6_public_addresses: Any publicly routable addresses
+    """
+    ipv4_private_local_addresses = []
+    ipv4_public_addresses = []
+    ipv6_link_local_addresses = []
+    ipv6_private_local_addresses = []
+    ipv6_public_addresses = []
+    all_interfaces_and_addresses = comm_channel.run(
+        'ip -o addr | awk \'!/^[0-9]*: ?lo|link\/ether/ {gsub("/", " "); '
+        'print $2" "$4}\'').stdout
+    ifconfig_output = comm_channel.run('ifconfig %s' % interface).stdout
+    for interface_line in all_interfaces_and_addresses.split('\n'):
+        if interface != interface_line.split()[0]:
+            continue
+        on_device_ip = ipaddress.ip_address(interface_line.split()[1])
+        if on_device_ip.version() == 4:
+            if on_device_ip.is_private():
+                ipv4_private_local_addresses.append(str(on_device_ip))
+            elif on_device_ip.is_global():
+                ipv4_public_addresses.append(str(on_device_ip))
+        elif on_device_ip.version() == 6:
+            if on_device_ip.is_link_local():
+                ipv6_link_local_addresses.append(str(on_device_ip))
+            elif on_device_ip.is_private():
+                ipv6_private_local_addresses.append(str(on_device_ip))
+            elif on_device_ip.is_global():
+                ipv6_public_addresses.append(str(on_device_ip))
+    return {
+        'ipv4_private': ipv4_private_local_addresses,
+        'ipv4_public': ipv4_public_addresses,
+        'ipv6_link_local': ipv6_link_local_addresses,
+        'ipv6_private_local': ipv6_private_local_addresses,
+        'ipv6_public': ipv6_public_addresses
+    }
+
+
+def get_interface_based_on_ip(comm_channel, desired_ip_address):
+    """Gets the interface for a particular IP
+
+    Args:
+        comm_channel: How to send commands to a device.  Can be ssh, adb serial,
+            etc.  Must have the run function implemented.
+        desired_ip_address: The IP address that is being looked for on a device.
+
+    Returns:
+        The name of the test interface.
+    """
+
+    desired_ip_address = desired_ip_address.split('%', 1)[0]
+    all_ips_and_interfaces = comm_channel.run(
+        '(ip -o -4 addr show; ip -o -6 addr show) | '
+        'awk \'{print $2" "$4}\'').stdout
+    #ipv4_addresses = comm_channel.run(
+    #    'ip -o -4 addr show| awk \'{print $2": "$4}\'').stdout
+    #ipv6_addresses = comm_channel._ssh_session.run(
+    #    'ip -o -6 addr show| awk \'{print $2": "$4}\'').stdout
+    #if desired_ip_address in ipv4_addresses:
+    #    ip_addresses_to_search = ipv4_addresses
+    #elif desired_ip_address in ipv6_addresses:
+    #    ip_addresses_to_search = ipv6_addresses
+    for ip_address_and_interface in all_ips_and_interfaces.split('\n'):
+        if desired_ip_address in ip_address_and_interface:
+            return ip_address_and_interface.split()[1][:-1]
+    return None
+
+
+def renew_linux_ip_address(comm_channel, interface):
+    comm_channel.run('sudo ifconfig %s down' % interface)
+    comm_channel.run('sudo ifconfig %s up' % interface)
+    comm_channel.run('sudo dhclient -r %s' % interface)
+    comm_channel.run('sudo dhclient %s' % interface)

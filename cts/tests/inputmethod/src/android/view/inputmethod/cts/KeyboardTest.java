@@ -23,8 +23,8 @@ import static org.junit.Assert.assertTrue;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.Keyboard.Key;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
@@ -39,7 +39,8 @@ public class KeyboardTest {
         Key stickyKey = null;
         // Indirectly instantiate Keyboard.Key with XML resources.
         final Keyboard keyboard =
-                new Keyboard(InstrumentationRegistry.getTargetContext(), R.xml.keyboard);
+                new Keyboard(InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        R.xml.keyboard);
         for (final Key key : keyboard.getKeys()) {
             if (!key.sticky) {
                 nonStickyKey = key;

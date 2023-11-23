@@ -91,8 +91,10 @@ public class RunUtilTest {
                     // Test if the binary does not exists, startProcess throws directly in this case
                     doThrow(
                                     new RuntimeException(
-                                            "Cannot run program \"\": error=2,"
-                                                    + "No such file or directory"))
+                                            String.format(
+                                                    "Cannot run program \"%s\": error=2,"
+                                                            + "No such file or directory",
+                                                    command[0])))
                             .when(mMockRunnableResult)
                             .startProcess();
                 } else {
@@ -138,6 +140,7 @@ public class RunUtilTest {
                 IRunUtil.IRunnableResult.class);
         EasyMock.expect(mockRunnable.getCommand()).andReturn(new ArrayList<>());
         EasyMock.expect(mockRunnable.run()).andThrow(new RuntimeException());
+        EasyMock.expect(mockRunnable.getResult()).andReturn(null);
         mockRunnable.cancel(); // cancel due to exception
         mockRunnable.cancel(); // always ensure execution is cancelled
         EasyMock.replay(mockRunnable);
@@ -172,7 +175,7 @@ public class RunUtilTest {
         CommandResult result = spyUtil.runTimedCmd(VERY_LONG_TIMEOUT_MS, "blahggggwarggg");
         assertEquals(CommandStatus.EXCEPTION, result.getStatus());
         assertEquals("", result.getStdout());
-        assertEquals("", result.getStderr());
+        assertTrue(result.getStderr().contains("Cannot run program \"blahggggwarggg\""));
     }
 
     /**

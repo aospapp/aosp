@@ -19,6 +19,7 @@ package com.android.cts.deviceandprofileowner;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.NetworkInfo.State;
@@ -50,6 +51,7 @@ public class MeteredDataRestrictionTest extends BaseDeviceAdminTest {
     private static final String METERED_DATA_APP_MAIN_ACTIVITY
             = METERED_DATA_APP_PKG + ".MainActivity";
 
+    private static final long WAIT_FOR_NETWORK_RECONNECTION_TIMEOUT_SEC = 10;
     private static final long WAIT_FOR_NETWORK_INFO_TIMEOUT_SEC = 8;
 
     private static final int NUM_TRIES_METERED_STATUS_CHECK = 20;
@@ -151,34 +153,40 @@ public class MeteredDataRestrictionTest extends BaseDeviceAdminTest {
     }
 
     private void setMeteredNetwork() throws Exception {
+        final int oldNetId = getActiveNetworkNetId();
+        final boolean oldMeteredState = mCm.isActiveNetworkMetered();
         final NetworkInfo networkInfo = mCm.getActiveNetworkInfo();
         if (networkInfo == null) {
             fail("Active network is not available");
-        } else if (mCm.isActiveNetworkMetered()) {
-            Log.i(TAG, "Active network already metered: " + networkInfo);
-            return;
         } else if (networkInfo.getType() != ConnectivityManager.TYPE_WIFI) {
             fail("Active network doesn't support setting metered status: " + networkInfo);
         }
-        final String netId = setWifiMeteredStatus(true);
+        final String ssid = setWifiMeteredStatus(true);
 
         // Set flag so status is reverted on resetMeteredNetwork();
-        mMeteredWifi = netId;
+        mMeteredWifi = ssid;
+
+        // When transitioning from unmetered to metered, the network stack will discconect
+        // the current WiFi connection and reconnect it. In this case we need to wait for
+        // the new network to come up.
+        if (!oldMeteredState) {
+            waitForReconnection(oldNetId);
+        }
         // Sanity check.
-        assertWifiMeteredStatus(netId, true);
+        assertWifiMeteredStatus(ssid, true);
         assertActiveNetworkMetered(true);
     }
 
     private void resetMeteredNetwork() throws Exception {
         if (mMeteredWifi != null) {
             Log.i(TAG, "Resetting metered status for netId=" + mMeteredWifi);
-            setWifiMeteredStatus(mMeteredWifi, false);
-            assertWifiMeteredStatus(mMeteredWifi, false);
+            setWifiMeteredStatus(mMeteredWifi, /* default meteredness */ null);
+            assertWifiMeteredStatus(mMeteredWifi, /* default meteredness */ null);
             assertActiveNetworkMetered(false);
         }
     }
 
-    private String setWifiMeteredStatus(boolean metered) throws Exception {
+    private String setWifiMeteredStatus(Boolean metered) throws Exception {
         final String ssid = mWm.getConnectionInfo().getSSID();
         assertNotNull("null SSID", ssid);
         final String netId = ssid.trim().replaceAll("\"", ""); // remove quotes, if any.
@@ -187,14 +195,15 @@ public class MeteredDataRestrictionTest extends BaseDeviceAdminTest {
         return netId;
     }
 
-    private void setWifiMeteredStatus(String netId, boolean metered) throws Exception {
-        Log.i(TAG, "Setting wi-fi network " + netId + " metered status to " + metered);
-        executeCmd("cmd netpolicy set metered-network " + netId + " " + metered);
+    private void setWifiMeteredStatus(String ssid, Boolean metered) throws Exception {
+        Log.i(TAG, "Setting wi-fi network " + ssid + " metered status to " + metered);
+        executeCmd("cmd netpolicy set metered-network " + ssid + " " +
+                (metered != null ? metered.toString() : "undefined"));
     }
 
-    private void assertWifiMeteredStatus(String netId, boolean metered) throws Exception {
+    private void assertWifiMeteredStatus(String ssid, Boolean metered) throws Exception {
         final String cmd = "cmd netpolicy list wifi-networks";
-        final String expectedResult = netId + ";" + metered;
+        final String expectedResult = ssid + ";" + (metered != null ? metered.toString() : "none");
         String cmdResult = null;
         for (int i = 0; i < NUM_TRIES_METERED_STATUS_CHECK; ++i) {
             cmdResult = executeCmd(cmd);
@@ -225,5 +234,28 @@ public class MeteredDataRestrictionTest extends BaseDeviceAdminTest {
         final String result = SystemUtil.runShellCommand(getInstrumentation(), cmd);
         Log.i(TAG, "Cmd '" + cmd + "' result: " + result);
         return result;
+    }
+
+    private int getActiveNetworkNetId() {
+        Network network = mCm.getActiveNetwork();
+        if (network == null) {
+            return 0;
+        }
+        return network.getNetId();
+    }
+
+    private void waitForReconnection(int oldNetId) throws InterruptedException {
+        long pollingDeadline = System.currentTimeMillis()
+                + WAIT_FOR_NETWORK_RECONNECTION_TIMEOUT_SEC * 1000;
+        int latestNetId;
+        do {
+            Thread.sleep(1000);
+            if (System.currentTimeMillis() >= pollingDeadline) {
+                fail("Timeout waiting for network reconnection");
+            }
+            latestNetId = getActiveNetworkNetId();
+            // NetId will be 0 while old network is disconnected but new network
+            // has not come up yet.
+        } while (latestNetId == 0 || latestNetId == oldNetId);
     }
 }

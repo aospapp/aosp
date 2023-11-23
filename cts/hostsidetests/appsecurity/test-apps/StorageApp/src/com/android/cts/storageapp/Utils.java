@@ -134,7 +134,15 @@ public class Utils {
 
     public static long getSizeManual(File dir, boolean excludeObb) throws Exception {
         long size = getAllocatedSize(dir);
-        for (File f : dir.listFiles()) {
+        File[] files = dir.listFiles();
+
+        if (files == null) {
+            // This can happen on devices with scoped storage, where we're not allowed
+            // to iterate Android/ anymore.
+            return size;
+        }
+
+        for (File f : files) {
             if (f.isDirectory()) {
                 if (excludeObb && f.getName().equalsIgnoreCase("obb")
                         && f.getParentFile().getName().equalsIgnoreCase("Android")

@@ -30,6 +30,7 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
+import android.telephony.SubscriptionManager;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 
@@ -129,5 +130,13 @@ public class SimCallManagerTest extends InstrumentationTestCase {
         // If the dialer is no longer the default dialer, it is no longer the sim call manager.
         TestUtils.setDefaultDialer(getInstrumentation(), mSystemDialer);
         assertNotSame(TEST_PHONE_ACCOUNT_HANDLE, mTelecomManager.getSimCallManager());
+    }
+
+    public void testGetSimCallManagerForSub() {
+        if (!TestUtils.shouldTestTelecom(mContext)) {
+            return;
+        }
+        assertNull(mTelecomManager.getSimCallManagerForSubscription(
+                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID));
     }
 }

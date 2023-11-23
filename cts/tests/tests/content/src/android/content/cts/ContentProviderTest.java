@@ -21,6 +21,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.ContentProvider.CallingIdentity;
+import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -250,6 +251,13 @@ public class ContentProviderTest extends AndroidTestCase {
         } finally {
             provider.restoreCallingIdentity(ident);
         }
+    }
+
+    public void testCheckUriPermission() {
+        MockContentProvider provider = new MockContentProvider();
+        final Uri uri = Uri.parse("content://test");
+        assertEquals(PackageManager.PERMISSION_DENIED,
+                provider.checkUriPermission(uri, android.os.Process.myUid(), 0));
     }
 
     private class MockContentProvider extends ContentProvider {

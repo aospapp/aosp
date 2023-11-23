@@ -32,6 +32,8 @@ import java.util.Set;
  */
 public class FeatureUtil {
 
+    public static final String ARC_FEATURE = "org.chromium.arc";
+    public static final String ARC_DEVICE_MANAGEMENT_FEATURE = "org.chromium.arc.device_management";
     public static final String AUTOMOTIVE_FEATURE = "android.hardware.type.automotive";
     public static final String LEANBACK_FEATURE = "android.software.leanback";
     public static final String LOW_RAM_FEATURE = "android.hardware.ram.low";
@@ -74,6 +76,11 @@ public class FeatureUtil {
             allFeatures.add(fi.name);
         }
         return allFeatures;
+    }
+
+    /** Returns {@code true} if device is an ARC++ device. */
+    public static boolean isArc() {
+        return hasAnySystemFeature(ARC_FEATURE, ARC_DEVICE_MANAGEMENT_FEATURE);
     }
 
     /** Returns true if the device has feature TV_FEATURE or feature LEANBACK_FEATURE */

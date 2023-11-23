@@ -18,6 +18,7 @@ package android.systemintents.cts;
 
 import static org.junit.Assert.assertTrue;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -25,16 +26,39 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.provider.Settings;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.google.common.truth.Expect;
+
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class TestSystemIntents {
+    private static final int EXCLUDE_TV = 1 << 0;
+    private static final int EXCLUDE_WATCH = 1 << 1;
+    private static final int EXCLUDE_NON_TELEPHONY = 1 << 2;
+    private static final int EXCLUDE_NON_INSTALLABLE_IME = 1 << 3;
+
+    private static class IntentEntry {
+        public int flags;
+        public Intent intent;
+
+        public IntentEntry(int f, Intent i) {
+            flags = f;
+            intent = i;
+        }
+    }
+
+    @Rule public final Expect mExpect = Expect.create();
+
+    private Context mContext;
+    private PackageManager mPackageManager;
 
     /*
      * List of activity intents defined by the system.  Activities to handle each of these
@@ -46,26 +70,9 @@ public class TestSystemIntents {
      * The flags associated with each intent indicate kinds of device on which the given
      * UI intent is *not* applicable.
      */
-
-    private static final int EXCLUDE_TV = 1 << 0;
-    private static final int EXCLUDE_WATCH = 1 << 1;
-    private static final int EXCLUDE_NON_TELEPHONY = 1 << 2;
-    private static final int EXCLUDE_NON_INSTALLABLE_IME = 1 << 3;
-
-    class IntentEntry {
-        public int flags;
-        public Intent intent;
-
-        public IntentEntry(int f, Intent i) {
-            flags = f;
-            intent = i;
-        }
-    }
-
     private final IntentEntry[] mTestIntents = {
             /* Settings-namespace intent actions */
             new IntentEntry(0, new Intent(Settings.ACTION_SETTINGS)),
-            new IntentEntry(0, new Intent(Settings.ACTION_WEBVIEW_SETTINGS)),
             new IntentEntry(0, new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)),
             new IntentEntry(0, new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)),
             new IntentEntry(0, new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
@@ -81,32 +88,39 @@ public class TestSystemIntents {
                     new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
     };
 
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
+        mPackageManager = mContext.getPackageManager();
+    }
+
     @Test
     public void testSystemIntents() {
-        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
         int productFlags = 0;
 
-        if (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
             productFlags |= EXCLUDE_TV;
         }
 
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             productFlags |= EXCLUDE_NON_TELEPHONY;
         }
 
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_INPUT_METHODS)) {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_INPUT_METHODS)) {
             productFlags |= EXCLUDE_NON_INSTALLABLE_IME;
         }
 
-        final Configuration config = InstrumentationRegistry.getContext().getResources().getConfiguration();
+        final Configuration config = mContext.getResources().getConfiguration();
         if ((config.uiMode & Configuration.UI_MODE_TYPE_WATCH) != 0) {
             productFlags |= EXCLUDE_WATCH;
         }
 
         for (IntentEntry e : mTestIntents) {
             if ((productFlags & e.flags) == 0) {
-                final ResolveInfo ri = pm.resolveActivity(e.intent, PackageManager.MATCH_DEFAULT_ONLY);
-                assertTrue("API intent " + e.intent + " not implemented by any activity", ri != null);
+                final ResolveInfo ri = mPackageManager.resolveActivity(e.intent,
+                        PackageManager.MATCH_DEFAULT_ONLY);
+                mExpect.withMessage("API intent %s not implemented by any activity", e.intent)
+                        .that(ri).isNotNull();
             }
         }
     }

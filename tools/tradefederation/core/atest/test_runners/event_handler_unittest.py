@@ -28,7 +28,7 @@ EVENTS_NORMAL = [
     ('TEST_MODULE_STARTED', {
         'moduleContextFileName':'serial-util1146216{974}2772610436.ser',
         'moduleName':'someTestModule'}),
-    ('TEST_RUN_STARTED', {'testCount': 2}),
+    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
     ('TEST_STARTED', {'start_time':52, 'className':'someClassName',
                       'testName':'someTestName'}),
     ('TEST_ENDED', {'end_time':1048, 'className':'someClassName',
@@ -47,21 +47,30 @@ EVENTS_RUN_FAILURE = [
     ('TEST_MODULE_STARTED', {
         'moduleContextFileName': 'serial-util11462169742772610436.ser',
         'moduleName': 'someTestModule'}),
-    ('TEST_RUN_STARTED', {'testCount': 2}),
+    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
     ('TEST_STARTED', {'start_time':10, 'className': 'someClassName',
                       'testName':'someTestName'}),
     ('TEST_RUN_FAILED', {'reason': 'someRunFailureReason'})
 ]
 
+
 EVENTS_INVOCATION_FAILURE = [
+    ('TEST_RUN_STARTED', {'testCount': None, 'runName': 'com.android.UnitTests'}),
     ('INVOCATION_FAILED', {'cause': 'someInvocationFailureReason'})
+]
+
+EVENTS_MISSING_TEST_RUN_STARTED_EVENT = [
+    ('TEST_STARTED', {'start_time':52, 'className':'someClassName',
+                      'testName':'someTestName'}),
+    ('TEST_ENDED', {'end_time':1048, 'className':'someClassName',
+                    'testName':'someTestName'}),
 ]
 
 EVENTS_NOT_BALANCED_BEFORE_RAISE = [
     ('TEST_MODULE_STARTED', {
         'moduleContextFileName':'serial-util1146216{974}2772610436.ser',
         'moduleName':'someTestModule'}),
-    ('TEST_RUN_STARTED', {'testCount': 2}),
+    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
     ('TEST_STARTED', {'start_time':10, 'className':'someClassName',
                       'testName':'someTestName'}),
     ('TEST_ENDED', {'end_time':18, 'className':'someClassName',
@@ -76,7 +85,7 @@ EVENTS_IGNORE = [
     ('TEST_MODULE_STARTED', {
         'moduleContextFileName':'serial-util1146216{974}2772610436.ser',
         'moduleName':'someTestModule'}),
-    ('TEST_RUN_STARTED', {'testCount': 2}),
+    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
     ('TEST_STARTED', {'start_time':8, 'className':'someClassName',
                       'testName':'someTestName'}),
     ('TEST_ENDED', {'end_time':18, 'className':'someClassName',
@@ -95,7 +104,7 @@ EVENTS_WITH_PERF_INFO = [
     ('TEST_MODULE_STARTED', {
         'moduleContextFileName':'serial-util1146216{974}2772610436.ser',
         'moduleName':'someTestModule'}),
-    ('TEST_RUN_STARTED', {'testCount': 2}),
+    ('TEST_RUN_STARTED', {'testCount': 2, 'runName': 'com.android.UnitTests'}),
     ('TEST_STARTED', {'start_time':52, 'className':'someClassName',
                       'testName':'someTestName'}),
     ('TEST_ENDED', {'end_time':1048, 'className':'someClassName',
@@ -107,6 +116,11 @@ EVENTS_WITH_PERF_INFO = [
     ('TEST_ENDED', {'end_time':9876450, 'className':'someClassName2',
                     'testName':'someTestName2', 'cpu_time':'1234.1234(ns)',
                     'real_time':'5678.5678(ns)', 'iterations':'6666'}),
+    ('TEST_STARTED', {'start_time':10, 'className':'someClassName3',
+                      'testName':'someTestName3'}),
+    ('TEST_ENDED', {'end_time':70, 'className':'someClassName3',
+                    'testName':'someTestName3', 'additional_info_min':'102773',
+                    'additional_info_mean':'105973', 'additional_info_median':'103778'}),
     ('TEST_RUN_ENDED', {}),
     ('TEST_MODULE_ENDED', {'foo': 'bar'}),
 ]
@@ -137,7 +151,8 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='(996ms)',
             runner_total=None,
             group_total=2,
-            perf_info={}
+            additional_info={},
+            test_run_name='com.android.UnitTests'
         ))
         call2 = mock.call(test_runner_base.TestResult(
             runner_name=atf_tr.AtestTradefedTestRunner.NAME,
@@ -149,7 +164,8 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='(2h44m36.402s)',
             runner_total=None,
             group_total=2,
-            perf_info={}
+            additional_info={},
+            test_run_name='com.android.UnitTests'
         ))
         self.mock_reporter.process_test_result.assert_has_calls([call1, call2])
 
@@ -167,7 +183,8 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='',
             runner_total=None,
             group_total=2,
-            perf_info={}
+            additional_info={},
+            test_run_name='com.android.UnitTests'
         ))
         self.mock_reporter.process_test_result.assert_has_calls([call])
 
@@ -185,7 +202,27 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='',
             runner_total=None,
             group_total=None,
-            perf_info={}
+            additional_info={},
+            test_run_name='com.android.UnitTests'
+        ))
+        self.mock_reporter.process_test_result.assert_has_calls([call])
+
+    def test_process_event_missing_test_run_started_event(self):
+        """Test process_event method for normal test results."""
+        for name, data in EVENTS_MISSING_TEST_RUN_STARTED_EVENT:
+            self.fake_eh.process_event(name, data)
+        call = mock.call(test_runner_base.TestResult(
+            runner_name=atf_tr.AtestTradefedTestRunner.NAME,
+            group_name=None,
+            test_name='someClassName#someTestName',
+            status=test_runner_base.PASSED_STATUS,
+            details=None,
+            test_count=1,
+            test_time='(996ms)',
+            runner_total=None,
+            group_total=None,
+            additional_info={},
+            test_run_name=None
         ))
         self.mock_reporter.process_test_result.assert_has_calls([call])
 
@@ -204,7 +241,8 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='(8ms)',
             runner_total=None,
             group_total=2,
-            perf_info={}
+            additional_info={},
+            test_run_name='com.android.UnitTests'
         ))
         self.mock_reporter.process_test_result.assert_has_calls([call])
         # Event pair: TEST_STARTED -> TEST_RUN_ENDED
@@ -236,7 +274,8 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='(10ms)',
             runner_total=None,
             group_total=2,
-            perf_info={}
+            additional_info={},
+            test_run_name='com.android.UnitTests'
         ))
         call2 = mock.call(test_runner_base.TestResult(
             runner_name=atf_tr.AtestTradefedTestRunner.NAME,
@@ -248,11 +287,12 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='(62ms)',
             runner_total=None,
             group_total=2,
-            perf_info={}
+            additional_info={},
+            test_run_name='com.android.UnitTests'
         ))
         self.mock_reporter.process_test_result.assert_has_calls([call1, call2])
 
-    def test_process_event_with_perf_info(self):
+    def test_process_event_with_additional_info(self):
         """Test process_event method with perf information."""
         for name, data in EVENTS_WITH_PERF_INFO:
             self.fake_eh.process_event(name, data)
@@ -266,11 +306,12 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='(996ms)',
             runner_total=None,
             group_total=2,
-            perf_info={}
+            additional_info={},
+            test_run_name='com.android.UnitTests'
         ))
 
-        test_perf_info = {'cpu_time':'1234.1234(ns)', 'real_time':'5678.5678(ns)',
-                          'iterations':'6666'}
+        test_additional_info = {'cpu_time':'1234.1234(ns)', 'real_time':'5678.5678(ns)',
+                                'iterations':'6666'}
         call2 = mock.call(test_runner_base.TestResult(
             runner_name=atf_tr.AtestTradefedTestRunner.NAME,
             group_name='someTestModule',
@@ -281,9 +322,27 @@ class EventHandlerUnittests(unittest.TestCase):
             test_time='(2h44m36.402s)',
             runner_total=None,
             group_total=2,
-            perf_info=test_perf_info
+            additional_info=test_additional_info,
+            test_run_name='com.android.UnitTests'
         ))
-        self.mock_reporter.process_test_result.assert_has_calls([call1, call2])
+
+        test_additional_info2 = {'additional_info_min':'102773',
+                                 'additional_info_mean':'105973',
+                                 'additional_info_median':'103778'}
+        call3 = mock.call(test_runner_base.TestResult(
+            runner_name=atf_tr.AtestTradefedTestRunner.NAME,
+            group_name='someTestModule',
+            test_name='someClassName3#someTestName3',
+            status=test_runner_base.PASSED_STATUS,
+            details=None,
+            test_count=3,
+            test_time='(60ms)',
+            runner_total=None,
+            group_total=2,
+            additional_info=test_additional_info2,
+            test_run_name='com.android.UnitTests'
+        ))
+        self.mock_reporter.process_test_result.assert_has_calls([call1, call2, call3])
 
 if __name__ == '__main__':
     unittest.main()

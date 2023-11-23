@@ -76,7 +76,7 @@ public static void setProperties(@libcore.util.Nullable java.util.Properties pro
 
 @libcore.util.Nullable public static java.lang.String getenv(@libcore.util.NonNull java.lang.String name) { throw new RuntimeException("Stub!"); }
 
-public static java.util.Map<java.lang.String,java.lang.String> getenv() { throw new RuntimeException("Stub!"); }
+@libcore.util.NonNull public static java.util.Map<java.lang.String,java.lang.String> getenv() { throw new RuntimeException("Stub!"); }
 
 public static void exit(int status) { throw new RuntimeException("Stub!"); }
 

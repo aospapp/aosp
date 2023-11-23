@@ -26,8 +26,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.google.common.base.Preconditions;
-
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -52,9 +51,9 @@ public final class DeviceConfigStateManager implements StateManager<String> {
             @NonNull String key) {
         debug("DeviceConfigStateManager", "namespace=%s, key=%s", namespace, key);
 
-        mContext = Preconditions.checkNotNull(context);
-        mNamespace = Preconditions.checkNotNull(namespace);
-        mKey = Preconditions.checkNotNull(key);
+        mContext = Objects.requireNonNull(context);
+        mNamespace = Objects.requireNonNull(namespace);
+        mKey = Objects.requireNonNull(key);
     }
 
     @Override

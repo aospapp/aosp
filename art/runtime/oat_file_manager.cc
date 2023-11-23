@@ -393,6 +393,12 @@ OatFileManager::CheckCollisionResult OatFileManager::CheckCollision(
     return CheckCollisionResult::kSkippedUnsupportedClassLoader;
   }
 
+  if (!CompilerFilter::IsVerificationEnabled(oat_file->GetCompilerFilter())) {
+    // If verification is not enabled we don't need to check for collisions as the oat file
+    // is either extracted or assumed verified.
+    return CheckCollisionResult::kSkippedVerificationDisabled;
+  }
+
   // If the oat file loading context matches the context used during compilation then we accept
   // the oat file without addition checks
   ClassLoaderContext::VerificationResult result = context->VerifyClassLoaderContextMatch(
@@ -406,7 +412,7 @@ OatFileManager::CheckCollisionResult OatFileManager::CheckCollision(
       // Mismatched context, do the actual collision check.
       break;
     case ClassLoaderContext::VerificationResult::kVerifies:
-      return CheckCollisionResult::kNoCollisions;
+      return CheckCollisionResult::kClassLoaderContextMatches;
   }
 
   // The class loader context does not match. Perform a full duplicate classes check.
@@ -428,7 +434,8 @@ bool OatFileManager::ShouldLoadAppImage(CheckCollisionResult check_collision_res
   if (kEnableAppImage && (!runtime->IsJavaDebuggable() || source_oat_file->IsDebuggable())) {
     // If we verified the class loader context (skipping due to the special marker doesn't
     // count), then also avoid the collision check.
-    bool load_image = check_collision_result == CheckCollisionResult::kNoCollisions;
+    bool load_image = check_collision_result == CheckCollisionResult::kNoCollisions
+        || check_collision_result == CheckCollisionResult::kClassLoaderContextMatches;
     // If we skipped the collision check, we need to reverify to be sure its OK to load the
     // image.
     if (!load_image &&
@@ -473,7 +480,7 @@ std::vector<std::unique_ptr<const DexFile>> OatFileManager::OpenDexFilesFromOat(
 
   OatFileAssistant oat_file_assistant(dex_location,
                                       kRuntimeISA,
-                                      !runtime->IsAotCompiler(),
+                                      runtime->GetOatFilesExecutable(),
                                       only_use_system_oat_files_);
 
   // Get the oat file on disk.
@@ -571,8 +578,6 @@ std::vector<std::unique_ptr<const DexFile>> OatFileManager::OpenDexFilesFromOat(
             ScopedTrace trace2(StringPrintf("Adding image space for location %s", dex_location));
             added_image_space = runtime->GetClassLinker()->AddImageSpace(image_space.get(),
                                                                          h_loader,
-                                                                         dex_elements,
-                                                                         dex_location,
                                                                          /*out*/&dex_files,
                                                                          /*out*/&temp_error_msg);
           }
@@ -641,17 +646,52 @@ std::vector<std::unique_ptr<const DexFile>> OatFileManager::OpenDexFilesFromOat(
         error_msgs->push_back("Fallback mode disabled, skipping dex files.");
       }
     } else {
-      error_msgs->push_back("No original dex files found for dex location "
-          + std::string(dex_location));
+      std::string msg = StringPrintf("No original dex files found for dex location (%s) %s",
+          GetInstructionSetString(kRuntimeISA), dex_location);
+      error_msgs->push_back(msg);
     }
   }
 
   if (Runtime::Current()->GetJit() != nullptr) {
-    ScopedObjectAccess soa(self);
-    Runtime::Current()->GetJit()->RegisterDexFiles(
-        dex_files, soa.Decode<mirror::ClassLoader>(class_loader));
+    Runtime::Current()->GetJit()->RegisterDexFiles(dex_files, class_loader);
   }
 
+  // Verify if any of the dex files being loaded is already in the class path.
+  // If so, report an error with the current stack trace.
+  // Most likely the developer didn't intend to do this because it will waste
+  // performance and memory.
+  // We perform the check only if the class loader context match failed or did
+  // not run (e.g. not that we do not run the check if we don't have an oat file).
+  if (context != nullptr
+          && check_collision_result != CheckCollisionResult::kClassLoaderContextMatches) {
+    std::set<const DexFile*> already_exists_in_classpath =
+        context->CheckForDuplicateDexFiles(MakeNonOwningPointerVector(dex_files));
+    if (!already_exists_in_classpath.empty()) {
+      auto duplicate_it = already_exists_in_classpath.begin();
+      std::string duplicates = (*duplicate_it)->GetLocation();
+      for (duplicate_it++ ; duplicate_it != already_exists_in_classpath.end(); duplicate_it++) {
+        duplicates += "," + (*duplicate_it)->GetLocation();
+      }
+
+      std::ostringstream out;
+      out << "Trying to load dex files which is already loaded in the same ClassLoader hierarchy.\n"
+        << "This is a strong indication of bad ClassLoader construct which leads to poor "
+        << "performance and wastes memory.\n"
+        << "The list of duplicate dex files is: " << duplicates << "\n"
+        << "The current class loader context is: " << context->EncodeContextForOatFile("") << "\n"
+        << "Java stack trace:\n";
+
+      {
+        ScopedObjectAccess soa(self);
+        self->DumpJavaStack(out);
+      }
+
+      // We log this as an ERROR to stress the fact that this is most likely unintended.
+      // Note that ART cannot do anything about it. It is up to the app to fix their logic.
+      // Here we are trying to give a heads up on why the app might have performance issues.
+      LOG(ERROR) << out.str();
+    }
+  }
   return dex_files;
 }
 
@@ -1034,21 +1074,20 @@ void OatFileManager::WaitForBackgroundVerificationTasks() {
   }
 }
 
-void OatFileManager::SetOnlyUseSystemOatFiles(bool enforce, bool assert_no_files_loaded) {
+void OatFileManager::SetOnlyUseSystemOatFiles() {
   ReaderMutexLock mu(Thread::Current(), *Locks::oat_file_manager_lock_);
-  if (!only_use_system_oat_files_ && enforce && assert_no_files_loaded) {
-    // Make sure all files that were loaded up to this point are on /system. Skip the image
-    // files.
-    std::vector<const OatFile*> boot_vector = GetBootOatFiles();
-    std::unordered_set<const OatFile*> boot_set(boot_vector.begin(), boot_vector.end());
+  // Make sure all files that were loaded up to this point are on /system.
+  // Skip the image files as they can encode locations that don't exist (eg not
+  // containing the arch in the path, or for JIT zygote /nonx/existent).
+  std::vector<const OatFile*> boot_vector = GetBootOatFiles();
+  std::unordered_set<const OatFile*> boot_set(boot_vector.begin(), boot_vector.end());
 
-    for (const std::unique_ptr<const OatFile>& oat_file : oat_files_) {
-      if (boot_set.find(oat_file.get()) == boot_set.end()) {
-        CHECK(LocationIsOnSystem(oat_file->GetLocation().c_str())) << oat_file->GetLocation();
-      }
+  for (const std::unique_ptr<const OatFile>& oat_file : oat_files_) {
+    if (boot_set.find(oat_file.get()) == boot_set.end()) {
+      CHECK(LocationIsOnSystem(oat_file->GetLocation().c_str())) << oat_file->GetLocation();
     }
   }
-  only_use_system_oat_files_ = enforce;
+  only_use_system_oat_files_ = true;
 }
 
 void OatFileManager::DumpForSigQuit(std::ostream& os) {

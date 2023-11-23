@@ -93,14 +93,14 @@ class UicdCliTest(unittest.TestCase):
             nc.run('SERIAL', 'test')
             expected_cmd = 'java -jar /base/uicd-commandline.jar ' \
                            '-d SERIAL -i /workflows/test'
-            job_run.assertCalledWith(expected_cmd.split())
+            job_run.assert_called_with(expected_cmd.split(), timeout=120)
         # Log path set
         nc._log_path = '/logs'
         with mock.patch('acts.libs.proc.job.run') as job_run:
             nc.run('SERIAL', 'test')
             expected_cmd = 'java -jar /base/uicd-commandline.jar ' \
                            '-d SERIAL -i /workflows/test -o /logs'
-            job_run.assertCalledWith(expected_cmd.split())
+            job_run.assert_called_with(expected_cmd.split(), timeout=120)
 
 
 if __name__ == '__main__':

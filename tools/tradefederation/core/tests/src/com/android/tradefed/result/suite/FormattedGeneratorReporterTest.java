@@ -18,6 +18,8 @@ package com.android.tradefed.result.suite;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.command.remote.DeviceDescriptor;
+import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
@@ -25,7 +27,9 @@ import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.testtype.Abi;
 import com.android.tradefed.testtype.IAbi;
+import com.android.tradefed.testtype.StubTest;
 import com.android.tradefed.testtype.suite.ModuleDefinition;
+import com.android.tradefed.testtype.suite.retry.ResultsPlayer;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -44,12 +48,14 @@ public class FormattedGeneratorReporterTest {
     private FormattedGeneratorReporter mReporter;
     private IInvocationContext mContext;
     private IBuildInfo mBuildInfo;
+    private IConfiguration mConfig;
 
     @Before
     public void setUp() {
         mContext = new InvocationContext();
         mBuildInfo = new BuildInfo();
         mContext.addDeviceBuildInfo("default", mBuildInfo);
+        mConfig = new Configuration("stub", "stub");
     }
 
     /** Test the value in the result holder when no module or tests actually ran. */
@@ -176,6 +182,8 @@ public class FormattedGeneratorReporterTest {
                         return null;
                     }
                 };
+        mConfig.setTest(new ResultsPlayer(false));
+        mReporter.setConfiguration(mConfig);
         mReporter.invocationStarted(mContext);
         DeviceDescriptor descriptor = null;
         mReporter.invocationFailed(new TargetSetupError("Invocation failed.", descriptor));
@@ -198,7 +206,42 @@ public class FormattedGeneratorReporterTest {
                         return null;
                     }
                 };
+        mConfig.setTest(new ResultsPlayer(false));
+        mReporter.setConfiguration(mConfig);
         mReporter.invocationStarted(mContext);
+        mReporter.invocationFailed(new NullPointerException("Invocation failed."));
+        mReporter.invocationEnded(500L);
+    }
+
+    @Test
+    public void testFinalizedResults_notRetry() {
+        mReporter =
+                new FormattedGeneratorReporter() {
+
+                    @Override
+                    public void finalizeResults(
+                            IFormatterGenerator generator, SuiteResultHolder resultHolder) {
+                        validateSuiteHolder(
+                                resultHolder, 1, 1, 1, 0, 0L, mContext, new HashMap<>());
+                    }
+
+                    @Override
+                    public IFormatterGenerator createFormatter() {
+                        return null;
+                    }
+
+                    @Override
+                    protected long getCurrentTime() {
+                        return 0L;
+                    }
+                };
+        mConfig.setTest(new StubTest());
+        mReporter.setConfiguration(mConfig);
+        mReporter.invocationStarted(mContext);
+        mReporter.testRunStarted("run1", 1);
+        mReporter.testStarted(new TestDescription("class", "method"));
+        mReporter.testEnded(new TestDescription("class", "method"), new HashMap<String, Metric>());
+        mReporter.testRunEnded(450L, new HashMap<String, Metric>());
         mReporter.invocationFailed(new NullPointerException("Invocation failed."));
         mReporter.invocationEnded(500L);
     }

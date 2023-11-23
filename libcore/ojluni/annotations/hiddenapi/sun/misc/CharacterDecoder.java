@@ -29,7 +29,7 @@ package sun.misc;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class CharacterDecoder {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CharacterDecoder() {
         throw new RuntimeException("Stub!");
     }
@@ -78,7 +78,7 @@ public abstract class CharacterDecoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] decodeBuffer(java.lang.String inputString) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

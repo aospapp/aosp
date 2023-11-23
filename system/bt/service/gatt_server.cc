@@ -68,18 +68,20 @@ bool GattServer::AddService(const bluetooth::Service& service,
 
   std::vector<btgatt_db_element_t> svc;
 
-  svc.push_back({.type = (service.primary() ? BTGATT_DB_PRIMARY_SERVICE
-                                            : BTGATT_DB_SECONDARY_SERVICE),
-                 .uuid = service.uuid()});
+  svc.push_back({
+      .uuid = service.uuid(),
+      .type = (service.primary() ? BTGATT_DB_PRIMARY_SERVICE
+                                 : BTGATT_DB_SECONDARY_SERVICE),
+  });
 
   for (const auto& characteristic : service.characteristics()) {
-    svc.push_back({.type = BTGATT_DB_CHARACTERISTIC,
-                   .uuid = characteristic.uuid(),
+    svc.push_back({.uuid = characteristic.uuid(),
+                   .type = BTGATT_DB_CHARACTERISTIC,
                    .properties = characteristic.properties(),
                    .permissions = characteristic.permissions()});
     for (const auto& descriptor : characteristic.descriptors())
-      svc.push_back({.type = BTGATT_DB_DESCRIPTOR,
-                     .uuid = descriptor.uuid(),
+      svc.push_back({.uuid = descriptor.uuid(),
+                     .type = BTGATT_DB_DESCRIPTOR,
                      .permissions = descriptor.permissions()});
   }
 
@@ -113,6 +115,11 @@ bool GattServer::SendResponse(const std::string& device_address, int request_id,
   RawAddress addr;
   if (!RawAddress::FromString(device_address, addr)) {
     LOG(ERROR) << "Invalid device address given: " << device_address;
+    return false;
+  }
+
+  if (offset < 0) {
+    LOG(ERROR) << "Offset is less than 0 offset: " << offset;
     return false;
   }
 

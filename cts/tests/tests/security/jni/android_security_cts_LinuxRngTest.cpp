@@ -43,7 +43,7 @@ static void throwIOException(JNIEnv* env, const char *format, ...) {
 }
 
 jint android_security_cts_LinuxRngTest_getCharDeviceMajor(JNIEnv* env,
-        jobject thiz, jstring name)
+        jobject, jstring name)
 {
     const char* nameStr = env->GetStringUTFChars(name, NULL);
 
@@ -69,7 +69,7 @@ ret:
 }
 
 jint android_security_cts_LinuxRngTest_getCharDeviceMinor(JNIEnv* env,
-        jobject thiz, jstring name)
+        jobject, jstring name)
 {
     const char* nameStr = env->GetStringUTFChars(name, NULL);
 

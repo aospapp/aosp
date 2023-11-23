@@ -30,7 +30,7 @@ import java.security.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ManifestDigester {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public ManifestDigester(byte[] bytes) {
         throw new RuntimeException("Stub!");
     }
@@ -43,12 +43,12 @@ public class ManifestDigester {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.util.ManifestDigester.Entry get(java.lang.String name, boolean oldStyle) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] manifestDigest(java.security.MessageDigest md) {
         throw new RuntimeException("Stub!");
     }
@@ -66,7 +66,7 @@ public class ManifestDigester {
             throw new RuntimeException("Stub!");
         }
 
-        @dalvik.annotation.compat.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage
         public byte[] digest(java.security.MessageDigest md) {
             throw new RuntimeException("Stub!");
         }
@@ -76,7 +76,7 @@ public class ManifestDigester {
             throw new RuntimeException("Stub!");
         }
 
-        @dalvik.annotation.compat.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage
         public byte[] digestWorkaround(java.security.MessageDigest md) {
             throw new RuntimeException("Stub!");
         }

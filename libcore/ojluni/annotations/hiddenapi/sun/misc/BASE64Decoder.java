@@ -28,7 +28,7 @@ package sun.misc;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class BASE64Decoder extends sun.misc.CharacterDecoder {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public BASE64Decoder() {
         throw new RuntimeException("Stub!");
     }
@@ -55,7 +55,7 @@ public class BASE64Decoder extends sun.misc.CharacterDecoder {
         pem_array = new char[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private static final byte[] pem_convert_array;
+    @android.compat.annotation.UnsupportedAppUsage private static final byte[] pem_convert_array;
 
     static {
         pem_convert_array = new byte[0];

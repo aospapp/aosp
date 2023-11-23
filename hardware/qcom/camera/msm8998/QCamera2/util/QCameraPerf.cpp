@@ -37,11 +37,16 @@
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <utils/Timers.h>
+
+#include <aidl/android/hardware/power/Boost.h>
+#include <aidl/android/hardware/power/IPower.h>
+#include <aidl/android/hardware/power/Mode.h>
+#include <android/binder_manager.h>
+#include <android-base/properties.h>
+
 // Camera dependencies
 #include "QCameraPerf.h"
 #include "QCameraTrace.h"
-
-#include <android-base/properties.h>
 
 extern "C" {
 #include "mm_camera_dbg.h"
@@ -49,53 +54,63 @@ extern "C" {
 
 namespace qcamera {
 
-using android::hidl::base::V1_0::IBase;
-using android::hardware::hidl_death_recipient;
+using aidl::android::hardware::power::Boost;
+using aidl::android::hardware::power::Mode;
 
+// Protect gPowerHal_1_2_ and gPowerHal_Aidl_
+static android::sp<android::hardware::power::V1_2::IPower> gPowerHal_1_2_ = nullptr;
+static std::shared_ptr<aidl::android::hardware::power::IPower> gPowerHal_Aidl_ = nullptr;
 static std::mutex gPowerHalMutex;
-static sp<IPower> gPowerHal = nullptr;
-static void getPowerHalLocked();
+static const std::string kInstance =
+    std::string() + aidl::android::hardware::power::IPower::descriptor + "/default";
 
-// struct PowerHalDeathRecipient;
-struct PowerHalDeathRecipient : virtual public hidl_death_recipient {
-    // hidl_death_recipient interface
-    virtual void serviceDied(uint64_t, const wp<IBase>&) override {
-        std::lock_guard<std::mutex> lock(gPowerHalMutex);
-        ALOGE("PowerHAL just died");
-        gPowerHal = nullptr;
-        getPowerHalLocked();
-    }
+namespace {
+    constexpr int kDefaultBoostDurationMs = 1000;
+    constexpr int kDisableBoostDurationMs = -1;
+}
+
+enum hal_version {
+    NONE,
+    HIDL_1_2,
+    AIDL,
 };
 
-sp<PowerHalDeathRecipient> gPowerHalDeathRecipient = nullptr;
+// Connnect PowerHAL
+static hal_version connectPowerHalLocked() {
+    static bool gPowerHalHidlExists = true;
+    static bool gPowerHalAidlExists = true;
 
-// The caller must be holding gPowerHalMutex.
-static void getPowerHalLocked() {
-    if (gPowerHal != nullptr) {
-        return;
+    if (!gPowerHalHidlExists && !gPowerHalAidlExists) {
+        return NONE;
     }
 
-    gPowerHal = IPower::getService();
-
-    if (gPowerHal == nullptr) {
-        ALOGE("Unable to get Power service.");
-    } else {
-        if (gPowerHalDeathRecipient == nullptr) {
-            gPowerHalDeathRecipient = new PowerHalDeathRecipient();
+    if (gPowerHalHidlExists) {
+        if (!gPowerHal_1_2_) {
+            gPowerHal_1_2_ =
+                    android::hardware::power::V1_2::IPower::getService();
         }
-        hardware::Return<bool> linked = gPowerHal->linkToDeath(
-            gPowerHalDeathRecipient, 0x451F /* cookie */);
-        if (!linked.isOk()) {
-            ALOGE("Transaction error in linking to PowerHAL death: %s",
-                  linked.description().c_str());
-            gPowerHal = nullptr;
-        } else if (!linked) {
-            ALOGW("Unable to link to PowerHal death notifications");
-            gPowerHal = nullptr;
+        if (gPowerHal_1_2_) {
+            ALOGV("Successfully connected to Power Hal Hidl service.");
+            return HIDL_1_2;
         } else {
-            ALOGD("Link to death notification successful");
+            gPowerHalHidlExists = false;
         }
     }
+
+    if (gPowerHalAidlExists) {
+        if (!gPowerHal_Aidl_) {
+            ndk::SpAIBinder pwBinder = ndk::SpAIBinder(AServiceManager_getService(kInstance.c_str()));
+            gPowerHal_Aidl_ = aidl::android::hardware::power::IPower::fromBinder(pwBinder);
+        }
+        if (gPowerHal_Aidl_) {
+            ALOGV("Successfully connected to Power Hal Aidl service.");
+            return AIDL;
+        } else {
+            gPowerHalAidlExists = false;
+        }
+    }
+
+    return NONE;
 }
 
 typedef enum {
@@ -637,12 +652,12 @@ QCameraPerfLockIntf* QCameraPerfLockIntf::createSingleton()
             if (mInstance) {
                 #ifdef HAS_MULTIMEDIA_HINTS
                 std::lock_guard<std::mutex> lock(gPowerHalMutex);
-                getPowerHalLocked();
-                if (gPowerHal == nullptr) {
+                if (connectPowerHalLocked() == NONE) {
                     ALOGE("Couldn't load PowerHAL module");
+                } else {
+                    error = false;
                 }
-                else
-                #endif
+                #else
                 {
                     /* Retrieve the name of the vendor extension library */
                     void *dlHandle = NULL;
@@ -671,6 +686,7 @@ QCameraPerfLockIntf* QCameraPerfLockIntf::createSingleton()
                         LOGE("Unable to load lib: %s", value);
                     }
                 }
+                #endif
                 if (error && mInstance) {
                     delete mInstance;
                     mInstance = NULL;
@@ -727,16 +743,41 @@ QCameraPerfLockIntf::~QCameraPerfLockIntf()
 
 bool QCameraPerfLockIntf::powerHint(PowerHint hint, int32_t data) {
     std::lock_guard<std::mutex> lock(gPowerHalMutex);
-    getPowerHalLocked();
-    if (gPowerHal == nullptr) {
-        ALOGE("Couldn't do powerHint because of HAL error.");
-        return false;
+    switch(connectPowerHalLocked()) {
+        case NONE:
+            return false;
+        case HIDL_1_2:
+            {
+              auto ret = gPowerHal_1_2_->powerHintAsync_1_2(hint, data);
+                if (!ret.isOk()) {
+                    ALOGE("powerHint failed, error: %s",
+                          ret.description().c_str());
+                    gPowerHal_1_2_ = nullptr;
+                }
+                return ret.isOk();
+            }
+        case AIDL:
+            {
+                bool ret = false;
+                if (hint == PowerHint::CAMERA_LAUNCH) {
+                    int32_t durationMs = data ? kDefaultBoostDurationMs : kDisableBoostDurationMs;
+                    ret = gPowerHal_Aidl_->setBoost(Boost::CAMERA_LAUNCH, durationMs).isOk();
+                } else if (hint == PowerHint::CAMERA_SHOT) {
+                    ret = gPowerHal_Aidl_->setBoost(Boost::CAMERA_SHOT, data).isOk();
+                } else if (hint == PowerHint::CAMERA_STREAMING) {
+                    // Only CAMERA_STREAMING_MID is used
+                    ret = gPowerHal_Aidl_->setMode(Mode::CAMERA_STREAMING_MID, static_cast<bool>(data)).isOk();
+                }
+                if (!ret) {
+                    ALOGE("Failed to set power hint: %s.", toString(hint).c_str());
+                    gPowerHal_Aidl_ = nullptr;
+                }
+                return ret;
+            }
+        default:
+            ALOGE("Unknown HAL state");
+            return false;
     }
-    auto ret = gPowerHal->powerHintAsync_1_2(hint, data);
-    if (!ret.isOk()) {
-        ALOGE("powerHint failed error: %s", ret.description().c_str());
-    }
-    return ret.isOk();
 }
 
 }; // namespace qcamera

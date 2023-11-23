@@ -22,7 +22,7 @@
 
 namespace android {
 
-StringType::StringType(Scope* parent) : Type(parent) {}
+StringType::StringType(Scope* parent) : Type(parent, "string") {}
 
 bool StringType::isString() const {
     return true;

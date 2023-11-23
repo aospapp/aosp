@@ -20,7 +20,6 @@ import com.android.loganalysis.item.BugreportItem;
 import junit.framework.TestCase;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
@@ -36,21 +35,14 @@ public class BugreportParserFuncTest extends TestCase {
      * assist a developer in checking why a given bugreport file might not be parsed correctly by
      * Brillopad.
      */
-    public void testParse() {
-        BufferedReader bugreportReader = null;
-        try {
-            bugreportReader = new BufferedReader(new FileReader(BUGREPORT_PATH));
-        } catch (FileNotFoundException e) {
-            fail(String.format("File not found at %s", BUGREPORT_PATH));
-        }
+    public void testParse() throws Exception {
+        BufferedReader bugreportReader = new BufferedReader(new FileReader(BUGREPORT_PATH));
         BugreportItem bugreport = null;
         try {
             long start = System.currentTimeMillis();
             bugreport = new BugreportParser().parse(bugreportReader);
             long stop = System.currentTimeMillis();
             System.out.println(String.format("Bugreport took %d ms to parse.", stop - start));
-        } catch (IOException e) {
-            fail(String.format("IOException: %s", e.toString()));
         } finally {
             if (bugreportReader != null) {
                 try {

@@ -41,10 +41,6 @@ class BeaconSwarmTest(BluetoothBaseTest):
     advertising_device_name_list = []
     discovered_mac_address_list = []
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
-        self.scn_ad = self.android_devices[0]
-
     def setup_test(self):
         self.discovered_mac_address_list = []
         for a in self.android_devices:
@@ -56,6 +52,7 @@ class BeaconSwarmTest(BluetoothBaseTest):
         return True
 
     def setup_class(self):
+        self.scn_ad = self.android_devices[0]
         if not setup_multiple_devices_for_bt_test(self.android_devices):
             return False
         return self._start_special_advertisements()

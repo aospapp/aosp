@@ -26,10 +26,9 @@
 #include <android-base/macros.h>
 
 #include "adb_trace.h"
-#include "fdevent.h"
+#include "fdevent/fdevent.h"
 #include "socket.h"
 #include "types.h"
-#include "usb.h"
 
 constexpr size_t MAX_PAYLOAD_V1 = 4 * 1024;
 constexpr size_t MAX_PAYLOAD = 1024 * 1024;
@@ -44,6 +43,7 @@ constexpr size_t LINUX_MAX_SOCKET_SIZE = 4194304;
 #define A_CLSE 0x45534c43
 #define A_WRTE 0x45545257
 #define A_AUTH 0x48545541
+#define A_STLS 0x534C5453
 
 // ADB protocol version.
 // Version revision:
@@ -52,6 +52,10 @@ constexpr size_t LINUX_MAX_SOCKET_SIZE = 4194304;
 #define A_VERSION_MIN 0x01000000
 #define A_VERSION_SKIP_CHECKSUM 0x01000001
 #define A_VERSION 0x01000001
+
+// Stream-based TLS protocol version
+#define A_STLS_VERSION_MIN 0x01000000
+#define A_STLS_VERSION 0x01000000
 
 // Used for help/version information.
 #define ADB_VERSION_MAJOR 1
@@ -134,7 +138,6 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply
 
 /* initialize a transport object's func pointers and state */
 int init_socket_transport(atransport* t, unique_fd s, int port, int local);
-void init_usb_transport(atransport* t, usb_handle* usb);
 
 std::string getEmulatorSerialString(int console_port);
 #if ADB_HOST
@@ -185,14 +188,7 @@ void put_apacket(apacket* p);
     } while (0)
 #endif
 
-#if ADB_HOST_ON_TARGET
-/* adb and adbd are coexisting on the target, so use 5038 for adb
- * to avoid conflicting with adbd's usage of 5037
- */
-#define DEFAULT_ADB_PORT 5038
-#else
 #define DEFAULT_ADB_PORT 5037
-#endif
 
 #define DEFAULT_ADB_LOCAL_TRANSPORT_PORT 5555
 
@@ -200,7 +196,7 @@ void put_apacket(apacket* p);
 #define ADB_SUBCLASS 0x42
 #define ADB_PROTOCOL 0x1
 
-void local_init(int port);
+void local_init(const std::string& addr);
 bool local_connect(int port);
 int local_connect_arbitrary_ports(int console_port, int adb_port, std::string* error);
 
@@ -236,6 +232,7 @@ void handle_online(atransport* t);
 void handle_offline(atransport* t);
 
 void send_connect(atransport* t);
+void send_tls_request(atransport* t);
 
 void parse_banner(const std::string&, atransport* t);
 
@@ -253,4 +250,5 @@ void update_transport_status();
 // Wait until device scan has completed and every transport is ready, or a timeout elapses.
 void adb_wait_for_device_initialization();
 
+void usb_init();
 #endif

@@ -26,7 +26,7 @@
 
 package java.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ArrayList<E> extends java.util.AbstractList<E>
@@ -425,7 +425,9 @@ public class ArrayList<E> extends java.util.AbstractList<E>
             parentOffset = 0;
         }
 
-        @UnsupportedAppUsage
+        @UnsupportedAppUsage(publicAlternatives = "Please update to a current version of the "
+        + "{@code Streamsupport} library; older versions of {@code Streamsupport} do not "
+        + "support current versions of Android.")
         int size;
     }
 }

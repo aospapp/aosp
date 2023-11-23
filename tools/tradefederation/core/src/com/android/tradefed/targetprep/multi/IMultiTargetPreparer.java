@@ -17,6 +17,7 @@ package com.android.tradefed.targetprep.multi;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -37,22 +38,56 @@ public interface IMultiTargetPreparer extends IDisableable {
      *
      * @param context the {@link IInvocationContext} describing the invocation, devices, builds.
      * @throws TargetSetupError if fatal error occurred setting up environment
+     * @throws BuildError In case of build related error
+     * @throws DeviceNotAvailableException if device became unresponsive
+     * @deprecated Use {@link #setUp(TestInformation)} instead.
+     */
+    @Deprecated
+    public default void setUp(IInvocationContext context)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        // default do nothing.
+    }
+
+    /**
+     * Perform the targets setup for testing.
+     *
+     * @param testInformation the {@link TestInformation} describing the invocation, devices,
+     *     builds.
+     * @throws TargetSetupError if fatal error occurred setting up environment
+     * @throws BuildError In case of build related error
      * @throws DeviceNotAvailableException if device became unresponsive
      */
-    public void setUp(IInvocationContext context) throws TargetSetupError,
-            BuildError, DeviceNotAvailableException;
-
+    public default void setUp(TestInformation testInformation)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        setUp(testInformation.getContext());
+    }
 
     /**
      * Perform the targets cleanup/teardown after testing.
      *
      * @param context the {@link IInvocationContext} describing the invocation, devices, builds.
      * @param e if the invocation ended with an exception, this will be the exception that was
-     *        caught at the Invocation level.  Otherwise, will be <code>null</code>.
+     *     caught at the Invocation level. Otherwise, will be <code>null</code>.
      * @throws DeviceNotAvailableException if device became unresponsive
+     * @deprecated Use {@link #tearDown(TestInformation, Throwable)} instead.
      */
+    @Deprecated
     public default void tearDown(IInvocationContext context, Throwable e)
             throws DeviceNotAvailableException {
         // default do nothing.
+    }
+
+    /**
+     * Perform the targets cleanup/teardown after testing.
+     *
+     * @param testInformation the {@link TestInformation} describing the invocation, devices,
+     *     builds.
+     * @param e if the invocation ended with an exception, this will be the exception that was
+     *     caught at the Invocation level. Otherwise, will be <code>null</code>.
+     * @throws DeviceNotAvailableException if device became unresponsive
+     */
+    public default void tearDown(TestInformation testInformation, Throwable e)
+            throws DeviceNotAvailableException {
+        tearDown(testInformation.getContext(), e);
     }
 }

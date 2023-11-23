@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+@NonMediaMainlineTest
 public class AudioPresentationTest extends CtsAndroidTestCase {
     private String TAG = "AudioPresentationTest";
     private static final String REPORT_LOG_NAME = "CtsMediaTestCases";

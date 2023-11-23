@@ -15,33 +15,37 @@
  */
 package android.device.collectors;
 
-import android.app.Instrumentation;
-import android.os.Bundle;
-import androidx.test.runner.AndroidJUnit4;
-
-import com.android.helpers.PerfettoHelper;
-
-import org.junit.After;
-import org.junit.Before;
-
-import org.junit.Test;
-import org.junit.runner.Description;
-import org.junit.runner.Result;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+
+import android.app.Instrumentation;
+import android.device.collectors.PerfettoListener.WakeLockAcquirer;
+import android.device.collectors.PerfettoListener.WakeLockContext;
+import android.device.collectors.PerfettoListener.WakeLockReleaser;
+import android.os.Bundle;
+import androidx.test.runner.AndroidJUnit4;
+import com.android.helpers.PerfettoHelper;
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.Description;
+import org.junit.runner.notification.Failure;
+import org.junit.runner.Result;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 
 
 /**
@@ -56,16 +60,22 @@ public class PerfettoListenerTest {
     // A {@code Description} to pass when faking a test run start call.
     private static final Description FAKE_DESCRIPTION = Description.createSuiteDescription("run");
 
+    private static final Description FAKE_TEST_DESCRIPTION = Description
+            .createTestDescription("class", "method");
+
     private Description mRunDesc;
     private Description mTest1Desc;
     private Description mTest2Desc;
     private PerfettoListener mListener;
-    private Instrumentation mInstrumentation;
+    @Mock private Instrumentation mInstrumentation;
     private Map<String, Integer> mInvocationCount;
     private DataRecord mDataRecord;
 
-    @Mock
-    private PerfettoHelper mPerfettoHelper;
+    @Spy private PerfettoHelper mPerfettoHelper;
+
+    @Mock private WakeLockContext mWakeLockContext;
+    @Mock private WakeLockAcquirer mWakelLockAcquirer;
+    @Mock private WakeLockReleaser mWakeLockReleaser;
 
     @Before
     public void setUp() {
@@ -73,12 +83,30 @@ public class PerfettoListenerTest {
         mRunDesc = Description.createSuiteDescription("run");
         mTest1Desc = Description.createTestDescription("run", "test1");
         mTest2Desc = Description.createTestDescription("run", "test2");
+        doAnswer(
+                        invocation -> {
+                            Runnable runnable = (Runnable) invocation.getArgument(0);
+                            runnable.run();
+                            return null;
+                        })
+                .when(mWakeLockContext)
+                .run(any());
     }
 
     private PerfettoListener initListener(Bundle b) {
-        mPerfettoHelper = spy(new PerfettoHelper());
         mInvocationCount = new HashMap<>();
-        PerfettoListener listener = new PerfettoListener(b, mPerfettoHelper, mInvocationCount);
+
+        PerfettoListener listener =
+                spy(
+                        new PerfettoListener(
+                                b,
+                                mPerfettoHelper,
+                                mInvocationCount,
+                                mWakeLockContext,
+                                () -> null,
+                                mWakelLockAcquirer,
+                                mWakeLockReleaser));
+
         mDataRecord = listener.createDataRecord();
         listener.setInstrumentation(mInstrumentation);
         return listener;
@@ -91,17 +119,72 @@ public class PerfettoListenerTest {
     public void testPerfettoPerTestSuccessFlow() throws Exception {
         Bundle b = new Bundle();
         mListener = initListener(b);
-        doReturn(true).when(mPerfettoHelper).startCollecting(anyString());
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
         doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
-
         // Test run start behavior
         mListener.testRunStarted(mRunDesc);
 
         // Test test start behavior
         mListener.testStarted(mTest1Desc);
-        verify(mPerfettoHelper, times(1)).startCollecting(anyString());
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
         mListener.onTestEnd(mDataRecord, mTest1Desc);
         verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), anyString());
+
+    }
+
+    /*
+     * Verify stop collecting called exactly once when the test failed and the
+     * skip test failure mmetrics is enabled.
+     */
+    @Test
+    public void testPerfettoPerTestFailureFlowDefault() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.SKIP_TEST_FAILURE_METRICS, "false");
+        mListener = initListener(b);
+
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+        // Test run start behavior
+        mListener.testRunStarted(mRunDesc);
+
+        // Test test start behavior
+        mListener.testStarted(mTest1Desc);
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
+
+        // Test fail behaviour
+        Failure failureDesc = new Failure(FAKE_TEST_DESCRIPTION,
+                new Exception());
+        mListener.onTestFail(mDataRecord, mTest1Desc, failureDesc);
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), anyString());
+
+    }
+
+    /*
+     * Verify stop perfetto called exactly once when the test failed and the
+     * skip test failure metrics is enabled.
+     */
+    @Test
+    public void testPerfettoPerTestFailureFlowWithSkipMmetrics() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.SKIP_TEST_FAILURE_METRICS, "true");
+        mListener = initListener(b);
+
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopPerfetto();
+        // Test run start behavior
+        mListener.testRunStarted(mRunDesc);
+
+        // Test test start behavior
+        mListener.testStarted(mTest1Desc);
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
+
+        // Test fail behaviour
+        Failure failureDesc = new Failure(FAKE_TEST_DESCRIPTION,
+                new Exception());
+        mListener.onTestFail(mDataRecord, mTest1Desc, failureDesc);
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        verify(mPerfettoHelper, times(1)).stopPerfetto();
 
     }
 
@@ -114,33 +197,191 @@ public class PerfettoListenerTest {
         Bundle b = new Bundle();
         b.putString(PerfettoListener.COLLECT_PER_RUN, "true");
         mListener = initListener(b);
-        doReturn(true).when(mPerfettoHelper).startCollecting(anyString());
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
         doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
 
         // Test run start behavior
         mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
-        verify(mPerfettoHelper, times(1)).startCollecting(anyString());
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
         mListener.testStarted(mTest1Desc);
-        verify(mPerfettoHelper, times(1)).startCollecting(anyString());
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
         mListener.onTestEnd(mDataRecord, mTest1Desc);
         verify(mPerfettoHelper, times(0)).stopCollecting(anyLong(), anyString());
         mListener.onTestRunEnd(mListener.createDataRecord(), new Result());
         verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), anyString());
     }
 
+    @Test
+    public void testRunWithWakeLockHoldsAndReleasesAWakelock() {
+        Bundle b = new Bundle();
+        mListener = initListener(b);
+        mListener.runWithWakeLock(() -> {});
+        verify(mWakelLockAcquirer, times(1)).acquire(any());
+        verify(mWakeLockReleaser, times(1)).release(any());
+    }
+
+    @Test
+    public void testRunWithWakeLockHoldsAndReleasesAWakelockWhenThereIsAnException() {
+        Bundle b = new Bundle();
+        mListener = initListener(b);
+        try {
+            mListener.runWithWakeLock(
+                    () -> {
+                        throw new RuntimeException("thrown on purpose");
+                    });
+        } catch (RuntimeException expected) {
+            verify(mWakelLockAcquirer, times(1)).acquire(any());
+            verify(mWakeLockReleaser, times(1)).release(any());
+            return;
+        }
+
+        fail();
+    }
+
     /*
-     * Verify stop is not called if perfetto start is not success.
+     * Verify no wakelock is held and released when option is disabled (per run case).
+     */
+    @Test
+    public void testPerfettoDoesNotHoldWakeLockPerRun() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.COLLECT_PER_RUN, "true");
+        mListener = initListener(b);
+
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+
+        // Test run start behavior
+        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testStarted(mTest1Desc);
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        mListener.onTestRunEnd(mListener.createDataRecord(), new Result());
+        verify(mWakeLockContext, never()).run(any());
+    }
+
+    /*
+     * Verify no wakelock is held and released when option is disabled (per test case).
+     */
+    @Test
+    public void testPerfettoDoesNotHoldWakeLockPerTest() throws Exception {
+        Bundle b = new Bundle();
+        mListener = initListener(b);
+
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+
+        // Test run start behavior
+        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testStarted(mTest1Desc);
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        mListener.onTestRunEnd(mListener.createDataRecord(), new Result());
+        verify(mWakeLockContext, never()).run(any());
+    }
+
+    /*
+     * Verify a wakelock is held and released onTestRunStart when enabled.
+     */
+    @Test
+    public void testHoldWakeLockOnTestRunStart() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.HOLD_WAKELOCK_WHILE_COLLECTING, "true");
+        b.putString(PerfettoListener.COLLECT_PER_RUN, "true");
+        mListener = initListener(b);
+
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+
+        // Test run start behavior
+        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        // Verify wakelock was held and released
+        verify(mWakeLockContext, times(1)).run(any());
+    }
+
+    /*
+     * Verify a wakelock is held and released on onTestStart.
+     */
+    @Test
+    public void testHoldWakeLockOnTestStart() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.HOLD_WAKELOCK_WHILE_COLLECTING, "true");
+        mListener = initListener(b);
+
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+
+        // Test run start behavior
+        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        // There shouldn't be a wakelock held/released onTestRunStart
+        verify(mWakeLockContext, times(0)).run(any());
+        mListener.testStarted(mTest1Desc);
+        // There should be a wakelock held/released onTestStart
+        verify(mWakeLockContext, times(1)).run(any());
+    }
+
+    /*
+     * Verify wakelock is held and released in onTestEnd when option is enabled.
+     */
+    @Test
+    public void testHoldWakeLockOnTestEnd() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.HOLD_WAKELOCK_WHILE_COLLECTING, "true");
+        mListener = initListener(b);
+
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+
+        // Test run start behavior
+        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testStarted(mTest1Desc);
+        // There is one wakelock after the test/run starts
+        verify(mWakeLockContext, times(1)).run(any());
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        // There should be a wakelock held and released onTestEnd
+        verify(mWakeLockContext, times(2)).run(any());
+        mListener.onTestRunEnd(mListener.createDataRecord(), new Result());
+        // There shouldn't be more wakelocks are held onTestRunEnd
+        verify(mWakeLockContext, times(2)).run(any());
+    }
+
+    /*
+     * Verify wakelock is held and released in onTestRunEnd when option is enabled.
+     */
+    @Test
+    public void testHoldWakeLockOnTestRunEnd() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.HOLD_WAKELOCK_WHILE_COLLECTING, "true");
+        b.putString(PerfettoListener.COLLECT_PER_RUN, "true");
+        mListener = initListener(b);
+
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+
+        // Test run start behavior
+        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testStarted(mTest1Desc);
+        // There is one wakelock after the test/run start
+        verify(mWakeLockContext, times(1)).run(any());
+
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        // There shouldn't be a wakelock held/released onTestEnd.
+        verify(mWakeLockContext, times(1)).run(any());
+        mListener.onTestRunEnd(mListener.createDataRecord(), new Result());
+        // There should be a new wakelock held/released onTestRunEnd.
+        verify(mWakeLockContext, times(2)).run(any());
+    }
+
+    /*
+     * Verify stop is not called if Perfetto start did not succeed.
      */
     @Test
     public void testPerfettoPerRunFailureFlow() throws Exception {
         Bundle b = new Bundle();
         b.putString(PerfettoListener.COLLECT_PER_RUN, "true");
         mListener = initListener(b);
-        doReturn(false).when(mPerfettoHelper).startCollecting(anyString());
+        doReturn(false).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
 
         // Test run start behavior
         mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
-        verify(mPerfettoHelper, times(1)).startCollecting(anyString());
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
         mListener.onTestRunEnd(mListener.createDataRecord(), new Result());
         verify(mPerfettoHelper, times(0)).stopCollecting(anyLong(), anyString());
     }
@@ -152,14 +393,14 @@ public class PerfettoListenerTest {
     public void testPerfettoStartFailureFlow() throws Exception {
         Bundle b = new Bundle();
         mListener = initListener(b);
-        doReturn(false).when(mPerfettoHelper).startCollecting(anyString());
+        doReturn(false).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
 
         // Test run start behavior
         mListener.testRunStarted(mRunDesc);
 
         // Test test start behavior
         mListener.testStarted(mTest1Desc);
-        verify(mPerfettoHelper, times(1)).startCollecting(anyString());
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
         mListener.onTestEnd(mDataRecord, mTest1Desc);
         verify(mPerfettoHelper, times(0)).stopCollecting(anyLong(), anyString());
     }
@@ -172,7 +413,7 @@ public class PerfettoListenerTest {
     public void testPerfettoInvocationCount() throws Exception {
         Bundle b = new Bundle();
         mListener = initListener(b);
-        doReturn(true).when(mPerfettoHelper).startCollecting(anyString());
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
         doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
 
         // Test run start behavior
@@ -180,19 +421,19 @@ public class PerfettoListenerTest {
 
         // Test1 invocation 1 start behavior
         mListener.testStarted(mTest1Desc);
-        verify(mPerfettoHelper, times(1)).startCollecting(anyString());
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
         mListener.onTestEnd(mDataRecord, mTest1Desc);
         verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), anyString());
 
         // Test1 invocation 2 start behaviour
         mListener.testStarted(mTest1Desc);
-        verify(mPerfettoHelper, times(2)).startCollecting(anyString());
+        verify(mPerfettoHelper, times(2)).startCollecting(anyString(), anyBoolean());
         mListener.onTestEnd(mDataRecord, mTest1Desc);
         verify(mPerfettoHelper, times(2)).stopCollecting(anyLong(), anyString());
 
         // Test2 invocation 1 start behaviour
         mListener.testStarted(mTest2Desc);
-        verify(mPerfettoHelper, times(3)).startCollecting(anyString());
+        verify(mPerfettoHelper, times(3)).startCollecting(anyString(), anyBoolean());
         mDataRecord = mListener.createDataRecord();
         mListener.onTestEnd(mDataRecord, mTest2Desc);
         verify(mPerfettoHelper, times(3)).stopCollecting(anyLong(), anyString());
@@ -202,4 +443,27 @@ public class PerfettoListenerTest {
         assertEquals(1, (int) mInvocationCount.get(mListener.getTestFileName(mTest2Desc)));
 
     }
+    
+    /*
+     * Verify perfetto start and stop collection methods called when the text
+     * proto config option is enabled
+     */
+    @Test
+    public void testPerfettoSuccessFlowWithTextConfig() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.PERFETTO_CONFIG_TEXT_PROTO, "true");
+        mListener = initListener(b);
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+        // Test run start behavior
+        mListener.testRunStarted(mRunDesc);
+
+        // Test test start behavior
+        mListener.testStarted(mTest1Desc);
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), anyString());
+
+    }
+
 }

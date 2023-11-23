@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2018 The Android Open Source Project
  *
@@ -65,17 +66,21 @@ const set<string> kPassthroughHals = {
 //    Y = 11,
 //    Z = 11
 const map<size_t /* Shipping API Level */, Level /* FCM Version */>
-    kFcm2ApiLevelMap{{// N. The test runs on devices that launch with N and
-                      // become a Treble device when upgrading to O.
-                      {25, static_cast<Level>(1)},
-                      // O
-                      {26, static_cast<Level>(1)},
-                      // O MR-1
-                      {27, static_cast<Level>(2)},
-                      // P
-                      {28, static_cast<Level>(3)},
-                      // Q
-                      {29, static_cast<Level>(4)}}};
+    kFcm2ApiLevelMap{{
+        // N. The test runs on devices that launch with N and
+        // become a Treble device when upgrading to O.
+        {25, static_cast<Level>(1)},
+        // O
+        {26, static_cast<Level>(1)},
+        // O MR-1
+        {27, static_cast<Level>(2)},
+        // P
+        {28, static_cast<Level>(3)},
+        // Q
+        {29, static_cast<Level>(4)},
+        // R
+        {30, static_cast<Level>(5)},
+    }};
 
 // Returns ro.product.first_api_level if it is defined and not 0. Returns
 // ro.build.version.sdk otherwise.
@@ -103,6 +108,24 @@ const string PackageRoot(const FQName &fq_iface_name) {
 bool IsAndroidPlatformInterface(const FQName &fq_iface_name) {
   // Package roots are only known for Android platform packages.
   return !PackageRoot(fq_iface_name).empty();
+}
+
+// Returns true iff the device has the specified feature.
+bool DeviceSupportsFeature(const char *feature) {
+  bool device_supports_feature = false;
+  FILE *p = popen("pm list features", "re");
+  if (p) {
+    char *line = NULL;
+    size_t len = 0;
+    while (getline(&line, &len, p) > 0) {
+      if (strstr(line, feature)) {
+        device_supports_feature = true;
+        break;
+      }
+    }
+    pclose(p);
+  }
+  return device_supports_feature;
 }
 
 // Returns the set of released hashes for a given HAL interface.

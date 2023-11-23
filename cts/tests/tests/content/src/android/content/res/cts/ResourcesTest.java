@@ -35,7 +35,6 @@ import android.graphics.drawable.ColorStateListDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.LocaleList;
-import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -45,8 +44,6 @@ import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
-
-import androidx.test.InstrumentationRegistry;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -336,6 +333,60 @@ public class ResourcesTest extends AndroidTestCase {
 
         // Some apps rely on the fact that this will return null (rather than throwing).
         assertNull(mResources.getDrawable(R.drawable.fake_image_will_not_decode));
+    }
+
+    public void testGetDrawable_ColorResource() {
+        final Drawable drawable = mResources.getDrawable(R.color.testcolor1, null);
+        assertTrue(drawable instanceof ColorDrawable);
+        assertEquals(
+                mResources.getColor(R.color.testcolor1, null),
+                ((ColorDrawable) drawable).getColor()
+        );
+    }
+
+    public void testGetDrawable_ColorStateListResource() {
+        final Drawable drawable = mResources.getDrawable(R.color.testcolor, null);
+        assertTrue(drawable instanceof ColorStateListDrawable);
+
+        final ColorStateList colorStateList = mResources.getColorStateList(
+                R.color.testcolor, null);
+        assertEquals(
+                colorStateList.getDefaultColor(),
+                ((ColorStateListDrawable) drawable).getColorStateList().getDefaultColor());
+    }
+
+    public void testGetDrawable_ColorStateListConfigurations() {
+        final Configuration dayConfiguration = new Configuration(mResources.getConfiguration());
+        final Configuration nightConfiguration = new Configuration(mResources.getConfiguration());
+
+        dayConfiguration.uiMode = dayConfiguration.uiMode
+                & (~Configuration.UI_MODE_NIGHT_MASK)
+                | Configuration.UI_MODE_NIGHT_NO;
+
+        nightConfiguration.uiMode = nightConfiguration.uiMode
+                & (~Configuration.UI_MODE_NIGHT_MASK)
+                | Configuration.UI_MODE_NIGHT_YES;
+
+        final ColorStateListDrawable dayDrawable = (ColorStateListDrawable) getContext()
+                .createConfigurationContext(dayConfiguration)
+                .getResources()
+                .getDrawable(R.color.testcolor_daynight, null);
+
+        final ColorStateListDrawable nightDrawable = (ColorStateListDrawable) getContext()
+                .createConfigurationContext(nightConfiguration)
+                .getResources()
+                .getDrawable(R.color.testcolor_daynight, null);
+
+        assertEquals(
+                mResources.getColor(android.R.color.white, null),
+                dayDrawable.getColorStateList().getDefaultColor());
+
+        assertEquals(
+                mResources.getColor(android.R.color.black, null),
+                nightDrawable.getColorStateList().getDefaultColor());
+
+        assertEquals(ActivityInfo.CONFIG_UI_MODE, dayDrawable.getChangingConfigurations());
+        assertEquals(ActivityInfo.CONFIG_UI_MODE, nightDrawable.getChangingConfigurations());
     }
 
     public void testGetDrawable_StackOverflowErrorDrawable() {
@@ -958,14 +1009,12 @@ public class ResourcesTest extends AndroidTestCase {
                 mResources.getFont(R.font.sample_bolditalic_family).getStyle());
     }
 
-    // TODO Figure out why it fails in the instant mode.
-    @AppModeFull
-    public void testComplextColorDrawableAttrInflation() {
-        Context context = InstrumentationRegistry.getTargetContext();
-        LayoutInflater layoutInflater = (LayoutInflater) context.getSystemService(
+    public void testComplexColorDrawableAttributeInflation() {
+        final LayoutInflater layoutInflater = (LayoutInflater) getContext().getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
 
-        View view = layoutInflater.inflate(R.layout.complex_color_drawable_attr_layout, null);
+        final View view = layoutInflater.inflate(
+                R.layout.complex_color_drawable_attr_layout, null);
         assertTrue(view.getBackground() instanceof ColorStateListDrawable);
     }
 

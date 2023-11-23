@@ -38,21 +38,24 @@ public class Bitmap_CompressFormatTest {
         assertEquals(CompressFormat.JPEG, CompressFormat.valueOf("JPEG"));
         assertEquals(CompressFormat.PNG, CompressFormat.valueOf("PNG"));
         assertEquals(CompressFormat.WEBP, CompressFormat.valueOf("WEBP"));
+        assertEquals(CompressFormat.WEBP_LOSSY, CompressFormat.valueOf("WEBP_LOSSY"));
+        assertEquals(CompressFormat.WEBP_LOSSLESS, CompressFormat.valueOf("WEBP_LOSSLESS"));
     }
 
     @Test
     public void testValues(){
         CompressFormat[] comFormat = CompressFormat.values();
 
-        assertEquals(3, comFormat.length);
+        assertEquals(5, comFormat.length);
         assertEquals(CompressFormat.JPEG, comFormat[0]);
         assertEquals(CompressFormat.PNG, comFormat[1]);
         assertEquals(CompressFormat.WEBP, comFormat[2]);
+        assertEquals(CompressFormat.WEBP_LOSSY, comFormat[3]);
+        assertEquals(CompressFormat.WEBP_LOSSLESS, comFormat[4]);
 
-        //CompressFormat is used as a argument here for all the methods that use it
         Bitmap b = Bitmap.createBitmap(10, 24, Config.ARGB_8888);
-        assertTrue(b.compress(CompressFormat.JPEG, 24, new ByteArrayOutputStream()));
-        assertTrue(b.compress(CompressFormat.PNG, 24, new ByteArrayOutputStream()));
-        assertTrue(b.compress(CompressFormat.WEBP, 24, new ByteArrayOutputStream()));
+        for (CompressFormat format : comFormat) {
+            assertTrue(b.compress(format, 24, new ByteArrayOutputStream()));
+        }
     }
 }

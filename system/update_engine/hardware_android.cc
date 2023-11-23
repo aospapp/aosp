@@ -192,6 +192,13 @@ int64_t HardwareAndroid::GetBuildTimestamp() const {
   return GetIntProperty<int64_t>(kPropBuildDateUTC, 0);
 }
 
+// Returns true if the device runs an userdebug build, and explicitly allows OTA
+// downgrade.
+bool HardwareAndroid::AllowDowngrade() const {
+  return GetBoolProperty("ro.ota.allow_downgrade", false) &&
+         GetBoolProperty("ro.debuggable", false);
+}
+
 bool HardwareAndroid::GetFirstActiveOmahaPingSent() const {
   LOG(WARNING) << "STUB: Assuming first active omaha was never set.";
   return false;
@@ -201,6 +208,13 @@ bool HardwareAndroid::SetFirstActiveOmahaPingSent() {
   LOG(WARNING) << "STUB: Assuming first active omaha is set.";
   // We will set it true, so its failure doesn't cause escalation.
   return true;
+}
+
+void HardwareAndroid::SetWarmReset(bool warm_reset) {
+  constexpr char warm_reset_prop[] = "ota.warm_reset";
+  if (!android::base::SetProperty(warm_reset_prop, warm_reset ? "1" : "0")) {
+    LOG(WARNING) << "Failed to set prop " << warm_reset_prop;
+  }
 }
 
 }  // namespace chromeos_update_engine

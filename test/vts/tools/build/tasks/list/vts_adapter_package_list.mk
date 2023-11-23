@@ -170,6 +170,8 @@ vts_adapter_package_list := \
   android.hardware.soundtrigger@2.1-adapter-helper \
   android.hardware.soundtrigger@2.2-adapter \
   android.hardware.soundtrigger@2.2-adapter-helper \
+  android.hardware.soundtrigger@2.3-adapter \
+  android.hardware.soundtrigger@2.3-adapter-helper \
   android.hardware.tests.bar@1.0-adapter \
   android.hardware.tests.bar@1.0-adapter-helper \
   android.hardware.tests.baz@1.0-adapter \
@@ -242,6 +244,8 @@ vts_adapter_package_list := \
   android.hardware.wifi.supplicant@1.1-adapter-helper \
   android.hardware.wifi.supplicant@1.2-adapter \
   android.hardware.wifi.supplicant@1.2-adapter-helper \
+  android.hardware.wifi.supplicant@1.3-adapter \
+  android.hardware.wifi.supplicant@1.3-adapter-helper \
   android.hidl.allocator@1.0-adapter \
   android.hidl.allocator@1.0-adapter-helper \
   android.hidl.base@1.0-adapter \

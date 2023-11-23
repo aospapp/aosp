@@ -35,7 +35,7 @@
 
 package java.util.concurrent;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class FutureTask<V> implements java.util.concurrent.RunnableFuture<V> {

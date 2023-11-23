@@ -139,4 +139,142 @@ public class AaptParserTest extends TestCase {
         assertEquals("arm64-v8a", p.getNativeCode().get(0));
         assertEquals("armeabi-v7a", p.getNativeCode().get(1));
     }
+
+    public void testParseXmlTree_withRequestLegacyFlagTrue() {
+        AaptParser p = new AaptParser();
+        p.parseXmlTree(
+                "N: android=http://schemas.android.com/apk/res/android\n"
+                        + "  E: manifest (line=2)\n"
+                        + "    A: android:versionCode(0x0101021b)=(type 0x10)0x1d\n"
+                        + "    A: android:versionName(0x0101021c)=\"R\" (Raw: \"R\")\n"
+                        + "    A: android:compileSdkVersion(0x01010572)=(type 0x10)0x1d\n"
+                        + "    A: android:compileSdkVersionCodename(0x01010573)=\"R\" (Raw: "
+                        + "\"R\")\n"
+                        + "    A: package=\"com.android.foo\" (Raw: \"com.android.foo\")\n"
+                        + "    A: platformBuildVersionCode=(type 0x10)0x1d\n"
+                        + "    A: platformBuildVersionName=\"R\" (Raw: \"R\")\n"
+                        + "    E: uses-sdk (line=5)\n"
+                        + "      A: android:minSdkVersion(0x0101020c)=(type 0x10)0x1c\n"
+                        + "      A: android:targetSdkVersion(0x01010270)=\"R\" (Raw: \"R\")\n"
+                        + "    E: application (line=12)\n"
+                        + "      A: android:targetSdkVersion(0x01010270)=(type 0x10)0x1e\n"
+                        + "      A: android:supportsRtl(0x010103af)=(type 0x12)0xffffffff\n"
+                        + "      A: android:extractNativeLibs(0x010104ea)=(type 0x12)0xffffffff\n"
+                        + "      A: android:appComponentFactory(0x0101057a)=\"androidx.core.app"
+                        + ".CoreComponentFactory\" (Raw: \"androidx.core.app"
+                        + ".CoreComponentFactory\")\n"
+                        + "      A: android:requestLegacyExternalStorage(0x01010603)=(type 0x12)"
+                        + "0xffffffff\n");
+        assertTrue(p.isRequestingLegacyStorage());
+    }
+
+    public void testParseXmlTree_withRequestLegacyFlagFalse() {
+        AaptParser p = new AaptParser();
+        p.parseXmlTree(
+                "N: android=http://schemas.android.com/apk/res/android\n"
+                        + "  E: manifest (line=2)\n"
+                        + "    A: android:versionCode(0x0101021b)=(type 0x10)0x1d\n"
+                        + "    A: android:versionName(0x0101021c)=\"R\" (Raw: \"R\")\n"
+                        + "    A: android:compileSdkVersion(0x01010572)=(type 0x10)0x1d\n"
+                        + "    A: android:compileSdkVersionCodename(0x01010573)=\"R\" (Raw: "
+                        + "\"R\")\n"
+                        + "    A: package=\"com.android.foo\" (Raw: \"com.android.foo\")\n"
+                        + "    A: platformBuildVersionCode=(type 0x10)0x1d\n"
+                        + "    A: platformBuildVersionName=\"R\" (Raw: \"R\")\n"
+                        + "    E: uses-sdk (line=5)\n"
+                        + "      A: android:minSdkVersion(0x0101020c)=(type 0x10)0x1c\n"
+                        + "      A: android:targetSdkVersion(0x01010270)=\"R\" (Raw: \"R\")\n"
+                        + "    E: application (line=12)\n"
+                        + "      A: android:targetSdkVersion(0x01010270)=(type 0x10)0x1e\n"
+                        + "      A: android:supportsRtl(0x010103af)=(type 0x12)0xffffffff\n"
+                        + "      A: android:extractNativeLibs(0x010104ea)=(type 0x12)0xffffffff\n"
+                        + "      A: android:appComponentFactory(0x0101057a)=\"androidx.core.app"
+                        + ".CoreComponentFactory\" (Raw: \"androidx.core.app"
+                        + ".CoreComponentFactory\")\n"
+                        + "      A: android:requestLegacyExternalStorage(0x01010603)=(type 0x12)"
+                        + "0x0\n");
+        assertFalse(p.isRequestingLegacyStorage());
+    }
+
+    public void testParseXmlTree_withoutRequestLegacyFlag() {
+        AaptParser p = new AaptParser();
+        p.parseXmlTree(
+                "N: android=http://schemas.android.com/apk/res/android\n"
+                        + "  E: manifest (line=2)\n"
+                        + "    A: android:versionCode(0x0101021b)=(type 0x10)0x1d\n"
+                        + "    A: android:versionName(0x0101021c)=\"R\" (Raw: \"R\")\n"
+                        + "    A: android:compileSdkVersion(0x01010572)=(type 0x10)0x1d\n"
+                        + "    A: android:compileSdkVersionCodename(0x01010573)=\"R\" (Raw: "
+                        + "\"R\")\n"
+                        + "    A: package=\"com.android.foo\" (Raw: \"com.android.foo\")\n"
+                        + "    A: platformBuildVersionCode=(type 0x10)0x1d\n"
+                        + "    A: platformBuildVersionName=\"R\" (Raw: \"R\")\n"
+                        + "    E: uses-sdk (line=5)\n"
+                        + "      A: android:minSdkVersion(0x0101020c)=(type 0x10)0x1c\n"
+                        + "      A: android:targetSdkVersion(0x01010270)=\"R\" (Raw: \"R\")\n"
+                        + "    E: application (line=12)\n"
+                        + "      A: android:targetSdkVersion(0x01010270)=(type 0x10)0x1e\n"
+                        + "      A: android:supportsRtl(0x010103af)=(type 0x12)0xffffffff\n"
+                        + "      A: android:extractNativeLibs(0x010104ea)=(type 0x12)0xffffffff\n"
+                        + "      A: android:appComponentFactory(0x0101057a)=\"androidx.core.app"
+                        + ".CoreComponentFactory\" (Raw: \"androidx.core.app");
+        assertFalse(p.isRequestingLegacyStorage());
+    }
+
+    public void testParseXmlTree_withUsesPermissionManageExternalStorage() {
+        AaptParser p = new AaptParser();
+        p.parse(
+                "package: name='com.android.foo' versionCode='217173' versionName='1.7173' "
+                        + "platformBuildVersionName=''\n"
+                        + "install-location:'preferExternal'\n"
+                        + "sdkVersion:'10'\n"
+                        + "targetSdkVersion:'21'\n"
+                        + "uses-permission: name='android.permission.INTERNET'\n"
+                        + "uses-permission: name='android.permission.MANAGE_EXTERNAL_STORAGE'\n");
+        assertTrue(p.isUsingPermissionManageExternalStorage());
+    }
+
+    public void testParseXmlTree_withoutUsesPermissionManageExternalStorage() {
+        AaptParser p = new AaptParser();
+        p.parse(
+                "package: name='com.android.foo' versionCode='217173' versionName='1.7173' "
+                        + "platformBuildVersionName=''\n"
+                        + "install-location:'preferExternal'\n"
+                        + "sdkVersion:'10'\n"
+                        + "targetSdkVersion:'21'\n"
+                        + "uses-permission: name='android.permission.INTERNET'\n");
+        assertFalse(p.isUsingPermissionManageExternalStorage());
+    }
+
+    public void testParseTargetSdkVersion() {
+        AaptParser p = new AaptParser();
+        p.parse(
+                "package: name='com.android.foo' versionCode='13' versionName='2.3'\n"
+                        + "sdkVersion:'5'\n"
+                        + "targetSdkVersion:'29'\n"
+                        + "application-label-fr:'Faa'\n"
+                        + "uses-permission:'android.permission.INTERNET'");
+        assertEquals(29, p.getTargetSdkVersion());
+    }
+
+    public void testParseInvalidTargetSdkVersion() {
+        AaptParser p = new AaptParser();
+        p.parse(
+                "package: name='com.android.foo' versionCode='13' versionName='2.3'\n"
+                        + "sdkVersion:'5'\n"
+                        + "targetSdkVersion:'R'\n"
+                        + "application-label-fr:'Faa'\n"
+                        + "uses-permission:'android.permission.INTERNET'");
+        assertEquals(10000, p.getTargetSdkVersion());
+    }
+
+    public void testParseNoTargetSdkVersion() {
+        AaptParser p = new AaptParser();
+        p.parse(
+                "package: name='com.android.foo' versionCode='13' versionName='2.3'\n"
+                        + "sdkVersion:'5'\n"
+                        + "application-label-fr:'Faa'\n"
+                        + "uses-permission:'android.permission.INTERNET'");
+        assertEquals(10000, p.getTargetSdkVersion());
+    }
 }

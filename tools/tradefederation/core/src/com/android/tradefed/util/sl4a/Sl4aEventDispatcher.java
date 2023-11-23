@@ -195,10 +195,8 @@ public class Sl4aEventDispatcher extends Thread {
         }
     }
 
-    /**
-     * Object returned by the event poller.
-     */
-    public class EventSl4aObject {
+    /** Object returned by the event poller. */
+    public static class EventSl4aObject {
         private String mName = null;
         private String mData = null;
         private long mTime = 0L;

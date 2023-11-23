@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+import itertools
+
 from acts.test_utils.coex.CoexPerformanceBaseTest import CoexPerformanceBaseTest
 from acts.test_utils.bt.bt_test_utils import disable_bluetooth
 
@@ -22,70 +24,29 @@ class WlanStandalonePerformanceTest(CoexPerformanceBaseTest):
 
     def __init__(self, controllers):
         super().__init__(controllers)
+        req_params = ['standalone_params']
+        self.unpack_userparams(req_params)
+        self.tests = self.generate_test_cases()
 
     def setup_class(self):
         super().setup_class()
-        req_params = ["iterations"]
-        self.unpack_userparams(req_params)
+        if not disable_bluetooth(self.pri_ad.droid):
+            self.log.info('Failed to disable bluetooth')
+            return False
 
     def setup_test(self):
         super().setup_test()
-        if not disable_bluetooth(self.pri_ad.droid):
-            self.log.info("Failed to disable bluetooth")
-            return False
 
-    def test_performance_wlan_standalone_tcp_ul(self):
-        """Check throughout for wlan standalone.
-
-        This test is to start TCP-uplink traffic between host machine and
-        android device for wlan-standalone.
-
-        Steps:
-        1. Start TCP-uplink traffic.
-
-        Test Id: Bt_CoEx_kpi_001
-        """
-        self.set_attenuation_and_run_iperf()
-        return self.teardown_result()
-
-    def test_performance_wlan_standalone_tcp_dl(self):
-        """Check throughout for wlan standalone.
-
-        This test is to start TCP-downlink traffic between host machine and
-        android device for wlan-standalone.
-
-        Steps:
-        1. Start TCP-downlink traffic.
-
-        Test Id: Bt_CoEx_kpi_002
-        """
-        self.set_attenuation_and_run_iperf()
-        return self.teardown_result()
-
-    def test_performance_wlan_standalone_udp_ul(self):
-        """Check throughout for wlan standalone.
-
-        This test is to start UDP-uplink traffic between host machine and
-        android device for wlan-standalone.
-
-        Steps:
-        1. Start UDP-uplink traffic.
-
-        Test Id: Bt_CoEx_kpi_003
-        """
-        self.set_attenuation_and_run_iperf()
-        return self.teardown_result()
-
-    def test_performance_wlan_standalone_udp_dl(self):
-        """Check throughout for wlan standalone.
-
-        This test is to start UDP-downlink traffic between host machine and
-        android device for wlan-standalone.
-
-        Steps:
-        1. Start UDP-downlink traffic.
-
-        Test Id: Bt_CoEx_kpi_004
-        """
-        self.set_attenuation_and_run_iperf()
-        return self.teardown_result()
+    def generate_test_cases(self):
+        test_cases = []
+        for protocol, stream in itertools.product(
+                self.standalone_params['protocol'],
+                self.standalone_params['stream']):
+            test_case_name = (
+                'test_wlan_standalone_{}_{}'.format(protocol, stream)
+            )
+            setattr(
+                self, test_case_name, self.set_attenuation_and_run_iperf
+            )
+            test_cases.append(test_case_name)
+        return test_cases

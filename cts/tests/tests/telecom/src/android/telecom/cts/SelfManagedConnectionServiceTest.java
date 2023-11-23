@@ -37,6 +37,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.function.Predicate;
 
 import static android.media.AudioManager.MODE_IN_COMMUNICATION;
+import static android.telecom.cts.TestUtils.TEST_SELF_MANAGED_HANDLE_1;
 import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 import static android.telecom.cts.TestUtils.waitOnAllHandlers;
 
@@ -290,7 +291,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         assertTrue(CtsSelfManagedConnectionService.getConnectionService().waitForUpdate(
                 CtsSelfManagedConnectionService.CREATE_OUTGOING_CONNECTION_FAILED_LOCK));
 
-        assertFalse(mTelecomManager.isOutgoingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
+        assertIsOutgoingCallPermitted(false, TestUtils.TEST_SELF_MANAGED_HANDLE_1);
     }
 
     /**
@@ -303,13 +304,13 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         if (!mShouldTestTelecom) {
             return;
         }
-        assertTrue(mTelecomManager.isOutgoingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
+        assertIsOutgoingCallPermitted(true, TestUtils.TEST_SELF_MANAGED_HANDLE_1);
         placeAndVerifyOutgoingCall(TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
 
-        assertTrue(mTelecomManager.isOutgoingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_2));
+        assertIsOutgoingCallPermitted(true, TestUtils.TEST_SELF_MANAGED_HANDLE_2);
         placeAndVerifyOutgoingCall(TestUtils.TEST_SELF_MANAGED_HANDLE_2, TEST_ADDRESS_3);
 
-        assertTrue(mTelecomManager.isOutgoingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_3));
+        assertIsOutgoingCallPermitted(true, TestUtils.TEST_SELF_MANAGED_HANDLE_3);
         placeAndVerifyOutgoingCall(TestUtils.TEST_SELF_MANAGED_HANDLE_3, TEST_ADDRESS_4);
     }
 
@@ -481,7 +482,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         // Setup content observer to notify us when we call log entry is added.
         CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
 
-        assertTrue(mTelecomManager.isIncomingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_2));
+        assertIsIncomingCallPermitted(true, TestUtils.TEST_SELF_MANAGED_HANDLE_2);
         // Attempt to create a new incoming call for the other PhoneAccount; it should succeed.
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_2, TEST_ADDRESS_2);
@@ -500,7 +501,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
             return;
         }
 
-        assertTrue(mTelecomManager.isIncomingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
+        assertIsIncomingCallPermitted(true, TestUtils.TEST_SELF_MANAGED_HANDLE_1);
         // Attempt to create a new Incoming self-managed call
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
@@ -559,7 +560,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         SelfManagedConnection connection = TestUtils.waitForAndGetConnection(TEST_ADDRESS_1);
         connection.setRinging();
 
-        assertFalse(mTelecomManager.isIncomingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
+        assertIsIncomingCallPermitted(false, TestUtils.TEST_SELF_MANAGED_HANDLE_1);
         // WHEN create a new incoming call for the the same PhoneAccount
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
@@ -584,8 +585,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         for (int ix = 0; ix < 10; ix++) {
             Uri address = Uri.fromParts("sip", "test" + ix + "@test.com", null);
             // Create an ongoing call in the first self-managed PhoneAccount.
-            assertTrue(mTelecomManager.isOutgoingCallPermitted(
-                    TestUtils.TEST_SELF_MANAGED_HANDLE_1));
+            assertIsOutgoingCallPermitted(true, TestUtils.TEST_SELF_MANAGED_HANDLE_1);
             TestUtils.placeOutgoingCall(getInstrumentation(), mTelecomManager,
                     TestUtils.TEST_SELF_MANAGED_HANDLE_1, address);
             SelfManagedConnection connection = TestUtils.waitForAndGetConnection(address);
@@ -594,7 +594,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         }
 
         // Try adding an 11th.  It should fail to be created.
-        assertFalse(mTelecomManager.isIncomingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
+        assertIsIncomingCallPermitted(false, TestUtils.TEST_SELF_MANAGED_HANDLE_1);
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_2);
         assertTrue("Expected onCreateIncomingConnectionFailed callback",
@@ -608,23 +608,56 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
     }
 
     /**
-     * Disabled for now; there is not a reliable means of setting a phone number as a test emergency
-     * number.
-     * @throws Exception
+     * Start a self-managed call and then dial an emergency call and make sure the self-managed
+     * call is successfully disconnected.
      */
-    public void DONOTtestEmergencyCallOngoing() throws Exception {
+    public void testDisconnectSelfManagedCallForEmergency() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        setupForEmergencyCalling(TEST_EMERGENCY_NUMBER);
+
+        Uri address = getTestNumber();
+        TestUtils.placeOutgoingCall(getInstrumentation(), mTelecomManager,
+                TEST_SELF_MANAGED_HANDLE_1, address);
+        // Ensure Telecom bound to the self managed CS
+        if (!CtsSelfManagedConnectionService.waitForBinding()) {
+            fail("Could not bind to Self-Managed ConnectionService");
+        }
+        SelfManagedConnection connection = TestUtils.waitForAndGetConnection(address);
+        assertNotNull("Self-Managed Connection should NOT be null.", connection);
+        assertTrue("Self-Managed Connection should be outgoing.", !connection.isIncomingCall());
+        // The self-managed ConnectionService must NOT have been prompted to show its incoming call
+        // UI for an outgoing call.
+        assertEquals(connection.getOnShowIncomingUiInvokeCounter().getInvokeCount(), 0);
+        setActiveAndVerify(connection);
+
+        placeAndVerifyEmergencyCall(true /*supportsHold*/);
+        Call eCall = getInCallService().getLastCall();
+
+        assertIsInCall(true);
+        assertIsInManagedCall(true);
+        try {
+            TestUtils.waitOnAllHandlers(getInstrumentation());
+        } catch (Exception e) {
+            fail("Failed to wait on handlers " + e);
+        }
+        assertCallState(eCall, Call.STATE_DIALING);
+        // The self-managed Connection should be disconnected!
+        assertConnectionState(connection, Connection.STATE_DISCONNECTED);
+    }
+
+    /**
+     * Start a managed emergency call and then ensure that a subsequent self-managed call fails to
+     * be created.
+     */
+    public void testEmergencyCallOngoingNewOutgoingCall() throws Exception {
         if (!mShouldTestTelecom) {
             return;
         }
 
-        // TODO: Need to find a reliable way to set a test emergency number.
-        // Set 555-1212 as a test emergency number.
-        TestUtils.executeShellCommand(getInstrumentation(), "setprop ril.ecclist 5551212");
-
-        Bundle extras = new Bundle();
-        extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
-                TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
-        mTelecomManager.placeCall(Uri.fromParts(PhoneAccount.SCHEME_TEL, "5551212", null), extras);
+        setupForEmergencyCalling(TEST_EMERGENCY_NUMBER);
+        placeAndVerifyEmergencyCall(true /*supportsHold*/);
         assertIsInCall(true);
         assertIsInManagedCall(true);
         try {
@@ -633,7 +666,34 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
             fail("Failed to wait on handlers " + e);
         }
 
-        // Try adding a self managed call.  It should fail to be created.
+        // Try adding a self managed outgoing call.  It should fail to be created.
+        TestUtils.placeOutgoingCall(getInstrumentation(), mTelecomManager,
+                TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
+        assertTrue("Expected onCreateOutgoingConnectionFailed callback",
+                CtsSelfManagedConnectionService.getConnectionService().waitForUpdate(
+                        CtsSelfManagedConnectionService.CREATE_OUTGOING_CONNECTION_FAILED_LOCK));
+    }
+
+    /**
+     * Start a managed emergency call and then ensure that a subsequent self-managed call fails to
+     * be created.
+     */
+    public void testEmergencyCallOngoingIncomingCall() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        setupForEmergencyCalling(TEST_EMERGENCY_NUMBER);
+        placeAndVerifyEmergencyCall(true /*supportsHold*/);
+        assertIsInCall(true);
+        assertIsInManagedCall(true);
+        try {
+            TestUtils.waitOnAllHandlers(getInstrumentation());
+        } catch (Exception e) {
+            fail("Failed to wait on handlers " + e);
+        }
+
+        // Try adding a self managed incoming call.  It should fail to be created.
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
         assertTrue("Expected onCreateIncomingConnectionFailed callback",

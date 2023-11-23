@@ -28,7 +28,8 @@ import com.android.cts.verifier.wifiaware.testcase.DataPathInBandTestCase;
 public class DataPathOpenUnsolicitedPublishTestActivity extends BaseTestActivity {
     @Override
     protected BaseTestCase getTestCase(Context context) {
-        return new DataPathInBandTestCase(context, true, true, true);
+        return new DataPathInBandTestCase(context, /* isSecurityOpen */ true, /* isPublish */ true,
+                /* isUnsolicited */ true, /* usePmk */ false);
     }
 
     @Override

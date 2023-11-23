@@ -98,6 +98,24 @@ public class PackageUtil {
     }
 
     /**
+     * Returns the version code for the package name, or null if the package can't be found.
+     * If before API Level 28, return a long version of the (otherwise deprecated) versionCode.
+     */
+    public static Long getLongVersionCode(String packageName) {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(packageName,
+                    PackageManager.GET_META_DATA);
+            // Make no assumptions about the device's API level, and use the (now deprecated)
+            // versionCode for older devices.
+            return (ApiLevelUtil.isAtLeast(28)) ?
+                    info.getLongVersionCode() : (long) info.versionCode;
+        } catch (PackageManager.NameNotFoundException | NullPointerException e) {
+            Log.w(TAG, "Could not find version string for package " + packageName);
+            return null;
+        }
+    }
+
+    /**
      * Compute the signature SHA digest for a package.
      * @param package the name of the package for which the signature SHA digest is requested
      * @return the signature SHA digest

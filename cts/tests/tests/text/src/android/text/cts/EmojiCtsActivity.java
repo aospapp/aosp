@@ -18,6 +18,8 @@ package android.text.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.webkit.WebView;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
@@ -27,13 +29,13 @@ public class EmojiCtsActivity extends Activity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        try {
-            super.onCreate(savedInstanceState);
-            setContentView(R.layout.webview_layout);
-            mWebView = (WebView) findViewById(R.id.web_page);
-        } catch (Exception e) {
-            NullWebViewUtils.determineIfWebViewAvailable(this, e);
-        }
+        super.onCreate(savedInstanceState);
+
+        // Only inflate the layout if the device is supposed to have a WebView implementation.
+        if (!NullWebViewUtils.isWebViewAvailable()) return;
+
+        setContentView(R.layout.webview_layout);
+        mWebView = (WebView) findViewById(R.id.web_page);
     }
 
     public WebView getWebView() {
@@ -43,6 +45,10 @@ public class EmojiCtsActivity extends Activity {
     @Override
     public void onDestroy() {
         if (mWebView != null) {
+            ViewParent parent =  mWebView.getParent();
+            if (parent instanceof ViewGroup) {
+                ((ViewGroup) parent).removeView(mWebView);
+            }
             mWebView.destroy();
         }
         super.onDestroy();

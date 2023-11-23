@@ -265,6 +265,102 @@
       "name": "CtsJvmtiRunTest1958HostTestCases"
     },
     {
+      "name": "CtsJvmtiRunTest1962HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1967HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1968HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1969HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1970HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1971HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1974HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1975HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1976HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1977HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1978HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1979HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1982HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1984HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1988HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1989HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1990HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1991HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1992HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1994HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1995HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1996HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1997HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1998HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1999HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest2001HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest2002HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest2003HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest2004HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest2005HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest2006HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest2007HostTestCases"
+    },
+    {
       "name": "CtsJvmtiTaggingHostTestCases"
     },
     {

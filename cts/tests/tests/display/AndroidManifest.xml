@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- For testing pushing brightness curves. -->
     <uses-permission android:name="android.permission.CONFIGURE_DISPLAY_BRIGHTNESS" />
+    <!-- For querying to see if packages exist with the brightness permissions. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <application>
         <uses-library android:name="android.test.runner" />

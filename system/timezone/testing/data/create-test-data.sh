@@ -38,6 +38,7 @@ ${DISTRO_TOOLS_DIR}/create-distro.py \
     -tzdata ${TEST_DIR}/output_data/iana/tzdata \
     -icu ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat \
     -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
+    -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
     -output_distro_dir ${TEST_DIR}/output_data/distro \
     -output_version_file ${TEST_DIR}/output_data/version/tz_version
 
@@ -57,7 +58,31 @@ ${DISTRO_TOOLS_DIR}/create-distro.py \
     -tzdata ${TEST_DIR}/output_data/iana/tzdata \
     -icu ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat \
     -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
+    -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
     -output_distro_dir ${TEST_DIR}/output_data/distro \
     -output_version_file ${TEST_DIR}/output_data/version/tz_version
 
+# Test 3: A corrupted set of data like test 1, but with a truncated ICU
+# overlay file. This test data set exists because it is (currently) a good way
+# to trigger a boot loop which enables easy watchdog and recovery testing.
+IANA_VERSION=2030a
+TEST_DIR=test3
 
+# Create fake distro input files.
+./transform-distro-files.sh ${REFERENCE_DISTRO_FILES} ${IANA_VERSION} ./${TEST_DIR}/output_data
+
+# Corrupt icu_tzdata.dat by truncating it
+truncate --size 27766 ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat
+
+# Create the distro .zip
+mkdir -p ${TEST_DIR}/output_data/distro
+mkdir -p ${TEST_DIR}/output_data/version
+${DISTRO_TOOLS_DIR}/create-distro.py \
+    -iana_version ${IANA_VERSION} \
+    -revision 1 \
+    -tzdata ${TEST_DIR}/output_data/iana/tzdata \
+    -icu ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat \
+    -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
+    -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
+    -output_distro_dir ${TEST_DIR}/output_data/distro \
+    -output_version_file ${TEST_DIR}/output_data/version/tz_version

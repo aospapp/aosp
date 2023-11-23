@@ -18,14 +18,14 @@ package com.android.cts.mockime;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
-import static org.junit.Assume.assumeFalse;
-
 import android.app.UiAutomation;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -40,13 +40,15 @@ import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.view.inputmethod.InputMethodSystemProperty;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.SystemUtil;
+
+import org.junit.AssumptionViolatedException;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -238,14 +240,27 @@ public class MockImeSession implements AutoCloseable {
             @NonNull Context context,
             @NonNull UiAutomation uiAutomation,
             @Nullable ImeSettings.Builder imeSettings) throws Exception {
-        // Currently, MockIme doesn't fully support multi-client IME. Skip tests until it does.
-        // TODO: Re-enable when MockIme supports multi-client IME.
-        assumeFalse("MockIme session doesn't support Multi-Client IME, skip it",
-                InputMethodSystemProperty.MULTI_CLIENT_IME_ENABLED);
+        final String unavailabilityReason = getUnavailabilityReason(context);
+        if (unavailabilityReason != null) {
+            throw new AssumptionViolatedException(unavailabilityReason);
+        }
 
         final MockImeSession client = new MockImeSession(context, uiAutomation);
         client.initialize(imeSettings);
         return client;
+    }
+
+    /**
+     * Checks if the {@link MockIme} can be used in this device.
+     *
+     * @return {@code null} if it can be used, or message describing why if it cannot.
+     */
+    @Nullable
+    public static String getUnavailabilityReason(@NonNull Context context) {
+        if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_INPUT_METHODS)) {
+            return "Device must support installable IMEs that implement InputMethodService API";
+        }
+        return null;
     }
 
     /**
@@ -966,5 +981,46 @@ public class MockImeSession implements AutoCloseable {
     public ImeCommand callGetDisplayId() {
         final Bundle params = new Bundle();
         return callCommandInternal("getDisplayId", params);
+    }
+
+    /**
+     * Verifies {@code InputMethodService.getLayoutInflater().getContext()} is equal to
+     * {@code InputMethodService.this}.
+     *
+     * @return {@link ImeCommand} object that can be passed to
+     *         {@link ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to
+     *         wait until this event is handled by {@link MockIme}
+     */
+    @NonNull
+    public ImeCommand verifyLayoutInflaterContext() {
+        final Bundle params = new Bundle();
+        return callCommandInternal("verifyLayoutInflaterContext", params);
+    }
+
+    @NonNull
+    public ImeCommand callSetHeight(int height) {
+        final Bundle params = new Bundle();
+        params.putInt("height", height);
+        return callCommandInternal("setHeight", params);
+    }
+
+    @NonNull
+    public ImeCommand callSetInlineSuggestionsExtras(@NonNull Bundle bundle) {
+        return callCommandInternal("setInlineSuggestionsExtras", bundle);
+    }
+
+    @NonNull
+    public ImeCommand callVerifyGetDisplay() {
+        return callCommandInternal("verifyGetDisplay", new Bundle());
+    }
+
+    @NonNull
+    public ImeCommand callVerifyGetWindowManager() {
+        return callCommandInternal("verifyGetWindowManager", new Bundle());
+    }
+
+    @NonNull
+    public ImeCommand callVerifyGetViewConfiguration() {
+        return callCommandInternal("verifyGetViewConfiguration", new Bundle());
     }
 }

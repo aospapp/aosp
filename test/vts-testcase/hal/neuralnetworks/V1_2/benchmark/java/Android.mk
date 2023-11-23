@@ -26,17 +26,16 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-# TODO: This is from the CTS app. Figure out the proper way to do this in VTS.
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := vts vts10
 
-LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules \
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules android.hidl.manager-V1.2-java \
     compatibility-device-util-axt ctstestrunner-axt junit NeuralNetworksApiBenchmark_Lib
 LOCAL_JNI_SHARED_LIBRARIES := libnnbenchmark_jni
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_ASSET_DIR := test/mlts/models/assets
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := system_current
 
 include $(BUILD_CTS_PACKAGE)

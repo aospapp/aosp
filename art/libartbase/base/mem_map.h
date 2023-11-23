@@ -29,8 +29,7 @@
 
 namespace art {
 
-#if defined(__LP64__) && !defined(__Fuchsia__) && \
-    (defined(__aarch64__) || defined(__mips__) || defined(__APPLE__))
+#if defined(__LP64__) && !defined(__Fuchsia__) && (defined(__aarch64__) || defined(__APPLE__))
 #define USE_ART_LOW_4G_ALLOCATOR 1
 #else
 #if defined(__LP64__) && !defined(__Fuchsia__) && !defined(__x86_64__)
@@ -232,6 +231,7 @@ class MemMap {
   bool Protect(int prot);
 
   void MadviseDontNeedAndZero();
+  int MadviseDontFork();
 
   int GetProtect() const {
     return prot_;
@@ -316,6 +316,10 @@ class MemMap {
   static std::mutex* GetMemMapsLock() RETURN_CAPABILITY(mem_maps_lock_) {
     return nullptr;
   }
+
+  // Reset in a forked process the MemMap whose memory has been madvised MADV_DONTFORK
+  // in the parent process.
+  void ResetInForkedProcess();
 
  private:
   MemMap(const std::string& name,

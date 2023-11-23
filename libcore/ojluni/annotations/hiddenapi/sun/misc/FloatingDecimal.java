@@ -86,17 +86,17 @@ public class FloatingDecimal {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     static java.lang.String stripLeadingZeros(java.lang.String s) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     static int getHexDigit(java.lang.String s, int position) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private static boolean $assertionsDisabled;
+    @android.compat.annotation.UnsupportedAppUsage private static boolean $assertionsDisabled;
 
     static final sun.misc.FloatingDecimal.ASCIIToBinaryConverter A2BC_NEGATIVE_INFINITY;
 

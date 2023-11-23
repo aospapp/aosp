@@ -129,8 +129,12 @@ bool RecordFileWriter::WriteRecord(const Record& record) {
   // RECORD_SPLIT records, followed by a RECORD_SPLIT_END record.
   constexpr uint32_t RECORD_SIZE_LIMIT = 65535;
   if (record.size() <= RECORD_SIZE_LIMIT) {
-    WriteData(record.Binary(), record.size());
-    return true;
+    bool result = WriteData(record.Binary(), record.size());
+    if (result && record.type() == PERF_RECORD_AUXTRACE) {
+      auto auxtrace = static_cast<const AuxTraceRecord*>(&record);
+      result = WriteData(auxtrace->location.addr, auxtrace->data->aux_size);
+    }
+    return result;
   }
   CHECK_GT(record.type(), SIMPLE_PERF_RECORD_TYPE_START);
   const char* p = record.Binary();
@@ -204,6 +208,15 @@ bool RecordFileWriter::ReadDataSection(const std::function<void(const Record*)>&
     }
     read_pos += header.size;
     std::unique_ptr<Record> r = ReadRecordFromBuffer(event_attr_, header.type, record_buf.data());
+    if (r->type() == PERF_RECORD_AUXTRACE) {
+      auto auxtrace = static_cast<AuxTraceRecord*>(r.get());
+      auxtrace->location.file_offset = data_section_offset_ + read_pos;
+      if (fseek(record_fp_, auxtrace->data->aux_size, SEEK_CUR) != 0) {
+        PLOG(ERROR) << "fseek() failed";
+        return false;
+      }
+      read_pos += auxtrace->data->aux_size;
+    }
     callback(r.get());
   }
   return true;
@@ -295,6 +308,16 @@ bool RecordFileWriter::WriteBranchStackFeature() {
     return false;
   }
   return WriteFeatureEnd(FEAT_BRANCH_STACK);
+}
+
+bool RecordFileWriter::WriteAuxTraceFeature(const std::vector<uint64_t>& auxtrace_offset) {
+  std::vector<uint64_t> data;
+  for (auto offset : auxtrace_offset) {
+    data.push_back(offset);
+    data.push_back(AuxTraceRecord::Size());
+  }
+  return WriteFeatureBegin(FEAT_AUXTRACE) && Write(data.data(), data.size() * sizeof(uint64_t)) &&
+         WriteFeatureEnd(FEAT_AUXTRACE);
 }
 
 bool RecordFileWriter::WriteFileFeatures(const std::vector<Dso*>& files) {

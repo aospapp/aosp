@@ -16,11 +16,11 @@
 
 #include <cinttypes>
 
-#include "chre_api/chre.h"
 #include "chre/platform/assert.h"
 #include "chre/platform/log.h"
 #include "chre/platform/static_nanoapp_init.h"
 #include "chre/util/nanoapp/app_id.h"
+#include "chre_api/chre.h"
 
 /**
  * @file
@@ -67,9 +67,9 @@ bool nanoappStart() {
   gRunning = true;
   LOGI("Spammer started as instance %" PRIu32, chreGetInstanceId());
 
-  if (!chreSendMessageToHostEndpoint(
-          gMessageData, sizeof(gMessageData), kMessageType,
-          CHRE_HOST_ENDPOINT_BROADCAST, messageFreeCallback)) {
+  if (!chreSendMessageToHostEndpoint(gMessageData, sizeof(gMessageData),
+                                     kMessageType, CHRE_HOST_ENDPOINT_BROADCAST,
+                                     messageFreeCallback)) {
     LOGE("Couldn't send message from start callback");
   }
 
@@ -84,8 +84,7 @@ bool nanoappStart() {
   return true;
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
   CHRE_ASSERT(gRunning);
   gTotalEventCount++;
@@ -96,7 +95,7 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
             CHRE_HOST_ENDPOINT_BROADCAST, messageFreeCallback)) {
       // Note: commented out to prevent logspam because Linux simulator
       // currently always returns false
-      //LOGE("Couldn't send message");
+      // LOGE("Couldn't send message");
     }
   } else if (eventType == kRepeatedEvent) {
     CHRE_ASSERT(eventData == kRepeatedEventData);

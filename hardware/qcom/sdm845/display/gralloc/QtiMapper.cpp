@@ -245,13 +245,15 @@ Return<void> QtiMapper::getTransportSize(void *buffer,
   auto err = Error::BAD_BUFFER;
   auto hnd = static_cast<private_handle_t *>(buffer);
   uint32_t num_fds = 0, num_ints = 0;
-  if (buffer != nullptr && private_handle_t::validate(hnd) == 0) {
+  if (buffer != nullptr && private_handle_t::validate(hnd) == 0 &&
+      buf_mgr_->IsBufferImported(hnd) == Error::NONE) {
     num_fds = 2;
     // TODO(user): reduce to transported values;
     num_ints = static_cast<uint32_t >(hnd->numInts);
     err = Error::NONE;
   }
-  ALOGD_IF(DEBUG, "GetTransportSize: num fds: %d num ints: %d err:%d", num_fds, num_ints, err);
+  ALOGD_IF(DEBUG, "GetTransportSize: num fds: %d num ints: %d IsBufferImported:%d err:%d",
+                   num_fds, num_ints, buf_mgr_->IsBufferImported(hnd), err);
   hidl_cb(err, num_fds, num_ints);
   return Void();
 }

@@ -20,10 +20,10 @@
 #include <sndfile.h>
 #include <string>
 
-#include "chre_api/chre/audio.h"
 #include "chre/platform/system_timer.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/time.h"
+#include "chre_api/chre/audio.h"
 
 namespace chre {
 
@@ -41,8 +41,8 @@ class AudioSource : public NonCopyable {
    * @param maxBufferSize the maximum buffer size, in seconds, to provide to a
    *        nanoapp.
    */
-  AudioSource(const std::string& audioFilename,
-              double minBufferDuration, double maxBufferDuration);
+  AudioSource(const std::string &audioFilename, double minBufferDuration,
+              double maxBufferDuration);
 
   /**
    * Releases the audio buffer created during initialization.

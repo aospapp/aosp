@@ -18,7 +18,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             0b:a1:5a:fa:1d:df:a0:b5:49:44:af:cd:24:a0:6c:ec
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root G3
         Validity
             Not Before: Aug  1 12:00:00 2013 GMT

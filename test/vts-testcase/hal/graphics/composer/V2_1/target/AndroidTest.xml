@@ -25,7 +25,8 @@
         <option name="binary-test-working-directory" value="_64bit::/data/nativetest64/" />
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalGraphicsComposerV2_1TargetTest/VtsHalGraphicsComposerV2_1TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalGraphicsComposerV2_1TargetTest/VtsHalGraphicsComposerV2_1TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
+        <option name="binary-test-disable-framework" value="true"/>
         <option name="exclude-filter" value="r(.*\(default\).*)" />
         <option name="exclude-over-include" value="true" />
         <option name="test-timeout" value="5m"/>
@@ -36,7 +37,7 @@
         <option name="binary-test-working-directory" value="_64bit::/data/nativetest64/" />
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalGraphicsComposerV2_1TargetTest/VtsHalGraphicsComposerV2_1TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalGraphicsComposerV2_1TargetTest/VtsHalGraphicsComposerV2_1TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="exclude-filter" value="r(.*\(vr\).*)" />
         <option name="exclude-over-include" value="true" />

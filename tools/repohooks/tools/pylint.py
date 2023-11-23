@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 # Copyright 2016 The Android Open Source Project
 #
@@ -21,20 +21,58 @@ from __future__ import print_function
 import argparse
 import errno
 import os
+import shutil
 import sys
+import subprocess
+
+
+assert (sys.version_info.major, sys.version_info.minor) >= (3, 5), (
+    'Python 3.5 or newer is required; found %s' % (sys.version,))
 
 
 DEFAULT_PYLINTRC_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), 'pylintrc')
 
 
+def is_pylint3(pylint):
+    """See whether |pylint| supports Python 3."""
+    # Make sure pylint is using Python 3.
+    result = subprocess.run([pylint, '--version'], stdout=subprocess.PIPE,
+                            check=True)
+    if b'Python 3' not in result.stdout:
+        print('%s: unable to locate a Python 3 version of pylint; Python 3 '
+              'support cannot be guaranteed' % (__file__,), file=sys.stderr)
+        return False
+
+    return True
+
+
+def find_pylint3():
+    """Figure out the name of the pylint tool for Python 3.
+
+    It keeps changing with Python 2->3 migrations.  Fun.
+    """
+    # Prefer pylint3 as that's what we want.
+    if shutil.which('pylint3'):
+        return 'pylint3'
+
+    # If there's no pylint, give up.
+    if not shutil.which('pylint'):
+        print('%s: unable to locate pylint; please install:\n'
+              'sudo apt-get install pylint' % (__file__,), file=sys.stderr)
+        sys.exit(1)
+
+    return 'pylint'
+
+
 def get_parser():
     """Return a command line parser."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--init-hook', help='Init hook commands to run.')
+    parser.add_argument('--py3', action='store_true',
+                        help='Force Python 3 mode')
     parser.add_argument('--executable-path',
-                        help='The path of the pylint executable.',
-                        default='pylint')
+                        help='The path of the pylint executable.')
     parser.add_argument('--no-rcfile',
                         help='Specify to use the executable\'s default '
                         'configuration.',
@@ -48,7 +86,18 @@ def main(argv):
     parser = get_parser()
     opts, unknown = parser.parse_known_args(argv)
 
-    cmd = [opts.executable_path]
+    pylint = opts.executable_path
+    if pylint is None:
+        if opts.py3:
+            pylint = find_pylint3()
+        else:
+            pylint = 'pylint'
+
+    # Make sure pylint is using Python 3.
+    if opts.py3:
+        is_pylint3(pylint)
+
+    cmd = [pylint]
     if not opts.no_rcfile:
         # We assume pylint is running in the top directory of the project,
         # so load the pylintrc file from there if it's available.
@@ -67,6 +116,7 @@ def main(argv):
 
     try:
         os.execvp(cmd[0], cmd)
+        return 0
     except OSError as e:
         if e.errno == errno.ENOENT:
             print('%s: unable to run `%s`: %s' % (__file__, cmd[0], e),
@@ -74,8 +124,8 @@ def main(argv):
             print('%s: Try installing pylint: sudo apt-get install %s' %
                   (__file__, os.path.basename(cmd[0])), file=sys.stderr)
             return 1
-        else:
-            raise
+
+        raise
 
 
 if __name__ == '__main__':

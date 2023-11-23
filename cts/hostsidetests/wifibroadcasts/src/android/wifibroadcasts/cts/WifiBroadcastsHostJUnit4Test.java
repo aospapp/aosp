@@ -71,9 +71,14 @@ public class WifiBroadcastsHostJUnit4Test implements IDeviceTest {
     private static final String PROHIBITED_STRING = "UNEXPECTED WIFI BROADCAST RECEIVED";
 
     /**
-     * The maximim number of times to attempt a ping
+     * The maximum total number of times to attempt a ping.
      */
-    private static final int MAXIMUM_PING_TRIES = 30;
+    private static final int MAXIMUM_PING_TRIES = 180;
+
+    /**
+     * The maximum number of times to attempt a ping before toggling wifi.
+     */
+    private static final int MAXIMUM_PING_TRIES_PER_CONNECTION = 60;
 
     /**
      * Name for wifi feature test
@@ -121,6 +126,10 @@ public class WifiBroadcastsHostJUnit4Test implements IDeviceTest {
         CommandResult pingCommandResult = null;
         boolean pingSucceeded = false;
         for (int tries = 0; tries < MAXIMUM_PING_TRIES; tries++) {
+            if (tries > 0 && tries % MAXIMUM_PING_TRIES_PER_CONNECTION == 0) {
+                // if we have been trying for a while, toggle wifi off and then on.
+                device.executeShellCommand("svc wifi disable; sleep 1; svc wifi enable; sleep 3");
+            }
             // We don't require internet connectivity, just a configured address
             pingCommandResult = device.executeShellV2Command("ping -c 4 -W 2 -t 1 8.8.8.8");
             pingResult = String.join("/", pingCommandResult.getStdout(),
@@ -153,5 +162,7 @@ public class WifiBroadcastsHostJUnit4Test implements IDeviceTest {
         } finally {
             in.close();
         }
+        //Re-enable Wi-Fi as part of CTS Pre-conditions
+        device.executeShellCommand("svc wifi enable; sleep 1");
     }
 }

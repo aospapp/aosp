@@ -19,14 +19,10 @@ package com.android.angleIntegrationTest.common;
 import static javax.microedition.khronos.egl.EGL10.EGL_STENCIL_SIZE;
 
 import android.annotation.TargetApi;
-import android.content.Context;
 import android.opengl.EGL14;
 import android.opengl.GLES20;
-import android.opengl.GLSurfaceView;
 import android.os.Build.VERSION_CODES;
 import android.util.Log;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLContext;
@@ -38,28 +34,21 @@ import javax.microedition.khronos.egl.EGLSurface;
  */
 
 @TargetApi(VERSION_CODES.GINGERBREAD)
-public class GlesView extends SurfaceView implements SurfaceHolder.Callback2 {
+public class GlesView {
 
     private static final EGL10 EGL = (EGL10) EGLContext.getEGL();
-    private EGLConfig eglConfig;
-    private EGLDisplay display;
-    private SurfaceHolder mSurfaceHolder;
     private String mRenderer = "";
 
     private final String TAG = this.getClass().getSimpleName();
 
-    public GlesView(Context context) {
-      super(context);
-      this.setWillNotDraw(false);
-      getHolder().addCallback(this);
-      createEGL();
-      getHolder().getSurface();
+    public GlesView() {
+        createEGL();
     }
 
     @TargetApi(VERSION_CODES.JELLY_BEAN_MR1)
     private void createEGL() {
         int[] version = new int[2];
-        display = EGL.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+        EGLDisplay display = EGL.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
         EGL.eglInitialize(display, version);
 
         int[] numConfigs = new int[1];
@@ -68,7 +57,7 @@ public class GlesView extends SurfaceView implements SurfaceHolder.Callback2 {
         EGL.eglGetConfigs(display, allConfigs, numConfigs[0], numConfigs);
 
         int[] configAttrib =
-            new int[] {
+            new int[]{
                 EGL10.EGL_RENDERABLE_TYPE,
                 EGL14.EGL_OPENGL_ES2_BIT,
                 EGL10.EGL_SURFACE_TYPE,
@@ -90,6 +79,7 @@ public class GlesView extends SurfaceView implements SurfaceHolder.Callback2 {
 
         EGLConfig[] selectedConfig = new EGLConfig[1];
         EGL.eglChooseConfig(display, configAttrib, selectedConfig, 1, numConfigs);
+        EGLConfig eglConfig;
         if (selectedConfig[0] != null) {
             eglConfig = selectedConfig[0];
             Log.i(TAG, "Found matching EGL config");
@@ -97,33 +87,35 @@ public class GlesView extends SurfaceView implements SurfaceHolder.Callback2 {
             Log.e(TAG, "Could not find matching EGL config");
             throw new RuntimeException("No Matching EGL Config Found");
         }
-    }
 
-    @TargetApi(VERSION_CODES.JELLY_BEAN_MR1)
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-      EGLSurface surface = EGL.eglCreateWindowSurface(display, eglConfig, this, null);
-        int[] contextAttribs = new int[] {EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL10.EGL_NONE};
-      EGLContext context = EGL
-          .eglCreateContext(display, eglConfig, EGL10.EGL_NO_CONTEXT, contextAttribs);
+        EGLSurface surface = EGL.eglCreatePbufferSurface(display, eglConfig, null);
+        int[] contextAttribs = new int[]{EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL10.EGL_NONE};
+        EGLContext context = EGL
+            .eglCreateContext(display, eglConfig, EGL10.EGL_NO_CONTEXT, contextAttribs);
         EGL.eglMakeCurrent(display, surface, surface, context);
 
         Log.i(TAG, "CTS ANGLE Test :: GLES GL_VENDOR   : " + GLES20.glGetString(GLES20.GL_VENDOR));
         Log.i(TAG, "CTS ANGLE Test :: GLES GL_VERSION  : " + GLES20.glGetString(GLES20.GL_VERSION));
-        Log.i(TAG, "CTS ANGLE Test :: GLES GL_RENDERER : " + GLES20.glGetString(GLES20.GL_RENDERER));
+        Log.i(TAG,
+            "CTS ANGLE Test :: GLES GL_RENDERER : " + GLES20.glGetString(GLES20.GL_RENDERER));
         mRenderer = GLES20.glGetString(GLES20.GL_RENDERER);
     }
 
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {}
-
-    @Override
-    public void surfaceRedrawNeeded(SurfaceHolder holder) {}
-
     public String getRenderer() {
         return mRenderer;
+    }
+
+    public boolean validateDeveloperOption(boolean angleEnabled)  {
+        if (angleEnabled) {
+            if (!mRenderer.toLowerCase().contains("angle")) {
+                return false;
+            }
+        } else {
+            if (mRenderer.toLowerCase().contains("angle")) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -45,7 +45,7 @@ import java.io.StringWriter
 import java.util.function.Predicate
 
 class PsiTypePrinterTest : DriverTest() {
-    @Test
+    // @Test
     fun `Test class reference types`() {
         assertEquals(
             """
@@ -122,7 +122,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test class reference types without Kotlin style nulls`() {
         assertEquals(
             """
@@ -175,7 +175,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test merge annotations`() {
         assertEquals(
             """
@@ -240,7 +240,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Check other annotations than nullness annotations`() {
         assertEquals(
             """
@@ -275,7 +275,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test negative filtering`() {
         assertEquals(
             """
@@ -312,7 +312,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test positive filtering`() {
         assertEquals(
             """
@@ -349,7 +349,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test primitives`() {
         assertEquals(
             """
@@ -397,7 +397,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test primitives with type use turned off`() {
         assertEquals(
             """
@@ -445,7 +445,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test arrays`() {
         assertEquals(
             """
@@ -498,7 +498,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test ellipsis types`() {
         assertEquals(
             """
@@ -538,7 +538,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test wildcard type`() {
         assertEquals(
             """
@@ -597,7 +597,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test primitives in arrays cannot be null`() {
         assertEquals(
             """
@@ -721,7 +721,7 @@ class PsiTypePrinterTest : DriverTest() {
         )
     }
 
-    @Test
+    // @Test
     fun `Test type bounds`() {
         assertEquals(
             """

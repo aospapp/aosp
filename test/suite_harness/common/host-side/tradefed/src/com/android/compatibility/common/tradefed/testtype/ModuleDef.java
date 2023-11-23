@@ -56,7 +56,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Container for Compatibility test module info.
+ *
+ * @deprecated This class is associated with {@link CompatibilityTest} which is deprecate
  */
+@Deprecated
 public class ModuleDef implements IModuleDef {
 
     private final String mId;

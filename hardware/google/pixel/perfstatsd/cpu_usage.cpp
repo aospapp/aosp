@@ -51,22 +51,22 @@ void CpuUsage::setOptions(const std::string &key, const std::string &value) {
         key == CPU_TOPCOUNT) {
         uint32_t val = 0;
         if (!base::ParseUint(value, &val)) {
-            LOG_TO(SYSTEM, ERROR) << "Invalid value: " << value;
+            LOG(ERROR) << "Invalid value: " << value;
             return;
         }
 
         if (key == PROCPROF_THRESHOLD) {
             mProfileThreshold = val;
-            LOG_TO(SYSTEM, INFO) << "set profile threshold " << mProfileThreshold;
+            LOG(INFO) << "set profile threshold " << mProfileThreshold;
         } else if (key == CPU_DISABLED) {
             mDisabled = (val != 0);
-            LOG_TO(SYSTEM, INFO) << "set disabled " << mDisabled;
+            LOG(INFO) << "set disabled " << mDisabled;
         } else if (key == CPU_DEBUG) {
             cDebug = (val != 0);
-            LOG_TO(SYSTEM, INFO) << "set debug " << cDebug;
+            LOG(INFO) << "set debug " << cDebug;
         } else if (key == CPU_TOPCOUNT) {
             mTopcount = val;
-            LOG_TO(SYSTEM, INFO) << "set top count " << mTopcount;
+            LOG(INFO) << "set top count " << mTopcount;
         }
     }
 }
@@ -98,7 +98,7 @@ void CpuUsage::profileProcess(std::string *out) {
                             !base::ParseUint(fields[14], &stime) ||
                             !base::ParseUint(fields[15], &cutime) ||
                             !base::ParseUint(fields[16], &cstime)) {
-                            LOG_TO(SYSTEM, ERROR) << "Invalid proc data\n" << pidStat;
+                            LOG(ERROR) << "Invalid proc data\n" << pidStat;
                             continue;
                         }
                         std::string proc = fields[1];
@@ -120,10 +120,10 @@ void CpuUsage::profileProcess(std::string *out) {
 
                         float usageRatio = (float)(diffUsage * 100.0 / mDiffCpu);
                         if (cDebug && usageRatio > 100) {
-                            LOG_TO(SYSTEM, INFO) << "pid: " << pid << " , ratio: " << usageRatio
-                                                 << " , prev usage: " << mPrevProcdata[pid].usage
-                                                 << " , cur usage: " << totalUsage
-                                                 << " , total cpu diff: " << mDiffCpu;
+                            LOG(INFO) << "pid: " << pid << " , ratio: " << usageRatio
+                                      << " , prev usage: " << mPrevProcdata[pid].usage
+                                      << " , cur usage: " << totalUsage
+                                      << " , total cpu diff: " << mDiffCpu;
                         }
 
                         ProcData data;
@@ -147,7 +147,7 @@ void CpuUsage::profileProcess(std::string *out) {
         }
         closedir(dir);
     } else {
-        LOG_TO(SYSTEM, ERROR) << "Fail to open /proc/";
+        LOG(ERROR) << "Fail to open /proc/";
     }
 }
 
@@ -186,7 +186,7 @@ void CpuUsage::getOverallUsage(std::chrono::system_clock::time_point &now, std::
                     !base::ParseUint(fields[base + 5], &irq) ||
                     !base::ParseUint(fields[base + 6], &softirq) ||
                     !base::ParseUint(fields[base + 7], &steal)) {
-                    LOG_TO(SYSTEM, ERROR) << "Invalid /proc/stat data\n" << line;
+                    LOG(ERROR) << "Invalid /proc/stat data\n" << line;
                     continue;
                 }
 
@@ -207,10 +207,9 @@ void CpuUsage::getOverallUsage(std::chrono::system_clock::time_point &now, std::
                     float ioRatio = (float)(diffIo * 100.0 / mDiffCpu);
 
                     if (cDebug) {
-                        LOG_TO(SYSTEM, INFO)
-                            << "prev total: " << mPrevUsage.cpuUsage
-                            << " , cur total: " << cpuUsage << " , diffusage: " << diffUsage
-                            << " , diffcpu: " << mDiffCpu << " , ratio: " << mTotalRatio;
+                        LOG(INFO) << "prev total: " << mPrevUsage.cpuUsage
+                                  << " , cur total: " << cpuUsage << " , diffusage: " << diffUsage
+                                  << " , diffcpu: " << mDiffCpu << " , ratio: " << mTotalRatio;
                     }
 
                     mPrevUsage.cpuUsage = cpuUsage;
@@ -227,16 +226,18 @@ void CpuUsage::getOverallUsage(std::chrono::system_clock::time_point &now, std::
                     // calculate total cpu usage of each core
                     uint32_t c = 0;
                     if (!base::ParseUint(core, &c)) {
-                        LOG_TO(SYSTEM, ERROR) << "Invalid core: " << core;
+                        LOG(ERROR) << "Invalid core: " << core;
                         continue;
                     }
                     uint64_t diffUsage = cpuUsage - mPrevCoresUsage[c].cpuUsage;
                     float coreTotalRatio = (float)(diffUsage * 100.0 / mDiffCpu);
                     if (cDebug) {
-                        LOG_TO(SYSTEM, INFO)
-                            << "core " << c << " , prev cpu usage: " << mPrevCoresUsage[c].cpuUsage
-                            << " , cur cpu usage: " << cpuUsage << " , diffusage: " << diffUsage
-                            << " , difftotalcpu: " << mDiffCpu << " , ratio: " << coreTotalRatio;
+                        LOG(INFO) << "core " << c
+                                  << " , prev cpu usage: " << mPrevCoresUsage[c].cpuUsage
+                                  << " , cur cpu usage: " << cpuUsage
+                                  << " , diffusage: " << diffUsage
+                                  << " , difftotalcpu: " << mDiffCpu
+                                  << " , ratio: " << coreTotalRatio;
                     }
                     mPrevCoresUsage[c].cpuUsage = cpuUsage;
 
@@ -248,7 +249,7 @@ void CpuUsage::getOverallUsage(std::chrono::system_clock::time_point &now, std::
         }
         out->append("\n");
     } else {
-        LOG_TO(SYSTEM, ERROR) << "Fail to read /proc/stat";
+        LOG(ERROR) << "Fail to read /proc/stat";
     }
 }
 
@@ -263,7 +264,7 @@ void CpuUsage::refresh(void) {
 
     if (mTotalRatio >= mProfileThreshold) {
         if (cDebug)
-            LOG_TO(SYSTEM, INFO) << "Total CPU usage over " << mProfileThreshold << "%";
+            LOG(INFO) << "Total CPU usage over " << mProfileThreshold << "%";
         std::string profileResult;
         profileProcess(&profileResult);
         if (mProfileProcess) {
@@ -279,6 +280,6 @@ void CpuUsage::refresh(void) {
     if (cDebug) {
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now() - now);
-        LOG_TO(SYSTEM, INFO) << "Took " << ms.count() << " ms, data bytes: " << out.length();
+        LOG(INFO) << "Took " << ms.count() << " ms, data bytes: " << out.length();
     }
 }

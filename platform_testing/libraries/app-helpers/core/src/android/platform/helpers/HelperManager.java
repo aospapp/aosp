@@ -21,25 +21,25 @@ import static java.lang.reflect.Modifier.isInterface;
 
 import android.app.Instrumentation;
 import android.content.Context;
-import android.support.test.uiautomator.UiDevice;
+import android.platform.helpers.exceptions.MappedMultiException;
+import android.platform.helpers.exceptions.TestHelperException;
 import android.util.Log;
 
 import dalvik.system.DexFile;
+import dalvik.system.PathClassLoader;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.ClassLoader;
-import java.lang.ClassNotFoundException;
-import java.lang.IllegalAccessException;
-import java.lang.InstantiationException;
-import java.lang.NoSuchMethodException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * The HelperManager class is used to remove any explicit or hard-coded dependencies on app helper
@@ -60,6 +60,8 @@ import java.util.List;
  * Library and provide a more robust library for use across the Android source tree.
  */
 public class HelperManager {
+    public static final String NO_MATCH_ERROR_MESSAGE = "No matching implementations";
+
     private static final String LOG_TAG = HelperManager.class.getSimpleName();
     private static HelperManager sInstance;
 
@@ -118,6 +120,7 @@ public class HelperManager {
 
     private Instrumentation mInstrumentation;
     private List<String> mClasses;
+    private ClassLoader mLoader;
 
     private HelperManager(List<String> paths, Instrumentation instr) {
         mInstrumentation = instr;
@@ -128,36 +131,22 @@ public class HelperManager {
                 DexFile dex = new DexFile(path);
                 mClasses.addAll(Collections.list(dex.entries()));
             }
+            mLoader =
+                    new PathClassLoader(
+                            String.join(":", paths), HelperManager.class.getClassLoader());
         } catch (IOException e) {
-            throw new RuntimeException("Failed to retrieve the dex file.");
+            throw new TestHelperException("Failed to retrieve the dex file.");
         }
-    }
-
-    /*
-     * Returns a concrete helper for the {@link ILauncherHelper}.
-     *
-     * @throws RuntimeException if no implementation is found
-     * @return a concrete implementation of {@link ILauncherHelper}
-     */
-    public ILauncherHelper getLauncherHelper() {
-        UiDevice device = UiDevice.getInstance(mInstrumentation);
-        for (ILauncherHelper implementation : getAll(ILauncherHelper.class)) {
-            if (implementation.getLauncherName().equals(device.getLauncherPackageName())) {
-              return implementation;
-            }
-        }
-
-        throw new RuntimeException("Unable to find a supported launcher implementation.");
     }
 
     /**
      * Returns a concrete implementation of the helper interface supplied, if available.
      *
      * @param base the interface base class to find an implementation for
-     * @throws RuntimeException if no implementation is found
+     * @throws TestHelperException if no implementation is found
      * @return a concrete implementation of base
      */
-    public <T extends IAppHelper> T get(Class<T> base) {
+    public <T extends ITestHelper> T get(Class<T> base) {
         return get(base, "");
     }
 
@@ -165,46 +154,64 @@ public class HelperManager {
      * Returns a concrete implementation of the helper interface supplied, if available.
      *
      * @param base the interface base class to find an implementation for
-     * @param prefix a prefix for matching the helper implementation, if multiple exist
-     * @throws RuntimeException if no implementation is found
-     * @return a concrete implementation of base
+     * @param keyword a keyword for matching the helper implementation, if multiple exist
+     * @throws TestHelperException if no implementation is found
+     * @return a list of all concrete implementations we could find
      */
-    public <T extends IAppHelper> T get(Class<T> base, String prefix) {
-        List<T> implementations = getAll(base);
-        List<T> matching = new ArrayList<>();
-        for (T implementation : implementations) {
-            if (implementation.getClass().getSimpleName().startsWith(prefix)) {
-                Log.i(LOG_TAG, "Found matching implementation: "
-                        + implementation.getClass().getSimpleName());
-                matching.add(implementation);
-            }
-        }
-
-        if (!matching.isEmpty()) {
-            T result = matching.get(0);
-            Log.i(LOG_TAG, "Selecting implementation: " + result.getClass().getSimpleName());
-            return result;
-        }
-
-        throw new RuntimeException(
-                String.format("Failed to find an implementation for %s", base.toString()));
+    public <T extends ITestHelper> T get(Class<T> base, String keyword) {
+        List<T> matching = getAll(base, keyword);
+        Log.i(
+                LOG_TAG,
+                String.format("Selecting implementation %s", matching.get(0).getClass().getName()));
+        return matching.get(0);
     }
 
     /**
-     * Returns all concrete implementations of the helper interface supplied.
+     * Returns a concrete implementation of the helper interface supplied, if available.
      *
      * @param base the interface base class to find an implementation for
+     * @param regex a regular expression for matching the helper implementation, if multiple exist
+     * @throws TestHelperException if no implementation is found
      * @return a list of all concrete implementations we could find
      */
-    public <T extends IAppHelper> List<T> getAll(Class<T> base) {
-        ClassLoader loader = HelperManager.class.getClassLoader();
+    public <T extends ITestHelper> T get(Class<T> base, Pattern regex) {
+        List<T> matching = getAll(base, regex);
+        Log.i(
+                LOG_TAG,
+                String.format("Selecting implementation %s", matching.get(0).getClass().getName()));
+        return matching.get(0);
+    }
+
+    /**
+     * Returns a concrete implementation of the helper interface supplied, if available.
+     *
+     * @param base the interface base class to find an implementation for
+     * @param keyword a keyword for matching the helper implementation, if multiple exist
+     * @throws TestHelperException if no implementation is found
+     * @return a concrete implementation of base
+     */
+    private <T extends ITestHelper> List<T> getAll(Class<T> base, String keyword) {
+        Pattern p = Pattern.compile(".*\\Q" + keyword + "\\E.*");
+        return getAll(base, p);
+    }
+
+    /**
+     * Returns a concrete implementation of the helper interface supplied, if available.
+     *
+     * @param base the interface base class to find an implementation for
+     * @param regex a regular expression for matching the helper implementation, if multiple exist
+     * @throws TestHelperException if no implementation is found
+     * @return a concrete implementation of base
+     */
+    private <T extends ITestHelper> List<T> getAll(Class<T> base, Pattern regex) {
         List<T> implementations = new ArrayList<>();
+        Map<Object, Throwable> mappedExceptions = new HashMap<>();
 
         // Iterate and search for the implementation
         for (String className : mClasses) {
             Class<?> clazz = null;
             try {
-                clazz = loader.loadClass(className);
+                clazz = mLoader.loadClass(className);
                 // Skip non-instantiable classes
                 if (isAbstract(clazz.getModifiers()) || isInterface(clazz.getModifiers())) {
                     continue;
@@ -213,28 +220,84 @@ public class HelperManager {
                 Log.w(LOG_TAG, String.format("Class not found: %s", className));
                 continue;
             }
-            if (base.isAssignableFrom(clazz) && !clazz.equals(base)) {
-
+            if (base.isAssignableFrom(clazz)
+                    && !clazz.equals(base)
+                    && regex.matcher(className).matches()) {
                 // Instantiate the implementation class and return
                 try {
                     Constructor<?> constructor = clazz.getConstructor(Instrumentation.class);
                     implementations.add((T)constructor.newInstance(mInstrumentation));
                 } catch (NoSuchMethodException e) {
-                    Log.w(LOG_TAG, String.format("Failed to find a matching constructor for %s",
-                            className), e);
+                    mappedExceptions.put(
+                            clazz,
+                            wrapThrowable(
+                                    String.format(
+                                            "Failed to find a matching constructor for %s",
+                                            className),
+                                    e));
                 } catch (IllegalAccessException e) {
-                    Log.w(LOG_TAG, String.format("Failed to access the constructor %s",
-                            className), e);
+                    mappedExceptions.put(
+                            clazz,
+                            wrapThrowable(
+                                    String.format("Failed to access the constructor %s", className),
+                                    e));
                 } catch (InstantiationException e) {
-                    Log.w(LOG_TAG, String.format("Failed to instantiate %s",
-                            className), e);
+                    mappedExceptions.put(
+                            clazz,
+                            wrapThrowable(String.format("Failed to instantiate %s", className), e));
                 } catch (InvocationTargetException e) {
-                    Log.w(LOG_TAG, String.format("Exception encountered instantiating %s",
-                            className), e);
+                    mappedExceptions.put(
+                            clazz,
+                            wrapThrowable(
+                                    String.format(
+                                            "Exception encountered instantiating %s", className),
+                                    e));
                 }
             }
         }
 
+        if (implementations.isEmpty()) {
+            if (mappedExceptions.isEmpty()) {
+                throw new TestHelperException(
+                        String.format(
+                                "Could not find an implementation for %s. %s.",
+                                base, NO_MATCH_ERROR_MESSAGE));
+            }
+            throw new MappedMultiException(
+                    String.format(
+                            "Could not find an implementation for %s. "
+                                    + "Instantiation for all candidates failed. "
+                                    + "Please look at the error messages below to determine why.",
+                            base),
+                    mappedExceptions);
+        }
+
+        Log.d(
+                LOG_TAG,
+                String.format(
+                        "Found matching implementations: %s.",
+                        implementations
+                                .stream()
+                                .map(i -> i.getClass().getName())
+                                .collect(Collectors.toList())));
+
         return implementations;
+    }
+
+    /** Wrap the {@link Throwable} in a {@link TestHelperException} with a custom error message. */
+    private TestHelperException wrapThrowable(String message, Throwable t) {
+        Throwable causeIfPresent = getCauseIfPresent(t);
+        // According to the documentation of RuntimeException the message for the causing Throwable
+        // needs to be included explicitly.
+        TestHelperException re =
+                new TestHelperException(
+                        String.format("%s:\n%s.", message, causeIfPresent.getMessage()),
+                        causeIfPresent);
+        return re;
+    }
+
+    /** Get the cause of a {@link Throwable}, or itself if one is not present. */
+    private Throwable getCauseIfPresent(Throwable t) {
+        return t.getCause() == null ? t : t.getCause();
     }
 }

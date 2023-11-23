@@ -48,7 +48,7 @@
 
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <!-- See http://go/sample-categories for details on the next 4 fields. -->
         <!-- Most samples just need to udpate the Categories field. This is a comma-
              seperated list of topic tags. Unlike the old category system, samples
@@ -96,24 +96,19 @@
             Avoid simply rearranging the sample's title. What does this sample actually
             accomplish, and how does it do it? -->
         <description>
-            Sample demonstrates how to include accessibility support for your wearable app.
+            <![CDATA[
+Sample moved to [github.com/android/wear-os][1].
+
+[1]: https://github.com/android/wear-os
+]]>
         </description>
 
-        <!-- Multi-paragraph introduction to sample, from an educational point-of-view.
-        Makrdown formatting allowed. This will be used to generate a mini-article for the
-        sample on DAC. -->
         <intro>
-            Accessibility is an important part of any app (especially wearable apps). By
-            integrating accessible components and services, you can improve your app's usability,
-            particularly for users with disabilities.
+            <![CDATA[
+This repo and all Wear OS samples have been moved to [github.com/android/wear-os][1]. Please check out the code there. Thank you!
 
-            This sample demonstrates common UX patterns in wearable apps along with accessibility
-            support of those patterns. Be sure to review the [Accessibility Developer Checklist][1]
-            for your own app. For additional information please see our
-            [Best Practices for User Interface][2] page.
-
-            [1]: https://developer.android.com/guide/topics/ui/accessibility/checklist.html
-            [2]: https://developer.android.com/training/accessibility/index.html
+[1]: https://github.com/android/wear-os
+]]>
         </intro>
     </metadata>
 </sample>

@@ -27,6 +27,7 @@ import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.PropertyItem
 import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.TypeParameterList
+import com.android.tools.metalava.model.VisibilityLevel
 import com.intellij.lang.jvm.types.JvmReferenceType
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassType
@@ -40,6 +41,7 @@ import com.intellij.psi.util.PsiUtil
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.uast.UClass
 import org.jetbrains.uast.UMethod
+import org.jetbrains.uast.kotlin.KotlinUClass
 
 open class PsiClassItem(
     override val codebase: PsiBasedCodebase,
@@ -58,12 +60,14 @@ open class PsiClassItem(
         documentation = documentation,
         element = psiClass
     ), ClassItem {
+
     lateinit var containingPackage: PsiPackageItem
 
     override fun containingPackage(): PackageItem = containingClass?.containingPackage() ?: containingPackage
     override fun simpleName(): String = name
     override fun fullName(): String = fullName
     override fun qualifiedName(): String = qualifiedName
+    override fun isDefined(): Boolean = codebase.unsupported()
     override fun isInterface(): Boolean = classType == ClassType.INTERFACE
     override fun isAnnotationType(): Boolean = classType == ClassType.ANNOTATION_TYPE
     override fun isEnum(): Boolean = classType == ClassType.ENUM
@@ -79,7 +83,7 @@ open class PsiClassItem(
         this.superClassType = superClassType
     }
 
-    override var defaultConstructor: ConstructorItem? = null
+    override var stubConstructor: ConstructorItem? = null
     override var notStrippable = false
     override var artifact: String? = null
 
@@ -447,9 +451,6 @@ open class PsiClassItem(
 
             val constructors: MutableList<PsiConstructorItem> = ArrayList(5)
             for (psiMethod in psiMethods) {
-                if (psiMethod.isPrivate() || psiMethod.isPackagePrivate()) {
-                    item.hasPrivateConstructor = true
-                }
                 if (psiMethod.isConstructor) {
                     val constructor = PsiConstructorItem.create(codebase, item, psiMethod)
                     constructors.add(constructor)
@@ -478,12 +479,12 @@ open class PsiClassItem(
                 // (except in Java 1.9, where they can be private
                 for (method in methods) {
                     if (!method.isPrivate) {
-                        method.mutableModifiers().setPublic(true)
+                        method.mutableModifiers().setVisibilityLevel(VisibilityLevel.PUBLIC)
                     }
                 }
                 for (method in fields) {
                     val m = method.mutableModifiers()
-                    m.setPublic(true)
+                    m.setVisibilityLevel(VisibilityLevel.PUBLIC)
                     m.setStatic(true)
                 }
             }
@@ -602,6 +603,10 @@ open class PsiClassItem(
             if (psiClass.name?.startsWith("-") == true) {
                 // Deliberately hidden; see examples like
                 //     @file:JvmName("-ViewModelExtensions") // Hide from Java sources in the IDE.
+                return false
+            }
+            if (psiClass is KotlinUClass && psiClass.sourcePsi == null) {
+                // Top level kt classes (FooKt for Foo.kt) do not have implicit default constructor
                 return false
             }
 

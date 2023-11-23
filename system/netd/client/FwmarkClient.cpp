@@ -31,20 +31,10 @@
 namespace {
 
 // Env flag to control whether FwmarkClient sends sockets to netd for marking.
-// This can only be disabled in debuggable builds and is meant for kernel testing.
+// This can only be disabled when the process running as root and is meant for kernel testing.
 inline constexpr char ANDROID_NO_USE_FWMARK_CLIENT[] = "ANDROID_NO_USE_FWMARK_CLIENT";
 
 const sockaddr_un FWMARK_SERVER_PATH = {AF_UNIX, "/dev/socket/fwmarkd"};
-
-#if defined(NETD_CLIENT_DEBUGGABLE_BUILD)
-constexpr bool isBuildDebuggable = true;
-#else
-constexpr bool isBuildDebuggable = false;
-#endif
-
-bool isOverriddenBy(const char *name) {
-    return isBuildDebuggable && getenv(name);
-}
 
 bool commandHasFd(int cmdId) {
     return (cmdId != FwmarkCommand::QUERY_USER_ACCESS) &&
@@ -55,13 +45,20 @@ bool commandHasFd(int cmdId) {
 }  // namespace
 
 bool FwmarkClient::shouldSetFwmark(int family) {
-    if (isOverriddenBy(ANDROID_NO_USE_FWMARK_CLIENT)) return false;
-    return FwmarkCommand::isSupportedFamily(family);
-}
+    // Checking whether family is supported before checking whether this can be
+    // disabled. Because there are existing processes using AF_LOCAL socket but it
+    // doesn't have permission to call geteuid(). Reference b/135422468.
+    if (!FwmarkCommand::isSupportedFamily(family)) {
+        return false;
+    }
 
-bool FwmarkClient::shouldReportConnectComplete(int family) {
-    if (isOverriddenBy(ANDROID_NO_USE_FWMARK_CLIENT)) return false;
-    return shouldSetFwmark(family);
+    // Permit processes running as root to disable marking. This is required, for
+    // example, to run the kernel networking tests.
+    if (getenv(ANDROID_NO_USE_FWMARK_CLIENT) && geteuid() == 0) {
+        return false;
+    }
+
+    return true;
 }
 
 FwmarkClient::FwmarkClient() : mChannel(-1) {

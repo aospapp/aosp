@@ -25,6 +25,7 @@ namespace art {
 
 struct ExecutableOffsets;
 class ArtMethod;
+class ReflectiveValueVisitor;
 
 namespace mirror {
 
@@ -40,6 +41,9 @@ class MANAGED Executable : public AccessibleObject {
   ArtMethod* GetArtMethod() REQUIRES_SHARED(Locks::mutator_lock_) {
     return reinterpret_cast64<ArtMethod*>(GetField64<kVerifyFlags>(ArtMethodOffset()));
   }
+
+  template <VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
+  inline void VisitTarget(ReflectiveValueVisitor* v) REQUIRES(Locks::mutator_lock_);
 
   template <bool kTransactionActive = false,
             bool kCheckTransaction = true,
@@ -60,6 +64,21 @@ class MANAGED Executable : public AccessibleObject {
   uint64_t art_method_;
   uint32_t access_flags_;
   uint32_t dex_method_index_;
+
+  template<bool kTransactionActive = false>
+  void SetDeclaringClass(ObjPtr<mirror::Class> klass) REQUIRES_SHARED(Locks::mutator_lock_) {
+    SetFieldObject<kTransactionActive>(DeclaringClassOffset(), klass);
+  }
+
+  template<bool kTransactionActive = false>
+  void SetAccessFlags(uint32_t flags) REQUIRES_SHARED(Locks::mutator_lock_) {
+    SetField32<kTransactionActive>(AccessFlagsOffset(), flags);
+  }
+
+  template<bool kTransactionActive = false>
+  void SetDexMethodIndex(uint32_t idx) REQUIRES_SHARED(Locks::mutator_lock_) {
+    SetField32<kTransactionActive>(DexMethodIndexOffset(), idx);
+  }
 
   static MemberOffset DeclaringClassOffset() {
     return MemberOffset(OFFSETOF_MEMBER(Executable, declaring_class_));

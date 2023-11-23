@@ -19,6 +19,7 @@
     <option name="config-descriptor:metadata" key="component" value="print" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="cmd print set-bind-instant-service-allowed true" />
@@ -40,6 +41,8 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsPrintTestCases.apk" />
     </target_preparer>
+
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceInteractionHelperInstaller" />
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.print.cts" />

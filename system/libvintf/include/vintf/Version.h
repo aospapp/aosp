@@ -92,6 +92,8 @@ struct KernelVersion {
         if (majorRev > other.majorRev) return false;
         return minorRev < other.minorRev;
     }
+
+    inline constexpr Version dropMinor() const { return Version{version, majorRev}; }
 };
 
 } // namespace vintf

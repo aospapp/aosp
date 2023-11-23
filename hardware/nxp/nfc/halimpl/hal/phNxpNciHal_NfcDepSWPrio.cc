@@ -23,6 +23,8 @@
 #define CLEAN_UP_TIMEOUT 250
 #define MAX_WRITE_RETRY 5
 
+#define MAX_POLL_CMD_LEN 64
+#define NCI_HEADER_SIZE 3
 /******************* Global variables *****************************************/
 extern phNxpNciHal_Control_t nxpncihal_ctrl;
 extern NFCSTATUS phNxpNciHal_send_ext_cmd(uint16_t cmd_len, uint8_t* p_cmd);
@@ -33,7 +35,7 @@ static uint8_t cmd_resume_rf_discovery[] = {0x21, 0x06, 0x01,
 /*RF_DISCOVER_SELECT_CMD*/
 static uint8_t cmd_select_rf_discovery[] = {0x21, 0x04, 0x03, 0x01, 0x04, 0x02};
 
-static uint8_t cmd_poll[64];
+static uint8_t cmd_poll[MAX_POLL_CMD_LEN];
 static uint8_t cmd_poll_len = 0;
 int discover_type = 0xFF;
 uint32_t cleanup_timer;
@@ -509,11 +511,16 @@ NFCSTATUS phNxpNciHal_select_RF_Discovery(unsigned int RfID,
 **
 *******************************************************************************/
 void phNxpNciHal_NfcDep_cmd_ext(uint8_t* p_cmd_data, uint16_t* cmd_len) {
+  if (*cmd_len < NCI_HEADER_SIZE) return;
   if (p_cmd_data[0] == 0x21 && p_cmd_data[1] == 0x03) {
     if (*cmd_len == 6 && p_cmd_data[3] == 0x01 && p_cmd_data[4] == 0x02 &&
         p_cmd_data[5] == 0x01) {
       /* DO NOTHING */
     } else {
+      if (*cmd_len > MAX_POLL_CMD_LEN) {
+        NXPLOG_NCIHAL_E("invalid cmd_len");
+        return;
+      }
       /* Store the polling loop configuration */
       cmd_poll_len = *cmd_len;
       memset(&cmd_poll, 0, cmd_poll_len);

@@ -21,6 +21,8 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.matches;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.android.os.AtomsProto.Atom;
 import com.android.os.AtomsProto.BleScanStateChanged;
@@ -158,6 +160,8 @@ public class MetricUtilTest {
     /** Test that a non-empty ConfigMetricsReportList is parsed correctly. */
     @Test
     public void testNonEmptyMetricReportList() throws DeviceNotAvailableException {
+        when(mTestDevice.checkApiLevelAgainstNextRelease(MetricUtil.SDK_VERSION_Q))
+                .thenReturn(true);
         byte[] sampleReportBytes = SINGLE_REPORT_LIST_PROTO.toByteArray();
         // Mock executeShellCommand to supply the passed-in CollectingByteOutputReceiver with
         // SINGLE_REPORT_LIST_PROTO.
@@ -167,7 +171,8 @@ public class MetricUtilTest {
                         matches(
                                 String.format(
                                         MetricUtil.DUMP_REPORT_CMD_TEMPLATE,
-                                        String.valueOf(CONFIG_ID))),
+                                        String.valueOf(CONFIG_ID),
+                                        MetricUtil.DUMP_REPORT_INCLUDE_CURRENT_BUCKET)),
                         any(CollectingByteOutputReceiver.class));
         List<EventMetricData> data = MetricUtil.getEventMetricData(mTestDevice, CONFIG_ID);
         // Resulting list should have two metrics.
@@ -183,6 +188,8 @@ public class MetricUtilTest {
     /** Test that an empty list is returned for an empty ConfigMetricsReportList proto. */
     @Test
     public void testEmptyMetricReportList() throws DeviceNotAvailableException {
+        when(mTestDevice.checkApiLevelAgainstNextRelease(MetricUtil.SDK_VERSION_Q))
+                .thenReturn(true);
         byte[] emptyReportBytes = ConfigMetricsReport.newBuilder().build().toByteArray();
         // Mock executeShellCommand to supply the passed-in CollectingByteOutputReceiver with the
         // empty report list proto.
@@ -192,7 +199,8 @@ public class MetricUtilTest {
                         matches(
                                 String.format(
                                         MetricUtil.DUMP_REPORT_CMD_TEMPLATE,
-                                        String.valueOf(CONFIG_ID))),
+                                        String.valueOf(CONFIG_ID),
+                                        MetricUtil.DUMP_REPORT_INCLUDE_CURRENT_BUCKET)),
                         any(CollectingByteOutputReceiver.class));
         List<EventMetricData> data = MetricUtil.getEventMetricData(mTestDevice, CONFIG_ID);
         // Resulting list should be empty.
@@ -206,6 +214,8 @@ public class MetricUtilTest {
     @Test
     public void testMultipleReportsInReportList_differentAtoms()
             throws DeviceNotAvailableException {
+        when(mTestDevice.checkApiLevelAgainstNextRelease(MetricUtil.SDK_VERSION_Q))
+                .thenReturn(true);
         byte[] sampleReportBytes = MULTIPLE_REPORT_LIST_PROTO_DIFFERENT_ATOMS.toByteArray();
         // Mock executeShellCommand to supply the passed-in CollectingByteOutputReceiver with
         // SINGLE_REPORT_LIST_PROTO.
@@ -215,7 +225,8 @@ public class MetricUtilTest {
                         matches(
                                 String.format(
                                         MetricUtil.DUMP_REPORT_CMD_TEMPLATE,
-                                        String.valueOf(CONFIG_ID))),
+                                        String.valueOf(CONFIG_ID),
+                                        MetricUtil.DUMP_REPORT_INCLUDE_CURRENT_BUCKET)),
                         any(CollectingByteOutputReceiver.class));
         List<EventMetricData> data = MetricUtil.getEventMetricData(mTestDevice, CONFIG_ID);
         // Resulting list should have two metrics.
@@ -234,6 +245,8 @@ public class MetricUtilTest {
      */
     @Test
     public void testMultipleReportsInReportList_sameAtom() throws DeviceNotAvailableException {
+        when(mTestDevice.checkApiLevelAgainstNextRelease(MetricUtil.SDK_VERSION_Q))
+                .thenReturn(true);
         byte[] sampleReportBytes = MULTIPLE_REPORT_LIST_PROTO_SAME_ATOM.toByteArray();
         // Mock executeShellCommand to supply the passed-in CollectingByteOutputReceiver with
         // SINGLE_REPORT_LIST_PROTO.
@@ -243,7 +256,8 @@ public class MetricUtilTest {
                         matches(
                                 String.format(
                                         MetricUtil.DUMP_REPORT_CMD_TEMPLATE,
-                                        String.valueOf(CONFIG_ID))),
+                                        String.valueOf(CONFIG_ID),
+                                        MetricUtil.DUMP_REPORT_INCLUDE_CURRENT_BUCKET)),
                         any(CollectingByteOutputReceiver.class));
         List<EventMetricData> data = MetricUtil.getEventMetricData(mTestDevice, CONFIG_ID);
         // Resulting list should have two metrics.
@@ -259,6 +273,8 @@ public class MetricUtilTest {
     /** Test that invalid proto from the dump report command causes an exception. */
     @Test
     public void testInvalidDumpedReportThrows() throws DeviceNotAvailableException {
+        when(mTestDevice.checkApiLevelAgainstNextRelease(MetricUtil.SDK_VERSION_Q))
+                .thenReturn(true);
         byte[] invalidProtoBytes = "not a proto".getBytes();
         // Mock executeShellCommand to supply the passed-in CollectingByteOutputReceiver with the
         // invalid proto bytes.
@@ -268,7 +284,8 @@ public class MetricUtilTest {
                         matches(
                                 String.format(
                                         MetricUtil.DUMP_REPORT_CMD_TEMPLATE,
-                                        String.valueOf(CONFIG_ID))),
+                                        String.valueOf(CONFIG_ID),
+                                        MetricUtil.DUMP_REPORT_INCLUDE_CURRENT_BUCKET)),
                         any(CollectingByteOutputReceiver.class));
         try {
             List<EventMetricData> data = MetricUtil.getEventMetricData(mTestDevice, CONFIG_ID);
@@ -276,6 +293,22 @@ public class MetricUtilTest {
         } catch (RuntimeException e) {
             // Expected behavior, no action required.
         }
+    }
+
+    /** Test that the legacy dump stats report command executes with version below Android Q */
+    @Test
+    public void testLegacyDumpReportCmd() throws DeviceNotAvailableException {
+        when(mTestDevice.checkApiLevelAgainstNextRelease(MetricUtil.SDK_VERSION_Q))
+                .thenReturn(false);
+        List<EventMetricData> data = MetricUtil.getEventMetricData(mTestDevice, CONFIG_ID);
+        verify(mTestDevice)
+                .executeShellCommand(
+                        matches(
+                                String.format(
+                                        MetricUtil.DUMP_REPORT_CMD_TEMPLATE,
+                                        String.valueOf(CONFIG_ID),
+                                        "")),
+                        any(CollectingByteOutputReceiver.class));
     }
 
     /** Test that the utility can correctly retrieve statsd metadata. */

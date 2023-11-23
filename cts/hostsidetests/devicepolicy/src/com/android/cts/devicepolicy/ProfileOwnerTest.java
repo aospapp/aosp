@@ -15,6 +15,11 @@
  */
 package com.android.cts.devicepolicy;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import org.junit.Test;
+
 /**
  * Host side tests for profile owner.  Run the CtsProfileOwnerApp device side test.
  */
@@ -29,7 +34,7 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
     private int mUserId = 0;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         mUserId = getPrimaryUser();
@@ -47,13 +52,7 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
         }
     }
 
-    public void testWifi() throws Exception {
-        if (!mHasFeature || !hasDeviceFeature("android.hardware.wifi")) {
-            return;
-        }
-        executeProfileOwnerTest("WifiTest");
-    }
-
+    @Test
     public void testManagement() throws Exception {
         if (!mHasFeature) {
             return;
@@ -61,6 +60,7 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
         executeProfileOwnerTest("ManagementTest");
     }
 
+    @Test
     public void testAdminActionBookkeeping() throws Exception {
         if (!mHasFeature) {
             return;
@@ -68,6 +68,7 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
         executeProfileOwnerTest("AdminActionBookkeepingTest");
     }
 
+    @Test
     public void testAppUsageObserver() throws Exception {
         if (!mHasFeature) {
             return;
@@ -75,6 +76,7 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
         executeProfileOwnerTest("AppUsageObserverTest");
     }
 
+    @Test
     public void testBackupServiceEnabling() throws Exception {
         final boolean hasBackupService = getDevice().hasFeature(FEATURE_BACKUP);
         // The backup service cannot be enabled if the backup feature is not supported.
@@ -85,7 +87,7 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasFeature) {
             assertTrue("Failed to remove profile owner.",
                     removeAdmin(PROFILE_OWNER_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId));

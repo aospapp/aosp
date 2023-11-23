@@ -304,9 +304,43 @@ class TextTypeItem(
             return s
         }
 
+        /**
+         * Given a type possibly using the Kotlin-style null syntax, strip out any Kotlin-style
+         * null syntax characters, e.g. "String?" -> "String", but make sure not to damage types
+         * like "Set<? extends Number>".
+         */
+        fun stripKotlinNullChars(s: String): String {
+            var found = false
+            var prev = ' '
+            for (c in s) {
+                if (c == '!' || c == '?' && (prev != '<' && prev != ',' && prev != ' ')) {
+                    found = true
+                    break
+                }
+                prev = c
+            }
+
+            if (!found) {
+                return s
+            }
+
+            val sb = StringBuilder(s.length)
+            for (c in s) {
+                if (c == '!' || c == '?' && (prev != '<' && prev != ',' && prev != ' ')) {
+                    // skip
+                } else {
+                    sb.append(c)
+                }
+                prev = c
+            }
+
+            return sb.toString()
+        }
+
         private fun eraseAnnotations(type: String, outer: Boolean, inner: Boolean): String {
             if (type.indexOf('@') == -1) {
-                return type
+                // If using Kotlin-style null syntax, strip those markers as well
+                return stripKotlinNullChars(type)
             }
 
             assert(inner || !outer) // Can't supply outer=true,inner=false

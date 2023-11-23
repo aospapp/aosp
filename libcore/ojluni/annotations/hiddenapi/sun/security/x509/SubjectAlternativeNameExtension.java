@@ -67,7 +67,7 @@ public class SubjectAlternativeNameExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.x509.GeneralNames get(java.lang.String name) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

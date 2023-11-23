@@ -34,9 +34,16 @@ persistent=yes
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
 load-plugins=
+    pylint.extensions.bad_builtin,
+    pylint.extensions.check_elif,
+    pylint.extensions.docstyle,
+    pylint.extensions.emptystring,
+    pylint.extensions.overlapping_exceptions,
+    pylint.extensions.redefined_variable_type,
 
-# Use multiple processes to speed up Pylint.
-jobs=1
+# Use multiple processes to speed up Pylint.  A value of 0 autodetects available
+# processors.
+jobs=0
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
@@ -65,7 +72,70 @@ confidence=
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
 # multiple time. See also the "--disable" option for examples.
-#enable=
+enable=
+    apply-builtin,
+    backtick,
+    bad-python3-import,
+    basestring-builtin,
+    buffer-builtin,
+    cmp-builtin,
+    cmp-method,
+    coerce-builtin,
+    coerce-method,
+    delslice-method,
+    deprecated-itertools-function,
+    deprecated-str-translate-call,
+    deprecated-string-function,
+    deprecated-types-field,
+    dict-items-not-iterating,
+    dict-iter-method,
+    dict-keys-not-iterating,
+    dict-values-not-iterating,
+    dict-view-method,
+    div-method,
+    exception-message-attribute,
+    execfile-builtin,
+    file-builtin,
+    filter-builtin-not-iterating,
+    getslice-method,
+    hex-method,
+    idiv-method,
+    import-star-module-level,
+    indexing-exception,
+    input-builtin,
+    intern-builtin,
+    invalid-str-codec,
+    long-builtin,
+    long-suffix,
+    map-builtin-not-iterating,
+    metaclass-assignment,
+    next-method-called,
+    next-method-defined,
+    nonzero-method,
+    oct-method,
+    old-division,
+    old-ne-operator,
+    old-octal-literal,
+    old-raise-syntax,
+    parameter-unpacking,
+    print-statement,
+    raising-string,
+    range-builtin-not-iterating,
+    raw_input-builtin,
+    rdiv-method,
+    reduce-builtin,
+    reload-builtin,
+    round-builtin,
+    setslice-method,
+    standarderror-builtin,
+    sys-max-int,
+    unichr-builtin,
+    unicode-builtin,
+    unpacking-in-except,
+    using-cmp-argument,
+    xrange-builtin,
+    zip-builtin-not-iterating,
+
 
 # Disable the message, report, category or checker with the given id(s). You
 # can either give multiple identifiers separated by comma (,) or put this
@@ -77,6 +147,7 @@ confidence=
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
 # We leave many of the style warnings to judgement/peer review.
+# useless-object-inheritance: We disable this for Python 2 compatibility.
 disable=
     fixme,
     file-ignored,
@@ -95,6 +166,7 @@ disable=
     too-many-public-methods,
     too-many-return-statements,
     too-many-statements,
+    useless-object-inheritance,
 
 
 [REPORTS]
@@ -111,6 +183,9 @@ files-output=no
 
 # Tells whether to display a full report or only the messages
 reports=no
+
+# Activate the evaluation score.
+score=no
 
 # Python expression which should return a note less than 10 (10 is the highest
 # note). You have access to the variables errors warning, statement which

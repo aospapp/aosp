@@ -62,6 +62,10 @@ bool FqInstance::hasInstance() const {
     return !mInstance.empty();
 }
 
+const FQName& FqInstance::getFqName() const {
+    return mFqName;
+}
+
 bool FqInstance::isValid() const {
     bool hasPkg = hasPackage();
     bool hasVer = hasVersion();
@@ -92,6 +96,12 @@ bool FqInstance::setTo(const std::string& s) {
     if (!mFqName.setTo(s.substr(0, pos))) return false;
     mInstance = pos == std::string::npos ? std::string{} : s.substr(pos + 1);
 
+    return isValid();
+}
+
+bool FqInstance::setTo(const FQName& fqName, const std::string& instance) {
+    mFqName = fqName;
+    mInstance = instance;
     return isValid();
 }
 

@@ -29,7 +29,7 @@
 namespace art {
 
 const uint8_t ImageHeader::kImageMagic[] = { 'a', 'r', 't', '\n' };
-const uint8_t ImageHeader::kImageVersion[] = { '0', '7', '4', '\0' };  // CRC32UpdateBB intrinsic
+const uint8_t ImageHeader::kImageVersion[] = { '0', '8', '5', '\0' };  // Single-image.
 
 ImageHeader::ImageHeader(uint32_t image_reservation_size,
                          uint32_t component_count,
@@ -44,6 +44,8 @@ ImageHeader::ImageHeader(uint32_t image_reservation_size,
                          uint32_t oat_file_end,
                          uint32_t boot_image_begin,
                          uint32_t boot_image_size,
+                         uint32_t boot_image_component_count,
+                         uint32_t boot_image_checksum,
                          uint32_t pointer_size)
   : image_reservation_size_(image_reservation_size),
     component_count_(component_count),
@@ -57,6 +59,8 @@ ImageHeader::ImageHeader(uint32_t image_reservation_size,
     oat_file_end_(oat_file_end),
     boot_image_begin_(boot_image_begin),
     boot_image_size_(boot_image_size),
+    boot_image_component_count_(boot_image_component_count),
+    boot_image_checksum_(boot_image_checksum),
     image_roots_(image_roots),
     pointer_size_(pointer_size) {
   CHECK_EQ(image_begin, RoundUp(image_begin, kPageSize));
@@ -72,25 +76,40 @@ ImageHeader::ImageHeader(uint32_t image_reservation_size,
   std::copy_n(sections, kSectionCount, sections_);
 }
 
-void ImageHeader::RelocateImage(int64_t delta) {
-  CHECK_ALIGNED(delta, kPageSize) << " patch delta must be page aligned";
+void ImageHeader::RelocateImageReferences(int64_t delta) {
+  CHECK_ALIGNED(delta, kPageSize) << "relocation delta must be page aligned";
   oat_file_begin_ += delta;
   oat_data_begin_ += delta;
   oat_data_end_ += delta;
   oat_file_end_ += delta;
-  RelocateImageObjects(delta);
-  RelocateImageMethods(delta);
-}
-
-void ImageHeader::RelocateImageObjects(int64_t delta) {
   image_begin_ += delta;
   image_roots_ += delta;
 }
 
-void ImageHeader::RelocateImageMethods(int64_t delta) {
+void ImageHeader::RelocateBootImageReferences(int64_t delta) {
+  CHECK_ALIGNED(delta, kPageSize) << "relocation delta must be page aligned";
+  DCHECK_EQ(boot_image_begin_ != 0u, boot_image_size_ != 0u);
+  if (boot_image_begin_ != 0u) {
+    boot_image_begin_ += delta;
+  }
   for (size_t i = 0; i < kImageMethodsCount; ++i) {
     image_methods_[i] += delta;
   }
+}
+
+bool ImageHeader::IsAppImage() const {
+  // Unlike boot image and boot image extensions which include address space for
+  // oat files in their reservation size, app images are loaded separately from oat
+  // files and their reservation size is the image size rounded up to full page.
+  return image_reservation_size_ == RoundUp(image_size_, kPageSize);
+}
+
+uint32_t ImageHeader::GetImageSpaceCount() const {
+  DCHECK(!IsAppImage());
+  DCHECK_NE(component_count_, 0u);  // Must be the header for the first component.
+  // For images compiled with --single-image, there is only one oat file. To detect
+  // that, check whether the reservation ends at the end of the first oat file.
+  return (image_begin_ + image_reservation_size_ == oat_file_end_) ? 1u : component_count_;
 }
 
 bool ImageHeader::IsValid() const {

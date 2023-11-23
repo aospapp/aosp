@@ -35,6 +35,7 @@ LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     compatibility-device-util-axt \
+    androidx.test.ext.junit \
     androidx.test.rules \
     hamcrest-library \
     platform-test-annotations \
@@ -43,7 +44,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     CtsMockInputMethodLib \
     metrics-helper-lib \
 
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_SDK_VERSION := test_current
 

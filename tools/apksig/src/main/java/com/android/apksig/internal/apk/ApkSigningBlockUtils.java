@@ -16,23 +16,43 @@
 
 package com.android.apksig.internal.apk;
 
+import static com.android.apksig.internal.apk.ContentDigestAlgorithm.CHUNKED_SHA256;
+import static com.android.apksig.internal.apk.ContentDigestAlgorithm.CHUNKED_SHA512;
+import static com.android.apksig.internal.apk.ContentDigestAlgorithm.VERITY_CHUNKED_SHA256;
+
 import com.android.apksig.ApkVerifier;
 import com.android.apksig.SigningCertificateLineage;
 import com.android.apksig.apk.ApkFormatException;
 import com.android.apksig.apk.ApkSigningBlockNotFoundException;
 import com.android.apksig.apk.ApkUtils;
+import com.android.apksig.internal.asn1.Asn1BerParser;
+import com.android.apksig.internal.asn1.Asn1DecodingException;
+import com.android.apksig.internal.asn1.Asn1DerEncoder;
+import com.android.apksig.internal.asn1.Asn1EncodingException;
+import com.android.apksig.internal.asn1.Asn1OpaqueObject;
+import com.android.apksig.internal.pkcs7.AlgorithmIdentifier;
+import com.android.apksig.internal.pkcs7.ContentInfo;
+import com.android.apksig.internal.pkcs7.EncapsulatedContentInfo;
+import com.android.apksig.internal.pkcs7.IssuerAndSerialNumber;
+import com.android.apksig.internal.pkcs7.Pkcs7Constants;
+import com.android.apksig.internal.pkcs7.SignedData;
+import com.android.apksig.internal.pkcs7.SignerIdentifier;
+import com.android.apksig.internal.pkcs7.SignerInfo;
 import com.android.apksig.internal.util.ByteBufferDataSource;
 import com.android.apksig.internal.util.ChainedDataSource;
 import com.android.apksig.internal.util.Pair;
 import com.android.apksig.internal.util.VerityTreeBuilder;
+import com.android.apksig.internal.x509.RSAPublicKey;
+import com.android.apksig.internal.x509.SubjectPublicKeyInfo;
 import com.android.apksig.internal.zip.ZipUtils;
 import com.android.apksig.util.DataSink;
 import com.android.apksig.util.DataSinks;
 import com.android.apksig.util.DataSource;
 import com.android.apksig.util.DataSources;
-
 import com.android.apksig.util.RunnablesExecutor;
+
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -53,35 +73,37 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+
+import javax.security.auth.x500.X500Principal;
 
 public class ApkSigningBlockUtils {
 
-    private static final char[] HEX_DIGITS = "01234567890abcdef".toCharArray();
+    private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
     private static final long CONTENT_DIGESTED_CHUNK_MAX_SIZE_BYTES = 1024 * 1024;
     public static final int ANDROID_COMMON_PAGE_ALIGNMENT_BYTES = 4096;
-    public static final byte[] APK_SIGNING_BLOCK_MAGIC =
+    private static final byte[] APK_SIGNING_BLOCK_MAGIC =
           new byte[] {
               0x41, 0x50, 0x4b, 0x20, 0x53, 0x69, 0x67, 0x20,
               0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x20, 0x34, 0x32,
           };
     private static final int VERITY_PADDING_BLOCK_ID = 0x42726577;
 
+    private static final ContentDigestAlgorithm[] V4_CONTENT_DIGEST_ALGORITHMS =
+            {CHUNKED_SHA512, VERITY_CHUNKED_SHA256, CHUNKED_SHA256};
+
+    public static final int VERSION_SOURCE_STAMP = 0;
     public static final int VERSION_JAR_SIGNATURE_SCHEME = 1;
     public static final int VERSION_APK_SIGNATURE_SCHEME_V2 = 2;
     public static final int VERSION_APK_SIGNATURE_SCHEME_V3 = 3;
-
+    public static final int VERSION_APK_SIGNATURE_SCHEME_V4 = 4;
 
     /**
      * Returns positive number if {@code alg1} is preferred over {@code alg2}, {@code -1} if
@@ -188,7 +210,7 @@ public class ApkSigningBlockUtils {
                             centralDir,
                             new ByteBufferDataSource(modifiedEocd));
             // Special checks for the verity algorithm requirements.
-            if (actualContentDigests.containsKey(ContentDigestAlgorithm.VERITY_CHUNKED_SHA256)) {
+            if (actualContentDigests.containsKey(VERITY_CHUNKED_SHA256)) {
                 if ((beforeApkSigningBlock.size() % ANDROID_COMMON_PAGE_ALIGNMENT_BYTES != 0)) {
                     throw new RuntimeException(
                             "APK Signing Block is not aligned on 4k boundary: " +
@@ -415,17 +437,20 @@ public class ApkSigningBlockUtils {
             DataSource centralDir,
             DataSource eocd) throws IOException, NoSuchAlgorithmException, DigestException {
         Map<ContentDigestAlgorithm, byte[]> contentDigests = new HashMap<>();
-        Set<ContentDigestAlgorithm> oneMbChunkBasedAlgorithm = digestAlgorithms.stream()
-                .filter(a -> a == ContentDigestAlgorithm.CHUNKED_SHA256 ||
-                             a == ContentDigestAlgorithm.CHUNKED_SHA512)
-                .collect(Collectors.toSet());
+        Set<ContentDigestAlgorithm> oneMbChunkBasedAlgorithm = new HashSet<>();
+        for (ContentDigestAlgorithm digestAlgorithm : digestAlgorithms) {
+            if (digestAlgorithm == ContentDigestAlgorithm.CHUNKED_SHA256
+                    || digestAlgorithm == ContentDigestAlgorithm.CHUNKED_SHA512) {
+                oneMbChunkBasedAlgorithm.add(digestAlgorithm);
+            }
+        }
         computeOneMbChunkContentDigests(
                 executor,
                 oneMbChunkBasedAlgorithm,
                 new DataSource[] { beforeCentralDir, centralDir, eocd },
                 contentDigests);
 
-        if (digestAlgorithms.contains(ContentDigestAlgorithm.VERITY_CHUNKED_SHA256)) {
+        if (digestAlgorithms.contains(VERITY_CHUNKED_SHA256)) {
             computeApkVerityDigest(beforeCentralDir, centralDir, eocd, contentDigests);
         }
         return contentDigests;
@@ -624,17 +649,17 @@ public class ApkSigningBlockUtils {
                 for (ChunkSupplier.Chunk chunk = dataSupplier.get();
                      chunk != null;
                      chunk = dataSupplier.get()) {
-                    long size = chunk.dataSource.size();
+                    int size = chunk.size;
                     if (size > CONTENT_DIGESTED_CHUNK_MAX_SIZE_BYTES) {
                         throw new RuntimeException("Chunk size greater than expected: " + size);
                     }
 
                     // First update with the chunk prefix.
-                    setUnsignedInt32LittleEndian((int)size, chunkContentPrefix, 1);
+                    setUnsignedInt32LittleEndian(size, chunkContentPrefix, 1);
                     mdSink.consume(chunkContentPrefix, 0, chunkContentPrefix.length);
 
                     // Then update with the chunk data.
-                    chunk.dataSource.feed(0, size, mdSink);
+                    mdSink.consume(chunk.data);
 
                     // Now finalize chunk for all algorithms.
                     for (int i = 0; i < chunkDigests.size(); i++) {
@@ -682,7 +707,7 @@ public class ApkSigningBlockUtils {
                                     i));
                 }
                 chunkCounts[i] = (int)chunkCount;
-                totalChunkCount += chunkCount;
+                totalChunkCount = (int) (totalChunkCount + chunkCount);
             }
             this.totalChunkCount = totalChunkCount;
             nextIndex = new AtomicInteger(0);
@@ -702,7 +727,7 @@ public class ApkSigningBlockUtils {
             }
 
             int dataSourceIndex = 0;
-            int dataSourceChunkOffset = index;
+            long dataSourceChunkOffset = index;
             for (; dataSourceIndex < dataSources.length; dataSourceIndex++) {
                 if (dataSourceChunkOffset < chunkCounts[dataSourceIndex]) {
                     break;
@@ -714,49 +739,90 @@ public class ApkSigningBlockUtils {
                     dataSources[dataSourceIndex].size() -
                             dataSourceChunkOffset * CONTENT_DIGESTED_CHUNK_MAX_SIZE_BYTES,
                     CONTENT_DIGESTED_CHUNK_MAX_SIZE_BYTES);
-            // Note that slicing may involve its own locking. We may wish to reimplement the
-            // underlying mechanism to get rid of that lock (e.g. ByteBufferDataSource should
-            // probably get reimplemented to a delegate model, such that grabbing a slice
-            // doesn't incur a lock).
-            return new Chunk(
-                    dataSources[dataSourceIndex].slice(
-                            dataSourceChunkOffset * CONTENT_DIGESTED_CHUNK_MAX_SIZE_BYTES,
-                            remainingSize),
-                    index);
+
+            final int size = (int)remainingSize;
+            final ByteBuffer buffer = ByteBuffer.allocate(size);
+            try {
+                dataSources[dataSourceIndex].copyTo(
+                        dataSourceChunkOffset * CONTENT_DIGESTED_CHUNK_MAX_SIZE_BYTES, size,
+                        buffer);
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to read chunk", e);
+            }
+            buffer.rewind();
+
+            return new Chunk(index, buffer, size);
         }
 
         static class Chunk {
             private final int chunkIndex;
-            private final DataSource dataSource;
+            private final ByteBuffer data;
+            private final int size;
 
-            private Chunk(DataSource parentSource, int chunkIndex) {
+            private Chunk(int chunkIndex, ByteBuffer data, int size) {
                 this.chunkIndex = chunkIndex;
-                dataSource = parentSource;
+                this.data = data;
+                this.size = size;
             }
         }
     }
 
+    @SuppressWarnings("ByteBufferBackingArray")
     private static void computeApkVerityDigest(DataSource beforeCentralDir, DataSource centralDir,
             DataSource eocd, Map<ContentDigestAlgorithm, byte[]> outputContentDigests)
             throws IOException, NoSuchAlgorithmException {
+        ByteBuffer encoded = createVerityDigestBuffer(true);
+        // Use 0s as salt for now.  This also needs to be consistent in the fsverify header for
+        // kernel to use.
+        try (VerityTreeBuilder builder = new VerityTreeBuilder(new byte[8])) {
+            byte[] rootHash = builder.generateVerityTreeRootHash(beforeCentralDir, centralDir,
+                    eocd);
+            encoded.put(rootHash);
+            encoded.putLong(beforeCentralDir.size() + centralDir.size() + eocd.size());
+            outputContentDigests.put(VERITY_CHUNKED_SHA256, encoded.array());
+        }
+    }
+
+    private static ByteBuffer createVerityDigestBuffer(boolean includeSourceDataSize) {
         // FORMAT:
         // OFFSET       DATA TYPE  DESCRIPTION
         // * @+0  bytes uint8[32]  Merkle tree root hash of SHA-256
-        // * @+32 bytes int64      Length of source data
+        // * @+32 bytes int64      (optional) Length of source data
         int backBufferSize =
-                ContentDigestAlgorithm.VERITY_CHUNKED_SHA256.getChunkDigestOutputSizeBytes() +
-                Long.SIZE / Byte.SIZE;
+                VERITY_CHUNKED_SHA256.getChunkDigestOutputSizeBytes();
+        if (includeSourceDataSize) {
+            backBufferSize += Long.SIZE / Byte.SIZE;
+        }
         ByteBuffer encoded = ByteBuffer.allocate(backBufferSize);
         encoded.order(ByteOrder.LITTLE_ENDIAN);
+        return encoded;
+    }
 
+    public static class VerityTreeAndDigest {
+        public final ContentDigestAlgorithm contentDigestAlgorithm;
+        public final byte[] rootHash;
+        public final byte[] tree;
+
+        VerityTreeAndDigest(ContentDigestAlgorithm contentDigestAlgorithm, byte[] rootHash,
+                byte[] tree) {
+            this.contentDigestAlgorithm = contentDigestAlgorithm;
+            this.rootHash = rootHash;
+            this.tree = tree;
+        }
+    }
+
+    @SuppressWarnings("ByteBufferBackingArray")
+    public static VerityTreeAndDigest computeChunkVerityTreeAndDigest(DataSource dataSource)
+            throws IOException, NoSuchAlgorithmException {
+        ByteBuffer encoded = createVerityDigestBuffer(false);
         // Use 0s as salt for now.  This also needs to be consistent in the fsverify header for
         // kernel to use.
-        VerityTreeBuilder builder = new VerityTreeBuilder(new byte[8]);
-        byte[] rootHash = builder.generateVerityTreeRootHash(beforeCentralDir, centralDir, eocd);
-        encoded.put(rootHash);
-        encoded.putLong(beforeCentralDir.size() + centralDir.size() + eocd.size());
-
-        outputContentDigests.put(ContentDigestAlgorithm.VERITY_CHUNKED_SHA256, encoded.array());
+        try (VerityTreeBuilder builder = new VerityTreeBuilder(null)) {
+            ByteBuffer tree = builder.generateVerityTree(dataSource);
+            byte[] rootHash = builder.getRootHashFromTree(tree);
+            encoded.put(rootHash);
+            return new VerityTreeAndDigest(VERITY_CHUNKED_SHA256, encoded.array(), tree.array());
+        }
     }
 
     private static long getChunkCount(long inputSize, long chunkSize) {
@@ -775,6 +841,53 @@ public class ApkSigningBlockUtils {
         byte[] encodedPublicKey = null;
         if ("X.509".equals(publicKey.getFormat())) {
             encodedPublicKey = publicKey.getEncoded();
+            // if the key is an RSA key check for a negative modulus
+            if ("RSA".equals(publicKey.getAlgorithm())) {
+                try {
+                    // Parse the encoded public key into the separate elements of the
+                    // SubjectPublicKeyInfo to obtain the SubjectPublicKey.
+                    ByteBuffer encodedPublicKeyBuffer = ByteBuffer.wrap(encodedPublicKey);
+                    SubjectPublicKeyInfo subjectPublicKeyInfo = Asn1BerParser.parse(
+                            encodedPublicKeyBuffer, SubjectPublicKeyInfo.class);
+                    // The SubjectPublicKey is encoded as a bit string within the
+                    // SubjectPublicKeyInfo. The first byte of the encoding is the number of padding
+                    // bits; store this and decode the rest of the bit string into the RSA modulus
+                    // and exponent.
+                    ByteBuffer subjectPublicKeyBuffer = subjectPublicKeyInfo.subjectPublicKey;
+                    byte padding = subjectPublicKeyBuffer.get();
+                    RSAPublicKey rsaPublicKey = Asn1BerParser.parse(subjectPublicKeyBuffer,
+                            RSAPublicKey.class);
+                    // if the modulus is negative then attempt to reencode it with a leading 0 sign
+                    // byte.
+                    if (rsaPublicKey.modulus.compareTo(BigInteger.ZERO) < 0) {
+                        // A negative modulus indicates the leading bit in the integer is 1. Per
+                        // ASN.1 encoding rules to encode a positive integer with the leading bit
+                        // set to 1 a byte containing all zeros should precede the integer encoding.
+                        byte[] encodedModulus = rsaPublicKey.modulus.toByteArray();
+                        byte[] reencodedModulus = new byte[encodedModulus.length + 1];
+                        reencodedModulus[0] = 0;
+                        System.arraycopy(encodedModulus, 0, reencodedModulus, 1,
+                                encodedModulus.length);
+                        rsaPublicKey.modulus = new BigInteger(reencodedModulus);
+                        // Once the modulus has been corrected reencode the RSAPublicKey, then
+                        // restore the padding value in the bit string and reencode the entire
+                        // SubjectPublicKeyInfo to be returned to the caller.
+                        byte[] reencodedRSAPublicKey = Asn1DerEncoder.encode(rsaPublicKey);
+                        byte[] reencodedSubjectPublicKey =
+                                new byte[reencodedRSAPublicKey.length + 1];
+                        reencodedSubjectPublicKey[0] = padding;
+                        System.arraycopy(reencodedRSAPublicKey, 0, reencodedSubjectPublicKey, 1,
+                                reencodedRSAPublicKey.length);
+                        subjectPublicKeyInfo.subjectPublicKey = ByteBuffer.wrap(
+                                reencodedSubjectPublicKey);
+                        encodedPublicKey = Asn1DerEncoder.encode(subjectPublicKeyInfo);
+                    }
+                } catch (Asn1DecodingException | Asn1EncodingException e) {
+                    System.out.println("Caught a exception encoding the public key: " + e);
+                    e.printStackTrace();
+                    encodedPublicKey = null;
+                }
+            }
         }
         if (encodedPublicKey == null) {
             try {
@@ -1095,15 +1208,17 @@ public class ApkSigningBlockUtils {
         if (minSdkVersion < minProvidedSignaturesVersion) {
             throw new NoSupportedSignaturesException(
                     "Minimum provided signature version " + minProvidedSignaturesVersion +
-                    " < minSdkVersion " + minSdkVersion);
+                    " > minSdkVersion " + minSdkVersion);
         }
         if (bestSigAlgorithmOnSdkVersion.isEmpty()) {
             throw new NoSupportedSignaturesException("No supported signature");
         }
-        return bestSigAlgorithmOnSdkVersion.values().stream()
-                .sorted((sig1, sig2) -> Integer.compare(
-                        sig1.algorithm.getId(), sig2.algorithm.getId()))
-                .collect(Collectors.toList());
+        List<SupportedSignature> signaturesToVerify =
+                new ArrayList<>(bestSigAlgorithmOnSdkVersion.values());
+        Collections.sort(
+                signaturesToVerify,
+                (sig1, sig2) -> Integer.compare(sig1.algorithm.getId(), sig2.algorithm.getId()));
+        return signaturesToVerify;
     }
 
     public static class NoSupportedSignaturesException extends Exception {
@@ -1185,6 +1300,70 @@ public class ApkSigningBlockUtils {
     }
 
     /**
+     * Wrap the signature according to CMS PKCS #7 RFC 5652.
+     * The high-level simplified structure is as follows:
+     * // ContentInfo
+     *     //   digestAlgorithm
+     *     //   SignedData
+     *     //     bag of certificates
+     *     //     SignerInfo
+     *     //       signing cert issuer and serial number (for locating the cert in the above bag)
+     *     //       digestAlgorithm
+     *     //       signatureAlgorithm
+     *     //       signature
+     *
+     * @throws Asn1EncodingException if the ASN.1 structure could not be encoded
+     */
+    public static byte[] generatePkcs7DerEncodedMessage(
+            byte[] signatureBytes, ByteBuffer data, List<X509Certificate> signerCerts,
+            AlgorithmIdentifier digestAlgorithmId, AlgorithmIdentifier signatureAlgorithmId)
+            throws Asn1EncodingException, CertificateEncodingException {
+        SignerInfo signerInfo = new SignerInfo();
+        signerInfo.version = 1;
+        X509Certificate signingCert = signerCerts.get(0);
+        X500Principal signerCertIssuer = signingCert.getIssuerX500Principal();
+        signerInfo.sid =
+                new SignerIdentifier(
+                        new IssuerAndSerialNumber(
+                                new Asn1OpaqueObject(signerCertIssuer.getEncoded()),
+                                signingCert.getSerialNumber()));
+
+        signerInfo.digestAlgorithm = digestAlgorithmId;
+        signerInfo.signatureAlgorithm = signatureAlgorithmId;
+        signerInfo.signature = ByteBuffer.wrap(signatureBytes);
+
+        SignedData signedData = new SignedData();
+        signedData.certificates = new ArrayList<>(signerCerts.size());
+        for (X509Certificate cert : signerCerts) {
+            signedData.certificates.add(new Asn1OpaqueObject(cert.getEncoded()));
+        }
+        signedData.version = 1;
+        signedData.digestAlgorithms = Collections.singletonList(digestAlgorithmId);
+        signedData.encapContentInfo = new EncapsulatedContentInfo(Pkcs7Constants.OID_DATA);
+        // If data is not null, data will be embedded as is in the result -- an attached pcsk7
+        signedData.encapContentInfo.content = data;
+        signedData.signerInfos = Collections.singletonList(signerInfo);
+        ContentInfo contentInfo = new ContentInfo();
+        contentInfo.contentType = Pkcs7Constants.OID_SIGNED_DATA;
+        contentInfo.content = new Asn1OpaqueObject(Asn1DerEncoder.encode(signedData));
+        return Asn1DerEncoder.encode(contentInfo);
+    }
+
+    /**
+     * Picks the correct v2/v3 digest for v4 signature verification.
+     *
+     * Keep in sync with pickBestDigestForV4 in framework's ApkSigningBlockUtils.
+     */
+    public static byte[] pickBestDigestForV4(Map<ContentDigestAlgorithm, byte[]> contentDigests) {
+        for (ContentDigestAlgorithm algo : V4_CONTENT_DIGEST_ALGORITHMS) {
+            if (contentDigests.containsKey(algo)) {
+                return contentDigests.get(algo);
+            }
+        }
+        return null;
+    }
+
+    /**
      * Signer configuration.
      */
     public static class SignerConfig {
@@ -1213,7 +1392,7 @@ public class ApkSigningBlockUtils {
         /** Whether the APK's APK Signature Scheme signature verifies. */
         public boolean verified;
 
-        public final List<SignerInfo> signers = new ArrayList<>();
+        public final List<Result.SignerInfo> signers = new ArrayList<>();
         public SigningCertificateLineage signingCertificateLineage = null;
         private final List<ApkVerifier.IssueWithParams> mWarnings = new ArrayList<>();
         private final List<ApkVerifier.IssueWithParams> mErrors = new ArrayList<>();
@@ -1227,8 +1406,22 @@ public class ApkSigningBlockUtils {
                 return true;
             }
             if (!signers.isEmpty()) {
-                for (SignerInfo signer : signers) {
+                for (Result.SignerInfo signer : signers) {
                     if (signer.containsErrors()) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        public boolean containsWarnings() {
+            if (!mWarnings.isEmpty()) {
+                return true;
+            }
+            if (!signers.isEmpty()) {
+                for (Result.SignerInfo signer : signers) {
+                    if (signer.containsWarnings()) {
                         return true;
                     }
                 }
@@ -1278,6 +1471,10 @@ public class ApkSigningBlockUtils {
 
             public boolean containsErrors() {
                 return !mErrors.isEmpty();
+            }
+
+            public boolean containsWarnings() {
+                return !mWarnings.isEmpty();
             }
 
             public List<ApkVerifier.IssueWithParams> getErrors() {
@@ -1351,6 +1548,18 @@ public class ApkSigningBlockUtils {
         public SupportedSignature(SignatureAlgorithm algorithm, byte[] signature) {
             this.algorithm = algorithm;
             this.signature = signature;
+        }
+    }
+
+    public static class SigningSchemeBlockAndDigests {
+        public final Pair<byte[], Integer> signingSchemeBlock;
+        public final Map<ContentDigestAlgorithm, byte[]> digestInfo;
+
+        public SigningSchemeBlockAndDigests(
+                Pair<byte[], Integer> signingSchemeBlock,
+                Map<ContentDigestAlgorithm, byte[]> digestInfo) {
+            this.signingSchemeBlock = signingSchemeBlock;
+            this.digestInfo = digestInfo;
         }
     }
 }

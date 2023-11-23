@@ -62,19 +62,11 @@ public class BleConnectionPriorityClientService extends Service {
     public static final String ACTION_BLUETOOTH_MISMATCH_INSECURE =
             "com.android.cts.verifier.bluetooth.action.ACTION_BLUETOOTH_MISMATCH_INSECURE";
 
-    public static final String ACTION_CONNECTION_PRIORITY_BALANCED =
-            "com.android.cts.verifier.bluetooth.action.CONNECTION_PRIORITY_BALANCED";
-    public static final String ACTION_CONNECTION_PRIORITY_HIGH =
-            "com.android.cts.verifier.bluetooth.action.CONNECTION_PRIORITY_HIGH";
-    public static final String ACTION_CONNECTION_PRIORITY_LOW_POWER =
+    public static final String ACTION_CONNECTION_PRIORITY_START =
             "com.android.cts.verifier.bluetooth.action.CONNECTION_PRIORITY_LOW_POWER";
 
-    public static final String ACTION_FINISH_CONNECTION_PRIORITY_BALANCED =
-            "com.android.cts.verifier.bluetooth.action.FINISH_CONNECTION_PRIORITY_BALANCED";
-    public static final String ACTION_FINISH_CONNECTION_PRIORITY_HIGH =
-            "com.android.cts.verifier.bluetooth.action.FINISH_CONNECTION_PRIORITY_HIGH";
-    public static final String ACTION_FINISH_CONNECTION_PRIORITY_LOW_POWER =
-            "com.android.cts.verifier.bluetooth.action.FINISH_CONNECTION_PRIORITY_LOW_POWER";
+    public static final String ACTION_CONNECTION_PRIORITY_FINISH =
+            "com.android.cts.verifier.bluetooth.action.CONNECTION_PRIORITY_FINISH";
 
     public static final String ACTION_CLIENT_CONNECT_SECURE =
             "com.android.cts.verifier.bluetooth.action.CLIENT_CONNECT_SECURE";
@@ -84,20 +76,7 @@ public class BleConnectionPriorityClientService extends Service {
     public static final String ACTION_FINISH_DISCONNECT =
             "com.android.cts.verifier.bluetooth.action.FINISH_DISCONNECT";
 
-    public static final long DEFAULT_INTERVAL = 100L;
-    public static final long DEFAULT_PERIOD = 10000L;
-
-    // this string will be used at writing test and connection priority test.
-    private static final String WRITE_VALUE = "TEST";
-
-    private static final UUID SERVICE_UUID =
-            UUID.fromString("00009999-0000-1000-8000-00805f9b34fb");
-    private static final UUID CHARACTERISTIC_UUID =
-            UUID.fromString("00009998-0000-1000-8000-00805f9b34fb");
-    private static final UUID START_CHARACTERISTIC_UUID =
-            UUID.fromString("00009997-0000-1000-8000-00805f9b34fb");
-    private static final UUID STOP_CHARACTERISTIC_UUID =
-            UUID.fromString("00009995-0000-1000-8000-00805f9b34fb");
+    public static final int NOT_UNDER_TEST = -1;
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
@@ -108,13 +87,12 @@ public class BleConnectionPriorityClientService extends Service {
     private Context mContext;
 
     private String mAction;
-    private long mInterval;
-    private long mPeriod;
-    private Date mStartDate;
-    private int mWriteCount;
     private boolean mSecure;
 
-    private String mPriority;
+    private int mPriority = NOT_UNDER_TEST;
+    private int interval_low = 0;
+    private int interval_balanced = 0;
+    private int interval_high = 0;
 
     private TestTaskQueue mTaskQueue;
 
@@ -129,8 +107,6 @@ public class BleConnectionPriorityClientService extends Service {
         mScanner = mBluetoothAdapter.getBluetoothLeScanner();
         mHandler = new Handler();
         mContext = this;
-        mInterval = DEFAULT_INTERVAL;
-        mPeriod = DEFAULT_PERIOD;
 
         startScan();
     }
@@ -171,15 +147,8 @@ public class BleConnectionPriorityClientService extends Service {
                 case ACTION_CLIENT_CONNECT_SECURE:
                     mSecure = true;
                     break;
-                case ACTION_CONNECTION_PRIORITY_BALANCED:
-                case ACTION_CONNECTION_PRIORITY_HIGH:
-                case ACTION_CONNECTION_PRIORITY_LOW_POWER:
-                    mTaskQueue.addTask(new Runnable() {
-                        @Override
-                        public void run() {
-                            startPeriodicTransmission();
-                        }
-                    });
+                case ACTION_CONNECTION_PRIORITY_START:
+                    myRequestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER);
                     break;
                 case ACTION_DISCONNECT:
                     if (mBluetoothGatt != null) {
@@ -194,120 +163,17 @@ public class BleConnectionPriorityClientService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void startPeriodicTransmission() {
-        mWriteCount = 0;
-
-        // Set connection priority
-        switch (mAction) {
-        case ACTION_CONNECTION_PRIORITY_BALANCED:
-            mPriority = BleConnectionPriorityServerService.CONNECTION_PRIORITY_BALANCED;
-            mBluetoothGatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_BALANCED);
-            break;
-        case ACTION_CONNECTION_PRIORITY_HIGH:
-            mPriority = BleConnectionPriorityServerService.CONNECTION_PRIORITY_HIGH;
-            mBluetoothGatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH);
-            break;
-        case ACTION_CONNECTION_PRIORITY_LOW_POWER:
-            mPriority = BleConnectionPriorityServerService.CONNECTION_PRIORITY_LOW_POWER;
-            mBluetoothGatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER);
-            break;
-        default:
-            mPriority = BleConnectionPriorityServerService.CONNECTION_PRIORITY_BALANCED;
-            mBluetoothGatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_BALANCED);
-            break;
-        }
-
-        // Create Timer for Periodic transmission
-        mStartDate = new Date();
-        TimerTask task = new TimerTask() {
-            @Override
-            public void run() {
-                if (mBluetoothGatt == null) {
-                    if (DEBUG) {
-                        Log.d(TAG, "BluetoothGatt is null, return");
-                    }
-                    return;
-                }
-
-                Date currentData = new Date();
-                if ((currentData.getTime() - mStartDate.getTime()) >= mPeriod) {
-                    if (mConnectionTimer != null) {
-                        mConnectionTimer.cancel();
-                        mConnectionTimer = null;
-                    }
-                    // The STOP_CHARACTERISTIC_UUID is critical in syncing the client and server
-                    // states.  Delay the write by 2 seconds to improve the chance of this
-                    // characteristic going through.  Consider changing the code to use callbacks
-                    // in the future to make it more robust.
-                    sleep(2000);
-                    // write termination data (contains current priority and number of messages wrote)
-                    String msg = "" + mPriority + "," + mWriteCount;
-                    writeCharacteristic(STOP_CHARACTERISTIC_UUID, msg);
-                    sleep(1000);
-                    Intent intent = new Intent();
-                    switch (mPriority) {
-                    case BleConnectionPriorityServerService.CONNECTION_PRIORITY_BALANCED:
-                        intent.setAction(ACTION_FINISH_CONNECTION_PRIORITY_BALANCED);
-                        break;
-                    case BleConnectionPriorityServerService.CONNECTION_PRIORITY_HIGH:
-                        intent.setAction(ACTION_FINISH_CONNECTION_PRIORITY_HIGH);
-                        break;
-                    case BleConnectionPriorityServerService.CONNECTION_PRIORITY_LOW_POWER:
-                        intent.setAction(ACTION_FINISH_CONNECTION_PRIORITY_LOW_POWER);
-                        break;
-                    }
-                    sendBroadcast(intent);
-                }
-
-                if (mConnectionTimer != null) {
-                    // write testing data
-                    ++mWriteCount;
-                    writeCharacteristic(CHARACTERISTIC_UUID, WRITE_VALUE);
-                }
-            }
-        };
-
-        // write starting data
-        writeCharacteristic(START_CHARACTERISTIC_UUID, mPriority);
-
-        // start sending
-        sleep(1000);
-        mConnectionTimer = new Timer();
-        mConnectionTimer.schedule(task, 0, mInterval);
+    private void myRequestConnectionPriority(final int priority) {
+        mTaskQueue.addTask(new Runnable() {
+                                @Override
+                                public void run() {
+                                    mPriority = priority;
+                                    mBluetoothGatt.requestConnectionPriority(mPriority);
+                                    //continue in onConnectionUpdated() callback
+                                }
+                            });
     }
 
-    private BluetoothGattService getService() {
-        BluetoothGattService service = null;
-
-        if (mBluetoothGatt != null) {
-            service = mBluetoothGatt.getService(SERVICE_UUID);
-            if (service == null) {
-                showMessage("Service not found");
-            }
-        }
-        return service;
-    }
-
-    private BluetoothGattCharacteristic getCharacteristic(UUID uuid) {
-        BluetoothGattCharacteristic characteristic = null;
-
-        BluetoothGattService service = getService();
-        if (service != null) {
-            characteristic = service.getCharacteristic(uuid);
-            if (characteristic == null) {
-                showMessage("Characteristic not found");
-            }
-        }
-        return characteristic;
-    }
-
-    private void writeCharacteristic(UUID uid, String writeValue) {
-        BluetoothGattCharacteristic characteristic = getCharacteristic(uid);
-        if (characteristic != null){
-            characteristic.setValue(writeValue);
-            mBluetoothGatt.writeCharacteristic(characteristic);
-        }
-    }
 
     private void sleep(int millis) {
         try {
@@ -372,19 +238,56 @@ public class BleConnectionPriorityClientService extends Service {
             if (DEBUG){
                 Log.d(TAG, "onServiceDiscovered");
             }
-            if ((status == BluetoothGatt.GATT_SUCCESS) && (mBluetoothGatt.getService(SERVICE_UUID) != null)) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
                 showMessage("Service discovered");
                 Intent intent = new Intent(ACTION_CONNECTION_SERVICES_DISCOVERED);
                 sendBroadcast(intent);
             }
-        }
 
-        @Override
-        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            String value = characteristic.getStringValue(0);
-            UUID uid = characteristic.getUuid();
-            if (DEBUG) {
-                Log.d(TAG, "onCharacteristicWrite: characteristic.val=" + value + " status=" + status + " uid=" + uid);
+            //onConnectionUpdated is hidden callback, can't be marked as @Override.
+            // We must have a call to it, otherwise compiler will delete it during optimization.
+            if (status == 0xFFEFFEE) {
+                // This should never execute, but will make compiler not remove onConnectionUpdated 
+                onConnectionUpdated(null, 0, 0, 0, 0);
+                throw new IllegalStateException("This should never happen!");
+            }
+        }
+ 
+        // @Override uncomment once this becomes public API
+        public void onConnectionUpdated(BluetoothGatt gatt, int interval, int latency, int timeout,
+            int status) {
+            if (mPriority == NOT_UNDER_TEST) return;
+
+            if (status != 0) {
+                showMessage("onConnectionUpdated() error, status=" + status );
+                Log.e(TAG, "onConnectionUpdated() status=" + status);
+                return;
+            }
+
+            Log.i(TAG, "onConnectionUpdated() status=" + status + ", interval=" + interval);
+            if (mPriority == BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER) {
+                interval_low = interval;
+                myRequestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_BALANCED);
+            } else if (mPriority == BluetoothGatt.CONNECTION_PRIORITY_BALANCED) {
+                interval_balanced = interval;
+                myRequestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH);
+            } else if (mPriority == BluetoothGatt.CONNECTION_PRIORITY_HIGH) {
+                interval_high = interval;
+
+                if (interval_low < interval_balanced || interval_balanced < interval_high) {
+                   showMessage("interval value should be descending - failure!");
+                   Log.e(TAG, "interval values should be descending: interval_low=" + interval_low +
+                            ", interval_balanced=" + interval_balanced + ", interval_high=" + interval_high);
+                   return;
+                }
+
+                showMessage("intervals: " + interval_low +" > " + interval_balanced + " > " + interval_high);
+         
+                Intent intent = new Intent();
+                intent.setAction(ACTION_CONNECTION_PRIORITY_FINISH);
+                sendBroadcast(intent);
+        
+                mPriority = NOT_UNDER_TEST;
             }
         }
     };

@@ -222,15 +222,13 @@ public class WidgetTestUtils {
                     public void onDraw() {
                         // posting so that the sync happens after the draw that's about to happen
                         view.post(() -> {
-                            activityTestRule.getActivity().getWindow().getDecorView()
-                                    .getViewTreeObserver().removeOnDrawListener(this);
+                            view.getViewTreeObserver().removeOnDrawListener(this);
                             latch.countDown();
                         });
                     }
                 };
 
-                activityTestRule.getActivity().getWindow().getDecorView()
-                        .getViewTreeObserver().addOnDrawListener(listener);
+                view.getViewTreeObserver().addOnDrawListener(listener);
 
                 if (runner != null) {
                     runner.run();

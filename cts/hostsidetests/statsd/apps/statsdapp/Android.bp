@@ -44,14 +44,10 @@ android_test_helper_app {
         "compatibility-device-util-axt",
         "androidx.legacy_legacy-support-v4",
         "androidx.test.rules",
+        "cts-net-utils",
+        "BlobStoreTestUtils"
     ],
     jni_libs: ["liblmkhelper"],
-    // tag this module as a cts test artifact
-    test_suites: [
-        "cts",
-        "vts",
-        "general-tests",
-    ],
     compile_multilib: "both",
 }
 

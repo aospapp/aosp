@@ -17,13 +17,15 @@ package com.android.tradefed.testtype;
 
 import com.android.tradefed.result.ITestInvocationListener;
 
-
 /**
  * An {@link IRemoteTest} that supports resuming a previous aborted test run from where it left off.
- * <p/>
- * Implementations should provide a {@link IRemoteTest#run(ITestInvocationListener)} method that can
- * remember previous recorded state, and resume where previous run left off if called again.
+ *
+ * <p>Implementations should provide a {@link IRemoteTest#run(ITestInvocationListener)} method that
+ * can remember previous recorded state, and resume where previous run left off if called again.
+ *
+ * @deprecated No need for this anymore
  */
+@Deprecated
 public interface IResumableTest extends IRemoteTest {
 
     /**

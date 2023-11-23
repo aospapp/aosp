@@ -200,7 +200,7 @@ public class VtsFuzzTest implements IDeviceTest, IRemoteTest {
     /**
      * Set the target minor version variable.
      *
-     * @param version The minor version to set.
+     * @param version_minor The minor version to set.
      */
     public void setTargetVersionMinor(int version_minor) {
         mTargetVersionMinor = version_minor;

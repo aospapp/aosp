@@ -784,6 +784,77 @@ public class ListPopupWindowTest {
     }
 
     @Test
+    public void testListSelectionWithDPadEnter() {
+        mPopupWindowBuilder = new Builder().withAnchor(R.id.anchor_upper_left)
+                .withDismissListener().withItemSelectedListener().withItemClickListener();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                mPopupWindowBuilder::show);
+
+        final View root = mPopupWindow.getListView().getRootView();
+
+        // "Point" our custom extension of EditText to our ListPopupWindow
+        final MockViewForListPopupWindow anchor =
+                (MockViewForListPopupWindow) mPopupWindow.getAnchorView();
+        anchor.wireTo(mPopupWindow);
+        // Request focus on our EditText
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                anchor::requestFocus);
+        assertTrue(anchor.isFocused());
+
+        // Select entry #1 in the popup list
+        final ListView listView = mPopupWindow.getListView();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView,
+                () -> mPopupWindow.setSelection(1));
+        PollingCheck.waitFor(()-> mPopupWindow.getSelectedItemPosition() == 1);
+        verify(mPopupWindowBuilder.mOnItemSelectedListener, times(1)).onItemSelected(
+                any(AdapterView.class), any(View.class), eq(1), eq(1L));
+
+        // Send DPAD_DOWN key event. As our custom extension of EditText calls
+        // ListPopupWindow.onKeyDown and onKeyUp, the end result should be transfer of selection
+        // down one row
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, listView, KeyEvent.KEYCODE_DPAD_DOWN);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, root, null);
+
+        // At this point we expect that item #2 was selected
+        verify(mPopupWindowBuilder.mOnItemSelectedListener, times(1)).onItemSelected(
+                any(AdapterView.class), any(View.class), eq(2), eq(2L));
+
+        // Send a DPAD_UP key event. As our custom extension of EditText calls
+        // ListPopupWindow.onKeyDown and onKeyUp, the end result should be transfer of selection
+        // up one row
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, listView, KeyEvent.KEYCODE_DPAD_UP);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, root, null);
+
+        // At this point we expect that item #1 was selected
+        verify(mPopupWindowBuilder.mOnItemSelectedListener, times(2)).onItemSelected(
+                any(AdapterView.class), any(View.class), eq(1), eq(1L));
+
+        // Send one more DPAD_UP key event. As our custom extension of EditText calls
+        // ListPopupWindow.onKeyDown and onKeyUp, the end result should be transfer of selection
+        // up one more row
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, listView, KeyEvent.KEYCODE_DPAD_UP);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, root, null);
+
+        // At this point we expect that item #0 was selected
+        verify(mPopupWindowBuilder.mOnItemSelectedListener, times(1)).onItemSelected(
+                any(AdapterView.class), any(View.class), eq(0), eq(0L));
+
+        // Send NUMPAD_ENTER key event. As our custom extension of EditText calls
+        // ListPopupWindow.onKeyDown and onKeyUp, the end result should be item click and dismissal
+        // of the popup window
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, listView, KeyEvent.KEYCODE_NUMPAD_ENTER);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                null);
+        verify(mPopupWindowBuilder.mOnItemClickListener, times(1)).onItemClick(
+                any(AdapterView.class), any(View.class), eq(0), eq(0L));
+        verify(mPopupWindowBuilder.mOnDismissListener, times(1)).onDismiss();
+        assertFalse(mPopupWindow.isShowing());
+
+        verifyNoMoreInteractions(mPopupWindowBuilder.mOnItemSelectedListener);
+        verifyNoMoreInteractions(mPopupWindowBuilder.mOnDismissListener);
+    }
+
+    @Test
     public void testCreateOnDragListener() {
         // In this test we want precise control over the height of the popup content since
         // we need to know by how much to swipe down to end the emulated gesture over the

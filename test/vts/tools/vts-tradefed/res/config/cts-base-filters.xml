@@ -14,9 +14,9 @@
      limitations under the License.
 -->
 <configuration description="Base test filters for CTS based tests">
-    <!-- Specialization to be able to run CTS inside android-vts.zip -->
+    <!-- Specialization to be able to run CTS inside android-vts10.zip -->
     <option name="compatibility-build-provider:url-suite-name-override" value="CTS" />
-    <option name="dynamic-config-pusher:dynamic-resource-name" value="vts-tradefed" />
+    <option name="dynamic-config-pusher:dynamic-resource-name" value="vts10-tradefed" />
     <option name="compatibility:primary-abi-only" value="true" />
     <option name="compatibility:config-patterns" value="Cts.*\.config" />
 

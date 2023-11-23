@@ -32,6 +32,7 @@ import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -39,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.Iterator;
 import java.util.List;
 
+@NonMediaMainlineTest
 public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
     private static final String TAG = "AudioRecordingConfigurationTest";
 
@@ -207,6 +209,8 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
             mAudioRecord.startRecording();
             callback.await(TEST_TIMING_TOLERANCE_MS);
             assertFalse("Unregistered callback was called", callback.mCalled);
+            mAudioRecord.stop();
+            Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
 
             // just call the callback once directly so it's marked as tested
             final AudioManager.AudioRecordingCallback arc =
@@ -219,6 +223,7 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
         }
     }
 
+    @NonMediaMainlineTest
     public void testParcel() throws Exception {
         if (!hasMicrophone()) {
             return;
@@ -331,8 +336,16 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
         try {
             final Method getClientUidMethod = confClass.getDeclaredMethod("getClientUid");
             final Method getClientPackageName = confClass.getDeclaredMethod("getClientPackageName");
-            Integer uid = (Integer) getClientUidMethod.invoke(config, (Object[]) null);
-            assertEquals("client uid isn't protected", -1 /*expected*/, uid.intValue());
+            try {
+                getClientUidMethod.invoke(config, (Object[]) null);
+                fail("InvocationTargetException expected during reflection for getClientUid " +
+                    "without permission");
+            } catch (InvocationTargetException ex) {
+                assertEquals(
+                    "SecurityException cause expected for getClientUid without permission",
+                    SecurityException.class /*expected*/,
+                    ex.getCause().getClass());
+            }
             String name = (String) getClientPackageName.invoke(config, (Object[]) null);
             assertNotNull("client package name is null", name);
             assertEquals("client package name isn't protected", 0 /*expected*/, name.length());

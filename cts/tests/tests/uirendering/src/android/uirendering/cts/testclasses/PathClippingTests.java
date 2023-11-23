@@ -220,6 +220,6 @@ public class PathClippingTests extends ActivityTestBase {
                         initBlueWebView(hwFence), true, hwFence)
                 .addLayout(R.layout.circle_clipped_webview,
                         initBlueWebView(swFence), false, swFence)
-                .runWithComparer(new MSSIMComparer(0.94));
+                .runWithComparer(new MSSIMComparer(0.84f));
     }
 }

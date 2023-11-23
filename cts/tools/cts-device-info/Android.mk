@@ -27,6 +27,8 @@ LOCAL_MULTILIB := both
 DEVICE_INFO_MIN_SDK := 23
 DEVICE_INFO_TARGET_SDK := 23
 
+LOCAL_MIN_SDK_VERSION := 23
+
 DEVICE_INFO_PERMISSIONS :=
 
 DEVICE_INFO_ACTIVITIES := \
@@ -38,7 +40,7 @@ DEVICE_INFO_ACTIVITIES := \
 LOCAL_PACKAGE_NAME := CtsDeviceInfo
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests sts cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests sts mts vts
 
 include $(BUILD_CTS_DEVICE_INFO_PACKAGE)
 

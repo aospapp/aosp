@@ -47,7 +47,7 @@ public class TotalPssHelperTest {
     // Second process name used for testing
     private static final String INVALID_PROCESS_NAME = "abc";
     // Pss prefix in Key.
-    private static final String PSS_METRIC_PREFIX = "AM_TOTAL_PSS";
+    private static final String PSS_METRIC_PREFIX = "am_totalpss_bytes";
 
     private TotalPssHelper mTotalPssHelper;
 

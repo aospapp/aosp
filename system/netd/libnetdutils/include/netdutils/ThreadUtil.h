@@ -34,9 +34,22 @@ struct scoped_pthread_attr {
     pthread_attr_t attr;
 };
 
+inline void setThreadName(std::string name) {
+    // MAX_TASK_COMM_LEN=16 is not exported by bionic.
+    const size_t MAX_TASK_COMM_LEN = 16;
+
+    // Crop name to 16 bytes including the NUL byte, as required by pthread_setname_np()
+    if (name.size() >= MAX_TASK_COMM_LEN) name.resize(MAX_TASK_COMM_LEN - 1);
+
+    if (int ret = pthread_setname_np(pthread_self(), name.c_str()); ret != 0) {
+        LOG(WARNING) << "Unable to set thread name to " << name << ": " << strerror(ret);
+    }
+}
+
 template <typename T>
 inline void* runAndDelete(void* obj) {
     std::unique_ptr<T> handler(reinterpret_cast<T*>(obj));
+    setThreadName(handler->threadName().c_str());
     handler->run();
     return nullptr;
 }

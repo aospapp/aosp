@@ -18,31 +18,27 @@ package android.voicesettings.cts;
 
 import static android.provider.Settings.ACTION_VOICE_CONTROL_BATTERY_SAVER_MODE;
 
-import com.android.compatibility.common.util.BroadcastTestBase;
-import com.android.compatibility.common.util.BroadcastUtils;
-
 import android.content.Context;
 import android.os.PowerManager;
 import android.util.Log;
+
+import com.android.compatibility.common.util.BroadcastUtils;
+
+import org.junit.Test;
 
 public class BatterySaverModeTest extends BroadcastTestBase {
     static final String TAG = "BatterySaverModeTest";
     private static final String VOICE_SETTINGS_PACKAGE = "android.voicesettings.service";
     private static final String VOICE_INTERACTION_CLASS =
-        "android.voicesettings.service.VoiceInteractionMain";
+            "android.voicesettings.service.VoiceInteractionMain";
     protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
 
-    public BatterySaverModeTest() {
-        super();
-    }
-
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    protected void customSetup() throws Exception {
         mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
     }
 
+    @Test
     public void testAll() throws Exception {
         if (!mHasFeature) {
             Log.i(TAG, "The device doesn't support feature: " + FEATURE_VOICE_RECOGNIZERS);

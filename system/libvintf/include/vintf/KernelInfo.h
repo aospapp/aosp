@@ -28,6 +28,7 @@ namespace vintf {
 
 namespace details {
 class MockRuntimeInfo;
+struct StaticRuntimeInfo;
 }  // namespace details
 
 // KernelInfo includes kernel-specific information on a device.
@@ -37,6 +38,7 @@ class KernelInfo {
 
     const KernelVersion& version() const;
     const std::map<std::string, std::string>& configs() const;
+    Level level() const;
 
     // mVersion = x'.y'.z', minLts = x.y.z,
     // match if x == x' , y == y' , and z <= z'.
@@ -44,23 +46,35 @@ class KernelInfo {
     // return true if all kernel configs in matrixConfigs matches.
     bool matchKernelConfigs(const std::vector<KernelConfig>& matrixConfigs,
                             std::string* error = nullptr) const;
-    // return true if this matches kernel requirement specified.
-    bool matchKernelRequirements(const std::vector<MatrixKernel>& kernels,
-                                 std::string* error = nullptr) const;
-
+    // return vector of pointers to elements in "kernels" that this matches
+    // kernel requirement specified.
+    std::vector<const MatrixKernel*> getMatchedKernelRequirements(
+        const std::vector<MatrixKernel>& kernels, Level kernelLevel,
+        std::string* error = nullptr) const;
     bool operator==(const KernelInfo& other) const;
+
+    // Merge information from "other".
+    bool merge(KernelInfo* other, std::string* error = nullptr);
 
    private:
     friend class AssembleVintfImpl;
     friend class details::MockRuntimeInfo;
+    friend struct details::StaticRuntimeInfo;
     friend struct KernelInfoConverter;
     friend struct LibVintfTest;
     friend struct RuntimeInfoFetcher;
+    friend struct RuntimeInfo;
+
+    std::vector<const MatrixKernel*> getMatchedKernelVersionAndConfigs(
+        const std::vector<const MatrixKernel*>& kernels, std::string* error) const;
+
     // x.y.z
     KernelVersion mVersion;
     // /proc/config.gz
     // Key: CONFIG_xxx; Value: the value after = sign.
     std::map<std::string, std::string> mConfigs;
+    // Kernel FCM version
+    Level mLevel = Level::UNSPECIFIED;
 };
 
 }  // namespace vintf

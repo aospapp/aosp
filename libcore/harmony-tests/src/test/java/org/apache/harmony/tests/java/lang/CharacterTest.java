@@ -747,8 +747,13 @@ public class CharacterTest extends TestCase {
         assertTrue(Character.getType((int) '$') == Character.CURRENCY_SYMBOL);
         assertTrue(Character.getType((int) '\u2029') == Character.PARAGRAPH_SEPARATOR);
 
+        // Unicode 13 defines a new range 0x30000–0x3134A
+        assertTrue(Character.getType(0x30000) == Character.DIRECTIONALITY_EUROPEAN_NUMBER_TERMINATOR);
+        assertTrue(Character.getType(0x3134A) == Character.DIRECTIONALITY_EUROPEAN_NUMBER_TERMINATOR);
+        assertTrue(Character.getType(0x2FFFF) == Character.UNASSIGNED);
+        assertTrue(Character.getType(0x3134B) == Character.UNASSIGNED);
+
         assertTrue(Character.getType(0x9FFF) == Character.UNASSIGNED);
-        assertTrue(Character.getType(0x30000) == Character.UNASSIGNED);
         assertTrue(Character.getType(0x110000) == Character.UNASSIGNED);
 
         assertTrue(Character.getType(0x0041) == Character.UPPERCASE_LETTER);
@@ -860,9 +865,14 @@ public class CharacterTest extends TestCase {
         assertTrue(Character.isDefined((int) '\u6039'));
         assertTrue(Character.isDefined(0x10300));
 
-        assertFalse(Character.isDefined(0x30000));
         assertFalse(Character.isDefined(0x3FFFF));
         assertFalse(Character.isDefined(0x110000));
+
+        // Unicode 13 adds a new range 0x30000–0x3134A
+        assertTrue(Character.isDefined(0x30000));
+        assertTrue(Character.isDefined(0x3134A));
+        assertFalse(Character.isDefined(0x2FFFF));
+        assertFalse(Character.isDefined(0x3134B));
     }
 
     /**
@@ -1101,16 +1111,16 @@ public class CharacterTest extends TestCase {
         assertTrue(Character.isJavaIdentifierStart(0x01BB));
         assertTrue(Character.isJavaIdentifierStart(0x2F888));
 
-        assertTrue(Character.isJavaIdentifierPart(0x0024));
-        assertTrue(Character.isJavaIdentifierPart(0xFFE6));
+        assertTrue(Character.isJavaIdentifierStart(0x0024));
+        assertTrue(Character.isJavaIdentifierStart(0xFFE6));
 
-        assertTrue(Character.isJavaIdentifierPart(0x005F));
-        assertTrue(Character.isJavaIdentifierPart(0xFF3F));
+        assertTrue(Character.isJavaIdentifierStart(0x005F));
+        assertTrue(Character.isJavaIdentifierStart(0xFF3F));
 
-        assertTrue(Character.isJavaIdentifierPart(0x2160));
-        assertTrue(Character.isJavaIdentifierPart(0x1034A));
+        assertTrue(Character.isJavaIdentifierStart(0x2160));
+        assertTrue(Character.isJavaIdentifierStart(0x1034A));
 
-        assertFalse(Character.isJavaIdentifierPart(0x110000));
+        assertFalse(Character.isJavaIdentifierStart(0x110000));
     }
 
     /**
@@ -1557,9 +1567,14 @@ public class CharacterTest extends TestCase {
      */
     public void test_isDirectionaliy_I() {
         assertEquals(Character.DIRECTIONALITY_UNDEFINED, Character.getDirectionality(0xFFFE));
-        assertEquals(Character.DIRECTIONALITY_UNDEFINED, Character.getDirectionality(0x30000));
         assertEquals(Character.DIRECTIONALITY_UNDEFINED, Character.getDirectionality(0x110000));
         assertEquals(Character.DIRECTIONALITY_UNDEFINED, Character.getDirectionality(-1));
+
+        // Unicode 13 adds a new range 0x30000–0x3134A
+        assertEquals(Character.DIRECTIONALITY_LEFT_TO_RIGHT, Character.getDirectionality(0x30000));
+        assertEquals(Character.DIRECTIONALITY_LEFT_TO_RIGHT, Character.getDirectionality(0x3134A));
+        assertEquals(Character.DIRECTIONALITY_UNDEFINED, Character.getDirectionality(0x2FFFF));
+        assertEquals(Character.DIRECTIONALITY_UNDEFINED, Character.getDirectionality(0x3134B));
 
         assertEquals(Character.DIRECTIONALITY_LEFT_TO_RIGHT, Character.getDirectionality(0x0041));
         assertEquals(Character.DIRECTIONALITY_LEFT_TO_RIGHT, Character.getDirectionality(0x10000));

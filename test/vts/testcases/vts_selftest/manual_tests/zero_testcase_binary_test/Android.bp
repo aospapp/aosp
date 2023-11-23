@@ -24,3 +24,7 @@ cc_test {
         "-g",
     ],
 }
+
+vts_config {
+    name: "VtsSelfTestZeroTestCaseBinaryTest",
+}

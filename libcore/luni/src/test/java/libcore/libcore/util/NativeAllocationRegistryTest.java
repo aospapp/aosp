@@ -56,15 +56,18 @@ public class NativeAllocationRegistryTest extends TestCase {
             return;
         }
         Runtime.getRuntime().gc();
+        System.runFinalization();
+        long nativeBytes = getNumNativeBytesAllocated();
+        assertEquals("Native bytes already allocated", 0, nativeBytes);
         long max = Runtime.getRuntime().maxMemory();
         long total = Runtime.getRuntime().totalMemory();
         int size = 1024*1024;
-        int expectedMaxNumAllocations = (int)(max-total)/size;
+        final int nativeSize = size/2;
+        int javaSize = size/2;
+        int expectedMaxNumAllocations = (int)(max-total)/javaSize;
         int numSavedAllocations = expectedMaxNumAllocations/2;
         Allocation[] saved = new Allocation[numSavedAllocations];
 
-        final int nativeSize = size/2;
-        int javaSize = size/2;
         NativeAllocationRegistry registry = null;
         int numAllocationsToSimulate = 10 * expectedMaxNumAllocations;
 
@@ -93,10 +96,23 @@ public class NativeAllocationRegistryTest extends TestCase {
         // Verify most of the allocations have been freed.
         // Since we use fairly large Java objects, this doesn't test the GC triggering
         // effect; we do that elsewhere.
-        long nativeBytes = getNumNativeBytesAllocated();
-        long nativeReachableBytes = numSavedAllocations * nativeSize;
+        // Since native and java objects have the same size, and we can only have max
+        // Java bytes in use, there should be no more than max native bytes in use,
+        // once all enqueued deallocations have been processed. First make sure
+        // that the ReferenceQueueDaemon has processed all pending requests, and then
+        // check.
+        System.runFinalization();
+        nativeBytes = getNumNativeBytesAllocated();
         assertTrue("Excessive native bytes still allocated (" + nativeBytes + ")"
-                + " given max memory of (" + max + ")", nativeBytes < 2 * max);
+                + " given max memory of (" + max + ")", nativeBytes <= max);
+        // Check that the array is fully populated, and sufficiently many native bytes
+        // are live.
+        long nativeReachableBytes = numSavedAllocations * nativeSize;
+        for (int i = 0; i < numSavedAllocations; i++) {
+            assertNotNull(saved[i]);
+            assertNotNull(saved[i].javaAllocation);
+            assertTrue(saved[i].nativeAllocation != 0);
+        }
         assertTrue("Too few native bytes still allocated (" + nativeBytes + "); "
                 + nativeReachableBytes + " bytes are reachable",
                 nativeBytes >= nativeReachableBytes);

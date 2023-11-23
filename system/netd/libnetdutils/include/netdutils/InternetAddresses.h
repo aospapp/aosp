@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#ifndef NETDUTILS_INTERNETADDRESSES_H_
-#define NETDUTILS_INTERNETADDRESSES_H_
+#pragma once
 
+#include <netdb.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <cstring>
@@ -104,6 +104,16 @@ static_assert(sizeof(compact_ipdata) == 24U, "compact_ipdata unexpectedly large"
 
 }  // namespace internal_
 
+struct AddrinfoDeleter {
+    void operator()(struct addrinfo* p) const {
+        if (p != nullptr) {
+            freeaddrinfo(p);
+        }
+    }
+};
+
+typedef std::unique_ptr<struct addrinfo, struct AddrinfoDeleter> ScopedAddrinfo;
+
 inline bool usesScopedIds(const in6_addr& ipv6) {
     return (IN6_IS_ADDR_LINKLOCAL(&ipv6) || IN6_IS_ADDR_MC_LINKLOCAL(&ipv6));
 }
@@ -185,7 +195,12 @@ class IPAddress {
 
 class IPPrefix {
   public:
-    // TODO: "static forString(...)" using NetdConstants' parsePrefix().
+    static bool forString(const std::string& repr, IPPrefix* prefix);
+    static IPPrefix forString(const std::string& repr) {
+        IPPrefix prefix;
+        if (!forString(repr, &prefix)) return IPPrefix();
+        return prefix;
+    }
 
     IPPrefix() = default;
     IPPrefix(const IPPrefix&) = default;
@@ -231,6 +246,23 @@ class IPPrefix {
 class IPSockAddr {
   public:
     // TODO: static forString
+
+    static IPSockAddr toIPSockAddr(const std::string& repr, in_port_t port) {
+        return IPSockAddr(IPAddress::forString(repr), port);
+    }
+    static IPSockAddr toIPSockAddr(const sockaddr& sa) {
+        switch (sa.sa_family) {
+            case AF_INET:
+                return IPSockAddr(*reinterpret_cast<const sockaddr_in*>(&sa));
+            case AF_INET6:
+                return IPSockAddr(*reinterpret_cast<const sockaddr_in6*>(&sa));
+            default:
+                return IPSockAddr();
+        }
+    }
+    static IPSockAddr toIPSockAddr(const sockaddr_storage& ss) {
+        return toIPSockAddr(*reinterpret_cast<const sockaddr*>(&ss));
+    }
 
     IPSockAddr() = default;
     IPSockAddr(const IPSockAddr&) = default;
@@ -291,5 +323,3 @@ class IPSockAddr {
 
 }  // namespace netdutils
 }  // namespace android
-
-#endif  // NETDUTILS_INTERNETADDRESSES_H_

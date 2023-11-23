@@ -94,64 +94,6 @@ public class LightBarTestBase {
         }
     }
 
-    private boolean hasVirtualNavigationBar(ActivityTestRule<? extends LightBarBaseActivity> rule)
-            throws Throwable {
-        final WindowInsets[] inset = new WindowInsets[1];
-        rule.runOnUiThread(()-> {
-            inset[0] = rule.getActivity().getRootWindowInsets();
-        });
-        return inset[0].getStableInsetBottom() > 0;
-    }
-
-    private boolean isRunningInVr() {
-        final Context context = InstrumentationRegistry.getContext();
-        final Configuration config = context.getResources().getConfiguration();
-        return (config.uiMode & Configuration.UI_MODE_TYPE_MASK)
-                == Configuration.UI_MODE_TYPE_VR_HEADSET;
-    }
-
-    private void assumeBasics() {
-        final PackageManager pm = getInstrumentation().getContext().getPackageManager();
-
-        // No bars on embedded devices.
-        assumeFalse(getInstrumentation().getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_EMBEDDED));
-
-        // No bars on TVs and watches.
-        // Automotive navigation bar is not transparent
-        assumeFalse(pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
-                || pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
-                || pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-                || pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE));
-
-
-        // Non-highEndGfx devices don't do colored system bars.
-        assumeTrue(ActivityManager.isHighEndGfx());
-    }
-
-    protected void assumeHasColoredStatusBar(ActivityTestRule<? extends LightBarBaseActivity> rule)
-            throws Throwable {
-        assumeBasics();
-
-        // No status bar when running in Vr
-        assumeFalse(isRunningInVr());
-
-        // Status bar exists only when top stable inset is positive
-        final WindowInsets[] inset = new WindowInsets[1];
-        rule.runOnUiThread(()-> {
-            inset[0] = rule.getActivity().getRootWindowInsets();
-        });
-        assumeTrue("Top stable inset is non-positive.", inset[0].getStableInsetTop() > 0);
-    }
-
-    protected void assumeHasColoredNavigationBar(
-            ActivityTestRule<? extends LightBarBaseActivity> rule) throws Throwable {
-        assumeBasics();
-
-        // No virtual navigation bar, so no effect.
-        assumeTrue(hasVirtualNavigationBar(rule));
-    }
-
     protected void checkNavigationBarDivider(LightBarBaseActivity activity, int dividerColor,
             int backgroundColor, String methodName) {
         final Bitmap bitmap = takeNavigationBarScreenshot(activity);

@@ -254,13 +254,18 @@ class KernelLtpTest(base_test.BaseTestClass):
         if is_low_mem:
             logging.info('Device is configured as a low RAM device.')
 
+        is_hwasan = self._dut.getProp('ro.product.name').find('_hwasan') != -1 and n_bit == self._64BIT
+        if is_hwasan:
+            logging.info('Running on a HWASan device.')
+
         test_cases = list(
             self._testcases.Load(
                 ltp_configs.LTPDIR,
                 n_bit,
                 self.test_filter,
                 run_staging=self.run_staging,
-                is_low_mem=is_low_mem))
+                is_low_mem=is_low_mem,
+                is_hwasan=is_hwasan))
 
         logging.info("Checking binary exists for all test cases.")
         self._requirement.ltp_bin_host_path = os.path.join(

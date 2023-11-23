@@ -414,10 +414,10 @@ void HWDeviceDRM::SetupAtomic(HWLayers *hw_layers, bool validate) {
         // In case of rotation, rotator handles flips
         if (!needs_rotation) {
           if (layer.transform.flip_horizontal) {
-            rot_bit_mask |= 1 << DRM_REFLECT_X;
+            rot_bit_mask |= DRM_MODE_REFLECT_X;
           }
           if (layer.transform.flip_vertical) {
-            rot_bit_mask |= 1 << DRM_REFLECT_Y;
+            rot_bit_mask |= DRM_MODE_REFLECT_Y;
           }
         }
 
@@ -760,7 +760,7 @@ DisplayError HWDeviceDRM::SetMixerAttributes(const HWMixerAttributes &mixer_attr
 
   float scale_x = FLOAT(display_attributes_.x_pixels) / FLOAT(mixer_attributes.width);
   float scale_y = FLOAT(display_attributes_.y_pixels) / FLOAT(mixer_attributes.height);
-  float max_scale_up = hw_resource_.hw_dest_scalar_info.max_scale_up;
+  float max_scale_up = FLOAT(hw_resource_.hw_dest_scalar_info.max_scale_up);
   if (scale_x > max_scale_up || scale_y > max_scale_up) {
     DLOGW(
         "Up scaling ratio exceeds for destination scalar upscale limit scale_x %f scale_y %f "

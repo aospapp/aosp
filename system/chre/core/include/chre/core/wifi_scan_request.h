@@ -19,10 +19,10 @@
 
 #include <cstddef>
 
-#include "chre_api/chre/wifi.h"
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/fixed_size_vector.h"
 #include "chre/util/time.h"
+#include "chre_api/chre/wifi.h"
 
 namespace chre {
 
@@ -37,12 +37,7 @@ constexpr size_t kMaxWifiSsidLength = 32;
  * improve type-safety. In addition, an invalid wifi scan type is added for
  * handling an app that is not requesting wifi scans.
  */
-enum class WifiScanType {
-  Invalid,
-  Active,
-  ActivePlusPassiveDfs,
-  Passive
-};
+enum class WifiScanType { Invalid, Active, ActivePlusPassiveDfs, Passive };
 
 /**
  * Translates a CHRE API enum wifi scan type to a WifiScanType. This funciton
@@ -84,10 +79,9 @@ class WifiScanRequest {
    * @param frequencies The list of frequencies to search for networks on.
    * @param ssids The list of SSIDs to specifically search for.
    */
-  WifiScanRequest(WifiScanType wifiScanType,
-                  const Nanoseconds& maxScanAge,
-                  DynamicVector<uint32_t>&& frequencies,
-                  DynamicVector<WifiSsid>&& ssids);
+  WifiScanRequest(WifiScanType wifiScanType, const Nanoseconds &maxScanAge,
+                  DynamicVector<uint32_t> &&frequencies,
+                  DynamicVector<WifiSsid> &&ssids);
 
   /**
    * @return the type of this scan request.
@@ -97,17 +91,17 @@ class WifiScanRequest {
   /**
    * @return the maximum age of a scan result for this request.
    */
-  const Nanoseconds& getMaxScanAge() const;
+  const Nanoseconds &getMaxScanAge() const;
 
   /**
    * @return the frequencies associated with this request.
    */
-  const DynamicVector<uint32_t>& getFrequencies() const;
+  const DynamicVector<uint32_t> &getFrequencies() const;
 
   /**
    * @return the SSIDs associated with this request.
    */
-  const DynamicVector<WifiSsid>& getSsids() const;
+  const DynamicVector<WifiSsid> &getSsids() const;
 
  private:
   //! The type of request for this scan.

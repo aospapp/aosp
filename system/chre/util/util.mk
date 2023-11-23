@@ -12,8 +12,8 @@ COMMON_CFLAGS += -Iutil/include
 COMMON_SRCS += util/buffer_base.cc
 COMMON_SRCS += util/dynamic_vector_base.cc
 COMMON_SRCS += util/nanoapp/audio.cc
+COMMON_SRCS += util/nanoapp/callbacks.cc
 COMMON_SRCS += util/nanoapp/debug.cc
-COMMON_SRCS += util/nanoapp/sensor.cc
 COMMON_SRCS += util/nanoapp/wifi.cc
 COMMON_SRCS += util/system/debug_dump.cc
 
@@ -22,6 +22,7 @@ COMMON_SRCS += util/system/debug_dump.cc
 GOOGLETEST_SRCS += util/tests/array_queue_test.cc
 GOOGLETEST_SRCS += util/tests/blocking_queue_test.cc
 GOOGLETEST_SRCS += util/tests/buffer_test.cc
+GOOGLETEST_SRCS += util/tests/debug_dump_test.cc
 GOOGLETEST_SRCS += util/tests/dynamic_vector_test.cc
 GOOGLETEST_SRCS += util/tests/fixed_size_vector_test.cc
 GOOGLETEST_SRCS += util/tests/heap_test.cc

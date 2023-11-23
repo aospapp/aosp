@@ -256,7 +256,7 @@ TEST_P(AAudioStreamBuilderSharingModeTest, openStream) {
     if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
-    AAudioStreamBuilder_setFormat(aaudioBuilder, GetParam());
+    AAudioStreamBuilder_setSharingMode(aaudioBuilder, GetParam());
     try_opening_audio_stream(
             aaudioBuilder, isValidSharingMode(GetParam()) ? Expect::SUCCEED : Expect::FAIL);
 }
@@ -275,7 +275,7 @@ class AAudioStreamBuilderDirectionTest : public ::testing::TestWithParam<aaudio_
         return info.param >= 0 ? std::to_string(info.param) : "_" + std::to_string(-info.param);
     }
   protected:
-    static bool isValidSharingMode(aaudio_direction_t f) {
+    static bool isValidDirection(aaudio_direction_t f) {
         return f == AAUDIO_DIRECTION_OUTPUT || f == AAUDIO_DIRECTION_INPUT;
     }
 };
@@ -287,9 +287,9 @@ TEST_P(AAudioStreamBuilderDirectionTest, openStream) {
             && !deviceSupportsFeature(FEATURE_RECORDING)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
-    AAudioStreamBuilder_setFormat(aaudioBuilder, GetParam());
+    AAudioStreamBuilder_setDirection(aaudioBuilder, GetParam());
     try_opening_audio_stream(
-            aaudioBuilder, isValidSharingMode(GetParam()) ? Expect::SUCCEED : Expect::FAIL);
+            aaudioBuilder, isValidDirection(GetParam()) ? Expect::SUCCEED : Expect::FAIL);
 }
 
 INSTANTIATE_TEST_CASE_P(SD, AAudioStreamBuilderDirectionTest,

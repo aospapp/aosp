@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="force-install-mode" value="FULL"/>
@@ -28,9 +29,16 @@
         <option name="test-file-name" value="CtsAppTestStubsApp3.apk" />
         <option name="test-file-name" value="CtsAppTestStubsApp2.apk" />
         <option name="test-file-name" value="CtsAppTestCases.apk" />
+        <option name="test-file-name" value="CtsBadProviderStubs.apk" />
         <option name="test-file-name" value="CtsCantSaveState1.apk" />
         <option name="test-file-name" value="CtsCantSaveState2.apk" />
         <option name="test-file-name" value="NotificationDelegator.apk" />
+        <option name="test-file-name" value="StorageDelegator.apk" />
+        <option name="test-file-name" value="CtsActivityManagerApi29.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
+        <option name="run-command" value="wm dismiss-keyguard" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />

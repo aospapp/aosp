@@ -23,6 +23,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <cerrno>
+#include <filesystem>
 #include <regex>
 #include <string>
 
@@ -30,14 +31,16 @@
 #include "Common.h"
 #include "sysprop.pb.h"
 
+using android::base::Result;
+
 namespace {
 
 constexpr const char* kIndent = "    ";
 
 constexpr const char* kJavaFileImports =
-    R"(import android.annotation.SystemApi;
+    R"(import android.os.SystemProperties;
 
-import android.os.SystemProperties;
+import java.lang.StringBuilder;
 import java.util.ArrayList;
 import java.util.function.Function;
 import java.util.List;
@@ -49,7 +52,7 @@ import java.util.stream.Collectors;
 )";
 
 constexpr const char* kJavaParsersAndFormatters =
-    R"(private static Boolean tryParseBoolean(String str) {
+    R"s(private static Boolean tryParseBoolean(String str) {
     switch (str.toLowerCase(Locale.US)) {
         case "1":
         case "true":
@@ -103,8 +106,17 @@ private static <T> List<T> tryParseList(Function<String, T> elementParser, Strin
 
     List<T> ret = new ArrayList<>();
 
-    for (String element : str.split(",")) {
-        ret.add(elementParser.apply(element));
+    int p = 0;
+    for (;;) {
+        StringBuilder sb = new StringBuilder();
+        while (p < str.length() && str.charAt(p) != ',') {
+            if (str.charAt(p) == '\\') ++p;
+            if (p == str.length()) break;
+            sb.append(str.charAt(p++));
+        }
+        ret.add(elementParser.apply(sb.toString()));
+        if (p == str.length()) break;
+        ++p;
     }
 
     return ret;
@@ -122,11 +134,15 @@ private static <T extends Enum<T>> List<T> tryParseEnumList(Class<T> enumType, S
     return ret;
 }
 
+private static String escape(String str) {
+    return str.replaceAll("([\\\\,])", "\\\\$1");
+}
+
 private static <T> String formatList(List<T> list) {
     StringJoiner joiner = new StringJoiner(",");
 
     for (T element : list) {
-        joiner.add(element == null ? "" : element.toString());
+        joiner.add(element == null ? "" : escape(element.toString()));
     }
 
     return joiner.toString();
@@ -141,7 +157,7 @@ private static <T extends Enum<T>> String formatEnumList(List<T> list, Function<
 
     return joiner.toString();
 }
-)";
+)s";
 
 const std::regex kRegexDot{"\\."};
 const std::regex kRegexUnderscore{"_"};
@@ -152,9 +168,8 @@ std::string GetJavaPackageName(const sysprop::Properties& props);
 std::string GetJavaClassName(const sysprop::Properties& props);
 std::string GetParsingExpression(const sysprop::Property& prop);
 std::string GetFormattingExpression(const sysprop::Property& prop);
-void WriteJavaAnnotation(CodeWriter& writer, sysprop::Scope scope);
-bool GenerateJavaClass(const sysprop::Properties& props,
-                       std::string* java_result, std::string* err);
+std::string GenerateJavaClass(const sysprop::Properties& props,
+                              sysprop::Scope scope);
 
 std::string GetJavaEnumTypeName(const sysprop::Property& prop) {
   return ApiNameToIdentifier(prop.api_name()) + "_values";
@@ -273,32 +288,8 @@ std::string GetJavaClassName(const sysprop::Properties& props) {
   return module.substr(module.rfind('.') + 1);
 }
 
-void WriteJavaAnnotation(CodeWriter& writer, sysprop::Scope scope) {
-  switch (scope) {
-    case sysprop::System:
-      writer.Write("/** @hide */\n");
-      writer.Write("@SystemApi\n");
-      break;
-    case sysprop::Internal:
-      writer.Write("/** @hide */\n");
-      break;
-    default:
-      break;
-  }
-}
-
-bool GenerateJavaClass(const sysprop::Properties& props,
-                       std::string* java_result,
-                       [[maybe_unused]] std::string* err) {
-  sysprop::Scope classScope = sysprop::Internal;
-
-  for (int i = 0; i < props.prop_size(); ++i) {
-    // Get least restrictive scope among props. For example, if all props
-    // are internal, class can be as well internal. However, class should
-    // be public or system if at least one prop is so.
-    classScope = std::min(classScope, props.prop(i).scope());
-  }
-
+std::string GenerateJavaClass(const sysprop::Properties& props,
+                              sysprop::Scope scope) {
   std::string package_name = GetJavaPackageName(props);
   std::string class_name = GetJavaClassName(props);
 
@@ -306,24 +297,23 @@ bool GenerateJavaClass(const sysprop::Properties& props,
   writer.Write("%s", kGeneratedFileFooterComments);
   writer.Write("package %s;\n\n", package_name.c_str());
   writer.Write("%s", kJavaFileImports);
-  WriteJavaAnnotation(writer, classScope);
   writer.Write("public final class %s {\n", class_name.c_str());
   writer.Indent();
   writer.Write("private %s () {}\n\n", class_name.c_str());
   writer.Write("%s", kJavaParsersAndFormatters);
 
   for (int i = 0; i < props.prop_size(); ++i) {
-    writer.Write("\n");
-
     const sysprop::Property& prop = props.prop(i);
+
+    // skip if scope is internal and we are generating public class
+    if (prop.scope() > scope) continue;
+
+    writer.Write("\n");
 
     std::string prop_id = ApiNameToIdentifier(prop.api_name()).c_str();
     std::string prop_type = GetJavaTypeName(prop);
 
     if (prop.type() == sysprop::Enum || prop.type() == sysprop::EnumList) {
-      if (prop.scope() != classScope) {
-        WriteJavaAnnotation(writer, prop.scope());
-      }
       writer.Write("public static enum %s {\n",
                    GetJavaEnumTypeName(prop).c_str());
       writer.Indent();
@@ -356,8 +346,8 @@ bool GenerateJavaClass(const sysprop::Properties& props,
       writer.Write("}\n\n");
     }
 
-    if (prop.scope() != classScope) {
-      WriteJavaAnnotation(writer, prop.scope());
+    if (prop.deprecated()) {
+      writer.Write("@Deprecated\n");
     }
 
     if (IsListProp(prop)) {
@@ -383,8 +373,8 @@ bool GenerateJavaClass(const sysprop::Properties& props,
 
     if (prop.access() != sysprop::Readonly) {
       writer.Write("\n");
-      if (classScope != sysprop::Internal) {
-        WriteJavaAnnotation(writer, sysprop::Internal);
+      if (prop.deprecated()) {
+        writer.Write("@Deprecated\n");
       }
       writer.Write("public static void %s(%s value) {\n", prop_id.c_str(),
                    prop_type.c_str());
@@ -400,43 +390,40 @@ bool GenerateJavaClass(const sysprop::Properties& props,
   writer.Dedent();
   writer.Write("}\n");
 
-  *java_result = writer.Code();
-  return true;
+  return writer.Code();
 }
 
 }  // namespace
 
-bool GenerateJavaLibrary(const std::string& input_file_path,
-                         const std::string& java_output_dir, std::string* err) {
+Result<void> GenerateJavaLibrary(const std::string& input_file_path,
+                                 sysprop::Scope scope,
+                                 const std::string& java_output_dir) {
   sysprop::Properties props;
 
-  if (!ParseProps(input_file_path, &props, err)) {
-    return false;
+  if (auto res = ParseProps(input_file_path); res.ok()) {
+    props = std::move(*res);
+  } else {
+    return res.error();
   }
 
-  std::string java_result;
-
-  if (!GenerateJavaClass(props, &java_result, err)) {
-    return false;
-  }
-
+  std::string java_result = GenerateJavaClass(props, scope);
   std::string package_name = GetJavaPackageName(props);
   std::string java_package_dir =
       java_output_dir + "/" + std::regex_replace(package_name, kRegexDot, "/");
 
-  if (!IsDirectory(java_package_dir) && !CreateDirectories(java_package_dir)) {
-    *err = "Creating directory to " + java_package_dir +
-           " failed: " + strerror(errno);
-    return false;
+  std::error_code ec;
+  std::filesystem::create_directories(java_package_dir, ec);
+  if (ec) {
+    return Errorf("Creating directory to {} failed: {}", java_package_dir,
+                  ec.message());
   }
 
   std::string class_name = GetJavaClassName(props);
   std::string java_output_file = java_package_dir + "/" + class_name + ".java";
   if (!android::base::WriteStringToFile(java_result, java_output_file)) {
-    *err = "Writing generated java class to " + java_output_file +
-           " failed: " + strerror(errno);
-    return false;
+    return ErrnoErrorf("Writing generated java class to {} failed",
+                       java_output_file);
   }
 
-  return true;
+  return {};
 }

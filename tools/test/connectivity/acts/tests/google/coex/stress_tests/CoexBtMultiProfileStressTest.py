@@ -31,11 +31,9 @@ from acts.test_utils.coex.coex_test_utils import pair_and_connect_headset
 
 class CoexBtMultiProfileStressTest(CoexBaseTest):
 
-    def __init__(self, controllers):
-        super().__init__(controllers)
-
     def setup_class(self):
         super().setup_class()
+
         self.receiver = self.relay_devices[1]
         req_params = ["iterations"]
         self.unpack_userparams(req_params)

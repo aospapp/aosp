@@ -119,8 +119,9 @@ func runSoong(ctx Context, config Config) {
 			"-j", strconv.Itoa(config.Parallel()),
 			"--frontend_file", fifo,
 			"-f", filepath.Join(config.SoongOutDir(), file))
+		cmd.Environment.Set("SOONG_SANDBOX_SOONG_BUILD", "true")
 		cmd.Sandbox = soongSandbox
-		cmd.RunAndPrintOrFatal()
+		cmd.RunAndStreamOrFatal()
 	}
 
 	ninja("minibootstrap", ".minibootstrap/build.ninja")

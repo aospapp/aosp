@@ -16,7 +16,6 @@
 package android.uirendering.cts.testinfrastructure
 
 import android.app.Activity
-import android.app.UiModeManager
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Point
@@ -216,8 +215,8 @@ class DrawActivity : Activity() {
 
     override fun onPause() {
         super.onPause()
-        mViewInitializer?.run {
-            teardownView()
+        if (mViewInitializer != null) {
+            throw IllegalStateException("Failed to reset() after running test")
         }
     }
 

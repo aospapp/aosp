@@ -16,11 +16,7 @@
 
 #include "apex_file.h"
 
-#include "status.h"
-#include "status_or.h"
-#include "string_log.h"
-
-#include <android-base/logging.h>
+#include <android-base/result.h>
 
 namespace android {
 namespace apex {
@@ -30,11 +26,11 @@ constexpr const char* kSystemShimApexName = "com.android.apex.cts.shim.apex";
 
 bool IsShimApex(const ApexFile& apex_file);
 
-Status ValidateShimApex(const std::string& mount_point,
-                        const ApexFile& apex_file);
+android::base::Result<void> ValidateShimApex(const std::string& mount_point,
+                                             const ApexFile& apex_file);
 
-Status ValidateUpdate(const std::string& system_apex_path,
-                      const std::string& new_apex_path);
+android::base::Result<void> ValidateUpdate(const std::string& system_apex_path,
+                                           const std::string& new_apex_path);
 
 }  // namespace shim
 }  // namespace apex

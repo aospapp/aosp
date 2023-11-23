@@ -42,6 +42,8 @@ public class SystemUtil {
         ANDROID_HOST_OUT_TESTCASES,
     }
 
+    public static final String REMOTE_VM_VARIABLE = "REMOTE_VM_ENV";
+
     private static final String HOST_TESTCASES = "host/testcases";
     private static final String TARGET_TESTCASES = "target/testcases";
 
@@ -162,5 +164,28 @@ public class SystemUtil {
         } else {
             return new File(path);
         }
+    }
+
+    /** Return true if we are currently running in a remote environment. */
+    public static boolean isRemoteEnvironment() {
+        if ("1".equals(System.getenv(REMOTE_VM_VARIABLE))) {
+            return true;
+        }
+        return false;
+    }
+
+    /** Returns the path to the Java binary that current test harness is running in */
+    public static File getRunningJavaBinaryPath() {
+        String javaHome = System.getProperty("java.home");
+        if (javaHome == null) {
+            throw new RuntimeException("System property \"java.home\" is not set.");
+        }
+        // this only works on *nix systems, but it's not like we officially support any others
+        File javaBinary = new File(String.format("%s/bin/java", javaHome));
+        if (!javaBinary.exists()) {
+            throw new RuntimeException(
+                    String.format("Computed Java binary path %s does not exist", javaBinary));
+        }
+        return javaBinary;
     }
 }

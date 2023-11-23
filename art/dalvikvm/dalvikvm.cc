@@ -208,6 +208,13 @@ static int dalvikvm(int argc, char** argv) {
 
 }  // namespace art
 
+// TODO(b/141622862): stop leaks
+extern "C" const char *__asan_default_options() {
+    return "detect_leaks=0";
+}
+
 int main(int argc, char** argv) {
-  return art::dalvikvm(argc, argv);
+  // Do not allow static destructors to be called, since it's conceivable that
+  // daemons may still awaken (literally).
+  _exit(art::dalvikvm(argc, argv));
 }

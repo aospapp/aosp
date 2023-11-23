@@ -149,15 +149,33 @@ public class ContentResolverWrapTest {
     }
 
     @Test
+    public void testInsert_Extras() throws Exception {
+        doReturn(URI).when(mProvider).insert(URI, VALUES, EXTRAS);
+        assertEquals(URI, mResolver.insert(URI, VALUES, EXTRAS));
+    }
+
+    @Test
     public void testUpdate() throws Exception {
         doReturn(42).when(mProvider).update(URI, VALUES, ARG, ARG_ARRAY);
         assertEquals(42, mResolver.update(URI, VALUES, ARG, ARG_ARRAY));
     }
 
     @Test
+    public void testUpdate_Extras() throws Exception {
+        doReturn(21).when(mProvider).update(URI, VALUES, EXTRAS);
+        assertEquals(21, mResolver.update(URI, VALUES, EXTRAS));
+    }
+
+    @Test
     public void testDelete() throws Exception {
         doReturn(42).when(mProvider).delete(URI, ARG, ARG_ARRAY);
         assertEquals(42, mResolver.delete(URI, ARG, ARG_ARRAY));
+    }
+
+    @Test
+    public void testDelete_Extras() throws Exception {
+        doReturn(21).when(mProvider).delete(URI, EXTRAS);
+        assertEquals(21, mResolver.delete(URI, EXTRAS));
     }
 
     @Test

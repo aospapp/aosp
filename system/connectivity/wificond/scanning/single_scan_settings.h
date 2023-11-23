@@ -25,11 +25,10 @@
 #include "wificond/scanning/channel_settings.h"
 #include "wificond/scanning/hidden_network.h"
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 class SingleScanSettings : public ::android::Parcelable {
  public:
@@ -50,10 +49,9 @@ class SingleScanSettings : public ::android::Parcelable {
   bool isValidScanType() const;
 };
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com
 
 #endif  // WIFICOND_SCANNING_SINGLE_SCAN_SETTINGS_H_

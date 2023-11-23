@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef SCOPED_STRING_CHARS_H_
-#define SCOPED_STRING_CHARS_H_
+#ifndef LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_STRING_CHARS_H_
+#define LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_STRING_CHARS_H_
 
 #include "jni.h"
 #include "nativehelper_utils.h"
@@ -34,7 +34,7 @@ class ScopedStringChars {
   ScopedStringChars(JNIEnv* env, jstring s) : env_(env), string_(s), size_(0) {
     if (s == NULL) {
       chars_ = NULL;
-      jniThrowNullPointerException(env, NULL);
+      jniThrowNullPointerException(env);
     } else {
       chars_ = env->GetStringChars(string_, NULL);
       if (chars_ != NULL) {
@@ -70,4 +70,4 @@ class ScopedStringChars {
   DISALLOW_COPY_AND_ASSIGN(ScopedStringChars);
 };
 
-#endif  // SCOPED_STRING_CHARS_H_
+#endif  // LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_STRING_CHARS_H_

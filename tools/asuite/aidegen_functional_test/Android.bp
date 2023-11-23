@@ -29,13 +29,15 @@ python_defaults {
 
 python_binary_host {
     name: "aidegen_functional_test",
+    suffix: "-dev",
     defaults: ["aidegen_functional_test_default"],
     main: "aidegen_functional_test_main.py",
     srcs: [
-        "aidegen_functional_test_main.py",
+        "**/*.py",
     ],
     libs: [
         "aidegen_lib",
         "atest_module_info",
+        "asuite_cc_client",
     ],
 }

@@ -28,6 +28,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -47,6 +48,25 @@ public class TarUtilTest {
     @After
     public void tearDown() {
         FileUtil.recursiveDelete(mWorkDir);
+    }
+
+    /** Test that {@link TarUtil#isGzip(File)} determines the file type. */
+    @Test
+    public void testIsGzip() throws IOException {
+        InputStream logTarGz = getClass().getResourceAsStream(EMMA_METADATA_RESOURCE_PATH);
+        File tmpFile = FileUtil.createTempFile("log_tarutil_test", ".tar.gz");
+        try {
+            FileUtil.writeToFile(logTarGz, tmpFile);
+            assertTrue(TarUtil.isGzip(tmpFile));
+
+            FileUtil.writeToFile("test", tmpFile);
+            assertFalse(TarUtil.isGzip(tmpFile));
+
+            FileUtil.writeToFile("", tmpFile);
+            assertFalse(TarUtil.isGzip(tmpFile));
+        } finally {
+            FileUtil.deleteFile(tmpFile);
+        }
     }
 
     /**
@@ -84,6 +104,24 @@ public class TarUtilTest {
             Assert.assertEquals(2, untaredList.size());
         } finally {
             FileUtil.deleteFile(logTarGzFile);
+        }
+    }
+
+    /**
+     * Test that {TarUtil#extractTarGzipToTemp(File, String)} can extract properly a tar.gz file.
+     */
+    @Test
+    public void testExtractTarGzipToTemp() throws Exception {
+        InputStream logTarGz = getClass().getResourceAsStream(EMMA_METADATA_RESOURCE_PATH);
+        File tarGzFile = FileUtil.createTempFile("extract_tar_gz_test", ".tar.gz");
+        File tempDir = null;
+        try {
+            FileUtil.writeToFile(logTarGz, tarGzFile);
+            tempDir = TarUtil.extractTarGzipToTemp(tarGzFile, "extract_tar_gz_test");
+            Assert.assertEquals(2, tempDir.list().length);
+        } finally {
+            FileUtil.recursiveDelete(tempDir);
+            FileUtil.deleteFile(tarGzFile);
         }
     }
 

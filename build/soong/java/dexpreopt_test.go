@@ -30,6 +30,7 @@ func TestDexpreoptEnabled(t *testing.T) {
 				android_app {
 					name: "foo",
 					srcs: ["a.java"],
+					sdk_version: "current",
 				}`,
 			enabled: true,
 		},
@@ -52,14 +53,29 @@ func TestDexpreoptEnabled(t *testing.T) {
 				}`,
 			enabled: true,
 		},
-
 		{
 			name: "app without sources",
 			bp: `
 				android_app {
 					name: "foo",
+					sdk_version: "current",
 				}`,
-			// TODO(ccross): this should probably be false
+			enabled: false,
+		},
+		{
+			name: "app with libraries",
+			bp: `
+				android_app {
+					name: "foo",
+					static_libs: ["lib"],
+					sdk_version: "current",
+				}
+
+				java_library {
+					name: "lib",
+					srcs: ["a.java"],
+					sdk_version: "current",
+				}`,
 			enabled: true,
 		},
 		{
@@ -69,10 +85,8 @@ func TestDexpreoptEnabled(t *testing.T) {
 					name: "foo",
 					installable: true,
 				}`,
-			// TODO(ccross): this should probably be false
-			enabled: true,
+			enabled: false,
 		},
-
 		{
 			name: "static java library",
 			bp: `
@@ -132,7 +146,7 @@ func TestDexpreoptEnabled(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testJava(t, test.bp)
+			ctx, _ := testJava(t, test.bp)
 
 			dexpreopt := ctx.ModuleForTests("foo", "android_common").MaybeDescription("dexpreopt")
 			enabled := dexpreopt.Rule != nil

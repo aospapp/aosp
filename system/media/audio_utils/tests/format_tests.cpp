@@ -24,8 +24,14 @@
 /** returns true if the format is a common source or destination format.
     memcpy_by_audio_format() allows interchange between any PCM format and the
     "common" PCM 16 bit and PCM float formats. */
-static bool is_common_format(audio_format_t format) {
+static bool is_common_src_format(audio_format_t format) {
     return format == AUDIO_FORMAT_PCM_16_BIT || format == AUDIO_FORMAT_PCM_FLOAT;
+}
+
+static bool is_common_dst_format(audio_format_t format) {
+    return format == AUDIO_FORMAT_PCM_8_BIT       // Allowed for HAL to AudioRecord conversion.
+            || format == AUDIO_FORMAT_PCM_16_BIT
+            || format == AUDIO_FORMAT_PCM_FLOAT;
 }
 
 // Initialize PCM 16 bit ramp for basic data sanity check (generated from PCM 8 bit data).
@@ -63,7 +69,7 @@ TEST_P(FormatTest, memcpy_by_audio_format)
     const audio_format_t dst_encoding = std::get<1>(param);
 
     // either source or destination (or both) need to be a common format
-    if (!is_common_format(src_encoding) && !is_common_format(dst_encoding)) {
+    if (!is_common_src_format(src_encoding) && !is_common_dst_format(dst_encoding)) {
         printf("skip conversion src:%#x  dst:%#x\n", src_encoding, dst_encoding);
         return;
     }

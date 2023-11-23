@@ -94,7 +94,7 @@ import java.util.Comparators;
  * an equivalence relation.
  *
  * <p>This interface is a member of the
- * <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/collections/index.html">
+ * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
  * @param <T> the type of objects that may be compared by this comparator

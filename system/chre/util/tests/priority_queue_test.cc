@@ -1,17 +1,17 @@
-#include "gtest/gtest.h"
 #include "chre/util/priority_queue.h"
+#include "gtest/gtest.h"
 
 using chre::PriorityQueue;
 
 namespace {
 class DummyElement {
  public:
-  DummyElement() {};
+  DummyElement(){};
   DummyElement(int index, int value) {
     mValue = value;
     mIndex = index;
   };
-  ~DummyElement() {};
+  ~DummyElement(){};
   void setValue(int value) {
     mValue = value;
   }
@@ -27,13 +27,13 @@ class DummyElement {
   int mValue = -1;
 };
 
-bool compareFunction(const DummyElement& left, const DummyElement& right) {
+bool compareFunction(const DummyElement &left, const DummyElement &right) {
   return left.getValue() > right.getValue();
 };
 
 class CompareClass {
  public:
-  bool operator() (const DummyElement& left, const DummyElement& right) const {
+  bool operator()(const DummyElement &left, const DummyElement &right) const {
     return left.getValue() > right.getValue();
   }
 };
@@ -167,7 +167,7 @@ TEST(PriorityQueueTest, CompareGreater) {
 }
 
 TEST(PriorityQueueTest, EmplaceCompareLambda) {
-  auto cmp = [](const DummyElement& left, const DummyElement& right) {
+  auto cmp = [](const DummyElement &left, const DummyElement &right) {
     return left.getValue() > right.getValue();
   };
   PriorityQueue<DummyElement, decltype(cmp)> q(cmp);
@@ -191,7 +191,7 @@ TEST(PriorityQueueTest, EmplaceCompareLambda) {
 
 TEST(PriorityQueueTest, EmplaceCompareFunction) {
   PriorityQueue<DummyElement,
-                std::function<bool(const DummyElement&, const DummyElement&)>>
+                std::function<bool(const DummyElement &, const DummyElement &)>>
       q(compareFunction);
 
   EXPECT_TRUE(q.emplace(0, 0));

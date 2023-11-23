@@ -19,14 +19,14 @@ package android.platform.helpers.exceptions;
 /**
  * An UnknownUiException is an exception specific to UI-driven app helpers. This should be thrown
  * when specific UI conditions, generally post-conditions, are not met for some unknown reason.
- * <p>
- * Examples include (but are not limited to): opening an e-mail and not finding any open message,
+ *
+ * <p>Examples include (but are not limited to): opening an e-mail and not finding any open message,
  * loading a website and not seeing any content, being on GCA in camera mode without a flash button.
- * <p>
- * These exceptions are likely a manifestation of unhandled conditions or UI updates, but cannot
+ *
+ * <p>These exceptions are likely a manifestation of unhandled conditions or UI updates, but cannot
  * explicitly say so without further diagnosis.
  */
-public class UnknownUiException extends RuntimeException {
+public class UnknownUiException extends TestHelperException {
     public UnknownUiException(String msg) {
         super(msg);
     }

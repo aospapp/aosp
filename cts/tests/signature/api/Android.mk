@@ -28,30 +28,22 @@ include $(BUILD_SYSTEM)/base_rules.mk
 $$(LOCAL_BUILT_MODULE): $(2) | $(APICHECK)
 	@echo "Convert API file $$< -> $$@"
 	@mkdir -p $$(dir $$@)
-	$(hide) $(APICHECK_COMMAND) -convert2xmlnostrip $$< $$@
+	$(hide) $(APICHECK_COMMAND) --compatible-output=no -convert2xmlnostrip $$< $$@
 endef
 
-# NOTE: the output XML file is also used
-# in //cts/hostsidetests/devicepolicy/AndroidTest.xml
-# by com.android.cts.managedprofile.CurrentApiHelper
-# ============================================================
-$(eval $(call build_xml_api_file,current.api,frameworks/base/api/current.txt))
-$(eval $(call build_xml_api_file,system-current.api,frameworks/base/api/system-current.txt))
-$(eval $(call build_xml_api_file,system-removed.api,frameworks/base/api/system-removed.txt))
-$(eval $(call build_xml_api_file,apache-http-legacy-current.api,external/apache-http/api/current.txt))
-$(eval $(call build_xml_api_file,android-test-base-current.api,frameworks/base/test-base/api/current.txt))
-$(eval $(call build_xml_api_file,android-test-mock-current.api,frameworks/base/test-mock/api/current.txt))
-$(eval $(call build_xml_api_file,android-test-runner-current.api,frameworks/base/test-runner/api/current.txt))
-$(eval $(call build_xml_api_file,car-system-current.api,packages/services/Car/car-lib/api/system-current.txt))
-$(eval $(call build_xml_api_file,car-system-removed.api,packages/services/Car/car-lib/api/system-removed.txt))
 $(foreach ver,$(PLATFORM_SYSTEMSDK_VERSIONS),\
   $(if $(call math_is_number,$(ver)),\
-    $(eval $(call build_xml_api_file,system-$(ver).api,prebuilts/sdk/$(ver)/system/api/android.txt))\
+    $(if $(wildcard prebuilts/sdk/$(ver)/system/api/android.txt),\
+      $(eval $(call build_xml_api_file,system-$(ver).api,prebuilts/sdk/$(ver)/system/api/android.txt))\
+    )\
   )\
 )
 
 $(foreach ver,$(call int_range_list,28,$(PLATFORM_SDK_VERSION)),\
   $(foreach api_level,public system,\
-    $(foreach lib,$(filter-out android,$(filter-out %removed,\
-      $(basename $(notdir $(wildcard $(HISTORICAL_SDK_VERSIONS_ROOT)/$(ver)/$(api_level)/api/*.txt))))),\
-        $(eval $(call build_xml_api_file,$(lib)-$(ver)-$(api_level).api,prebuilts/sdk/$(ver)/$(api_level)/api/$(lib).txt)))))
+    $(foreach lib,$(filter-out android,$(filter-out %removed,$(filter-out incompatibilities,\
+      $(basename $(notdir $(wildcard $(HISTORICAL_SDK_VERSIONS_ROOT)/$(ver)/$(api_level)/api/*.txt)))))),\
+        $(eval $(call build_xml_api_file,$(lib)-$(ver)-$(api_level).api,prebuilts/sdk/$(ver)/$(api_level)/api/$(lib).txt)) \
+    )\
+  )\
+)

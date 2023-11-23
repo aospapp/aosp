@@ -83,12 +83,27 @@ TEST_F(HidlServiceLazyTest, NoChange) {
     sp<RecordingClientCallback> cb = new RecordingClientCallback;
 
     std::unique_ptr<HidlService> service = makeService();
-    service->addClientCallback(cb);
+    service->addClientCallback(cb, 1 /*knownClients*/);
 
     setReportedClientCount(1);
 
     for (size_t i = 0; i < 100; i++) {
-        service->handleClientCallbacks(true /*onInterval*/);
+        service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
+    }
+
+    ASSERT_THAT(cb->stream, ElementsAre());
+}
+
+TEST_F(HidlServiceLazyTest, NoChangeWithKnownClients) {
+    sp<RecordingClientCallback> cb = new RecordingClientCallback;
+
+    std::unique_ptr<HidlService> service = makeService();
+    service->addClientCallback(cb, 2 /*knownClients*/);
+
+    setReportedClientCount(2);
+
+    for (size_t i = 0; i < 100; i++) {
+        service->handleClientCallbacks(true /*onInterval*/, 2 /*knownClients*/);
     }
 
     ASSERT_THAT(cb->stream, ElementsAre());
@@ -98,20 +113,20 @@ TEST_F(HidlServiceLazyTest, GetAndDrop) {
     sp<RecordingClientCallback> cb = new RecordingClientCallback;
 
     std::unique_ptr<HidlService> service = makeService();
-    service->addClientCallback(cb);
+    service->addClientCallback(cb, 1 /*knownClients*/);
 
     // some other process has the service
     setReportedClientCount(2);
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
 
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
     // just hwservicemanager has the service
     setReportedClientCount(1);
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
 
     ASSERT_THAT(cb->stream, ElementsAre(true));
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
 
     ASSERT_THAT(cb->stream, ElementsAre(true, false)); // reported only after two intervals
 }
@@ -120,18 +135,18 @@ TEST_F(HidlServiceLazyTest, GetGuarantee) {
     sp<RecordingClientCallback> cb = new RecordingClientCallback;
 
     std::unique_ptr<HidlService> service = makeService();
-    service->addClientCallback(cb);
+    service->addClientCallback(cb, 1 /*knownClients*/);
 
     service->guaranteeClient();
 
     setReportedClientCount(1);
-    service->handleClientCallbacks(false /*onInterval*/);
+    service->handleClientCallbacks(false /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true, false)); // reported only after two intervals
 }
 
@@ -139,23 +154,23 @@ TEST_F(HidlServiceLazyTest, ManyUpdatesOffInterval) {
     sp<RecordingClientCallback> cb = new RecordingClientCallback;
 
     std::unique_ptr<HidlService> service = makeService();
-    service->addClientCallback(cb);
+    service->addClientCallback(cb, 1 /*knownClients*/);
 
     // Clients can appear and dissappear as many times as necessary, but they are only considered
     // dropped when the fixed interval stops.
     for (size_t i = 0; i < 100; i++) {
         setReportedClientCount(2);
-        service->handleClientCallbacks(false /*onInterval*/);
+        service->handleClientCallbacks(false /*onInterval*/, 1 /*knownClients*/);
         setReportedClientCount(1);
-        service->handleClientCallbacks(false /*onInterval*/);
+        service->handleClientCallbacks(false /*onInterval*/, 1 /*knownClients*/);
     }
 
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true, false)); // reported only after two intervals
 }
 
@@ -163,22 +178,22 @@ TEST_F(HidlServiceLazyTest, AcquisitionAfterGuarantee) {
     sp<RecordingClientCallback> cb = new RecordingClientCallback;
 
     std::unique_ptr<HidlService> service = makeService();
-    service->addClientCallback(cb);
+    service->addClientCallback(cb, 1 /*knownClients*/);
 
     setReportedClientCount(2);
-    service->handleClientCallbacks(false /*onInterval*/);
+    service->handleClientCallbacks(false /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
     setReportedClientCount(1);
     service->guaranteeClient();
 
-    service->handleClientCallbacks(false /*onInterval*/);
+    service->handleClientCallbacks(false /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true, false)); // reported only after two intervals
 }
 
@@ -186,25 +201,25 @@ TEST_F(HidlServiceLazyTest, NotificationSentForNewClientCallback) {
     sp<RecordingClientCallback> cb = new RecordingClientCallback;
 
     std::unique_ptr<HidlService> service = makeService();
-    service->addClientCallback(cb);
+    service->addClientCallback(cb, 1 /*knownClients*/);
 
     setReportedClientCount(2);
-    service->handleClientCallbacks(false /*onInterval*/);
+    service->handleClientCallbacks(false /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true));
 
     sp<RecordingClientCallback> laterCb = new RecordingClientCallback;
-    service->addClientCallback(laterCb);
+    service->addClientCallback(laterCb, 1 /*knownClients*/);
 
     ASSERT_THAT(cb->stream, ElementsAre(true));
     ASSERT_THAT(laterCb->stream, ElementsAre(true));
 
     setReportedClientCount(1);
 
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true));
     ASSERT_THAT(laterCb->stream, ElementsAre(true));
 
-    service->handleClientCallbacks(true /*onInterval*/);
+    service->handleClientCallbacks(true /*onInterval*/, 1 /*knownClients*/);
     ASSERT_THAT(cb->stream, ElementsAre(true, false)); // reported only after two intervals
     ASSERT_THAT(laterCb->stream, ElementsAre(true, false)); // reported only after two intervals
 }
@@ -213,7 +228,7 @@ TEST_F(HidlServiceLazyTest, ClientWithoutLazy) {
     std::unique_ptr<HidlService> service = makeService();
 
     setReportedClientCount(2);
-    service->handleClientCallbacks(false /*onInterval*/);
+    service->handleClientCallbacks(false /*onInterval*/, 1 /*knownClients*/);
 
     // kernel API should not be called
     EXPECT_EQ(0u, getNumTimesReported());

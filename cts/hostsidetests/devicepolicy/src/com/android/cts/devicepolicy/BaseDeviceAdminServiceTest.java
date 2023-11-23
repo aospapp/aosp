@@ -15,7 +15,11 @@
  */
 package com.android.cts.devicepolicy;
 
+import static org.junit.Assert.fail;
+
 import com.android.tradefed.log.LogUtil.CLog;
+
+import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -46,14 +50,14 @@ public abstract class BaseDeviceAdminServiceTest extends BaseDevicePolicyTest {
     private boolean mMultiUserSupported;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         mMultiUserSupported = getMaxNumberOfUsersSupported() > 1 && getDevice().getApiLevel() >= 21;
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (isTestEnabled()) {
             removeAdmin(OWNER_COMPONENT, getUserId());
             removeAdmin(OWNER_COMPONENT_B, getUserId());
@@ -99,6 +103,7 @@ public abstract class BaseDeviceAdminServiceTest extends BaseDevicePolicyTest {
 
     protected abstract void setAsOwnerOrFail(String component) throws Exception;
 
+    @Test
     public void testAll() throws Throwable {
         if (!isTestEnabled()) {
             return;

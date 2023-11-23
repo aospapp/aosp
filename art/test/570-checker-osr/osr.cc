@@ -90,7 +90,8 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_isInInterpreter(JNIEnv* env,
         const OatQuickMethodHeader* header =
             Runtime::Current()->GetJit()->GetCodeCache()->LookupOsrMethodHeader(m);
         if ((header == nullptr || header != stack_visitor->GetCurrentOatQuickMethodHeader()) &&
-            stack_visitor->IsShadowFrame()) {
+            (stack_visitor->IsShadowFrame() ||
+             stack_visitor->GetCurrentOatQuickMethodHeader()->IsNterpMethodHeader())) {
           in_interpreter = true;
         }
       });
@@ -128,7 +129,8 @@ extern "C" JNIEXPORT void JNICALL Java_Main_ensureHasOsrCode(JNIEnv* env,
           // Sleep to yield to the compiler thread.
           usleep(1000);
           // Will either ensure it's compiled or do the compilation itself.
-          jit->CompileMethod(m, Thread::Current(), /*baseline=*/ false, /*osr=*/ true);
+          jit->CompileMethod(
+              m, Thread::Current(), /*baseline=*/ false, /*osr=*/ true, /*prejit=*/ false);
         }
       });
 }

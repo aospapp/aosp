@@ -19,8 +19,6 @@ package com.android.compatibility.common.util;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.google.common.base.Preconditions;
-
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -47,7 +45,7 @@ public class StateChangerRule<T> implements TestRule {
      * @param value value to be set before the test is run.
      */
     public StateChangerRule(@NonNull StateManager<T> stateManager, @Nullable T value) {
-        mStateManager = Preconditions.checkNotNull(stateManager);
+        mStateManager = Objects.requireNonNull(stateManager);
         mValue = value;
     }
 

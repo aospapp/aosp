@@ -40,12 +40,12 @@ public class CalendarUtils {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final long floorDivide(long n, long d) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final int floorDivide(int n, int d) {
         throw new RuntimeException("Stub!");
     }
@@ -58,12 +58,12 @@ public class CalendarUtils {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final long mod(long x, long y) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final int mod(int x, int y) {
         throw new RuntimeException("Stub!");
     }

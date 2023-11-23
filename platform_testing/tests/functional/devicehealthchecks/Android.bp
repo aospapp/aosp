@@ -21,7 +21,8 @@ android_test {
     sdk_version: "current",
     certificate: "platform",
     static_libs: [
-        "android-support-test",
+        "androidx.test.rules",
+	"androidx.test.runner",
         "platform-test-annotations",
     ],
 

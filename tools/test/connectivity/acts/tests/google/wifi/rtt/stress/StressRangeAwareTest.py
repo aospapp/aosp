@@ -30,10 +30,6 @@ class StressRangeAwareTest(AwareBaseTest, RttBaseTest):
     """Test class for stress testing of RTT ranging to Wi-Fi Aware peers."""
     SERVICE_NAME = "GoogleTestServiceXY"
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-        RttBaseTest.__init__(self, controllers)
-
     def setup_test(self):
         """Manual setup here due to multiple inheritance: explicitly execute the
     setup method from both parents."""

@@ -16,36 +16,45 @@
 
 package com.android.cts.devicepolicy;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.result.CollectingTestListener;
-import com.android.tradefed.result.FileInputStreamSource;
-import com.android.tradefed.result.LogDataType;
-import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.result.TestResult;
-import com.android.tradefed.result.TestRunResult;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
-import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.TarUtil;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import com.google.common.io.ByteStreams;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -53,8 +62,12 @@ import javax.annotation.Nullable;
  * Base class for device policy tests. It offers utility methods to run tests, set device or profile
  * owner, etc.
  */
-public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiver {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
 
+    //The maximum time to wait for user to be unlocked.
+    private static final long USER_UNLOCK_TIMEOUT_SEC = 30;
+    private static final String USER_STATE_UNLOCKED = "RUNNING_UNLOCKED";
     @Option(
             name = "skip-device-admin-feature-check",
             description = "Flag that allows to skip the check for android.software.device_admin "
@@ -79,9 +92,6 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
      */
     private static final long DEFAULT_SHELL_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(20);
 
-    /** instrumentation test runner argument key used for individual test timeout */
-    protected static final String TEST_TIMEOUT_INST_ARGS_KEY = "timeout_msec";
-
     /**
      * Sets timeout (in milliseconds) that will be applied to each test. In the
      * event of a test timeout it will log the results and proceed with executing the next test.
@@ -94,11 +104,18 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
      */
     private static final long USER_REMOVE_WAIT = TimeUnit.SECONDS.toMillis(5);
 
+    /**
+     * The amount of milliseconds to wait for the switch user calls in {@link #tearDown}.
+     */
+    private static final long USER_SWITCH_WAIT = TimeUnit.SECONDS.toMillis(5);
+
     // From the UserInfo class
-    protected static final int FLAG_PRIMARY = 0x00000001;
     protected static final int FLAG_GUEST = 0x00000004;
     protected static final int FLAG_EPHEMERAL = 0x00000100;
     protected static final int FLAG_MANAGED_PROFILE = 0x00000020;
+
+    /** Default password to use in tests. */
+    protected static final String TEST_PASSWORD = "1234";
 
     /**
      * The {@link android.os.BatteryManager} flags value representing all charging types; {@link
@@ -108,14 +125,20 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
      */
     private static final int STAY_ON_WHILE_PLUGGED_IN_FLAGS = 7;
 
-    protected static interface Settings {
-        public static final String GLOBAL_NAMESPACE = "global";
-        public static interface Global {
-            public static final String DEVICE_PROVISIONED = "device_provisioned";
-        }
-    }
+    /**
+     * User ID for all users.
+     * The value is from the UserHandle class.
+     */
+    protected static final int USER_ALL = -1;
 
-    protected IBuildInfo mCtsBuild;
+    private static final String TEST_UPDATE_LOCATION = "/data/local/tmp/cts/deviceowner";
+
+    /**
+     * Copied from {@link android.app.admin.DevicePolicyManager
+     * .InstallSystemUpdateCallback#UPDATE_ERROR_UPDATE_FILE_INVALID}
+     */
+    protected static final int UPDATE_ERROR_UPDATE_FILE_INVALID = 3;
+
     protected CompatibilityBuildHelper mBuildHelper;
     private String mPackageVerifier;
     private HashSet<String> mAvailableFeatures;
@@ -127,8 +150,14 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     protected boolean mHasFeature;
     protected int mPrimaryUserId;
 
+    /** Record the initial user ID. */
+    protected int mInitialUserId;
+
     /** Whether multi-user is supported. */
     protected boolean mSupportsMultiUser;
+
+    /** Whether managed profiles are supported. */
+    protected boolean mHasManagedUserFeature;
 
     /** Whether file-based encryption (FBE) is supported. */
     protected boolean mSupportsFbe;
@@ -136,38 +165,46 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     /** Whether the device has a lock screen.*/
     protected boolean mHasSecureLockScreen;
 
+    /** Whether the device supports telephony. */
+    protected boolean mHasTelephony;
+
     /** Users we shouldn't delete in the tests */
     private ArrayList<Integer> mFixedUsers;
 
     private static final String VERIFY_CREDENTIAL_CONFIRMATION = "Lock credential verified";
 
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = buildInfo;
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        assertNotNull(mCtsBuild);  // ensure build has been set before test is run.
+    @Before
+    public void setUp() throws Exception {
+        assertNotNull(getBuild());  // ensure build has been set before test is run.
+        ensurePackageManagerReady();
         mHasFeature = getDevice().getApiLevel() >= 21; /* Build.VERSION_CODES.L */
         if (!mSkipDeviceAdminFeatureCheck) {
             mHasFeature = mHasFeature && hasDeviceFeature("android.software.device_admin");
         }
         mSupportsMultiUser = getMaxNumberOfUsersSupported() > 1;
+        mHasManagedUserFeature = hasDeviceFeature("android.software.managed_users");
         mSupportsFbe = hasDeviceFeature("android.software.file_based_encryption");
+        mHasTelephony = hasDeviceFeature("android.hardware.telephony");
         mFixedPackages = getDevice().getInstalledPackageNames();
-        mBuildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        mBuildHelper = new CompatibilityBuildHelper(getBuild());
 
         mHasSecureLockScreen = hasDeviceFeature("android.software.secure_lock_screen");
+        if (mHasSecureLockScreen) {
+            ensurePrimaryUserHasNoPassword();
+        }
 
         // disable the package verifier to avoid the dialog when installing an app
         mPackageVerifier = getDevice().executeShellCommand(
-                "settings get global package_verifier_enable");
-        getDevice().executeShellCommand("settings put global package_verifier_enable 0");
+                "settings get global verifier_verify_adb_installs");
+        getDevice().executeShellCommand("settings put global verifier_verify_adb_installs 0");
 
         mFixedUsers = new ArrayList<>();
         mPrimaryUserId = getPrimaryUser();
+
+        // Set the value of initial user ID calls in {@link #setUp}.
+        if(mSupportsMultiUser) {
+            mInitialUserId = getDevice().getCurrentUser();
+        }
         mFixedUsers.add(mPrimaryUserId);
         if (mPrimaryUserId != USER_SYSTEM) {
             mFixedUsers.add(USER_SYSTEM);
@@ -183,8 +220,10 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
                 mFixedUsers.add(getDevice().getCurrentUser());
             }
         }
+        getDevice().executeShellCommand(" mkdir " + TEST_UPDATE_LOCATION);
 
         removeOwners();
+        switchUser(USER_SYSTEM);
         removeTestUsers();
         // Unlock keyguard before test
         wakeupAndDismissKeyguard();
@@ -193,15 +232,49 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         executeShellCommand("input keyevent KEYCODE_HOME");
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    private void ensurePrimaryUserHasNoPassword() throws DeviceNotAvailableException {
+        if (!verifyUserCredentialIsCorrect(null, mPrimaryUserId)) {
+            changeUserCredential(null, TEST_PASSWORD, mPrimaryUserId);
+        }
+    }
+
+    /** If package manager is not available, e.g. after system crash, wait for it a little bit. */
+    private void ensurePackageManagerReady() throws Exception {
+        waitForOutput("Package manager didn't become available", "service check package",
+                s -> s.trim().equals("Service package: found"), 120 /* seconds */);
+    }
+
+    protected void waitForUserUnlock(int userId) throws Exception {
+        waitForOutput("User is not unlocked.",
+                String.format("am get-started-user-state %d", userId),
+                s -> s.startsWith(USER_STATE_UNLOCKED), USER_UNLOCK_TIMEOUT_SEC);
+    }
+
+    protected void waitForOutput(String message, String command, Predicate<String> predicate,
+            long timeoutSec) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSec);
+        while (!predicate.test(getDevice().executeShellCommand(command))) {
+            if (System.nanoTime() > deadline) {
+                fail(message);
+            }
+            Thread.sleep(1000);
+        }
+    }
+
+    @After
+    public void tearDown() throws Exception {
         // reset the package verifier setting to its original value
-        getDevice().executeShellCommand("settings put global package_verifier_enable "
+        getDevice().executeShellCommand("settings put global verifier_verify_adb_installs "
                 + mPackageVerifier);
         removeOwners();
+
+        // Switch back to initial user.
+        if (mSupportsMultiUser && getDevice().getCurrentUser() != mInitialUserId) {
+            switchUser(mInitialUserId);
+        }
         removeTestUsers();
         removeTestPackages();
-        super.tearDown();
+        getDevice().executeShellCommand(" rm -r " + TEST_UPDATE_LOCATION);
     }
 
     protected void installAppAsUser(String appFileName, int userId) throws FileNotFoundException,
@@ -211,10 +284,22 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
     protected void installAppAsUser(String appFileName, boolean grantPermissions, int userId)
             throws FileNotFoundException, DeviceNotAvailableException {
-        CLog.d("Installing app " + appFileName + " for user " + userId);
-        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        installAppAsUser(appFileName, grantPermissions, /* dontKillApp */ false, userId);
+    }
+
+    protected void installAppAsUser(String appFileName, boolean grantPermissions,
+            boolean dontKillApp, int userId)
+                    throws FileNotFoundException, DeviceNotAvailableException {
+        CLog.e("Installing app " + appFileName + " for user " + userId);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
+        List<String> extraArgs = new LinkedList<>();
+        extraArgs.add("-t");
+        // Make the test app queryable by other apps via PackageManager APIs.
+        extraArgs.add("--force-queryable");
+        if (dontKillApp) extraArgs.add("--dont-kill");
         String result = getDevice().installPackageForUser(
-                buildHelper.getTestFile(appFileName), true, grantPermissions, userId, "-t");
+                buildHelper.getTestFile(appFileName), true, grantPermissions, userId,
+                extraArgs.toArray(new String[extraArgs.size()]));
         assertNull("Failed to install " + appFileName + " for user " + userId + ": " + result,
                 result);
     }
@@ -235,6 +320,21 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         getDevice().startUser(userId);
     }
 
+    /** Initializes the user with waitFlag. This is required so that apps can run on it. */
+    protected void startUserAndWait(int userId) throws Exception {
+        getDevice().startUser(userId, /* waitFlag= */ true);
+    }
+
+    /**
+     * Initializes the user with the given id, and waits until the user has started and unlocked
+     * before continuing.
+     *
+     * <p>This is required so that apps can run on it.
+     */
+    protected void startUser(int userId, boolean waitFlag) throws Exception {
+        getDevice().startUser(userId, waitFlag);
+    }
+
     /**
      * Starts switching to the user with the given ID.
      *
@@ -244,7 +344,15 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
      */
     protected void switchUser(int userId) throws Exception {
         // TODO Move this logic to ITestDevice
+        int retries = 10;
         executeShellCommand("am switch-user " + userId);
+        while (getDevice().getCurrentUser() != userId && (--retries) >= 0) {
+            // am switch-user can be ignored if a previous user-switching operation
+            // is still in progress. In this case, sleep a bit and then retry
+            Thread.sleep(USER_SWITCH_WAIT);
+            executeShellCommand("am switch-user " + userId);
+        }
+        assertTrue("Failed to switch user after multiple retries", getDevice().getCurrentUser() == userId);
     }
 
     protected int getMaxNumberOfUsersSupported() throws DeviceNotAvailableException {
@@ -316,38 +424,15 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     }
 
     protected void waitForBroadcastIdle() throws DeviceNotAvailableException, IOException {
-        CollectingOutputReceiver receiver = new CollectingOutputReceiver();
-        try {
-            // we allow 8min for the command to complete and 4min for the command to start to
-            // output something
-            getDevice().executeShellCommand(
-                    "am wait-for-broadcast-idle", receiver, 8, 4, TimeUnit.MINUTES, 0);
-        } finally {
-            String output = receiver.getOutput();
-            CLog.d("Output from 'am wait-for-broadcast-idle': %s", output);
-            if (!output.contains("All broadcast queues are idle!")) {
-                // Gather the system_server dump data for investigation.
-                File heapDump = getDevice().dumpHeap("system_server", "/data/local/tmp/dump.hprof");
-                if (heapDump != null) {
-                    // If file is too too big, tar if with TarUtil.
-                    String pid = getDevice().getProcessPid("system_server");
-                    // gzip the file it's quite big
-                    File heapDumpGz = TarUtil.gzip(heapDump);
-                    try (FileInputStreamSource source = new FileInputStreamSource(heapDumpGz)) {
-                        addTestLog(
-                                String.format("system_server_dump.%s.%s.hprof",
-                                        pid, getDevice().getDeviceDate()),
-                                LogDataType.GZIP, source);
-                    } finally {
-                        FileUtil.deleteFile(heapDump);
-                    }
-                } else {
-                    CLog.e("Failed to capture the dumpheap from system_server");
-                }
-                // the call most likely failed we should fail the test
-                fail("'am wait-for-broadcase-idle' did not complete.");
-                // TODO: consider adding a reboot or recovery before failing if necessary
-            }
+        final CollectingOutputReceiver receiver = new CollectingOutputReceiver();
+        // We allow 8min for the command to complete and 4min for the command to start to
+        // output something.
+        getDevice().executeShellCommand(
+                "am wait-for-broadcast-idle", receiver, 8, 4, TimeUnit.MINUTES, 0);
+        final String output = receiver.getOutput();
+        if (!output.contains("All broadcast queues are idle!")) {
+            CLog.e("Output from 'am wait-for-broadcast-idle': %s", output);
+            fail("'am wait-for-broadcase-idle' did not complete.");
         }
     }
 
@@ -416,12 +501,6 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         runDeviceTestsAsUser(pkgName, testClassName, testMethodName, userId, params);
     }
 
-    protected void runDeviceTests(
-            String pkgName, @Nullable String testClassName, String testMethodName)
-            throws DeviceNotAvailableException {
-        runDeviceTestsAsUser(pkgName, testClassName, testMethodName, mPrimaryUserId);
-    }
-
     protected void runDeviceTestsAsUser(
             String pkgName, @Nullable String testClassName,
             @Nullable String testMethodName, int userId,
@@ -430,46 +509,19 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
             testClassName = pkgName + testClassName;
         }
 
-        RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(
-                pkgName, RUNNER, getDevice().getIDevice());
-        testRunner.setMaxTimeToOutputResponse(DEFAULT_SHELL_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-        testRunner.addInstrumentationArg(
-                TEST_TIMEOUT_INST_ARGS_KEY, Long.toString(DEFAULT_TEST_TIMEOUT_MILLIS));
-        if (testClassName != null && testMethodName != null) {
-            testRunner.setMethodName(testClassName, testMethodName);
-        } else if (testClassName != null) {
-            testRunner.setClassName(testClassName);
-        }
-
-        for (Map.Entry<String, String> param : params.entrySet()) {
-            testRunner.addInstrumentationArg(param.getKey(), param.getValue());
-        }
-
-        CollectingTestListener listener = new CollectingTestListener();
-        getDevice().runInstrumentationTestsAsUser(testRunner, userId, listener);
-
-        final TestRunResult result = listener.getCurrentRunResults();
-        if (result.isRunFailure()) {
-            throw new AssertionError("Failed to successfully run device tests for "
-                    + result.getName() + ": " + result.getRunFailureMessage());
-        }
-        if (result.getNumTests() == 0) {
-            throw new AssertionError("No tests were run on the device");
-        }
-
-        if (result.hasFailedTests()) {
-            // build a meaningful error message
-            StringBuilder errorBuilder = new StringBuilder("On-device tests failed:\n");
-            for (Map.Entry<TestDescription, TestResult> resultEntry :
-                    result.getTestResults().entrySet()) {
-                if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
-                    errorBuilder.append(resultEntry.getKey().toString());
-                    errorBuilder.append(":\n");
-                    errorBuilder.append(resultEntry.getValue().getStackTrace());
-                }
-            }
-            throw new AssertionError(errorBuilder.toString());
-        }
+        runDeviceTests(
+                getDevice(),
+                RUNNER,
+                pkgName,
+                testClassName,
+                testMethodName,
+                userId,
+                DEFAULT_TEST_TIMEOUT_MILLIS,
+                DEFAULT_SHELL_TIMEOUT_MILLIS,
+                0L /* maxInstrumentationTimeoutMs */,
+                true /* checkResults */,
+                false /* isHiddenApiCheckDisabled */,
+                params);
     }
 
     /** Reboots the device and block until the boot complete flag is set. */
@@ -512,32 +564,6 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     protected boolean canStartAdditionalUsers(int numberOfUsers)
             throws DeviceNotAvailableException {
         return listRunningUsers().size() + numberOfUsers <= getMaxNumberOfRunningUsersSupported();
-    }
-
-    protected boolean hasDeviceFeature(String requiredFeature) throws DeviceNotAvailableException {
-        if (mAvailableFeatures == null) {
-            // TODO: Move this logic to ITestDevice.
-            String command = "pm list features";
-            String commandOutput = getDevice().executeShellCommand(command);
-            CLog.i("Output for command " + command + ": " + commandOutput);
-
-            // Extract the id of the new user.
-            mAvailableFeatures = new HashSet<>();
-            for (String feature: commandOutput.split("\\s+")) {
-                // Each line in the output of the command has the format "feature:{FEATURE_VALUE}".
-                String[] tokens = feature.split(":");
-                assertTrue("\"" + feature + "\" expected to have format feature:{FEATURE_VALUE}",
-                        tokens.length > 1);
-                assertEquals(feature, "feature", tokens[0]);
-                mAvailableFeatures.add(tokens[1]);
-            }
-        }
-        boolean result = mAvailableFeatures.contains(requiredFeature);
-        if (!result) {
-            CLog.d("Device doesn't have required feature "
-            + requiredFeature + ". Test won't run.");
-        }
-        return result;
     }
 
     protected int createUser() throws Exception {
@@ -605,21 +631,15 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
     protected int getUserSerialNumber(int userId) throws DeviceNotAvailableException{
         // TODO: Move this logic to ITestDevice.
-        // dumpsys user return lines like "UserInfo{0:Owner:13} serialNo=0"
-        String commandOutput = getDevice().executeShellCommand("dumpsys user");
-        String[] tokens = commandOutput.split("\\n");
-        for (String token : tokens) {
-            token = token.trim();
-            if (token.contains("UserInfo{" + userId + ":")) {
-                String[] split = token.split("serialNo=");
-                assertTrue(split.length == 2);
-                int serialNumber = Integer.parseInt(split[1]);
-                CLog.d("Serial number of user " + userId + ": "
-                        + serialNumber);
-                return serialNumber;
-            }
+        // dumpsys user output contains lines like "UserInfo{0:Owner:13} serialNo=0 isPrimary=true"
+        final Pattern pattern =
+                Pattern.compile("UserInfo\\{" + userId + ":[^\\n]*\\sserialNo=(\\d+)\\s");
+        final String commandOutput = getDevice().executeShellCommand("dumpsys user");
+        final Matcher matcher = pattern.matcher(commandOutput);
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
         }
-        fail("Couldn't find user " + userId);
+        fail("Couldn't find serial number for user " + userId);
         return -1;
     }
 
@@ -631,9 +651,9 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         // If we succeeded always log, if we are expecting failure don't log failures
         // as call stacks for passing tests confuse the logs.
         if (success || !expectFailure) {
-            CLog.d("Output for command " + command + ": " + commandOutput);
+            CLog.e("Output for command " + command + ": " + commandOutput);
         } else {
-            CLog.d("Command Failed " + command);
+            CLog.e("Command Failed " + command);
         }
         return success;
     }
@@ -793,7 +813,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         boolean check() throws Exception;
     }
 
-    protected void assertUserGetsRemoved(int userId) throws Exception {
+    protected void waitUntilUserRemoved(int userId) throws Exception {
         tryWaitForSuccess(() -> !listUsers().contains(userId),
                 "The user " + userId + " has not been removed",
                 TIMEOUT_USER_REMOVED_MILLIS
@@ -881,6 +901,8 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
     /**
      * Set lockscreen password / work challenge for the given user, null or "" means clear
+     * IMPORTANT: prefer to use {@link #TEST_PASSWORD} for primary user, otherwise if the test
+     * terminates before cleaning password up, the device will be unusable for further testing.
      */
     protected void changeUserCredential(String newCredential, String oldCredential, int userId)
             throws DeviceNotAvailableException {
@@ -982,5 +1004,34 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
             }
         }
         throw new Exception("Default launcher not found");
+    }
+
+    boolean isDeviceAb() throws DeviceNotAvailableException {
+        final String result = getDevice().executeShellCommand("getprop ro.build.ab_update").trim();
+        return "true".equalsIgnoreCase(result);
+    }
+
+    void pushUpdateFileToDevice(String fileName)
+            throws IOException, DeviceNotAvailableException {
+        File file = File.createTempFile(
+                fileName.split("\\.")[0], "." + fileName.split("\\.")[1]);
+        try (OutputStream outputStream = new FileOutputStream(file)) {
+            InputStream inputStream = getClass().getResourceAsStream("/" + fileName);
+            ByteStreams.copy(inputStream, outputStream);
+        }
+
+        getDevice().pushFile(file, TEST_UPDATE_LOCATION + "/" + fileName);
+        file.delete();
+    }
+
+    boolean hasService(String service) {
+        String command = "service check " + service;
+        try {
+            String commandOutput = getDevice().executeShellCommand(command);
+            return !commandOutput.contains("not found");
+        } catch (Exception e) {
+            CLog.w("Exception running '" + command + "': " + e);
+            return false;
+        }
     }
 }

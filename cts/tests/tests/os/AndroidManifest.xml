@@ -34,8 +34,10 @@
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.ACCESS_VIBRATOR_STATE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS"/>
@@ -45,6 +47,9 @@
     <uses-permission android:name="android.permission.DEVICE_POWER" />
     <uses-permission android:name="android.permission.POWER_SAVER" />
     <uses-permission android:name="android.permission.INSTALL_DYNAMIC_SYSTEM" />
+    <uses-permission android:name="android.permission.MANAGE_COMPANION_DEVICES" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.os.cts.permission.TEST_GRANTED" />
 
     <application
@@ -67,6 +72,8 @@
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
+
+        <activity android:name="android.os.cts.SimpleTestActivity" />
 
         <service
             android:name="android.os.cts.ParcelFileDescriptorPeer$Red"

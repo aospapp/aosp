@@ -19,6 +19,7 @@ package android.os.cts;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.fail;
 
 import android.os.Parcel;
@@ -50,6 +51,10 @@ public class VibrationEffectTest {
             VibrationEffect.createWaveform(TEST_TIMINGS, -1);
     private static final VibrationEffect TEST_PREBAKED =
             VibrationEffect.get(VibrationEffect.EFFECT_CLICK, true);
+    private static final VibrationEffect TEST_COMPOSED =
+            VibrationEffect.startComposition()
+                    .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                    .compose();
 
 
     @Test
@@ -139,6 +144,23 @@ public class VibrationEffectTest {
                 assertEquals(-1, effect.getDuration());
             }
         }
+    }
+
+    @Test
+    public void testPrebakedEquals() {
+        VibrationEffect otherEffect = VibrationEffect.get(VibrationEffect.EFFECT_CLICK, true);
+        assertEquals(TEST_PREBAKED, otherEffect);
+        assertEquals(TEST_PREBAKED.hashCode(), otherEffect.hashCode());
+    }
+
+    @Test
+    public void testCreatePredefined() {
+        VibrationEffect expectedEffect = VibrationEffect.get(
+                VibrationEffect.EFFECT_DOUBLE_CLICK, true);
+        VibrationEffect predefinedEffect = VibrationEffect.createPredefined(
+                VibrationEffect.EFFECT_DOUBLE_CLICK);
+        assertEquals(expectedEffect, predefinedEffect);
+        assertEquals(expectedEffect.hashCode(), predefinedEffect.hashCode());
     }
 
     @Test
@@ -354,6 +376,7 @@ public class VibrationEffectTest {
         TEST_WAVEFORM.describeContents();
         TEST_WAVEFORM_NO_AMPLITUDES.describeContents();
         TEST_PREBAKED.describeContents();
+        TEST_COMPOSED.describeContents();
     }
 
     @Test
@@ -382,10 +405,101 @@ public class VibrationEffectTest {
     }
 
     @Test
-    public void testPrebakedEquals() {
-        VibrationEffect otherEffect = VibrationEffect.get(VibrationEffect.EFFECT_CLICK, true);
-        assertEquals(TEST_PREBAKED, otherEffect);
-        assertEquals(TEST_PREBAKED.hashCode(), otherEffect.hashCode());
+    public void testStartComposition() {
+        VibrationEffect.Composition first = VibrationEffect.startComposition();
+        VibrationEffect.Composition other = VibrationEffect.startComposition();
+        assertNotEquals(first, other);
+    }
+
+    @Test
+    public void testComposedEquals() {
+        VibrationEffect effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL)
+                .compose();
+        VibrationEffect otherEffect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, 1f)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, 1f, 0)
+                .compose();
+        assertEquals(effect, otherEffect);
+        assertEquals(effect.hashCode(), otherEffect.hashCode());
+    }
+
+    @Test
+    public void testComposedDifferentPrimitivesNotEquals() {
+        VibrationEffect effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK)
+                .compose();
+        VibrationEffect otherEffect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                .compose();
+        assertNotEquals(effect, otherEffect);
+    }
+
+    @Test
+    public void testComposedDifferentScaleNotEquals() {
+        VibrationEffect effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, 0.4f)
+                .compose();
+        VibrationEffect otherEffect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, 0.5f)
+                .compose();
+        assertNotEquals(effect, otherEffect);
+    }
+
+    @Test
+    public void testComposedDifferentDelayNotEquals() {
+        VibrationEffect effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, 0.8f, 10)
+                .compose();
+        VibrationEffect otherEffect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, 0.8f, 100)
+                .compose();
+        assertNotEquals(effect, otherEffect);
+    }
+
+    @Test
+    public void testComposedDifferentOrderNotEquals() {
+        VibrationEffect effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK)
+                .compose();
+        VibrationEffect otherEffect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                .compose();
+        assertNotEquals(effect, otherEffect);
+    }
+
+    @Test
+    public void testComposedDifferentNumberOfPrimitivesNotEquals() {
+        VibrationEffect effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                .compose();
+        VibrationEffect otherEffect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+                .compose();
+        assertNotEquals(effect, otherEffect);
+    }
+
+    @Test
+    public void testComposedDuration() {
+        VibrationEffect effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.5f, 1000)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK)
+                .compose();
+        assertEquals(-1, effect.getDuration());
+    }
+
+    @Test
+    public void testComposeEmptyCompositionIsInvalid() {
+        try {
+            VibrationEffect.startComposition().compose();
+            fail("Illegal composition, should throw IllegalStateException");
+        } catch (IllegalStateException expected) {}
     }
 
     @Test
@@ -393,5 +507,6 @@ public class VibrationEffectTest {
         TEST_ONE_SHOT.toString();
         TEST_WAVEFORM.toString();
         TEST_PREBAKED.toString();
+        TEST_COMPOSED.toString();
     }
 }

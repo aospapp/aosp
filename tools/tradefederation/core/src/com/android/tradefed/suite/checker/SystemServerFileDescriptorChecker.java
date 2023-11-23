@@ -16,6 +16,7 @@
 package com.android.tradefed.suite.checker;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.DeviceProperties;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
@@ -25,7 +26,6 @@ public class SystemServerFileDescriptorChecker implements ISystemStatusChecker {
 
     /** Process will fail to allocate beyond 1024, so heuristic considers 900 a bad state */
     private static final int MAX_EXPECTED_FDS = 900;
-    private static final String BUILD_TYPE_PROP = "ro.build.type";
     private static final String USER_BUILD = "user";
 
     private String mBuildType = null;
@@ -35,7 +35,7 @@ public class SystemServerFileDescriptorChecker implements ISystemStatusChecker {
             throws DeviceNotAvailableException {
         if (mBuildType == null) {
             // build type not initialized yet, check on device
-            mBuildType = device.getProperty(BUILD_TYPE_PROP);
+            mBuildType = device.getProperty(DeviceProperties.BUILD_TYPE);
         }
         return new StatusCheckerResult(CheckStatus.SUCCESS);
     }

@@ -16,17 +16,19 @@
 
 package libcore.java.net;
 
-import com.google.mockwebserver.Dispatcher;
-import com.google.mockwebserver.MockResponse;
-import com.google.mockwebserver.MockWebServer;
-import com.google.mockwebserver.RecordedRequest;
-import com.google.mockwebserver.SocketPolicy;
-
 import com.android.okhttp.AndroidShimResponseCache;
 import com.android.okhttp.internal.Platform;
 import com.android.okhttp.internal.tls.TrustRootIndex;
+import com.google.mockwebserver.Dispatcher;
+import com.google.mockwebserver.MockResponse;
+import com.google.mockwebserver.MockWebServer;
+import com.google.mockwebserver.QueueDispatcher;
+import com.google.mockwebserver.RecordedRequest;
+import com.google.mockwebserver.SocketPolicy;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -57,6 +59,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -86,8 +89,10 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import libcore.content.type.MimeMap;
 import libcore.java.security.TestKeyStore;
 import libcore.javax.net.ssl.TestSSLContext;
+import libcore.testing.io.TestIoUtils;
 
 import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_END;
 import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_START;
@@ -95,23 +100,26 @@ import static com.google.mockwebserver.SocketPolicy.FAIL_HANDSHAKE;
 import static com.google.mockwebserver.SocketPolicy.SHUTDOWN_INPUT_AT_END;
 import static com.google.mockwebserver.SocketPolicy.SHUTDOWN_OUTPUT_AT_END;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-public final class URLConnectionTest extends TestCase {
+public final class URLConnectionTest {
 
     private MockWebServer server;
     private AndroidShimResponseCache cache;
     private String hostName;
     private List<TestSSLContext> testSSLContextsToClose;
 
-    @Override protected void setUp() throws Exception {
-        super.setUp();
+    @Before public void setUp() throws Exception {
         server = new MockWebServer();
         hostName = server.getHostName();
         testSSLContextsToClose = new ArrayList<>();
     }
 
-    @Override protected void tearDown() throws Exception {
+    @After public void tearDown() throws Exception {
         ResponseCache.setDefault(null);
         Authenticator.setDefault(null);
         System.clearProperty("proxyHost");
@@ -129,10 +137,9 @@ public final class URLConnectionTest extends TestCase {
         for (TestSSLContext testSSLContext : testSSLContextsToClose) {
             testSSLContext.close();
         }
-        super.tearDown();
     }
 
-    public void testRequestHeaderValidation() throws Exception {
+    @Test public void requestHeaderValidation() throws Exception {
         // Android became more strict after M about which characters were allowed in request header
         // names and values: previously almost anything was allowed if it didn't contain \0.
 
@@ -225,7 +232,7 @@ public final class URLConnectionTest extends TestCase {
         return urlConnection.getRequestProperty("key");
     }
 
-    public void testRequestHeaders() throws IOException, InterruptedException {
+    @Test public void requestHeaders() throws IOException, InterruptedException {
         server.enqueue(new MockResponse());
         server.play();
 
@@ -288,7 +295,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testGetRequestPropertyReturnsLastValue() throws Exception {
+    @Test public void getRequestPropertyReturnsLastValue() throws Exception {
         server.play();
         HttpURLConnection urlConnection = (HttpURLConnection) server.getUrl("/").openConnection();
         urlConnection.addRequestProperty("A", "value1");
@@ -296,7 +303,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("value2", urlConnection.getRequestProperty("A"));
     }
 
-    public void testResponseHeaders() throws IOException, InterruptedException {
+    @Test public void responseHeaders() throws IOException, InterruptedException {
         server.enqueue(new MockResponse()
                 .setStatus("HTTP/1.0 200 Fantastic")
                 .addHeader("A: c")
@@ -331,24 +338,24 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("e", urlConnection.getHeaderField(2));
     }
 
-    public void testGetErrorStreamOnSuccessfulRequest() throws Exception {
+    @Test public void getErrorStreamOnSuccessfulRequest() throws Exception {
         server.enqueue(new MockResponse().setBody("A"));
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
         assertNull(connection.getErrorStream());
     }
 
-    public void testGetErrorStreamOnUnsuccessfulRequest() throws Exception {
+    @Test public void getErrorStreamOnUnsuccessfulRequest() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(404).setBody("A"));
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("A", readAscii(connection.getErrorStream(), Integer.MAX_VALUE));
+        assertEquals("A", readAscii(connection.getErrorStream()));
     }
 
     // Check that if we don't read to the end of a response, the next request on the
     // recycled connection doesn't get the unread tail of the first request's response.
     // http://code.google.com/p/android/issues/detail?id=2939
-    public void test_2939() throws Exception {
+    @Test public void bug2939() throws Exception {
         MockResponse response = new MockResponse().setChunkedBody("ABCDE\nFGHIJ\nKLMNO\nPQR", 8);
 
         server.enqueue(response);
@@ -361,12 +368,12 @@ public final class URLConnectionTest extends TestCase {
 
     // Check that we recognize a few basic mime types by extension.
     // http://code.google.com/p/android/issues/detail?id=10100
-    public void test_10100() throws Exception {
+    @Test public void bug10100() throws Exception {
         assertEquals("image/jpeg", URLConnection.guessContentTypeFromName("someFile.jpg"));
         assertEquals("application/pdf", URLConnection.guessContentTypeFromName("stuff.pdf"));
     }
 
-    public void testConnectionsArePooled() throws Exception {
+    @Test public void connectionsArePooled() throws Exception {
         MockResponse response = new MockResponse().setBody("ABCDEFGHIJKLMNOPQR");
 
         server.enqueue(response);
@@ -382,7 +389,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(2, server.takeRequest().getSequenceNumber());
     }
 
-    public void testChunkedConnectionsArePooled() throws Exception {
+    @Test public void chunkedConnectionsArePooled() throws Exception {
         MockResponse response = new MockResponse().setChunkedBody("ABCDEFGHIJKLMNOPQR", 5);
 
         server.enqueue(response);
@@ -402,24 +409,24 @@ public final class URLConnectionTest extends TestCase {
      * Test that connections are added to the pool as soon as the response has
      * been consumed.
      */
-    public void testConnectionsArePooledWithoutExplicitDisconnect() throws Exception {
+    @Test public void connectionsArePooledWithoutExplicitDisconnect() throws Exception {
         server.enqueue(new MockResponse().setBody("ABC"));
         server.enqueue(new MockResponse().setBody("DEF"));
         server.play();
 
         URLConnection connection1 = server.getUrl("/").openConnection();
-        assertEquals("ABC", readAscii(connection1.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("ABC", readAscii(connection1.getInputStream()));
         assertEquals(0, server.takeRequest().getSequenceNumber());
         URLConnection connection2 = server.getUrl("/").openConnection();
-        assertEquals("DEF", readAscii(connection2.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("DEF", readAscii(connection2.getInputStream()));
         assertEquals(1, server.takeRequest().getSequenceNumber());
     }
 
-    public void testServerClosesSocket() throws Exception {
+    @Test public void serverClosesSocket() throws Exception {
         testServerClosesSocket(DISCONNECT_AT_END);
     }
 
-    public void testServerShutdownInput() throws Exception {
+    @Test public void serverShutdownInput() throws Exception {
         testServerClosesSocket(SHUTDOWN_INPUT_AT_END);
     }
 
@@ -437,7 +444,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(0, server.takeRequest().getSequenceNumber());
     }
 
-    public void testServerShutdownOutput() throws Exception {
+    @Test public void serverShutdownOutput() throws Exception {
         // This test causes MockWebServer to log a "connection failed" stack trace
 
         // Setting the server workerThreads to 1 ensures the responses are generated in the order
@@ -461,27 +468,27 @@ public final class URLConnectionTest extends TestCase {
 
     enum WriteKind { BYTE_BY_BYTE, SMALL_BUFFERS, LARGE_BUFFERS }
 
-    public void test_chunkedUpload_byteByByte() throws Exception {
+    @Test public void chunkedUpload_byteByByte() throws Exception {
         doUpload(TransferKind.CHUNKED, WriteKind.BYTE_BY_BYTE);
     }
 
-    public void test_chunkedUpload_smallBuffers() throws Exception {
+    @Test public void chunkedUpload_smallBuffers() throws Exception {
         doUpload(TransferKind.CHUNKED, WriteKind.SMALL_BUFFERS);
     }
 
-    public void test_chunkedUpload_largeBuffers() throws Exception {
+    @Test public void chunkedUpload_largeBuffers() throws Exception {
         doUpload(TransferKind.CHUNKED, WriteKind.LARGE_BUFFERS);
     }
 
-    public void test_fixedLengthUpload_byteByByte() throws Exception {
+    @Test public void fixedLengthUpload_byteByByte() throws Exception {
         doUpload(TransferKind.FIXED_LENGTH, WriteKind.BYTE_BY_BYTE);
     }
 
-    public void test_fixedLengthUpload_smallBuffers() throws Exception {
+    @Test public void fixedLengthUpload_smallBuffers() throws Exception {
         doUpload(TransferKind.FIXED_LENGTH, WriteKind.SMALL_BUFFERS);
     }
 
-    public void test_fixedLengthUpload_largeBuffers() throws Exception {
+    @Test public void fixedLengthUpload_largeBuffers() throws Exception {
         doUpload(TransferKind.FIXED_LENGTH, WriteKind.LARGE_BUFFERS);
     }
 
@@ -522,7 +529,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testGetResponseCodeNoResponseBody() throws Exception {
+    @Test public void getResponseCodeNoResponseBody() throws Exception {
         server.enqueue(new MockResponse()
                 .addHeader("abc: def"));
         server.play();
@@ -539,7 +546,11 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testConnectViaHttps() throws IOException, InterruptedException {
+    @Test public void connectViaHttps() throws IOException, InterruptedException {
+        checkConnectViaHttps();
+    }
+
+    private void checkConnectViaHttps() throws IOException, InterruptedException {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
@@ -556,7 +567,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("TLSv1.2", request.getSslProtocol());
     }
 
-    public void testConnectViaHttpsReusingConnections() throws IOException, InterruptedException {
+    @Test public void connectViaHttpsReusingConnections() throws IOException, InterruptedException {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         SSLSocketFactory clientSocketFactory = testSSLContext.clientContext.getSocketFactory();
 
@@ -577,7 +588,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(1, server.takeRequest().getSequenceNumber());
     }
 
-    public void testConnectViaHttpsReusingConnectionsDifferentFactories()
+    @Test public void connectViaHttpsReusingConnectionsDifferentFactories()
             throws IOException, InterruptedException {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
@@ -593,7 +604,7 @@ public final class URLConnectionTest extends TestCase {
 
         connection = (HttpsURLConnection) server.getUrl("/").openConnection();
         try {
-            readAscii(connection.getInputStream(), Integer.MAX_VALUE);
+            readAscii(connection.getInputStream());
             fail("without an SSL socket factory, the connection should fail");
         } catch (SSLException expected) {
         }
@@ -604,7 +615,7 @@ public final class URLConnectionTest extends TestCase {
      *
      * http://code.google.com/p/android/issues/detail?id=13178
      */
-    public void testConnectViaHttpsToUntrustedServer() throws IOException, InterruptedException {
+    @Test public void connectViaHttpsToUntrustedServer() throws IOException, InterruptedException {
         TestSSLContext testSSLContext = TestSSLContext.create(TestKeyStore.getClientCA2(),
                                                               TestKeyStore.getServer());
         testSSLContextsToClose.add(testSSLContext);
@@ -624,29 +635,29 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(0, server.getRequestCount());
     }
 
-    public void testConnectViaProxy_emptyPath() throws Exception {
+    @Test public void connectViaProxy_emptyPath() throws Exception {
         // expected normalization http://android -> http://android/ per b/30107354
         checkConnectViaProxy(
                 ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com",
                 "http://android.com/", "android.com");
     }
 
-    public void testConnectViaProxy_complexUrlWithNoPath() throws Exception {
+    @Test public void connectViaProxy_complexUrlWithNoPath() throws Exception {
         checkConnectViaProxy(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY,
                 "http://android.com:8080?height=100&width=42",
                 "http://android.com:8080/?height=100&width=42",
                 "android.com:8080");
     }
 
-    public void testConnectViaProxyUsingProxyArg() throws Exception {
+    @Test public void connectViaProxyUsingProxyArg() throws Exception {
         checkConnectViaProxy(ProxyConfig.CREATE_ARG);
     }
 
-    public void testConnectViaProxyUsingProxySystemProperty() throws Exception {
+    @Test public void connectViaProxyUsingProxySystemProperty() throws Exception {
         checkConnectViaProxy(ProxyConfig.PROXY_SYSTEM_PROPERTY);
     }
 
-    public void testConnectViaProxyUsingHttpProxySystemProperty() throws Exception {
+    @Test public void connectViaProxyUsingHttpProxySystemProperty() throws Exception {
         checkConnectViaProxy(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY);
     }
 
@@ -670,7 +681,7 @@ public final class URLConnectionTest extends TestCase {
         assertContains(request.getHeaders(), "Host: " + expectedHost);
     }
 
-    public void testContentDisagreesWithContentLengthHeader() throws IOException {
+    @Test public void contentDisagreesWithContentLengthHeader() throws IOException {
         server.enqueue(new MockResponse()
                 .setBody("abc\r\nYOU SHOULD NOT SEE THIS")
                 .clearHeaders()
@@ -680,7 +691,7 @@ public final class URLConnectionTest extends TestCase {
         assertContent("abc", server.getUrl("/").openConnection());
     }
 
-    public void testContentDisagreesWithChunkedHeader() throws IOException {
+    @Test public void contentDisagreesWithChunkedHeader() throws IOException {
         MockResponse mockResponse = new MockResponse();
         mockResponse.setChunkedBody("abc", 3);
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
@@ -696,16 +707,16 @@ public final class URLConnectionTest extends TestCase {
         assertContent("abc", server.getUrl("/").openConnection());
     }
 
-    public void testConnectViaHttpProxyToHttpsUsingProxyArgWithNoProxy() throws Exception {
-        testConnectViaDirectProxyToHttps(ProxyConfig.NO_PROXY);
+    @Test public void connectViaHttpProxyToHttpsUsingProxyArgWithNoProxy() throws Exception {
+        checkConnectViaDirectProxyToHttps(ProxyConfig.NO_PROXY);
     }
 
-    public void testConnectViaHttpProxyToHttpsUsingHttpProxySystemProperty() throws Exception {
+    @Test public void connectViaHttpProxyToHttpsUsingHttpProxySystemProperty() throws Exception {
         // https should not use http proxy
-        testConnectViaDirectProxyToHttps(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY);
+        checkConnectViaDirectProxyToHttps(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY);
     }
 
-    private void testConnectViaDirectProxyToHttps(ProxyConfig proxyConfig) throws Exception {
+    private void checkConnectViaDirectProxyToHttps(ProxyConfig proxyConfig) throws Exception {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
@@ -723,27 +734,27 @@ public final class URLConnectionTest extends TestCase {
     }
 
 
-    public void testConnectViaHttpProxyToHttpsUsingProxyArg() throws Exception {
-        testConnectViaHttpProxyToHttps(ProxyConfig.CREATE_ARG);
+    @Test public void connectViaHttpProxyToHttpsUsingProxyArg() throws Exception {
+        checkConnectViaHttpProxyToHttps(ProxyConfig.CREATE_ARG);
     }
 
     /**
      * We weren't honoring all of the appropriate proxy system properties when
      * connecting via HTTPS. http://b/3097518
      */
-    public void testConnectViaHttpProxyToHttpsUsingProxySystemProperty() throws Exception {
-        testConnectViaHttpProxyToHttps(ProxyConfig.PROXY_SYSTEM_PROPERTY);
+    @Test public void connectViaHttpProxyToHttpsUsingProxySystemProperty() throws Exception {
+        checkConnectViaHttpProxyToHttps(ProxyConfig.PROXY_SYSTEM_PROPERTY);
     }
 
-    public void testConnectViaHttpProxyToHttpsUsingHttpsProxySystemProperty() throws Exception {
-        testConnectViaHttpProxyToHttps(ProxyConfig.HTTPS_PROXY_SYSTEM_PROPERTY);
+    @Test public void connectViaHttpProxyToHttpsUsingHttpsProxySystemProperty() throws Exception {
+        checkConnectViaHttpProxyToHttps(ProxyConfig.HTTPS_PROXY_SYSTEM_PROPERTY);
     }
 
     /**
      * We were verifying the wrong hostname when connecting to an HTTPS site
      * through a proxy. http://b/3097277
      */
-    private void testConnectViaHttpProxyToHttps(ProxyConfig proxyConfig) throws Exception {
+    private void checkConnectViaHttpProxyToHttps(ProxyConfig proxyConfig) throws Exception {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         RecordingHostnameVerifier hostnameVerifier = new RecordingHostnameVerifier();
 
@@ -776,7 +787,8 @@ public final class URLConnectionTest extends TestCase {
     /**
      * Tolerate bad https proxy response when using HttpResponseCache. http://b/6754912
      */
-    public void testConnectViaHttpProxyToHttpsUsingBadProxyAndHttpResponseCache() throws Exception {
+    @Test public void connectViaHttpProxyToHttpsUsingBadProxyAndHttpResponseCache()
+            throws Exception {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
         initResponseCache();
@@ -817,7 +829,7 @@ public final class URLConnectionTest extends TestCase {
      * Test Etag headers are returned correctly when a client-side cache is not installed.
      * https://code.google.com/p/android/issues/detail?id=108949
      */
-    public void testEtagHeaders_uncached() throws Exception {
+    @Test public void etagHeaders_uncached() throws Exception {
         final String etagValue1 = "686897696a7c876b7e";
         final String body1 = "Response with etag 1";
         final String etagValue2 = "686897696a7c876b7f";
@@ -854,32 +866,100 @@ public final class URLConnectionTest extends TestCase {
         assertNull(request.getHeader("If-None-Match"));
     }
 
+    @Test public void getFileNameMap_null() {
+        assertThrowsNpe(() -> URLConnection.getFileNameMap().getContentTypeFor(null));
+        assertThrowsNpe(() -> URLConnection.guessContentTypeFromName(null));
+    }
+
+    private static void assertThrowsNpe(Runnable runnable) {
+        try {
+            runnable.run();
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
     /**
      * Checks that paths ending in '/' (directory listings) are identified as HTML.
      */
-    public void testGetFileNameMap_directory() {
+    @Test public void getFileNameMap_directory() {
         checkFileNameMap("text/html", "/directory/path/");
         checkFileNameMap("text/html", "http://example.com/path/");
+        checkFileNameMap("text/html", "http://example.com/path/#fragment");
     }
 
-    public void testGetFileNameMap_simple() {
+    @Test public void getFileNameMap_simple() {
         checkFileNameMap("text/plain", "example.txt");
         checkFileNameMap("text/plain", "example.com/file.txt");
     }
 
+    @Test public void getFileNameMap_compositeExtension() {
+        checkFileNameMap("text/plain", "example.html.txt"); // html.txt isn't known, but txt is
+        checkFileNameMap("application/x-font-pcf", "filename.pcf.Z"); // pcf.Z is known
+    }
+
+    @Test public void getFileNameMap_compositeExtension_customMimeMap() {
+        MimeMap testMimeMap = MimeMap.builder()
+                .put("text/html", "html")
+                .put("application/gzip", "gz")
+                .put("application/tar+gzip", "tar.gz")
+                .build();
+        MimeMap defaultMimeMap = MimeMap.getDefault();
+        MimeMap.setDefaultSupplier(() -> testMimeMap);
+        try {
+            checkFileNameMap("application/gzip", "filename.gz");
+            checkFileNameMap("application/gzip", "filename.foobar.gz");
+            checkFileNameMap("application/gzip", "filename.html.gz");
+            checkFileNameMap("application/tar+gzip", "filename.tar.gz"); // tar.gz is found
+        } finally {
+            MimeMap.setDefaultSupplier(() -> defaultMimeMap);
+        }
+    }
+
     /**
-     * Checks that the *last* dot is considered for determining a file extension.
+     * Checks that as long as there are no '.' or '/', a file name that matches
+     * a known extension is interpreted as that extension, as if it was preceded by ".".
      */
-    public void testGetFileNameMap_multipleDots() {
+    @Test public void getFileNameMap_plainExtension() {
+        checkFileNameMap("text/plain", "txt");
+        checkFileNameMap("text/plain", "txt#fragment");
+        checkFileNameMap(null, "example.com/txt");
+        checkFileNameMap(null, "example.com/txt#fragment");
+        checkFileNameMap(null, "example/txt");
+        checkFileNameMap(null, "http://example/txt#fragment");
+    }
+
+    /**
+     * Checks cases where there's a '.' in the fragment, path or as an earlier path
+     * of a file name (only the last '.' that is part of the filename should count).
+     */
+    @Test public void getFileNameMap_dotsInOtherPlaces() {
+        // '.' in path
         checkFileNameMap("text/html", "example.com/foo.txt/bar.html");
         checkFileNameMap("text/plain", "example.com/foo.html/bar.txt");
+        checkFileNameMap(null, "/path.txt/noextensionfound");
+
+        // '.' earlier in filename
         checkFileNameMap("text/plain", "example.html.txt");
+
+        // '.' in fragment
+        checkFileNameMap(null, "/path/noextensionfound#fragment.html");
+
+        // multiple additional dots that shouldn't count
+        checkFileNameMap("text/plain", "/path.html/foo/../readme.html.txt#fragment.html");
+    }
+
+    @Test public void getFileNameMap_multipleHashCharacters() {
+        // Based on RFC 3986, URLs can only contain a single '#' but android.net.Uri
+        // considers the fragment to start after the first, rather than the last, '#'.
+        // We check that FileNameMap cuts off after the first '#', consistent with Uri.
+        checkFileNameMap(null, "/path/noextensionfound#frag.txt#ment.html");
     }
 
     /**
      * Checks that fragments are stripped when determining file extension.
      */
-    public void testGetFileNameMap_fragment() {
+    @Test public void getFileNameMap_fragment() {
         checkFileNameMap("text/plain", "example.txt#fragment");
         checkFileNameMap("text/plain", "example.com/path/example.txt#fragment");
     }
@@ -889,7 +969,7 @@ public final class URLConnectionTest extends TestCase {
      * of file type.
      * This matches RI behavior, but it'd be reasonable to change behavior here.
      */
-    public void testGetFileNameMap_queryParameter() {
+    @Test public void getFileNameMap_queryParameter() {
         checkFileNameMap(null, "example.txt?key=value");
         checkFileNameMap(null, "example.txt?key=value#fragment");
     }
@@ -908,7 +988,7 @@ public final class URLConnectionTest extends TestCase {
      * data is unchanged.
      * https://code.google.com/p/android/issues/detail?id=108949
      */
-    public void testEtagHeaders_cachedWithServerHit() throws Exception {
+    @Test public void etagHeaders_cachedWithServerHit() throws Exception {
         final String etagValue = "686897696a7c876b7e";
         final String body = "Response with etag";
 
@@ -951,7 +1031,7 @@ public final class URLConnectionTest extends TestCase {
      * data has changed.
      * https://code.google.com/p/android/issues/detail?id=108949
      */
-    public void testEtagHeaders_cachedWithServerMiss() throws Exception {
+    @Test public void etagHeaders_cachedWithServerMiss() throws Exception {
         final String etagValue1 = "686897696a7c876b7e";
         final String body1 = "Response with etag 1";
         final String etagValue2 = "686897696a7c876b7f";
@@ -998,7 +1078,7 @@ public final class URLConnectionTest extends TestCase {
     /**
      * Test which headers are sent unencrypted to the HTTP proxy.
      */
-    public void testProxyConnectIncludesProxyHeadersOnly()
+    @Test public void proxyConnectIncludesProxyHeadersOnly()
             throws IOException, InterruptedException {
         Authenticator.setDefault(new SimpleAuthenticator());
         RecordingHostnameVerifier hostnameVerifier = new RecordingHostnameVerifier();
@@ -1052,7 +1132,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(Arrays.asList("verify android.com"), hostnameVerifier.calls);
     }
 
-    public void testProxyAuthenticateOnConnect() throws Exception {
+    @Test public void proxyAuthenticateOnConnect() throws Exception {
         Authenticator.setDefault(new SimpleAuthenticator());
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), true);
@@ -1088,7 +1168,7 @@ public final class URLConnectionTest extends TestCase {
 
     // Don't disconnect after building a tunnel with CONNECT
     // http://code.google.com/p/android/issues/detail?id=37221
-    public void testProxyWithConnectionClose() throws IOException {
+    @Test public void proxyWithConnectionClose() throws IOException {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), true);
         server.enqueue(new MockResponse()
@@ -1107,7 +1187,7 @@ public final class URLConnectionTest extends TestCase {
         assertContent("this response comes via a proxy", connection);
     }
 
-    public void testDisconnectedConnection() throws IOException {
+    @Test public void disconnectedConnection() throws IOException {
         server.enqueue(new MockResponse()
                 .throttleBody(2, 100, TimeUnit.MILLISECONDS)
                 .setBody("ABCD"));
@@ -1127,23 +1207,122 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
+    @Test public void disconnectFromBackgroundThread_blockedRead_beforeHeader()
+            throws IOException {
+        QueueDispatcher dispatcher = new QueueDispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) throws InterruptedException {
+                Thread.sleep(6000);
+                return super.dispatch(request);
+            }
+        };
+        server.setDispatcher(dispatcher);
+        server.enqueue(new MockResponse().setHeader("Key", "Value").setBody("Response body"));
+        checkDisconnectFromBackgroundThread_blockedRead(2000, null /* disconnectMillis */);
+    }
+
+    @Test public void disconnectFromBackgroundThread_blockedRead_beforeBody()
+            throws IOException {
+        server.enqueue(new MockResponse().setHeader("Key", "Value")
+                .setBody("Response body").setBodyDelayTimeMs(6000));
+        checkDisconnectFromBackgroundThread_blockedRead(2000, "" /* disconnectMillis */);
+    }
+
+    /**
+     *
+     * @throws IOException
+     */
+    @Test public void disconnectFromBackgroundThread_blockedRead_duringBody()
+            throws IOException {
+        server.enqueue(new MockResponse().setHeader("Key", "Value")
+                .setBody("Response body").throttleBody(3, 1333, TimeUnit.MILLISECONDS));
+        // After 2 sec, we should have read about 6 bytes (we sleep 1333msec after every 3 bytes).
+        checkDisconnectFromBackgroundThread_blockedRead(2000, "Respon");
+    }
+
+    /**
+     * Checks that {@link HttpURLConnection#disconnect() disconnecting} a blocked read
+     * from a background thread unblocks the reading thread quickly and that the headers/body
+     * read so far are as given.
+     *
+     * The disconnect happens after approximately {@code disconnectMillis} msec (between half
+     * and double that is tolerated), so the server must already be set up such that reading
+     * the headers and the entire request takes comfortably more than that, eg.
+     * {@code 3 * disconnectMillis}.
+     *
+     * @param disconnectMillis number of milliseconds until the connection should be
+     *        {@link HttpURLConnection#disconnect() disconnected} by a background thread.
+     * @param expectedResponseContent The part of the body that is expected to have been read by
+     *        the time the connection is disconnected, or null if not even the headers
+     *        are expected to have been read at the time.
+     * @throws IOException if one occurs unexpectedly while establishing the connection.
+     */
+    private void checkDisconnectFromBackgroundThread_blockedRead(
+            long disconnectMillis, String expectedResponseContent) throws IOException {
+        server.play();
+        HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
+
+        Thread disconnectThread = new Thread("Disconnect after " + disconnectMillis + "msec") {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(disconnectMillis);
+                } catch (InterruptedException e) {
+                    // Even if an AssertionFailedError on this background thread doesn't
+                    // cause the test to fail directly, we'd still prematurely disconnect()
+                    // and that would (if significant) be detected further down by the
+                    // assertion on the number of elapsed milliseconds observed by the
+                    // main thread.
+                    fail("Unexpectedly interrupted: " + e);
+                }
+                connection.disconnect();
+            }
+        };
+
+        ByteArrayOutputStream auditStream = new ByteArrayOutputStream();
+        AuditInputStream inputStream = null;
+        boolean headerRead = false;
+        long start = System.currentTimeMillis();
+        disconnectThread.start();
+        try {
+            inputStream = new AuditInputStream(connection.getInputStream(), auditStream);
+            connection.getHeaderFields();
+            headerRead = true;
+            readAscii(inputStream);
+            fail("Didn't expect to successfully read all of the data");
+        } catch (IOException expected) {
+        } finally {
+            TestIoUtils.closeQuietly(inputStream);
+        }
+        long elapsed = System.currentTimeMillis() - start;
+
+        assertTrue("Expected approx. " + disconnectMillis + " msec elapsed, got " + elapsed,
+                disconnectMillis / 2 <= elapsed && elapsed <= 2 * disconnectMillis);
+        String readBody = new String(auditStream.toByteArray(), StandardCharsets.UTF_8);
+
+        String actualResponse = headerRead ? readBody : null;
+        assertEquals("Headers read: " + headerRead + "; read response body: " +  readBody,
+                expectedResponseContent, actualResponse);
+    }
+
+
     // http://b/33763156
-    public void testDisconnectDuringConnect_getInputStream() throws IOException {
+    @Test public void disconnectDuringConnect_getInputStream() throws IOException {
         checkDisconnectDuringConnect(HttpURLConnection::getInputStream);
     }
 
     // http://b/33763156
-    public void testDisconnectDuringConnect_getOutputStream() throws IOException {
+    @Test public void disconnectDuringConnect_getOutputStream() throws IOException {
         checkDisconnectDuringConnect(HttpURLConnection::getOutputStream);
     }
 
     // http://b/33763156
-    public void testDisconnectDuringConnect_getResponseCode() throws IOException {
+    @Test public void disconnectDuringConnect_getResponseCode() throws IOException {
         checkDisconnectDuringConnect(HttpURLConnection::getResponseCode);
     }
 
     // http://b/33763156
-    public void testDisconnectDuringConnect_getResponseMessage() throws IOException {
+    @Test public void disconnectDuringConnect_getResponseMessage() throws IOException {
         checkDisconnectDuringConnect(HttpURLConnection::getResponseMessage);
     }
 
@@ -1188,7 +1367,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testDisconnectBeforeConnect() throws IOException {
+    @Test public void disconnectBeforeConnect() throws IOException {
         server.enqueue(new MockResponse().setBody("A"));
         server.play();
 
@@ -1199,7 +1378,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(200, connection.getResponseCode());
     }
 
-    public void testDisconnectAfterOnlyResponseCodeCausesNoCloseGuardWarning() throws IOException {
+    @Test public void disconnectAfterOnlyResponseCodeCausesNoCloseGuardWarning() throws IOException {
         server.enqueue(new MockResponse()
                 .setBody(gzip("ABCABCABC".getBytes("UTF-8")))
                 .addHeader("Content-Encoding: gzip"));
@@ -1213,7 +1392,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testDefaultRequestProperty() throws Exception {
+    @Test public void defaultRequestProperty() throws Exception {
         URLConnection.setDefaultRequestProperty("X-testSetDefaultRequestProperty", "A");
         assertNull(URLConnection.getDefaultRequestProperty("X-setDefaultRequestProperty"));
     }
@@ -1223,7 +1402,7 @@ public final class URLConnectionTest extends TestCase {
      * exhausted before {@code count} characters can be read, the remaining
      * characters are returned and the stream is closed.
      */
-    private String readAscii(InputStream in, int count) throws IOException {
+    private static String readAscii(InputStream in, int count) throws IOException {
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < count; i++) {
             int value = in.read();
@@ -1236,15 +1415,19 @@ public final class URLConnectionTest extends TestCase {
         return result.toString();
     }
 
-    public void testMarkAndResetWithContentLengthHeader() throws IOException {
+    private static String readAscii(InputStream in) throws IOException {
+        return readAscii(in, Integer.MAX_VALUE);
+    }
+
+    @Test public void markAndResetWithContentLengthHeader() throws IOException {
         testMarkAndReset(TransferKind.FIXED_LENGTH);
     }
 
-    public void testMarkAndResetWithChunkedEncoding() throws IOException {
+    @Test public void markAndResetWithChunkedEncoding() throws IOException {
         testMarkAndReset(TransferKind.CHUNKED);
     }
 
-    public void testMarkAndResetWithNoLengthHeaders() throws IOException {
+    @Test public void markAndResetWithNoLengthHeaders() throws IOException {
         testMarkAndReset(TransferKind.END_OF_STREAM);
     }
 
@@ -1264,7 +1447,7 @@ public final class URLConnectionTest extends TestCase {
             fail();
         } catch (IOException expected) {
         }
-        assertEquals("FGHIJKLMNOPQRSTUVWXYZ", readAscii(in, Integer.MAX_VALUE));
+        assertEquals("FGHIJKLMNOPQRSTUVWXYZ", readAscii(in));
         assertContent("ABCDEFGHIJKLMNOPQRSTUVWXYZ", server.getUrl("/").openConnection());
     }
 
@@ -1273,7 +1456,7 @@ public final class URLConnectionTest extends TestCase {
      * code 401. This causes a new HTTP request to be issued for every call into
      * the URLConnection.
      */
-    public void testUnauthorizedResponseHandling() throws IOException {
+    @Test public void unauthorizedResponseHandling() throws IOException {
         MockResponse response = new MockResponse()
                 .addHeader("WWW-Authenticate: Basic realm=\"protected area\"")
                 .setResponseCode(401) // UNAUTHORIZED
@@ -1292,7 +1475,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(1, server.getRequestCount());
     }
 
-    public void testNonHexChunkSize() throws IOException {
+    @Test public void nonHexChunkSize() throws IOException {
         server.enqueue(new MockResponse()
                 .setBody("5\r\nABCDE\r\nG\r\nFGHIJKLMNOPQRSTU\r\n0\r\n\r\n")
                 .clearHeaders()
@@ -1301,13 +1484,13 @@ public final class URLConnectionTest extends TestCase {
 
         URLConnection connection = server.getUrl("/").openConnection();
         try {
-            readAscii(connection.getInputStream(), Integer.MAX_VALUE);
+            readAscii(connection.getInputStream());
             fail();
         } catch (IOException e) {
         }
     }
 
-    public void testMissingChunkBody() throws IOException {
+    @Test public void missingChunkBody() throws IOException {
         server.enqueue(new MockResponse()
                 .setBody("5")
                 .clearHeaders()
@@ -1317,7 +1500,7 @@ public final class URLConnectionTest extends TestCase {
 
         URLConnection connection = server.getUrl("/").openConnection();
         try {
-            readAscii(connection.getInputStream(), Integer.MAX_VALUE);
+            readAscii(connection.getInputStream());
             fail();
         } catch (IOException e) {
         }
@@ -1328,14 +1511,14 @@ public final class URLConnectionTest extends TestCase {
      * behavior in not required by the API, so a failure of this test does not
      * imply a bug in the implementation.
      */
-    public void testGzipEncodingEnabledByDefault() throws IOException, InterruptedException {
+    @Test public void gzipEncodingEnabledByDefault() throws IOException, InterruptedException {
         server.enqueue(new MockResponse()
                 .setBody(gzip("ABCABCABC".getBytes("UTF-8")))
                 .addHeader("Content-Encoding: gzip"));
         server.play();
 
         URLConnection connection = server.getUrl("/").openConnection();
-        assertEquals("ABCABCABC", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("ABCABCABC", readAscii(connection.getInputStream()));
         assertNull(connection.getContentEncoding());
         assertEquals(-1, connection.getContentLength());
 
@@ -1343,7 +1526,7 @@ public final class URLConnectionTest extends TestCase {
         assertContains(request.getHeaders(), "Accept-Encoding: gzip");
     }
 
-    public void testClientConfiguredGzipContentEncoding() throws Exception {
+    @Test public void clientConfiguredGzipContentEncoding() throws Exception {
         byte[] bodyBytes = gzip("ABCDEFGHIJKLMNOPQRSTUVWXYZ".getBytes("UTF-8"));
         server.enqueue(new MockResponse()
                 .setBody(bodyBytes)
@@ -1354,7 +1537,7 @@ public final class URLConnectionTest extends TestCase {
         URLConnection connection = server.getUrl("/").openConnection();
         connection.addRequestProperty("Accept-Encoding", "gzip");
         InputStream gunzippedIn = new GZIPInputStream(connection.getInputStream());
-        assertEquals("ABCDEFGHIJKLMNOPQRSTUVWXYZ", readAscii(gunzippedIn, Integer.MAX_VALUE));
+        assertEquals("ABCDEFGHIJKLMNOPQRSTUVWXYZ", readAscii(gunzippedIn));
         assertEquals(bodyBytes.length, connection.getContentLength());
 
         RecordedRequest request = server.takeRequest();
@@ -1362,15 +1545,15 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("gzip", connection.getContentEncoding());
     }
 
-    public void testGzipAndConnectionReuseWithFixedLength() throws Exception {
+    @Test public void gzipAndConnectionReuseWithFixedLength() throws Exception {
         testClientConfiguredGzipContentEncodingAndConnectionReuse(TransferKind.FIXED_LENGTH);
     }
 
-    public void testGzipAndConnectionReuseWithChunkedEncoding() throws Exception {
+    @Test public void gzipAndConnectionReuseWithChunkedEncoding() throws Exception {
         testClientConfiguredGzipContentEncodingAndConnectionReuse(TransferKind.CHUNKED);
     }
 
-    public void testClientConfiguredCustomContentEncoding() throws Exception {
+    @Test public void clientConfiguredCustomContentEncoding() throws Exception {
         server.enqueue(new MockResponse()
                 .setBody("ABCDE")
                 .addHeader("Content-Encoding: custom"));
@@ -1378,7 +1561,7 @@ public final class URLConnectionTest extends TestCase {
 
         URLConnection connection = server.getUrl("/").openConnection();
         connection.addRequestProperty("Accept-Encoding", "custom");
-        assertEquals("ABCDE", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("ABCDE", readAscii(connection.getInputStream()));
 
         RecordedRequest request = server.takeRequest();
         assertContains(request.getHeaders(), "Accept-Encoding: custom");
@@ -1403,11 +1586,11 @@ public final class URLConnectionTest extends TestCase {
         URLConnection connection = server.getUrl("/").openConnection();
         connection.addRequestProperty("Accept-Encoding", "gzip");
         InputStream gunzippedIn = new GZIPInputStream(connection.getInputStream());
-        assertEquals("one (gzipped)", readAscii(gunzippedIn, Integer.MAX_VALUE));
+        assertEquals("one (gzipped)", readAscii(gunzippedIn));
         assertEquals(0, server.takeRequest().getSequenceNumber());
 
         connection = server.getUrl("/").openConnection();
-        assertEquals("two (identity)", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("two (identity)", readAscii(connection.getInputStream()));
         assertEquals(1, server.takeRequest().getSequenceNumber());
     }
 
@@ -1415,7 +1598,7 @@ public final class URLConnectionTest extends TestCase {
      * Test that HEAD requests don't have a body regardless of the response
      * headers. http://code.google.com/p/android/issues/detail?id=24672
      */
-    public void testHeadAndContentLength() throws Exception {
+    @Test public void headAndContentLength() throws Exception {
         server.enqueue(new MockResponse()
                 .clearHeaders()
                 .addHeader("Content-Length: 100"));
@@ -1428,7 +1611,7 @@ public final class URLConnectionTest extends TestCase {
         assertContent("", connection1);
 
         HttpURLConnection connection2 = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("A", readAscii(connection2.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("A", readAscii(connection2.getInputStream()));
 
         assertEquals(0, server.takeRequest().getSequenceNumber());
         assertEquals(1, server.takeRequest().getSequenceNumber());
@@ -1441,7 +1624,7 @@ public final class URLConnectionTest extends TestCase {
      * the fixed chunk size. Instead, we check that chunking takes place
      * and we force the chunk size with flushes.
      */
-    public void testSetChunkedStreamingMode() throws IOException, InterruptedException {
+    @Test public void setChunkedStreamingMode() throws IOException, InterruptedException {
         server.enqueue(new MockResponse());
         server.play();
 
@@ -1468,11 +1651,11 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(Arrays.asList(3, 3, 2), request.getChunkSizes());
     }
 
-    public void testAuthenticateWithFixedLengthStreaming() throws Exception {
+    @Test public void authenticateWithFixedLengthStreaming() throws Exception {
         testAuthenticateWithStreamingPost(StreamingMode.FIXED_LENGTH);
     }
 
-    public void testAuthenticateWithChunkedStreaming() throws Exception {
+    @Test public void authenticateWithChunkedStreaming() throws Exception {
         testAuthenticateWithStreamingPost(StreamingMode.CHUNKED);
     }
 
@@ -1508,7 +1691,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(Arrays.toString(requestBody), Arrays.toString(request.getBody()));
     }
 
-    public void testSetValidRequestMethod() throws Exception {
+    @Test public void setValidRequestMethod() throws Exception {
         server.play();
         assertValidRequestMethod("GET");
         assertValidRequestMethod("DELETE");
@@ -1525,12 +1708,12 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(requestMethod, connection.getRequestMethod());
     }
 
-    public void testSetInvalidRequestMethodLowercase() throws Exception {
+    @Test public void setInvalidRequestMethodLowercase() throws Exception {
         server.play();
         assertInvalidRequestMethod("get");
     }
 
-    public void testSetInvalidRequestMethodConnect() throws Exception {
+    @Test public void setInvalidRequestMethodConnect() throws Exception {
         server.play();
         assertInvalidRequestMethod("CONNECT");
     }
@@ -1544,7 +1727,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testCannotSetNegativeFixedLengthStreamingMode() throws Exception {
+    @Test public void cannotSetNegativeFixedLengthStreamingMode() throws Exception {
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
         try {
@@ -1554,17 +1737,17 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testCanSetNegativeChunkedStreamingMode() throws Exception {
+    @Test public void canSetNegativeChunkedStreamingMode() throws Exception {
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
         connection.setChunkedStreamingMode(-2);
     }
 
-    public void testCannotSetFixedLengthStreamingModeAfterConnect() throws Exception {
+    @Test public void cannotSetFixedLengthStreamingModeAfterConnect() throws Exception {
         server.enqueue(new MockResponse().setBody("A"));
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("A", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("A", readAscii(connection.getInputStream()));
         try {
             connection.setFixedLengthStreamingMode(1);
             fail();
@@ -1572,11 +1755,11 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testCannotSetChunkedStreamingModeAfterConnect() throws Exception {
+    @Test public void cannotSetChunkedStreamingModeAfterConnect() throws Exception {
         server.enqueue(new MockResponse().setBody("A"));
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("A", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("A", readAscii(connection.getInputStream()));
         try {
             connection.setChunkedStreamingMode(1);
             fail();
@@ -1584,7 +1767,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testCannotSetFixedLengthStreamingModeAfterChunkedStreamingMode() throws Exception {
+    @Test public void cannotSetFixedLengthStreamingModeAfterChunkedStreamingMode() throws Exception {
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
         connection.setChunkedStreamingMode(1);
@@ -1595,7 +1778,8 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testCannotSetChunkedStreamingModeAfterFixedLengthStreamingMode() throws Exception {
+    @Test public void cannotSetChunkedStreamingModeAfterFixedLengthStreamingMode()
+            throws Exception {
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
         connection.setFixedLengthStreamingMode(1);
@@ -1606,11 +1790,11 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testSecureFixedLengthStreaming() throws Exception {
+    @Test public void secureFixedLengthStreaming() throws Exception {
         testSecureStreamingPost(StreamingMode.FIXED_LENGTH);
     }
 
-    public void testSecureChunkedStreaming() throws Exception {
+    @Test public void secureChunkedStreaming() throws Exception {
         testSecureStreamingPost(StreamingMode.CHUNKED);
     }
 
@@ -1636,7 +1820,7 @@ public final class URLConnectionTest extends TestCase {
         OutputStream outputStream = connection.getOutputStream();
         outputStream.write(requestBody);
         outputStream.close();
-        assertEquals("Success!", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("Success!", readAscii(connection.getInputStream()));
 
         RecordedRequest request = server.takeRequest();
         assertEquals("POST / HTTP/1.1", request.getRequestLine());
@@ -1652,7 +1836,7 @@ public final class URLConnectionTest extends TestCase {
         FIXED_LENGTH, CHUNKED
     }
 
-    public void testAuthenticateWithPost() throws Exception {
+    @Test public void authenticateWithPost() throws Exception {
         MockResponse pleaseAuthenticate = new MockResponse()
                 .setResponseCode(401)
                 .addHeader("WWW-Authenticate: Basic realm=\"protected area\"")
@@ -1672,7 +1856,7 @@ public final class URLConnectionTest extends TestCase {
         OutputStream outputStream = connection.getOutputStream();
         outputStream.write(requestBody);
         outputStream.close();
-        assertEquals("Successful auth!", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("Successful auth!", readAscii(connection.getInputStream()));
 
         // no authorization header for the first request...
         RecordedRequest request = server.takeRequest();
@@ -1688,7 +1872,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testAuthenticateWithGet() throws Exception {
+    @Test public void authenticateWithGet() throws Exception {
         MockResponse pleaseAuthenticate = new MockResponse()
                 .setResponseCode(401)
                 .addHeader("WWW-Authenticate: Basic realm=\"protected area\"")
@@ -1704,7 +1888,7 @@ public final class URLConnectionTest extends TestCase {
         SimpleAuthenticator authenticator = new SimpleAuthenticator();
         Authenticator.setDefault(authenticator);
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("Successful auth!", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("Successful auth!", readAscii(connection.getInputStream()));
         assertEquals(Authenticator.RequestorType.SERVER, authenticator.requestorType);
         assertEquals(server.getPort(), authenticator.requestingPort);
         assertEquals(InetAddress.getByName(server.getHostName()), authenticator.requestingSite);
@@ -1726,7 +1910,7 @@ public final class URLConnectionTest extends TestCase {
     }
 
     // bug 11473660
-    public void testAuthenticateWithLowerCaseHeadersAndScheme() throws Exception {
+    @Test public void authenticateWithLowerCaseHeadersAndScheme() throws Exception {
         MockResponse pleaseAuthenticate = new MockResponse()
                 .setResponseCode(401)
                 .addHeader("www-authenticate: basic realm=\"protected area\"")
@@ -1742,7 +1926,7 @@ public final class URLConnectionTest extends TestCase {
         SimpleAuthenticator authenticator = new SimpleAuthenticator();
         Authenticator.setDefault(authenticator);
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("Successful auth!", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("Successful auth!", readAscii(connection.getInputStream()));
         assertEquals(Authenticator.RequestorType.SERVER, authenticator.requestorType);
         assertEquals(server.getPort(), authenticator.requestingPort);
         assertEquals(InetAddress.getByName(server.getHostName()), authenticator.requestingSite);
@@ -1752,7 +1936,7 @@ public final class URLConnectionTest extends TestCase {
     }
 
     // http://code.google.com/p/android/issues/detail?id=19081
-    public void testAuthenticateWithCommaSeparatedAuthenticationMethods() throws Exception {
+    @Test public void authenticateWithCommaSeparatedAuthenticationMethods() throws Exception {
         server.enqueue(new MockResponse()
                 .setResponseCode(401)
                 .addHeader("WWW-Authenticate: Scheme1 realm=\"a\", Basic realm=\"b\", "
@@ -1765,7 +1949,7 @@ public final class URLConnectionTest extends TestCase {
         authenticator.expectedPrompt = "b";
         Authenticator.setDefault(authenticator);
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("Successful auth!", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("Successful auth!", readAscii(connection.getInputStream()));
 
         assertContainsNoneMatching(server.takeRequest().getHeaders(), "Authorization: .*");
         assertContains(server.takeRequest().getHeaders(),
@@ -1773,7 +1957,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("Basic", authenticator.requestingScheme);
     }
 
-    public void testAuthenticateWithMultipleAuthenticationHeaders() throws Exception {
+    @Test public void authenticateWithMultipleAuthenticationHeaders() throws Exception {
         server.enqueue(new MockResponse()
                 .setResponseCode(401)
                 .addHeader("WWW-Authenticate: Scheme1 realm=\"a\"")
@@ -1787,7 +1971,7 @@ public final class URLConnectionTest extends TestCase {
         authenticator.expectedPrompt = "b";
         Authenticator.setDefault(authenticator);
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("Successful auth!", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("Successful auth!", readAscii(connection.getInputStream()));
 
         assertContainsNoneMatching(server.takeRequest().getHeaders(), "Authorization: .*");
         assertContains(server.takeRequest().getHeaders(),
@@ -1795,15 +1979,15 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("Basic", authenticator.requestingScheme);
     }
 
-    public void testRedirectedWithChunkedEncoding() throws Exception {
+    @Test public void redirectedWithChunkedEncoding() throws Exception {
         testRedirected(TransferKind.CHUNKED, true);
     }
 
-    public void testRedirectedWithContentLengthHeader() throws Exception {
+    @Test public void redirectedWithContentLengthHeader() throws Exception {
         testRedirected(TransferKind.FIXED_LENGTH, true);
     }
 
-    public void testRedirectedWithNoLengthHeaders() throws Exception {
+    @Test public void redirectedWithNoLengthHeaders() throws Exception {
         testRedirected(TransferKind.END_OF_STREAM, false);
     }
 
@@ -1817,8 +2001,7 @@ public final class URLConnectionTest extends TestCase {
         server.play();
 
         URLConnection connection = server.getUrl("/").openConnection();
-        assertEquals("This is the new location!",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("This is the new location!", readAscii(connection.getInputStream()));
 
         RecordedRequest first = server.takeRequest();
         assertEquals("GET / HTTP/1.1", first.getRequestLine());
@@ -1829,7 +2012,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testRedirectedOnHttps() throws IOException, InterruptedException {
+    @Test public void redirectedOnHttps() throws IOException, InterruptedException {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse()
@@ -1841,8 +2024,7 @@ public final class URLConnectionTest extends TestCase {
 
         HttpsURLConnection connection = (HttpsURLConnection) server.getUrl("/").openConnection();
         connection.setSSLSocketFactory(testSSLContext.clientContext.getSocketFactory());
-        assertEquals("This is the new location!",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("This is the new location!", readAscii(connection.getInputStream()));
 
         RecordedRequest first = server.takeRequest();
         assertEquals("GET / HTTP/1.1", first.getRequestLine());
@@ -1851,7 +2033,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("Expected connection reuse", 1, retry.getSequenceNumber());
     }
 
-    public void testNotRedirectedFromHttpsToHttp() throws IOException, InterruptedException {
+    @Test public void notRedirectedFromHttpsToHttp() throws IOException, InterruptedException {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse()
@@ -1862,11 +2044,10 @@ public final class URLConnectionTest extends TestCase {
 
         HttpsURLConnection connection = (HttpsURLConnection) server.getUrl("/").openConnection();
         connection.setSSLSocketFactory(testSSLContext.clientContext.getSocketFactory());
-        assertEquals("This page has moved!",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("This page has moved!", readAscii(connection.getInputStream()));
     }
 
-    public void testNotRedirectedFromHttpToHttps() throws IOException, InterruptedException {
+    @Test public void notRedirectedFromHttpToHttps() throws IOException, InterruptedException {
         server.enqueue(new MockResponse()
                 .setResponseCode(HttpURLConnection.HTTP_MOVED_TEMP)
                 .addHeader("Location: https://anyhost/foo")
@@ -1874,11 +2055,10 @@ public final class URLConnectionTest extends TestCase {
         server.play();
 
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-        assertEquals("This page has moved!",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("This page has moved!", readAscii(connection.getInputStream()));
     }
 
-    public void testRedirectToAnotherOriginServer() throws Exception {
+    @Test public void redirectToAnotherOriginServer() throws Exception {
         MockWebServer server2 = new MockWebServer();
         server2.enqueue(new MockResponse().setBody("This is the 2nd server!"));
         server2.play();
@@ -1891,13 +2071,11 @@ public final class URLConnectionTest extends TestCase {
         server.play();
 
         URLConnection connection = server.getUrl("/").openConnection();
-        assertEquals("This is the 2nd server!",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("This is the 2nd server!", readAscii(connection.getInputStream()));
         assertEquals(server2.getUrl("/"), connection.getURL());
 
         // make sure the first server was careful to recycle the connection
-        assertEquals("This is the first server again!",
-                readAscii(server.getUrl("/").openStream(), Integer.MAX_VALUE));
+        assertEquals("This is the first server again!", readAscii(server.getUrl("/").openStream()));
 
         RecordedRequest first = server.takeRequest();
         assertContains(first.getHeaders(), "Host: " + hostName + ":" + server.getPort());
@@ -1911,7 +2089,7 @@ public final class URLConnectionTest extends TestCase {
 
     // http://b/27590872 - assert we do not throw a runtime exception if a server responds with
     // a location that cannot be represented directly by URI.
-    public void testRedirectWithInvalidRedirectUrl() throws Exception {
+    @Test public void redirectWithInvalidRedirectUrl() throws Exception {
         // The first server hosts a redirect to a second. We need two so that the ProxySelector
         // installed is used for the redirect. Otherwise the second request will be handled via the
         // existing keep-alive connection.
@@ -1963,7 +2141,7 @@ public final class URLConnectionTest extends TestCase {
 
         try {
             HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
-            assertEquals("Target", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+            assertEquals("Target", readAscii(connection.getInputStream()));
 
             // Inspect the redirect request to see what request was actually made.
             RecordedRequest actualRequest = server2.takeRequest();
@@ -1981,7 +2159,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testInstanceFollowsRedirects() throws Exception {
+    @Test public void instanceFollowsRedirects() throws Exception {
         testInstanceFollowsRedirects("http://www.google.com/");
         testInstanceFollowsRedirects("https://www.google.com/");
     }
@@ -1995,7 +2173,7 @@ public final class URLConnectionTest extends TestCase {
         assertFalse(urlConnection.getInstanceFollowRedirects());
     }
 
-    public void testFollowRedirects() throws Exception {
+    @Test public void followRedirects() throws Exception {
         testFollowRedirects("http://www.google.com/");
         testFollowRedirects("https://www.google.com/");
     }
@@ -2020,20 +2198,20 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testResponse300MultipleChoiceWithPost() throws Exception {
+    @Test public void response300MultipleChoiceWithPost() throws Exception {
         // Chrome doesn't follow the redirect, but Firefox and the RI both do
         testResponseRedirectedWithPost(HttpURLConnection.HTTP_MULT_CHOICE);
     }
 
-    public void testResponse301MovedPermanentlyWithPost() throws Exception {
+    @Test public void response301MovedPermanentlyWithPost() throws Exception {
         testResponseRedirectedWithPost(HttpURLConnection.HTTP_MOVED_PERM);
     }
 
-    public void testResponse302MovedTemporarilyWithPost() throws Exception {
+    @Test public void response302MovedTemporarilyWithPost() throws Exception {
         testResponseRedirectedWithPost(HttpURLConnection.HTTP_MOVED_TEMP);
     }
 
-    public void testResponse303SeeOtherWithPost() throws Exception {
+    @Test public void response303SeeOtherWithPost() throws Exception {
         testResponseRedirectedWithPost(HttpURLConnection.HTTP_SEE_OTHER);
     }
 
@@ -2051,7 +2229,7 @@ public final class URLConnectionTest extends TestCase {
         OutputStream outputStream = connection.getOutputStream();
         outputStream.write(requestBody);
         outputStream.close();
-        assertEquals("Page 2", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("Page 2", readAscii(connection.getInputStream()));
         assertTrue(connection.getDoOutput());
 
         RecordedRequest page1 = server.takeRequest();
@@ -2062,7 +2240,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("GET /page2 HTTP/1.1", page2.getRequestLine());
     }
 
-    public void testResponse305UseProxy() throws Exception {
+    @Test public void response305UseProxy() throws Exception {
         server.play();
         server.enqueue(new MockResponse()
                 .setResponseCode(HttpURLConnection.HTTP_USE_PROXY)
@@ -2072,15 +2250,14 @@ public final class URLConnectionTest extends TestCase {
 
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/foo").openConnection();
         // Fails on the RI, which gets "Proxy Response"
-        assertEquals("This page has moved!",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("This page has moved!", readAscii(connection.getInputStream()));
 
         RecordedRequest page1 = server.takeRequest();
         assertEquals("GET /foo HTTP/1.1", page1.getRequestLine());
         assertEquals(1, server.getRequestCount());
     }
 
-    public void testHttpsWithCustomTrustManager() throws Exception {
+    @Test public void httpsWithCustomTrustManager() throws Exception {
         RecordingHostnameVerifier hostnameVerifier = new RecordingHostnameVerifier();
         RecordingTrustManager trustManager = new RecordingTrustManager();
         SSLContext sc = SSLContext.getInstance("TLS");
@@ -2099,9 +2276,9 @@ public final class URLConnectionTest extends TestCase {
             server.play();
 
             URL url = server.getUrl("/");
-            assertEquals("ABC", readAscii(url.openStream(), Integer.MAX_VALUE));
-            assertEquals("DEF", readAscii(url.openStream(), Integer.MAX_VALUE));
-            assertEquals("GHI", readAscii(url.openStream(), Integer.MAX_VALUE));
+            assertEquals("ABC", readAscii(url.openStream()));
+            assertEquals("DEF", readAscii(url.openStream()));
+            assertEquals("GHI", readAscii(url.openStream()));
 
             assertEquals(Arrays.asList("verify " + hostName), hostnameVerifier.calls);
             assertEquals(Arrays.asList("checkServerTrusted ["
@@ -2116,7 +2293,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testSetSSLSocketFactory_null() throws Exception {
+    @Test public void setSSLSocketFactory_null() throws Exception {
         URL url = new URL("https://google.com");
         HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
         try {
@@ -2126,7 +2303,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testSetDefaultSSLSocketFactory_null() {
+    @Test public void setDefaultSSLSocketFactory_null() {
         try {
             HttpsURLConnection.setDefaultSSLSocketFactory(null);
             fail();
@@ -2139,7 +2316,7 @@ public final class URLConnectionTest extends TestCase {
      * connection attempt. If a hostname resolves to multiple IPs HttpURLConnection will wait the
      * full timeout for each.
      */
-    public void testConnectTimeouts() throws IOException {
+    @Test public void connectTimeouts() throws IOException {
         // During CTS tests we are limited in what host names we can depend on and unfortunately
         // DNS lookups are not pluggable through standard APIs. During manual testing you should be
         // able to change this to any name that can be resolved to multiple IPs and it should still
@@ -2186,7 +2363,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testReadTimeouts() throws IOException {
+    @Test public void readTimeouts() throws IOException {
         /*
          * This relies on the fact that MockWebServer doesn't close the
          * connection after a response has been sent. This causes the client to
@@ -2213,7 +2390,8 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testSetChunkedEncodingAsRequestProperty() throws IOException, InterruptedException {
+    @Test public void setChunkedEncodingAsRequestProperty()
+            throws IOException, InterruptedException {
         server.enqueue(new MockResponse());
         server.play();
 
@@ -2227,7 +2405,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals("ABC", new String(request.getBody(), "UTF-8"));
     }
 
-    public void testConnectionCloseInRequest() throws IOException, InterruptedException {
+    @Test public void connectionCloseInRequest() throws IOException, InterruptedException {
         server.enqueue(new MockResponse()); // server doesn't honor the connection: close header!
         server.enqueue(new MockResponse());
         server.play();
@@ -2244,7 +2422,7 @@ public final class URLConnectionTest extends TestCase {
                 0, server.takeRequest().getSequenceNumber());
     }
 
-    public void testConnectionCloseInResponse() throws IOException, InterruptedException {
+    @Test public void connectionCloseInResponse() throws IOException, InterruptedException {
         server.enqueue(new MockResponse().addHeader("Connection: close"));
         server.enqueue(new MockResponse());
         server.play();
@@ -2260,7 +2438,7 @@ public final class URLConnectionTest extends TestCase {
                 0, server.takeRequest().getSequenceNumber());
     }
 
-    public void testConnectionCloseWithRedirect() throws IOException, InterruptedException {
+    @Test public void connectionCloseWithRedirect() throws IOException, InterruptedException {
         MockResponse response = new MockResponse()
                 .setResponseCode(HttpURLConnection.HTTP_MOVED_TEMP)
                 .addHeader("Location: /foo")
@@ -2270,26 +2448,24 @@ public final class URLConnectionTest extends TestCase {
         server.play();
 
         URLConnection connection = server.getUrl("/").openConnection();
-        assertEquals("This is the new location!",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("This is the new location!", readAscii(connection.getInputStream()));
 
         assertEquals(0, server.takeRequest().getSequenceNumber());
         assertEquals("When connection: close is used, each request should get its own connection",
                 0, server.takeRequest().getSequenceNumber());
     }
 
-    public void testResponseCodeDisagreesWithHeaders() throws IOException, InterruptedException {
+    @Test public void responseCodeDisagreesWithHeaders() throws IOException, InterruptedException {
         server.enqueue(new MockResponse()
                 .setResponseCode(HttpURLConnection.HTTP_NO_CONTENT)
                 .setBody("This body is not allowed!"));
         server.play();
 
         URLConnection connection = server.getUrl("/").openConnection();
-        assertEquals("This body is not allowed!",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("This body is not allowed!", readAscii(connection.getInputStream()));
     }
 
-    public void testSingleByteReadIsSigned() throws IOException {
+    @Test public void singleByteReadIsSigned() throws IOException {
         server.enqueue(new MockResponse().setBody(new byte[] { -2, -1 }));
         server.play();
 
@@ -2300,15 +2476,15 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(-1, in.read());
     }
 
-    public void testFlushAfterStreamTransmittedWithChunkedEncoding() throws IOException {
+    @Test public void flushAfterStreamTransmittedWithChunkedEncoding() throws IOException {
         testFlushAfterStreamTransmitted(TransferKind.CHUNKED);
     }
 
-    public void testFlushAfterStreamTransmittedWithFixedLength() throws IOException {
+    @Test public void flushAfterStreamTransmittedWithFixedLength() throws IOException {
         testFlushAfterStreamTransmitted(TransferKind.FIXED_LENGTH);
     }
 
-    public void testFlushAfterStreamTransmittedWithNoLengthHeaders() throws IOException {
+    @Test public void flushAfterStreamTransmittedWithNoLengthHeaders() throws IOException {
         testFlushAfterStreamTransmitted(TransferKind.END_OF_STREAM);
     }
 
@@ -2333,7 +2509,7 @@ public final class URLConnectionTest extends TestCase {
 
         OutputStream out = connection.getOutputStream();
         out.write(upload);
-        assertEquals("abc", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("abc", readAscii(connection.getInputStream()));
 
         out.flush(); // dubious but permitted
         try {
@@ -2343,7 +2519,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testGetHeadersThrows() throws IOException {
+    @Test public void getHeadersThrows() throws IOException {
         server.enqueue(new MockResponse().setSocketPolicy(DISCONNECT_AT_START));
         server.play();
 
@@ -2361,7 +2537,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testReadTimeoutsOnRecycledConnections() throws Exception {
+    @Test public void readTimeoutsOnRecycledConnections() throws Exception {
         server.enqueue(new MockResponse().setBody("ABC"));
         server.play();
 
@@ -2370,7 +2546,7 @@ public final class URLConnectionTest extends TestCase {
         // Read timeout of a day, sure to cause the test to timeout and fail.
         connection.setReadTimeout(24 * 3600 * 1000);
         InputStream input = connection.getInputStream();
-        assertEquals("ABC", readAscii(input, Integer.MAX_VALUE));
+        assertEquals("ABC", readAscii(input));
         input.close();
         try {
             connection = server.getUrl("").openConnection();
@@ -2390,7 +2566,7 @@ public final class URLConnectionTest extends TestCase {
      * After M, Android's HttpURLConnection started canonicalizing hostnames to lower case, IDN
      * encoding and being more strict about invalid characters.
      */
-    public void testUrlCharacterMapping() throws Exception {
+    @Test public void urlCharacterMapping() throws Exception {
         server.setDispatcher(new Dispatcher() {
             @Override public MockResponse dispatch(RecordedRequest request)
                 throws InterruptedException {
@@ -2613,7 +2789,7 @@ public final class URLConnectionTest extends TestCase {
             backdoorUrlToUri(new URL("http://host.tld/file#" + asFragment + "-x")).toString());
     }
 
-    public void testHostWithNul() throws Exception {
+    @Test public void hostWithNul() throws Exception {
         URL url = new URL("http://host\u0000/");
         try {
             url.openStream();
@@ -2624,7 +2800,7 @@ public final class URLConnectionTest extends TestCase {
     /**
      * Don't explode if the cache returns a null body. http://b/3373699
      */
-    public void testResponseCacheReturnsNullOutputStream() throws Exception {
+    @Test public void responseCacheReturnsNullOutputStream() throws Exception {
         final AtomicBoolean aborted = new AtomicBoolean();
         ResponseCache.setDefault(new ResponseCache() {
             @Override public CacheResponse get(URI uri, String requestMethod,
@@ -2657,7 +2833,7 @@ public final class URLConnectionTest extends TestCase {
     /**
      * http://code.google.com/p/android/issues/detail?id=14562
      */
-    public void testReadAfterLastByte() throws Exception {
+    @Test public void readAfterLastByte() throws Exception {
         server.enqueue(new MockResponse()
                 .setBody("ABC")
                 .clearHeaders()
@@ -2672,15 +2848,15 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(-1, in.read()); // throws IOException in Gingerbread
     }
 
-    public void testGetContent() throws Exception {
+    @Test public void getContent() throws Exception {
         server.enqueue(new MockResponse().setBody("A"));
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
         InputStream in = (InputStream) connection.getContent();
-        assertEquals("A", readAscii(in, Integer.MAX_VALUE));
+        assertEquals("A", readAscii(in));
     }
 
-    public void testGetContentOfType() throws Exception {
+    @Test public void getContentOfType() throws Exception {
         server.enqueue(new MockResponse().setBody("A"));
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
@@ -2698,7 +2874,7 @@ public final class URLConnectionTest extends TestCase {
         connection.disconnect();
     }
 
-    public void testGetOutputStreamOnGetFails() throws Exception {
+    @Test public void getOutputStreamOnGetFails() throws Exception {
         server.enqueue(new MockResponse());
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
@@ -2709,7 +2885,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testGetOutputAfterGetInputStreamFails() throws Exception {
+    @Test public void getOutputAfterGetInputStreamFails() throws Exception {
         server.enqueue(new MockResponse());
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
@@ -2722,7 +2898,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testSetDoOutputOrDoInputAfterConnectFails() throws Exception {
+    @Test public void setDoOutputOrDoInputAfterConnectFails() throws Exception {
         server.enqueue(new MockResponse());
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
@@ -2740,7 +2916,7 @@ public final class URLConnectionTest extends TestCase {
         connection.disconnect();
     }
 
-    public void testLastModified() throws Exception {
+    @Test public void lastModified() throws Exception {
         server.enqueue(new MockResponse()
                 .addHeader("Last-Modified", "Wed, 27 Nov 2013 11:26:00 GMT")
                 .setBody("Hello"));
@@ -2753,7 +2929,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(1385551560000L, connection.getHeaderFieldDate("Last-Modified", -1));
     }
 
-    public void testClientSendsContentLength() throws Exception {
+    @Test public void clientSendsContentLength() throws Exception {
         server.enqueue(new MockResponse().setBody("A"));
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
@@ -2761,12 +2937,12 @@ public final class URLConnectionTest extends TestCase {
         OutputStream out = connection.getOutputStream();
         out.write(new byte[] { 'A', 'B', 'C' });
         out.close();
-        assertEquals("A", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+        assertEquals("A", readAscii(connection.getInputStream()));
         RecordedRequest request = server.takeRequest();
         assertContains(request.getHeaders(), "Content-Length: 3");
     }
 
-    public void testGetContentLengthConnects() throws Exception {
+    @Test public void getContentLengthConnects() throws Exception {
         server.enqueue(new MockResponse().setBody("ABC"));
         server.play();
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
@@ -2774,7 +2950,7 @@ public final class URLConnectionTest extends TestCase {
         connection.disconnect();
     }
 
-    public void testGetContentTypeConnects() throws Exception {
+    @Test public void getContentTypeConnects() throws Exception {
         server.enqueue(new MockResponse()
                 .addHeader("Content-Type: text/plain")
                 .setBody("ABC"));
@@ -2784,7 +2960,7 @@ public final class URLConnectionTest extends TestCase {
         connection.disconnect();
     }
 
-    public void testGetContentEncodingConnects() throws Exception {
+    @Test public void getContentEncodingConnects() throws Exception {
         server.enqueue(new MockResponse()
                 .addHeader("Content-Encoding: identity")
                 .setBody("ABC"));
@@ -2795,29 +2971,29 @@ public final class URLConnectionTest extends TestCase {
     }
 
     // http://b/4361656
-    public void testUrlContainsQueryButNoPath() throws Exception {
+    @Test public void urlContainsQueryButNoPath() throws Exception {
         server.enqueue(new MockResponse().setBody("A"));
         server.play();
         URL url = new URL("http", server.getHostName(), server.getPort(), "?query");
-        assertEquals("A", readAscii(url.openConnection().getInputStream(), Integer.MAX_VALUE));
+        assertEquals("A", readAscii(url.openConnection().getInputStream()));
         RecordedRequest request = server.takeRequest();
         assertEquals("GET /?query HTTP/1.1", request.getRequestLine());
     }
 
     // http://code.google.com/p/android/issues/detail?id=20442
-    public void testInputStreamAvailableWithChunkedEncoding() throws Exception {
-        testInputStreamAvailable(TransferKind.CHUNKED);
+    @Test public void inputStreamAvailableWithChunkedEncoding() throws Exception {
+        checkInputStreamAvailable(TransferKind.CHUNKED);
     }
 
-    public void testInputStreamAvailableWithContentLengthHeader() throws Exception {
-        testInputStreamAvailable(TransferKind.FIXED_LENGTH);
+    @Test public void inputStreamAvailableWithContentLengthHeader() throws Exception {
+        checkInputStreamAvailable(TransferKind.FIXED_LENGTH);
     }
 
-    public void testInputStreamAvailableWithNoLengthHeaders() throws Exception {
-        testInputStreamAvailable(TransferKind.END_OF_STREAM);
+    @Test public void inputStreamAvailableWithNoLengthHeaders() throws Exception {
+        checkInputStreamAvailable(TransferKind.END_OF_STREAM);
     }
 
-    private void testInputStreamAvailable(TransferKind transferKind) throws IOException {
+    private void checkInputStreamAvailable(TransferKind transferKind) throws IOException {
         String body = "ABCDEFGH";
         MockResponse response = new MockResponse();
         transferKind.setBody(response, body, 4);
@@ -2834,7 +3010,7 @@ public final class URLConnectionTest extends TestCase {
     }
 
     // http://code.google.com/p/android/issues/detail?id=28095
-    public void testInvalidIpv4Address() throws Exception {
+    @Test public void invalidIpv4Address() throws Exception {
         try {
             URI uri = new URI("http://1111.111.111.111/index.html");
             uri.toURL().openConnection().connect();
@@ -2843,7 +3019,7 @@ public final class URLConnectionTest extends TestCase {
         }
     }
 
-    public void testConnectIpv6() throws Exception {
+    @Test public void connectIpv6() throws Exception {
         server.enqueue(new MockResponse().setBody("testConnectIpv6 body"));
         server.play();
         URL url = new URL("http://[::1]:" + server.getPort() + "/");
@@ -2852,7 +3028,7 @@ public final class URLConnectionTest extends TestCase {
     }
 
     // http://code.google.com/p/android/issues/detail?id=16895
-    public void testUrlWithSpaceInHost() throws Exception {
+    @Test public void urlWithSpaceInHost() throws Exception {
         URLConnection urlConnection = new URL("http://and roid.com/").openConnection();
         try {
             urlConnection.getInputStream();
@@ -2862,7 +3038,7 @@ public final class URLConnectionTest extends TestCase {
     }
 
     // http://code.google.com/p/android/issues/detail?id=16895
-    public void testUrlWithSpaceInHostViaHttpProxy() throws Exception {
+    @Test public void urlWithSpaceInHostViaHttpProxy() throws Exception {
         server.enqueue(new MockResponse());
         server.play();
         URLConnection urlConnection = new URL("http://and roid.com/")
@@ -2903,7 +3079,7 @@ public final class URLConnectionTest extends TestCase {
                 false /* expectedWasFallbackScsvSet */, expectedProtocols);
     }
 
-    public void testNoSslFallback_specifiedProtocols() throws Exception {
+    @Test public void noSslFallback_specifiedProtocols() throws Exception {
         String[] enabledProtocols = { "TLSv1.2", "TLSv1.1" };
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         SSLSocketFactory serverSocketFactory =
@@ -2916,7 +3092,7 @@ public final class URLConnectionTest extends TestCase {
                 enabledProtocols);
     }
 
-    public void testNoSslFallback_defaultProtocols() throws Exception {
+    @Test public void noSslFallback_defaultProtocols() throws Exception {
         // Will need to be updated if the enabled protocols in Android's SSLSocketFactory change
         String[] expectedEnabledProtocols = { "TLSv1.2", "TLSv1.1", "TLSv1" };
 
@@ -2936,7 +3112,7 @@ public final class URLConnectionTest extends TestCase {
         assertEquals(expectedWasFallbackScsvSet, socket.wasTlsFallbackScsvSet());
     }
 
-    public void testInspectSslBeforeConnect() throws Exception {
+    @Test public void inspectSslBeforeConnect() throws Exception {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse());
@@ -2971,7 +3147,7 @@ public final class URLConnectionTest extends TestCase {
      * Test that we can inspect the SSL session after connect().
      * http://code.google.com/p/android/issues/detail?id=24431
      */
-    public void testInspectSslAfterConnect() throws Exception {
+    @Test public void inspectSslAfterConnect() throws Exception {
         TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse());
@@ -3008,10 +3184,10 @@ public final class URLConnectionTest extends TestCase {
      * the minimal implementation of these methods to get OkHttp's tests to pass, so
      * they should never be invoked outside of OkHttp's tests.
      */
-    public void testTrustManagerAndTrustRootIndex_unusedForHttpsConnection() throws Exception {
+    @Test public void trustManagerAndTrustRootIndex_unusedForHttpsConnection() throws Exception {
         Platform platform = Platform.getAndSetForTest(new PlatformWithoutTrustManager());
         try {
-            testConnectViaHttps();
+            checkConnectViaHttps();
         } finally {
             Platform.getAndSetForTest(platform);
         }
@@ -3024,7 +3200,7 @@ public final class URLConnectionTest extends TestCase {
      * be going wrong in order for this test to (unexpectedly) invoke the corresponding
      * Platform methods.
      */
-    public void testTrustManagerAndTrustRootIndex_unusedForHttpConnection() throws Exception {
+    @Test public void trustManagerAndTrustRootIndex_unusedForHttpConnection() throws Exception {
         Platform platform = Platform.getAndSetForTest(new PlatformWithoutTrustManager());
         try {
             server.enqueue(new MockResponse().setBody("response").setResponseCode(200));

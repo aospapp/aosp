@@ -29,6 +29,14 @@ prebuilt_etc {
 }
 
 prebuilt_etc {
+    name: "apex_telephonylookup.xml_test1",
+    src: "android/telephonylookup.xml",
+    filename: "telephonylookup.xml",
+    sub_dir: "tz",
+    installable: false,
+}
+
+prebuilt_etc {
     name: "apex_tzdata_test1",
     src: "iana/tzdata",
     notice: "iana/NOTICE",

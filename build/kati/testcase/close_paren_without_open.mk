@@ -1,3 +1,0 @@
-$(info }#)
-test:
-	echo OK

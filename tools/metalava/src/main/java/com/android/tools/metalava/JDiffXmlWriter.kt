@@ -224,9 +224,12 @@ class JDiffXmlWriter(
         writer.print(deprecation(field))
         writer.print("\"\n visibility=\"")
         writer.print(modifiers.getVisibilityModifiers())
-        writer.println("\"\n>")
-
-        writer.println("</field>")
+        writer.print("\"")
+        if (field.isEnumConstant()) {
+            // Metalava extension. JDiff doesn't support it.
+            writer.print("\n metalava:enumConstant=\"true\"")
+        }
+        writer.println("\n>\n</field>")
     }
 
     override fun visitProperty(property: PropertyItem) {

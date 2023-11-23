@@ -20,19 +20,20 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.build.BuildInfoKey;
+import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
-import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.FakeShellOutputReceiver;
+import com.android.tradefed.util.FileUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -46,13 +47,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.charset.StandardCharsets;
 
 /** Unit tests for {@link HostGTest}. */
 @RunWith(JUnit4.class)
 public class HostGTestTest {
     private File mTestsDir;
     private HostGTest mHostGTest;
+    private TestInformation mTestInfo;
     private ITestInvocationListener mMockInvocationListener;
     private FakeShellOutputReceiver mFakeReceiver;
     private OptionSetter mSetter;
@@ -70,6 +71,8 @@ public class HostGTestTest {
         when(mHostGTest.createResultParser(any(), any())).thenReturn(mFakeReceiver);
 
         mSetter = new OptionSetter(mHostGTest);
+
+        mTestInfo = TestInformation.newBuilder().build();
     }
 
     @After
@@ -106,8 +109,7 @@ public class HostGTestTest {
     /**
      * Helper to create an executable file with the given contents.
      *
-     * @param folderName The path where to create.
-     * @param fileName The file name you want to create.
+     * @param outPath The path where to create.
      * @param contents Contents to write to the file
      */
     private void createExecutableFile(Path outPath, String contents) throws IOException {
@@ -194,7 +196,7 @@ public class HostGTestTest {
         buildInfo.setFile(BuildInfoKey.BuildInfoFileKey.HOST_LINKED_DIR, hostLinkedFolder, "0.0");
         mHostGTest.setBuild(buildInfo);
 
-        mHostGTest.run(mMockInvocationListener);
+        mHostGTest.run(mTestInfo, mMockInvocationListener);
 
         assertTrue(cmd1.exists());
         assertTrue(cmd2.exists());
@@ -224,7 +226,7 @@ public class HostGTestTest {
         buildInfo.setTestsDir(testcasesFolder, "0.0");
         mHostGTest.setBuild(buildInfo);
 
-        mHostGTest.run(mMockInvocationListener);
+        mHostGTest.run(mTestInfo, mMockInvocationListener);
         assertTrue(hostTestcaseExecutedCheckFile.exists());
         assertFalse(testfolderTestcaseCheckExecuted.exists());
         assertNotEquals(0, mFakeReceiver.getReceivedOutput().length);
@@ -250,7 +252,7 @@ public class HostGTestTest {
         buildInfo.setTestsDir(testcasesFolder, "0.0");
         mHostGTest.setBuild(buildInfo);
 
-        mHostGTest.run(mMockInvocationListener);
+        mHostGTest.run(mTestInfo, mMockInvocationListener);
         assertFalse(hostTestcaseExecutedCheckFile.exists());
         assertTrue(testfolderTestcaseCheckExecuted.exists());
         assertNotEquals(0, mFakeReceiver.getReceivedOutput().length);
@@ -265,7 +267,7 @@ public class HostGTestTest {
         DeviceBuildInfo buildInfo = new DeviceBuildInfo();
         mHostGTest.setBuild(buildInfo);
 
-        mHostGTest.run(mMockInvocationListener);
+        mHostGTest.run(mTestInfo, mMockInvocationListener);
         assertNotEquals(0, mFakeReceiver.getReceivedOutput().length);
     }
 
@@ -290,7 +292,7 @@ public class HostGTestTest {
         buildInfo.setTestsDir(testcasesFolder, "0.0");
         mHostGTest.setBuild(buildInfo);
 
-        mHostGTest.run(mMockInvocationListener);
+        mHostGTest.run(mTestInfo, mMockInvocationListener);
         assertTrue(hostTestcaseExecutedCheckFile.exists());
         assertFalse(testfolderTestcaseCheckExecuted.exists());
         assertNotEquals(0, mFakeReceiver.getReceivedOutput().length);
@@ -317,7 +319,7 @@ public class HostGTestTest {
         mSetter.setOptionValue("before-test-cmd", errorScriptPath.toString());
 
         try {
-            mHostGTest.run(mMockInvocationListener);
+            mHostGTest.run(mTestInfo, mMockInvocationListener);
             fail("Didn't throw RuntimeException for before cmd with non-zero exit code");
         } catch (RuntimeException e) {
             // Expected exception
@@ -341,7 +343,7 @@ public class HostGTestTest {
 
         mSetter.setOptionValue("module-name", moduleName);
 
-        mHostGTest.run(mMockInvocationListener);
+        mHostGTest.run(mTestInfo, mMockInvocationListener);
         String testOutput = new String(mFakeReceiver.getReceivedOutput(), StandardCharsets.UTF_8);
         assertEquals("TEST FAILED\n", testOutput);
     }
@@ -363,7 +365,7 @@ public class HostGTestTest {
         mSetter.setOptionValue("module-name", moduleName);
 
         try {
-            mHostGTest.run(mMockInvocationListener);
+            mHostGTest.run(mTestInfo, mMockInvocationListener);
             fail("Didn't throw RuntimeException for test cmd with bad exit code");
         } catch (RuntimeException e) {
             // Expected exception
@@ -384,7 +386,7 @@ public class HostGTestTest {
         mHostGTest.setBuild(buildInfo);
 
         mSetter.setOptionValue("module-name", moduleName);
-        mHostGTest.run(mMockInvocationListener);
+        mHostGTest.run(mTestInfo, mMockInvocationListener);
         assertTrue(hostTestcaseExecutedCheckFile.exists());
 
         String expected = String.format("stdout: %s\nstderr: %s\n", moduleName, moduleName);

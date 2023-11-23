@@ -16,10 +16,16 @@
 
 package android.view.inputmethod.cts.util;
 
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+
 import android.app.Instrumentation;
+import android.content.Context;
+import android.os.PowerManager;
 
 import androidx.annotation.NonNull;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.CommonTestUtils;
 
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -101,5 +107,47 @@ public final class TestUtils {
     public static void waitOnMainUntil(@NonNull BooleanSupplier condition, long timeout)
             throws TimeoutException {
         waitOnMainUntil(condition, timeout, "");
+    }
+
+    /**
+     * Call a command to turn screen On.
+     *
+     * This method will wait until the power state is interactive with {@link
+     * PowerManager#isInteractive()}.
+     */
+    public static void turnScreenOn() throws Exception {
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        final PowerManager pm = context.getSystemService(PowerManager.class);
+        runShellCommand("input keyevent KEYCODE_WAKEUP");
+        CommonTestUtils.waitUntil("Device does not wake up after 5 seconds", 5,
+                () -> pm != null && pm.isInteractive());
+    }
+
+    /**
+     * Call a command to turn screen off.
+     *
+     * This method will wait until the power state is *NOT* interactive with
+     * {@link PowerManager#isInteractive()}.
+     * Note that {@link PowerManager#isInteractive()} may not return {@code true} when the device
+     * enables Aod mode, recommend to add (@link DisableScreenDozeRule} in the test to disable Aod
+     * for making power state reliable.
+     */
+    public static void turnScreenOff() throws Exception {
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        final PowerManager pm = context.getSystemService(PowerManager.class);
+        runShellCommand("input keyevent KEYCODE_SLEEP");
+        CommonTestUtils.waitUntil("Device does not sleep after 5 seconds", 5,
+                () -> pm != null && !pm.isInteractive());
+    }
+
+    /**
+     * Call a command to unlock screen.
+     *
+     * Note that this method is originated from
+     * {@link android.server.wm.UiDeviceUtils#pressUnlockButton()}, which is only valid for
+     * unlocking insecure keyguard for test automation.
+     */
+    public static void unlockScreen() throws Exception {
+        runShellCommand("input keyevent KEYCODE_MENU");
     }
 }

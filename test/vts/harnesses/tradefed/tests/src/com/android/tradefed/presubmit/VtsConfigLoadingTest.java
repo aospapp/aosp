@@ -35,12 +35,12 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Test that configuration in VTS can load and have expected properties.
+ * Test that configuration in VTS10 can load and have expected properties.
  */
 @RunWith(JUnit4.class)
 public class VtsConfigLoadingTest {
     /**
-     * List of the officially supported runners in VTS.
+     * List of the officially supported runners in VTS10.
      */
     private static final Set<String> SUPPORTED_VTS_TEST_TYPE = new HashSet<>(Arrays.asList(
             "com.android.compatibility.common.tradefed.testtype.JarHostTest",
@@ -53,8 +53,8 @@ public class VtsConfigLoadingTest {
      */
     @Test
     public void testConfigurationLoad() throws Exception {
-        String vtsRoot = System.getProperty("VTS_ROOT");
-        File testcases = new File(vtsRoot, "/android-vts/testcases/");
+        String vtsRoot = System.getProperty("VTS10_ROOT");
+        File testcases = new File(vtsRoot, "/android-vts10/testcases/");
         if (!testcases.exists()) {
             fail(String.format("%s does not exists", testcases));
             return;
@@ -77,7 +77,7 @@ public class VtsConfigLoadingTest {
                 // Check that all the tests runners are well supported.
                 if (!SUPPORTED_VTS_TEST_TYPE.contains(test.getClass().getCanonicalName())) {
                     throw new ConfigurationException(
-                            String.format("testtype %s is not officially supported by VTS.",
+                            String.format("testtype %s is not officially supported by VTS10.",
                                     test.getClass().getCanonicalName()));
                 }
             }

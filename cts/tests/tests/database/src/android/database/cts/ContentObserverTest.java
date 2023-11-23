@@ -16,13 +16,15 @@
 
 package android.database.cts;
 
-
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.test.InstrumentationTestCase;
+
+import java.util.Arrays;
+import java.util.Collection;
 
 public class ContentObserverTest extends InstrumentationTestCase {
     private static final Uri CONTENT_URI = Uri.parse("content://uri");
@@ -120,9 +122,37 @@ public class ContentObserverTest extends InstrumentationTestCase {
         assertFalse(contentObserver.deliverSelfNotifications());
     }
 
+    /**
+     * Verify that all incoming dispatch methods invoke all outgoing callbacks.
+     */
+    public void testDispatchChange_Completeness() {
+        final MyContentObserver observer = new MyContentObserver(null);
+
+        observer.resetStatus();
+        observer.dispatchChange(false, Arrays.asList(CONTENT_URI), 0);
+        assertEquals(4, observer.getChangeCount());
+
+        observer.resetStatus();
+        observer.dispatchChange(false, Arrays.asList(CONTENT_URI, CONTENT_URI), 0);
+        assertEquals(7, observer.getChangeCount());
+
+        observer.resetStatus();
+        observer.dispatchChange(false, CONTENT_URI, 0);
+        assertEquals(4, observer.getChangeCount());
+
+        observer.resetStatus();
+        observer.dispatchChange(false, CONTENT_URI);
+        assertEquals(4, observer.getChangeCount());
+
+        observer.resetStatus();
+        observer.dispatchChange(false);
+        assertEquals(4, observer.getChangeCount());
+    }
+
     private static class MyContentObserver extends ContentObserver {
         private boolean mHasChanged;
         private boolean mSelfChange;
+        private int mChangeCount = 0;
 
         public MyContentObserver(Handler handler) {
             super(handler);
@@ -134,7 +164,32 @@ public class ContentObserverTest extends InstrumentationTestCase {
             synchronized(this) {
                 mHasChanged = true;
                 mSelfChange = selfChange;
+                mChangeCount++;
                 notifyAll();
+            }
+        }
+
+        @Override
+        public void onChange(boolean selfChange, Uri uri) {
+            super.onChange(selfChange, uri);
+            synchronized (this) {
+                mChangeCount++;
+            }
+        }
+
+        @Override
+        public void onChange(boolean selfChange, Uri uri, int flags) {
+            super.onChange(selfChange, uri, flags);
+            synchronized (this) {
+                mChangeCount++;
+            }
+        }
+
+        @Override
+        public void onChange(boolean selfChange, Collection<Uri> uris, int flags) {
+            super.onChange(selfChange, uris, flags);
+            synchronized (this) {
+                mChangeCount++;
             }
         }
 
@@ -152,6 +207,7 @@ public class ContentObserverTest extends InstrumentationTestCase {
         protected void resetStatus() {
             mHasChanged = false;
             mSelfChange = false;
+            mChangeCount = 0;
         }
 
         protected boolean getSelfChangeState() {
@@ -160,6 +216,10 @@ public class ContentObserverTest extends InstrumentationTestCase {
 
         protected void setSelfChangeState(boolean state) {
             mSelfChange = state;
+        }
+
+        protected int getChangeCount() {
+            return mChangeCount;
         }
     }
 

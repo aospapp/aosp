@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -23,10 +24,17 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log;
+import com.android.server.role.RoleManagerServiceDumpProto;
+import com.android.server.role.RoleProto;
+import com.android.server.role.RoleUserStateProto;
+import com.android.tradefed.device.CollectingByteOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.AbiUtils;
+
+import com.google.protobuf.MessageLite;
+import com.google.protobuf.Parser;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -37,7 +45,6 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -83,11 +90,17 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
             "com.android.cts.mediastorageapp", MEDIA_CLAZZ);
     private static final Config MEDIA_28 = new Config("CtsMediaStorageApp28.apk",
             "com.android.cts.mediastorageapp28", MEDIA_CLAZZ);
-    private static final Config MEDIA_FULL = new Config("CtsMediaStorageAppFull.apk",
-            "com.android.cts.mediastorageappfull", MEDIA_CLAZZ);
+    private static final Config MEDIA_29 = new Config("CtsMediaStorageApp29.apk",
+            "com.android.cts.mediastorageapp29", MEDIA_CLAZZ);
 
     private static final String PERM_READ_EXTERNAL_STORAGE = "android.permission.READ_EXTERNAL_STORAGE";
     private static final String PERM_WRITE_EXTERNAL_STORAGE = "android.permission.WRITE_EXTERNAL_STORAGE";
+
+    /** Copied from PackageManager*/
+    private static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
+    private static final String FEATURE_EMBEDDED = "android.hardware.type.embedded";
+    private static final String FEATURE_LEANBACK_ONLY = "android.software.leanback_only";
+    private static final String FEATURE_WATCH = "android.hardware.type.watch";
 
     private int[] mUsers;
 
@@ -134,7 +147,7 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
      * Verify that app with no external storage permissions works correctly.
      */
     @Test
-    public void testExternalStorageNone() throws Exception {
+    public void testExternalStorageNone29() throws Exception {
         try {
             wipePrimaryExternalStorage();
 
@@ -157,7 +170,7 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
      * correctly.
      */
     @Test
-    public void testExternalStorageRead() throws Exception {
+    public void testExternalStorageRead29() throws Exception {
         try {
             wipePrimaryExternalStorage();
 
@@ -198,11 +211,12 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
     }
 
     /**
-     * Verify that app with WRITE_EXTERNAL can leave gifts in external storage
-     * directories belonging to other apps, and those apps can read.
+     * Verify that apps can't leave gifts in package specific external storage
+     * directories belonging to other apps. Apps can only create files in their
+     * external storage directories.
      */
     @Test
-    public void testExternalStorageGifts() throws Exception {
+    public void testExternalStorageNoGifts() throws Exception {
         try {
             wipePrimaryExternalStorage();
 
@@ -211,18 +225,17 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
             getDevice().uninstallPackage(WRITE_PKG);
             final String[] options = {AbiUtils.createAbiFlag(getAbi().getName())};
 
-            // We purposefully delay the installation of the reading apps to
-            // verify that the daemon correctly invalidates any caches.
             assertNull(getDevice().installPackage(getTestAppFile(WRITE_APK), false, options));
-            for (int user : mUsers) {
-                runDeviceTests(WRITE_PKG, WRITE_PKG + ".WriteGiftTest", "testGifts", user);
-            }
-
             assertNull(getDevice().installPackage(getTestAppFile(NONE_APK), false, options));
             assertNull(getDevice().installPackage(getTestAppFile(READ_APK), false, options));
             for (int user : mUsers) {
-                runDeviceTests(READ_PKG, READ_PKG + ".ReadGiftTest", "testGifts", user);
-                runDeviceTests(NONE_PKG, NONE_PKG + ".GiftTest", "testGifts", user);
+                runDeviceTests(NONE_PKG, NONE_PKG + ".GiftTest", "testStageNonGifts", user);
+                runDeviceTests(READ_PKG, READ_PKG + ".ReadGiftTest", "testStageNonGifts", user);
+                runDeviceTests(WRITE_PKG, WRITE_PKG + ".WriteGiftTest", "testStageNonGifts", user);
+
+                runDeviceTests(NONE_PKG, NONE_PKG + ".GiftTest", "testNoGifts", user);
+                runDeviceTests(READ_PKG, READ_PKG + ".ReadGiftTest", "testNoGifts", user);
+                runDeviceTests(WRITE_PKG, WRITE_PKG + ".WriteGiftTest", "testNoGifts", user);
             }
         } finally {
             getDevice().uninstallPackage(NONE_PKG);
@@ -231,8 +244,12 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
         }
     }
 
+    /**
+     * Verify that app with REQUEST_INSTALL_PACKAGES can leave gifts in obb
+     * directories belonging to other apps, and those apps can read.
+     */
     @Test
-    public void testExternalStorageObbGifts() throws Exception {
+    public void testCanAccessOtherObbDirs() throws Exception {
         try {
             wipePrimaryExternalStorage();
 
@@ -359,8 +376,7 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
     }
 
     /**
-     * Test that apps with read permissions see the appropriate permissions
-     * when apps with r/w permission levels move around their files.
+     * Test that apps with read permissions see the appropriate permissions.
      */
     @Test
     public void testMultiViewMoveConsistency() throws Exception {
@@ -369,10 +385,8 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
 
             getDevice().uninstallPackage(NONE_PKG);
             getDevice().uninstallPackage(READ_PKG);
-            getDevice().uninstallPackage(WRITE_PKG);
             final String[] options = {AbiUtils.createAbiFlag(getAbi().getName())};
 
-            assertNull(getDevice().installPackage(getTestAppFile(WRITE_APK), false, options));
             assertNull(getDevice().installPackage(getTestAppFile(READ_APK), false, options));
 
             for (int user : mUsers) {
@@ -382,25 +396,14 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
                 runDeviceTests(READ_PKG, READ_PKG + ".ReadMultiViewTest", "testRWAccess", user);
             }
 
-            for (int user : mUsers) {
-                runDeviceTests(WRITE_PKG, WRITE_PKG + ".WriteMultiViewTest", "testMoveAway", user);
-            }
-            for (int user : mUsers) {
-                runDeviceTests(READ_PKG, READ_PKG + ".ReadMultiViewTest", "testROAccess", user);
-            }
-
             // for fuse file system
             Thread.sleep(10000);
-            for (int user : mUsers) {
-                runDeviceTests(WRITE_PKG, WRITE_PKG + ".WriteMultiViewTest", "testMoveBack", user);
-            }
             for (int user : mUsers) {
                 runDeviceTests(READ_PKG, READ_PKG + ".ReadMultiViewTest", "testRWAccess", user);
             }
         } finally {
             getDevice().uninstallPackage(NONE_PKG);
             getDevice().uninstallPackage(READ_PKG);
-            getDevice().uninstallPackage(WRITE_PKG);
         }
     }
 
@@ -478,26 +481,26 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
         doMediaSandboxed(MEDIA_28, false);
     }
     @Test
-    public void testMediaSandboxedFull() throws Exception {
-        doMediaSandboxed(MEDIA_FULL, false);
+    public void testMediaSandboxed29() throws Exception {
+        doMediaSandboxed(MEDIA_29, false);
     }
 
     private void doMediaSandboxed(Config config, boolean sandboxed) throws Exception {
         installPackage(config.apk);
-        installPackage(MEDIA_FULL.apk);
+        installPackage(MEDIA_29.apk);
         for (int user : mUsers) {
             updatePermissions(config.pkg, user, new String[] {
                     PERM_READ_EXTERNAL_STORAGE,
                     PERM_WRITE_EXTERNAL_STORAGE,
             }, true);
-            updatePermissions(MEDIA_FULL.pkg, user, new String[] {
+            updatePermissions(MEDIA_29.pkg, user, new String[] {
                     PERM_READ_EXTERNAL_STORAGE,
                     PERM_WRITE_EXTERNAL_STORAGE,
             }, true);
 
-            // Create the files needed for the test from MEDIA_FULL pkg since shell
+            // Create the files needed for the test from MEDIA_29 pkg since shell
             // can't access secondary user's storage.
-            runDeviceTests(MEDIA_FULL.pkg, MEDIA_FULL.clazz, "testStageFiles", user);
+            runDeviceTests(MEDIA_29.pkg, MEDIA_29.clazz, "testStageFiles", user);
 
             if (sandboxed) {
                 runDeviceTests(config.pkg, config.clazz, "testSandboxed", user);
@@ -505,7 +508,7 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
                 runDeviceTests(config.pkg, config.clazz, "testNotSandboxed", user);
             }
 
-            runDeviceTests(MEDIA_FULL.pkg, MEDIA_FULL.clazz, "testClearFiles", user);
+            runDeviceTests(MEDIA_29.pkg, MEDIA_29.clazz, "testClearFiles", user);
         }
     }
 
@@ -518,8 +521,8 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
         doMediaNone(MEDIA_28);
     }
     @Test
-    public void testMediaNoneFull() throws Exception {
-        doMediaNone(MEDIA_FULL);
+    public void testMediaNone29() throws Exception {
+        doMediaNone(MEDIA_29);
     }
 
     private void doMediaNone(Config config) throws Exception {
@@ -543,8 +546,8 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
         doMediaRead(MEDIA_28);
     }
     @Test
-    public void testMediaReadFull() throws Exception {
-        doMediaRead(MEDIA_FULL);
+    public void testMediaRead29() throws Exception {
+        doMediaRead(MEDIA_29);
     }
 
     private void doMediaRead(Config config) throws Exception {
@@ -570,8 +573,8 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
         doMediaWrite(MEDIA_28);
     }
     @Test
-    public void testMediaWriteFull() throws Exception {
-        doMediaWrite(MEDIA_FULL);
+    public void testMediaWrite29() throws Exception {
+        doMediaWrite(MEDIA_29);
     }
 
     private void doMediaWrite(Config config) throws Exception {
@@ -595,26 +598,30 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
         doMediaEscalation(MEDIA_28);
     }
     @Test
-    public void testMediaEscalationFull() throws Exception {
-        doMediaEscalation(MEDIA_FULL);
+    public void testMediaEscalation29() throws Exception {
+        doMediaEscalation(MEDIA_29);
     }
 
     private void doMediaEscalation(Config config) throws Exception {
         installPackage(config.apk);
 
         // TODO: extend test to exercise secondary users
-        for (int user : Arrays.copyOf(mUsers, 1)) {
-            updatePermissions(config.pkg, user, new String[] {
-                    PERM_READ_EXTERNAL_STORAGE,
-            }, true);
-            updatePermissions(config.pkg, user, new String[] {
-                    PERM_WRITE_EXTERNAL_STORAGE,
-            }, false);
+        int user = getDevice().getCurrentUser();
+        updatePermissions(config.pkg, user, new String[] {
+                PERM_READ_EXTERNAL_STORAGE,
+        }, true);
+        updatePermissions(config.pkg, user, new String[] {
+                PERM_WRITE_EXTERNAL_STORAGE,
+        }, false);
 
-            runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_Open", user);
-            runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_Update", user);
-            runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_Delete", user);
-        }
+        runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_Open", user);
+        runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_Update", user);
+        runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_Delete", user);
+
+        runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_RequestWrite", user);
+        runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_RequestTrash", user);
+        runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_RequestFavorite", user);
+        runDeviceTests(config.pkg, config.clazz, "testMediaEscalation_RequestDelete", user);
     }
 
     @Test
@@ -660,13 +667,69 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
 
                 runDeviceTests(WRITE_PKG_2, WRITE_PKG + ".WriteGiftTest",
                         "testNotIsExternalStorageLegacy", user);
-                updateAppOp(WRITE_PKG_2, user, "android:request_install_packages", true);
-                runDeviceTests(WRITE_PKG_2, WRITE_PKG + ".WriteGiftTest",
-                        "testIsExternalStorageLegacy", user);
             }
         } finally {
             getDevice().uninstallPackage(WRITE_PKG);
             getDevice().uninstallPackage(WRITE_PKG_2);
+        }
+    }
+
+    private <T extends MessageLite> T getDump(Parser<T> parser, String command) throws Exception {
+        final CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
+        getDevice().executeShellCommand(command, receiver);
+        return parser.parseFrom(receiver.getOutput());
+    }
+
+    private List<RoleUserStateProto> getAllUsersRoleStates() throws Exception {
+        final RoleManagerServiceDumpProto dumpProto =
+                getDump(RoleManagerServiceDumpProto.parser(), "dumpsys role --proto");
+        final List<RoleUserStateProto> res = new ArrayList<>();
+        for (RoleUserStateProto userState : dumpProto.getUserStatesList()) {
+            for (int i : mUsers) {
+                if (i == userState.getUserId()) {
+                    res.add(userState);
+                    break;
+                }
+            }
+        }
+        return res;
+    }
+
+    /**
+     * Bypasses the calling test case if ANY of the given features is available in the device.
+     */
+    private void bypassTestForFeatures(String... features) throws DeviceNotAvailableException {
+        final String featureList = getDevice().executeShellCommand("pm list features");
+        for (String feature : features) {
+            Assume.assumeFalse(featureList.contains(feature));
+        }
+    }
+
+    @Test
+    public void testSystemGalleryExists() throws Exception {
+        // Watches, TVs and IoT devices are not obligated to have a system gallery
+        bypassTestForFeatures(FEATURE_AUTOMOTIVE, FEATURE_EMBEDDED, FEATURE_LEANBACK_ONLY,
+                FEATURE_WATCH);
+
+        final List<RoleUserStateProto> usersRoleStates = getAllUsersRoleStates();
+
+        assertEquals("Unexpected number of users returned by dumpsys role",
+                mUsers.length, usersRoleStates.size());
+
+        for (RoleUserStateProto userState : usersRoleStates) {
+            final List<RoleProto> roles = userState.getRolesList();
+            boolean systemGalleryRoleFound = false;
+
+            // Iterate through the roles until we find the System Gallery role
+            for (RoleProto roleProto : roles) {
+                if ("android.app.role.SYSTEM_GALLERY".equals(roleProto.getName())) {
+                    assertEquals(1, roleProto.getHoldersList().size());
+                    systemGalleryRoleFound = true;
+                    break;
+                }
+            }
+            assertTrue("SYSTEM_GALLERY not defined for user " + userState.getUserId(),
+                    systemGalleryRoleFound);
         }
     }
 
@@ -703,7 +766,7 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
     private void wipePrimaryExternalStorage() throws DeviceNotAvailableException {
         // Can't delete everything under /sdcard as that's going to remove the mounts.
         getDevice().executeShellCommand("find /sdcard -type f -delete");
-        getDevice().executeShellCommand("rm -rf /sdcard/DCIM");
+        getDevice().executeShellCommand("rm -rf /sdcard/DCIM/*");
         getDevice().executeShellCommand("rm -rf /sdcard/MUST_*");
     }
 

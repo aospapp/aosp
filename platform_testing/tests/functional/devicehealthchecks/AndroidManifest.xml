@@ -16,18 +16,16 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.devicehealthchecks"
-    android:sharedUserId="com.android.devicehealthchecks"
+    android:sharedUserId="android.uid.system"
     android:versionCode="1"
     android:versionName="1.0" >
-
-   <uses-permission android:name="android.permission.READ_LOGS" />
 
    <uses-sdk
         android:minSdkVersion="22"
         android:targetSdkVersion="25" />
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.devicehealthchecks" />
 
     <application>

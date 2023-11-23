@@ -18,13 +18,13 @@ package com.android.cts.externalstorageapp;
 
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_NONE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_READ;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_WRITE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileNoAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileNotPresent;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadWriteAccess;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificGiftPaths;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificNoGiftPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificObbGiftPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readInt;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.writeInt;
 
 import android.test.AndroidTestCase;
 
@@ -32,24 +32,28 @@ import java.io.File;
 import java.util.List;
 
 public class GiftTest extends AndroidTestCase {
-    /**
-     * Verify we can read only our gifts.
-     */
-    public void testGifts() throws Exception {
-        final List<File> noneList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_NONE);
+    public void testStageNonGifts() throws Exception {
+        final List<File> noneList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_NONE);
         for (File none : noneList) {
-            assertFileReadWriteAccess(none);
-            assertEquals(100, readInt(none));
+            none.getParentFile().mkdirs();
+            assertTrue(none.createNewFile());
+            writeInt(none, 100);
         }
+    }
 
-        final List<File> readList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_READ);
+    /**
+     * Verify we can read & write only our gifts.
+     */
+    public void testNoGifts() throws Exception {
+        final List<File> readList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_READ);
         for (File read : readList) {
             assertFileNoAccess(read);
         }
 
-        final List<File> writeList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_WRITE);
-        for (File write : writeList) {
-            assertFileNoAccess(write);
+        final List<File> noneList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_NONE);
+        for (File none : noneList) {
+            assertFileReadWriteAccess(none);
+            assertEquals(100, readInt(none));
         }
     }
 

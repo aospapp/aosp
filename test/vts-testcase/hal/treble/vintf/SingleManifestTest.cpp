@@ -16,7 +16,12 @@
 
 #include "SingleManifestTest.h"
 
+#include <aidl/metadata.h>
+#include <android-base/properties.h>
 #include <android-base/strings.h>
+#include <binder/IServiceManager.h>
+#include <binder/Parcel.h>
+#include <binder/Status.h>
 #include <gmock/gmock.h>
 #include <hidl-util/FqInstance.h>
 #include <hidl/HidlTransportUtils.h>
@@ -41,23 +46,29 @@ bool LegacyAndExempt(const FQName &fq_name) {
   return GetShippingApiLevel() <= 27 && !IsAndroidPlatformInterface(fq_name);
 }
 
-void FailureHalMissing(const FQName &fq_name) {
+void FailureHalMissing(const FQName &fq_name, const std::string &instance) {
   if (LegacyAndExempt(fq_name)) {
-    cout << "[  WARNING ] " << fq_name.string()
+    cout << "[  WARNING ] " << fq_name.string() << "/" << instance
          << " not available but is exempted because it is legacy. It is still "
             "recommended to fix this."
          << endl;
   } else {
-    ADD_FAILURE() << fq_name.string() << " not available.";
+    ADD_FAILURE() << fq_name.string() << "/" << instance << " not available.";
   }
 }
 
-void FailureHashMissing(const FQName &fq_name) {
+void FailureHashMissing(const FQName &fq_name,
+                        bool vehicle_hal_in_automotive_device) {
   if (LegacyAndExempt(fq_name)) {
     cout << "[  WARNING ] " << fq_name.string()
          << " has an empty hash but is exempted because it is legacy. It is "
             "still recommended to fix this. This is because it was compiled "
             "without being frozen in a corresponding current.txt file."
+         << endl;
+  } else if (vehicle_hal_in_automotive_device) {
+    cout << "[  WARNING ] " << fq_name.string()
+         << " has an empty hash but is exempted because it is IVehicle in an"
+            "automotive device."
          << endl;
   } else {
     ADD_FAILURE()
@@ -159,9 +170,9 @@ static sp<IBase> GetPassthroughService(const FqInstance &fq_instance) {
 // VINTF.
 TEST_P(SingleManifestTest, HalsAreBinderized) {
   multimap<Transport, FqInstance> instances;
-  ForEachHalInstance(GetParam(), [&instances](const FQName &fq_name,
-                                              const string &instance_name,
-                                              Transport transport) {
+  ForEachHidlHalInstance(GetParam(), [&instances](const FQName &fq_name,
+                                                  const string &instance_name,
+                                                  Transport transport) {
     FqInstance fqInstance;
     ASSERT_TRUE(fqInstance.setTo(
         fq_name.package(), fq_name.getPackageMajorVersion(),
@@ -248,7 +259,8 @@ TEST_P(SingleManifestTest, HalsAreBinderized) {
 TEST_P(SingleManifestTest, HalsAreServed) {
   // Returns a function that verifies that HAL is available through service
   // manager and is served from a specific set of partitions.
-  auto is_available_from = [this](Partition expected_partition) -> HalVerifyFn {
+  auto is_available_from =
+      [this](Partition expected_partition) -> HidlVerifyFn {
     return [this, expected_partition](const FQName &fq_name,
                                       const string &instance_name,
                                       Transport transport) {
@@ -287,7 +299,7 @@ TEST_P(SingleManifestTest, HalsAreServed) {
       }
 
       if (hal_service == nullptr) {
-        FailureHalMissing(fq_name);
+        FailureHalMissing(fq_name, instance_name);
         return;
       }
 
@@ -309,8 +321,8 @@ TEST_P(SingleManifestTest, HalsAreServed) {
   };
 
   auto manifest = GetParam();
-  ForEachHalInstance(manifest,
-                     is_available_from(PartitionOfType(manifest->type())));
+  ForEachHidlHalInstance(manifest,
+                         is_available_from(PartitionOfType(manifest->type())));
 }
 
 // Tests that all HALs which are served are specified in the VINTF
@@ -390,16 +402,19 @@ TEST_P(SingleManifestTest, ServedPassthroughHalsAreInManifest) {
         });
     EXPECT_TRUE(ret.isOk());
   };
-  ForEachHalInstance(manifest, passthrough_interfaces_declared);
+  ForEachHidlHalInstance(manifest, passthrough_interfaces_declared);
 }
 
 // Tests that HAL interfaces are officially released.
 TEST_P(SingleManifestTest, InterfacesAreReleased) {
+  // Device support automotive features.
+  const static bool automotive_device =
+      DeviceSupportsFeature("android.hardware.type.automotive");
   // Verifies that HAL are released by fetching the hash of the interface and
   // comparing it to the set of known hashes of released interfaces.
-  HalVerifyFn is_released = [](const FQName &fq_name,
-                               const string &instance_name,
-                               Transport transport) {
+  HidlVerifyFn is_released = [](const FQName &fq_name,
+                                const string &instance_name,
+                                Transport transport) {
     // See HalsAreServed. These are always retrieved through the base interface
     // and if it is not a google defined interface, it must be an extension of
     // one.
@@ -412,7 +427,7 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
     sp<IBase> hal_service = GetHalService(fq_name, instance_name, transport);
 
     if (hal_service == nullptr) {
-      FailureHalMissing(fq_name);
+      FailureHalMissing(fq_name, instance_name);
       return;
     }
 
@@ -438,11 +453,16 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
       }
       string hash = hash_chain[i];
 
+      bool vehicle_hal_in_automotive_device =
+          automotive_device &&
+          fq_iface_name.string() ==
+              "android.hardware.automotive.vehicle@2.0::IVehicle";
       if (hash == Hash::hexString(Hash::kEmptyHash)) {
-        FailureHashMissing(fq_iface_name);
+        FailureHashMissing(fq_iface_name, vehicle_hal_in_automotive_device);
       }
 
-      if (IsAndroidPlatformInterface(fq_iface_name)) {
+      if (IsAndroidPlatformInterface(fq_iface_name) &&
+          !vehicle_hal_in_automotive_device) {
         set<string> released_hashes = ReleasedHashes(fq_iface_name);
         EXPECT_NE(released_hashes.find(hash), released_hashes.end())
             << "Hash not found. This interface was not released." << endl
@@ -452,7 +472,92 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
     }
   };
 
-  ForEachHalInstance(GetParam(), is_released);
+  ForEachHidlHalInstance(GetParam(), is_released);
+}
+
+static std::vector<std::string> hashesForInterface(const std::string &name) {
+  for (const auto &module : AidlInterfaceMetadata::all()) {
+    if (std::find(module.types.begin(), module.types.end(), name) !=
+        module.types.end()) {
+      return module.hashes;
+    }
+  }
+  return {};
+}
+
+// TODO(b/150155678): using standard code to do this
+static std::string getInterfaceHash(const sp<IBinder> &binder) {
+  Parcel data;
+  Parcel reply;
+  data.writeInterfaceToken(binder->getInterfaceDescriptor());
+  status_t err =
+      binder->transact(IBinder::LAST_CALL_TRANSACTION - 1, data, &reply, 0);
+  if (err == UNKNOWN_TRANSACTION) {
+    return "";
+  }
+  EXPECT_EQ(OK, err);
+  binder::Status status;
+  EXPECT_EQ(OK, status.readFromParcel(reply));
+  EXPECT_TRUE(status.isOk()) << status.toString8().c_str();
+  std::string str;
+  EXPECT_EQ(OK, reply.readUtf8FromUtf16(&str));
+  return str;
+}
+
+// An AIDL HAL with VINTF stability can only be registered if it is in the
+// manifest. However, we still must manually check that every declared HAL is
+// actually present on the device.
+TEST_P(SingleManifestTest, ManifestAidlHalsServed) {
+  AidlVerifyFn expect_available = [](const string &package,
+                                     const string &interface,
+                                     const string &instance) {
+    const std::string type = package + "." + interface;
+    const std::string name = type + "/" + instance;
+    sp<IBinder> binder =
+        defaultServiceManager()->waitForService(String16(name.c_str()));
+    EXPECT_NE(binder, nullptr) << "Failed to get " << name;
+
+    const std::string hash = getInterfaceHash(binder);
+    const std::vector<std::string> hashes = hashesForInterface(type);
+
+    const bool is_aosp = base::StartsWith(package, "android.");
+    const bool is_release =
+        base::GetProperty("ro.build.version.codename", "") == "REL";
+    const bool found_hash =
+        std::find(hashes.begin(), hashes.end(), hash) != hashes.end();
+
+    if (is_aosp) {
+      if (!found_hash) {
+        if (is_release) {
+          ADD_FAILURE() << "Interface " << name
+                        << " has an unrecognized hash: '" << hash
+                        << "'. The following hashes are known:\n"
+                        << base::Join(hashes, '\n')
+                        << "\nHAL interfaces must be released and unchanged.";
+        } else {
+          std::cout << "INFO: using unfrozen hash '" << hash << "' for " << type
+                    << ". This will become an error upon release." << std::endl;
+        }
+      }
+    } else {
+      // is extension
+      //
+      // we only require that these are frozen, but we cannot check them for
+      // accuracy
+      if (hash.empty()) {
+        if (is_release) {
+          ADD_FAILURE() << "Interface " << name
+                        << " is used but not frozen (cannot find hash for it).";
+        } else {
+          std::cout << "INFO: missing hash for " << type
+                    << ". This will become an error upon release." << std::endl;
+        }
+      }
+    }
+
+  };
+
+  ForEachAidlHalInstance(GetParam(), expect_available);
 }
 
 }  // namespace testing

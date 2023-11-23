@@ -26,8 +26,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibilityservice.AccessibilityServiceInfo;
-import android.accessibilityservice.cts.R;
 import android.accessibilityservice.cts.activities.AccessibilityFocusAndInputFocusSyncActivity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
@@ -46,6 +46,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 import java.util.LinkedList;
@@ -65,9 +66,16 @@ public class AccessibilityFocusAndInputFocusSyncTest {
 
     private AccessibilityFocusAndInputFocusSyncActivity mActivity;
 
-    @Rule
-    public ActivityTestRule<AccessibilityFocusAndInputFocusSyncActivity> mActivityRule =
+    private ActivityTestRule<AccessibilityFocusAndInputFocusSyncActivity> mActivityRule =
             new ActivityTestRule<>(AccessibilityFocusAndInputFocusSyncActivity.class, false, false);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mActivityRule)
+            .around(mDumpOnFailureRule);
 
     @BeforeClass
     public static void oneTimeSetup() throws Exception {

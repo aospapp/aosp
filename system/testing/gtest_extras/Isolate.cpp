@@ -176,14 +176,14 @@ int Isolate::ChildProcessFn(const std::tuple<std::string, std::string>& test) {
   unsetenv("GTEST_FILTER");
 
   // Add the filter argument.
-  std::vector<const char*> args(child_args_);
+  std::vector<char*> args(child_args_);
   std::string filter("--gtest_filter=" + GetTestName(test));
-  args.push_back(filter.c_str());
+  args.push_back(strdup(filter.c_str()));
 
   int argc = args.size();
   // Add the null terminator.
   args.push_back(nullptr);
-  ::testing::InitGoogleTest(&argc, const_cast<char**>(args.data()));
+  ::testing::InitGoogleTest(&argc, args.data());
   return RUN_ALL_TESTS();
 }
 
@@ -301,7 +301,7 @@ size_t Isolate::CheckTestsFinished() {
       }
     }
 
-    test->Print(options_.gtest_format());
+    test->Print();
 
     switch (test->result()) {
       case TEST_PASS:
@@ -617,9 +617,13 @@ void TestResultPrinter::OnTestPartResult(const ::testing::TestPartResult& result
     return;
   }
 
-  // Print failure message from the assertion (e.g. expected this and got that).
-  printf("%s:(%d) Failure in test %s.%s\n%s\n", result.file_name(), result.line_number(),
-         pinfo_->test_suite_name(), pinfo_->name(), result.message());
+  if (result.type() == ::testing::TestPartResult::kSkip) {
+    printf("%s:(%d) Skipped%s\n", result.file_name(), result.line_number(), result.message());
+  } else {
+    // Print failure message from the assertion (e.g. expected this and got that).
+    printf("%s:(%d) Failure in test %s.%s\n%s\n", result.file_name(), result.line_number(),
+           pinfo_->test_suite_name(), pinfo_->name(), result.message());
+  }
   fflush(stdout);
 }
 

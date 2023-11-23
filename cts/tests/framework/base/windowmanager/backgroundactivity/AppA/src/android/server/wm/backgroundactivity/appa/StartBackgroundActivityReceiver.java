@@ -17,11 +17,14 @@
 package android.server.wm.backgroundactivity.appa;
 
 import static android.server.wm.backgroundactivity.appa.Components.StartBackgroundActivityReceiver.START_ACTIVITY_DELAY_MS_EXTRA;
+import static android.server.wm.backgroundactivity.common.CommonComponents.EVENT_NOTIFIER_EXTRA;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.ResultReceiver;
 import android.os.SystemClock;
+import android.server.wm.backgroundactivity.common.CommonComponents.Event;
 
 /**
  * A class to help test case to start background activity.
@@ -30,6 +33,11 @@ public class StartBackgroundActivityReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        ResultReceiver eventNotifier = intent.getParcelableExtra(EVENT_NOTIFIER_EXTRA);
+        if (eventNotifier != null) {
+            eventNotifier.send(Event.APP_A_START_BACKGROUND_ACTIVITY_BROADCAST_RECEIVED, null);
+        }
+
         if (!intent.hasExtra(START_ACTIVITY_DELAY_MS_EXTRA)) {
             startActivityNow(context);
             return;

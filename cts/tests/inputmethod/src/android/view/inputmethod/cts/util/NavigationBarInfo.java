@@ -19,8 +19,6 @@ package android.view.inputmethod.cts.util;
 import static android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND;
 import static android.view.inputmethod.cts.util.TestUtils.getOnMainSync;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
-
 import android.app.AlertDialog;
 import android.app.Instrumentation;
 import android.content.Intent;
@@ -36,7 +34,7 @@ import android.widget.TextView;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -187,7 +185,7 @@ public class NavigationBarInfo {
 
         Thread.sleep(BEFORE_SCREENSHOT_WAIT);
 
-        final Bitmap fullBitmap = getInstrumentation().getUiAutomation().takeScreenshot();
+        final Bitmap fullBitmap = instrumentation.getUiAutomation().takeScreenshot();
         final Bitmap bottomNavBarBitmap = Bitmap.createBitmap(fullBitmap, 0,
                 fullBitmap.getHeight() - bottomNavigationBarHeight, fullBitmap.getWidth(),
                 bottomNavigationBarHeight);

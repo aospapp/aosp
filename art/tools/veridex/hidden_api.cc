@@ -24,7 +24,8 @@
 
 namespace art {
 
-HiddenApi::HiddenApi(const char* filename, bool sdk_uses_only) {
+HiddenApi::HiddenApi(const char* filename, const ApiListFilter& api_list_filter)
+    : api_list_filter_(api_list_filter) {
   CHECK(filename != nullptr);
 
   std::ifstream in(filename);
@@ -36,12 +37,6 @@ HiddenApi::HiddenApi(const char* filename, bool sdk_uses_only) {
     bool success = hiddenapi::ApiList::FromNames(values.begin() + 1, values.end(), &membership);
     CHECK(success) << "Unknown ApiList flag: " << str;
     CHECK(membership.IsValid()) << "Invalid ApiList: " << membership;
-
-    if (sdk_uses_only != membership.Contains(hiddenapi::ApiList::Whitelist())) {
-      // Either we want only SDK uses and this is not a whitelist entry,
-      // or we want only non-SDK uses and this is a whitelist entry.
-      continue;
-    }
 
     AddSignatureToApiList(signature, membership);
     size_t pos = signature.find("->");

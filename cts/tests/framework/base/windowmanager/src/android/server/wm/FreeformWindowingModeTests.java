@@ -18,6 +18,7 @@ package android.server.wm;
 
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
+import static android.server.wm.WindowManagerState.dpToPx;
 import static android.server.wm.app.Components.FREEFORM_ACTIVITY;
 import static android.server.wm.app.Components.NON_RESIZEABLE_ACTIVITY;
 import static android.server.wm.app.Components.NO_RELAUNCH_ACTIVITY;
@@ -27,8 +28,7 @@ import static org.junit.Assert.assertEquals;
 
 import android.graphics.Rect;
 import android.platform.test.annotations.Presubmit;
-import android.server.wm.ActivityManagerState.ActivityStack;
-import android.server.wm.ActivityManagerState.ActivityTask;
+import android.server.wm.WindowManagerState.ActivityTask;
 import android.view.Display;
 
 import org.junit.Test;
@@ -38,6 +38,7 @@ import org.junit.Test;
  *     atest CtsWindowManagerDeviceTestCases:FreeformWindowingModeTests
  */
 @Presubmit
+@android.server.wm.annotation.Group3
 public class FreeformWindowingModeTests extends MultiDisplayTestBase {
 
     private static final int TEST_TASK_OFFSET = 20;
@@ -51,46 +52,43 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
     // with bounds (0, 0, 900, 900)
 
     @Test
-    public void testFreeformWindowManagementSupport() throws Exception {
-        try (VirtualDisplaySession virtualDisplaySession = new VirtualDisplaySession()) {
-            int displayId = Display.DEFAULT_DISPLAY;
-            if (supportsMultiDisplay()) {
-                final ActivityManagerState.ActivityDisplay display = virtualDisplaySession
-                        .setSimulateDisplay(true)
-                        .setSimulationDisplaySize(1920 /* width */, 1080 /* height */)
-                        .createDisplay();
-                displayId = display.mId;
-            }
-            launchActivityOnDisplay(FREEFORM_ACTIVITY, WINDOWING_MODE_FREEFORM, displayId);
-
-            mAmWmState.computeState(FREEFORM_ACTIVITY, TEST_ACTIVITY);
-
-            if (!supportsFreeform()) {
-                mAmWmState.assertDoesNotContainStack("Must not contain freeform stack.",
-                        WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
-                return;
-            }
-
-            mAmWmState.assertFrontStackOnDisplay("Freeform stack must be the front stack.",
-                    WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD, displayId);
-            mAmWmState.assertVisibility(FREEFORM_ACTIVITY, true);
-            mAmWmState.assertVisibility(TEST_ACTIVITY, true);
-            mAmWmState.assertFocusedActivity(
-                    TEST_ACTIVITY + " must be focused Activity", TEST_ACTIVITY);
-            assertEquals(new Rect(0, 0, TEST_TASK_SIZE_1, TEST_TASK_SIZE_1),
-                    mAmWmState.getAmState().getTaskByActivity(TEST_ACTIVITY).getBounds());
+    public void testFreeformWindowManagementSupport() {
+        int displayId = Display.DEFAULT_DISPLAY;
+        if (supportsMultiDisplay()) {
+            displayId = createManagedVirtualDisplaySession()
+                    .setSimulateDisplay(true)
+                    .setSimulationDisplaySize(1920 /* width */, 1080 /* height */)
+                    .createDisplay().mId;
         }
+        launchActivityOnDisplay(FREEFORM_ACTIVITY, WINDOWING_MODE_FREEFORM, displayId);
+
+        mWmState.computeState(FREEFORM_ACTIVITY, TEST_ACTIVITY);
+
+        if (!supportsFreeform()) {
+            mWmState.assertDoesNotContainStack("Must not contain freeform stack.",
+                    WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
+            return;
+        }
+
+        mWmState.assertFrontStackOnDisplay("Freeform stack must be the front stack.",
+                WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD, displayId);
+        mWmState.assertVisibility(FREEFORM_ACTIVITY, true);
+        mWmState.assertVisibility(TEST_ACTIVITY, true);
+        mWmState.assertFocusedActivity(
+                TEST_ACTIVITY + " must be focused Activity", TEST_ACTIVITY);
+        assertEquals(new Rect(0, 0, TEST_TASK_SIZE_1, TEST_TASK_SIZE_1),
+                mWmState.getTaskByActivity(TEST_ACTIVITY).getBounds());
     }
 
     @Test
     public void testNonResizeableActivityHasFullDisplayBounds() throws Exception {
         launchActivity(NON_RESIZEABLE_ACTIVITY, WINDOWING_MODE_FREEFORM);
 
-        mAmWmState.computeState(NON_RESIZEABLE_ACTIVITY);
+        mWmState.computeState(NON_RESIZEABLE_ACTIVITY);
 
         final ActivityTask task =
-                mAmWmState.getAmState().getTaskByActivity(NON_RESIZEABLE_ACTIVITY);
-        final ActivityStack stack = mAmWmState.getAmState().getStackById(task.mStackId);
+                mWmState.getTaskByActivity(NON_RESIZEABLE_ACTIVITY);
+        final ActivityTask stack = mWmState.getRootTask(task.mRootTaskId);
 
         if (task.isFullscreen()) {
             // If the task is on the fullscreen stack, then we know that it will have bounds that
@@ -100,7 +98,7 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
 
         // If the task is not on the fullscreen stack, then compare the task bounds to the display
         // bounds.
-        assertEquals(mAmWmState.getWmState().getDisplay(stack.mDisplayId).getDisplayRect(),
+        assertEquals(mWmState.getDisplay(stack.mDisplayId).getDisplayRect(),
                 task.getBounds());
     }
 
@@ -109,22 +107,20 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
         launchActivity(TEST_ACTIVITY, WINDOWING_MODE_FREEFORM);
         launchActivity(NO_RELAUNCH_ACTIVITY, WINDOWING_MODE_FREEFORM);
 
-        mAmWmState.computeState(TEST_ACTIVITY, NO_RELAUNCH_ACTIVITY);
+        mWmState.computeState(TEST_ACTIVITY, NO_RELAUNCH_ACTIVITY);
 
         if (!supportsFreeform()) {
-            mAmWmState.assertDoesNotContainStack("Must not contain freeform stack.",
+            mWmState.assertDoesNotContainStack("Must not contain freeform stack.",
                     WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
             return;
         }
 
-        final int displayId = mAmWmState.getAmState().getStandardStackByWindowingMode(
+        final int displayId = mWmState.getStandardStackByWindowingMode(
                 WINDOWING_MODE_FREEFORM).mDisplayId;
         final int densityDpi =
-                mAmWmState.getWmState().getDisplay(displayId).getDpi();
-        final int testTaskSize1 =
-                ActivityAndWindowManagersState.dpToPx(TEST_TASK_SIZE_DP_1, densityDpi);
-        final int testTaskSize2 =
-                ActivityAndWindowManagersState.dpToPx(TEST_TASK_SIZE_DP_2, densityDpi);
+                mWmState.getDisplay(displayId).getDpi();
+        final int testTaskSize1 = dpToPx(TEST_TASK_SIZE_DP_1, densityDpi);
+        final int testTaskSize2 = dpToPx(TEST_TASK_SIZE_DP_2, densityDpi);
 
         resizeActivityTask(TEST_ACTIVITY,
                 TEST_TASK_OFFSET, TEST_TASK_OFFSET,
@@ -133,7 +129,7 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
                 TEST_TASK_OFFSET_2, TEST_TASK_OFFSET_2,
                 TEST_TASK_OFFSET_2 + testTaskSize1, TEST_TASK_OFFSET_2 + testTaskSize2);
 
-        mAmWmState.computeState(new WaitForValidActivityState.Builder(TEST_ACTIVITY).build(),
+        mWmState.computeState(new WaitForValidActivityState.Builder(TEST_ACTIVITY).build(),
                 new WaitForValidActivityState.Builder(NO_RELAUNCH_ACTIVITY).build());
 
         separateTestJournal();
@@ -143,7 +139,7 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
         resizeActivityTask(NO_RELAUNCH_ACTIVITY,
                 TEST_TASK_OFFSET_2, TEST_TASK_OFFSET_2,
                 TEST_TASK_OFFSET_2 + testTaskSize2, TEST_TASK_OFFSET_2 + testTaskSize1);
-        mAmWmState.computeState(TEST_ACTIVITY, NO_RELAUNCH_ACTIVITY);
+        mWmState.computeState(TEST_ACTIVITY, NO_RELAUNCH_ACTIVITY);
 
         assertActivityLifecycle(TEST_ACTIVITY, true /* relaunched */);
         assertActivityLifecycle(NO_RELAUNCH_ACTIVITY, false /* relaunched */);

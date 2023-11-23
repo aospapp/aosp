@@ -23,6 +23,7 @@
 
 #include <android-base/file.h>
 #include <android-base/parseint.h>
+#include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 
 #include "file_paths.h"
@@ -32,14 +33,20 @@ namespace android {
 namespace gsi {
 
 using namespace std::literals;
+using android::base::ReadFileToString;
+using android::base::Split;
 using android::base::unique_fd;
+
+bool GetActiveDsu(std::string* active_dsu) {
+    return android::base::ReadFileToString(kDsuActiveFile, active_dsu);
+}
 
 bool IsGsiRunning() {
     return !access(kGsiBootedIndicatorFile, F_OK);
 }
 
 bool IsGsiInstalled() {
-    return !access(kGsiInstallStatusFile, F_OK);
+    return !access(kDsuInstallStatusFile, F_OK);
 }
 
 static bool WriteAndSyncFile(const std::string& data, const std::string& file) {
@@ -53,7 +60,16 @@ static bool WriteAndSyncFile(const std::string& data, const std::string& file) {
     return fsync(fd) == 0;
 }
 
-static bool CanBootIntoGsi(std::string* error) {
+std::string GetDsuSlot(const std::string& install_dir) {
+    return android::base::Basename(install_dir);
+}
+
+bool CanBootIntoGsi(std::string* error) {
+    // Always delete this as a safety precaution, so we can return to the
+    // original system image. If we're confident GSI will boot, this will
+    // get re-created by MarkSystemAsGsi.
+    android::base::RemoveFileIfExists(kGsiBootedIndicatorFile);
+
     if (!IsGsiInstalled()) {
         *error = "not detected";
         return false;
@@ -74,7 +90,7 @@ static bool CanBootIntoGsi(std::string* error) {
         }
 
         std::string new_key;
-        if (!access(kGsiOneShotBootFile, F_OK)) {
+        if (!access(kDsuOneShotBootFile, F_OK)) {
             // Mark the GSI as disabled. This only affects the next boot, not
             // the current boot. Note that we leave the one_shot status behind.
             // This is so IGsiService can still return GSI_STATE_SINGLE_BOOT
@@ -83,7 +99,7 @@ static bool CanBootIntoGsi(std::string* error) {
         } else {
             new_key = std::to_string(attempts + 1);
         }
-        if (!WriteAndSyncFile(new_key, kGsiInstallStatusFile)) {
+        if (!WriteAndSyncFile(new_key, kDsuInstallStatusFile)) {
             *error = "error ("s + strerror(errno) + ")";
             return false;
         }
@@ -97,26 +113,12 @@ static bool CanBootIntoGsi(std::string* error) {
     return true;
 }
 
-bool CanBootIntoGsi(std::string* metadata_file, std::string* error) {
-    // Always delete this as a safety precaution, so we can return to the
-    // original system image. If we're confident GSI will boot, this will
-    // get re-created by MarkSystemAsGsi.
-    android::base::RemoveFileIfExists(kGsiBootedIndicatorFile);
-
-    if (!CanBootIntoGsi(error)) {
-        return false;
-    }
-
-    *metadata_file = kGsiLpMetadataFile;
-    return true;
-}
-
 bool UninstallGsi() {
-    return android::base::WriteStringToFile(kInstallStatusWipe, kGsiInstallStatusFile);
+    return android::base::WriteStringToFile(kInstallStatusWipe, kDsuInstallStatusFile);
 }
 
 bool DisableGsi() {
-    return android::base::WriteStringToFile(kInstallStatusDisabled, kGsiInstallStatusFile);
+    return android::base::WriteStringToFile(kInstallStatusDisabled, kDsuInstallStatusFile);
 }
 
 bool MarkSystemAsGsi() {
@@ -124,7 +126,7 @@ bool MarkSystemAsGsi() {
 }
 
 bool GetInstallStatus(std::string* status) {
-    return android::base::ReadFileToString(kGsiInstallStatusFile, status);
+    return android::base::ReadFileToString(kDsuInstallStatusFile, status);
 }
 
 bool GetBootAttempts(const std::string& boot_key, int* attempts) {

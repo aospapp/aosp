@@ -105,6 +105,14 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
         return null;
     }
 
+    @Override
+    public IDevice waitForDeviceInRecovery() {
+        if (waitForDeviceState(TestDeviceState.RECOVERY, mDefaultOnlineTimeout)) {
+            return getIDevice();
+        }
+        return null;
+    }
+
     /**
      * @return {@link IDevice} associate with the state monitor
      */
@@ -154,6 +162,12 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
         return waitForDeviceState(TestDeviceState.RECOVERY, waitTime);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean waitForDeviceInSideload(long waitTime) {
+        return waitForDeviceState(TestDeviceState.SIDELOAD, waitTime);
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -174,10 +188,10 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
                 }
             } catch (IOException | AdbCommandRejectedException |
                     ShellCommandUnresponsiveException e) {
-                CLog.i("%s failed:", cmd);
+                CLog.e("%s failed on: %s", cmd, getSerialNumber());
                 CLog.e(e);
             } catch (TimeoutException e) {
-                CLog.i("%s failed: timeout", cmd);
+                CLog.e("%s failed on %s: timeout", cmd, getSerialNumber());
                 CLog.e(e);
             }
             getRunUtil().sleep(Math.min(getCheckPollTime() * counter, MAX_CHECK_POLL_TIME));
@@ -278,6 +292,9 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
         CLog.i("Waiting %d ms for device %s external store", waitTime, getSerialNumber());
         long startTime = System.currentTimeMillis();
         int counter = 1;
+        // TODO(b/151119210): Remove this 'retryOnPermissionDenied' workaround when we figure out
+        // what causes "Permission denied" to be returned incorrectly.
+        int retryOnPermissionDenied = 1;
         while (System.currentTimeMillis() - startTime < waitTime) {
             final CollectingOutputReceiver receiver = createOutputReceiver();
             final CollectingOutputReceiver bitBucket = new CollectingOutputReceiver();
@@ -306,7 +323,8 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
                     CLog.v("%s returned %s", checkCmd, output);
                     if (output.contains(testString)) {
                         return true;
-                    } else if (output.contains(PERM_DENIED_ERROR_PATTERN)) {
+                    } else if (output.contains(PERM_DENIED_ERROR_PATTERN)
+                            && --retryOnPermissionDenied < 0) {
                         CLog.w("Device %s mount check returned Permision Denied, "
                                 + "issue with mounting.", getSerialNumber());
                         return false;
@@ -368,6 +386,16 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
      */
     @Override
     public boolean waitForDeviceBootloader(long time) {
+        return waitForDeviceBootloaderOrFastbootd(time, false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean waitForDeviceFastbootd(String fastbootPath, long time) {
+        return waitForDeviceBootloaderOrFastbootd(time, true);
+    }
+
+    private boolean waitForDeviceBootloaderOrFastbootd(long time, boolean fastbootd) {
         if (!mFastbootEnabled) {
             return false;
         }
@@ -382,7 +410,11 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
             // wait at least 200ms
             waitTime = 200;
         }
-        boolean result =  waitForDeviceState(TestDeviceState.FASTBOOT, waitTime);
+        TestDeviceState mode = TestDeviceState.FASTBOOT;
+        if (fastbootd) {
+            mode = TestDeviceState.FASTBOOTD;
+        }
+        boolean result = waitForDeviceState(mode, waitTime);
         mMgr.removeFastbootListener(listener);
         return result;
     }
@@ -399,6 +431,7 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
                 listener.wait();
             } catch (InterruptedException e) {
                 CLog.w("wait for device bootloader state update interrupted");
+                CLog.w(e);
                 throw new RuntimeException(e);
             } finally {
                 mMgr.removeFastbootListener(listener);
@@ -421,6 +454,7 @@ public class NativeDeviceStateMonitor implements IDeviceStateMonitor {
                 listener.wait(time);
             } catch (InterruptedException e) {
                 CLog.w("wait for device state interrupted");
+                CLog.w(e);
                 throw new RuntimeException(e);
             } finally {
                 removeDeviceStateListener(listener);

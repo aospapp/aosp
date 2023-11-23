@@ -31,6 +31,10 @@ import java.util.Random;
 import sun.misc.FloatConsts;
 import sun.misc.DoubleConsts;
 
+// Android-note: Document that the results from Math are based on libm's behavior.
+// For performance, Android implements many of the methods in this class in terms of the underlying
+// OS's libm functions. libm has well-defined behavior for special cases. Where known these are
+// marked with the tag above and the documentation has been modified as needed.
 /**
  * The class {@code Math} contains methods for performing basic
  * numeric operations such as the elementary exponential, logarithm,
@@ -502,6 +506,11 @@ public final class Math {
     @CriticalNative
     public static native double atan2(double y, double x);
 
+    // Android-changed: Document that the results from Math are based on libm's behavior.
+    // The cases known to differ with libm's pow():
+    //   If the first argument is 1.0 then result is always 1.0 (not NaN).
+    //   If the first argument is -1.0 and the second argument is infinite, the result is 1.0 (not
+    //   NaN).
     /**
      * Returns the value of the first argument raised to the power of the
      * second argument. Special cases:
@@ -510,7 +519,9 @@ public final class Math {
      * result is 1.0.
      * <li>If the second argument is 1.0, then the result is the same as the
      * first argument.
-     * <li>If the second argument is NaN, then the result is NaN.
+     * <li>If the first argument is 1.0, then the result is 1.0.
+     * <li>If the second argument is NaN, then the result is NaN except where the first argument is
+     * 1.0.
      * <li>If the first argument is NaN and the second argument is nonzero,
      * then the result is NaN.
      *
@@ -534,7 +545,7 @@ public final class Math {
      * then the result is positive zero.
      *
      * <li>If the absolute value of the first argument equals 1 and the
-     * second argument is infinite, then the result is NaN.
+     * second argument is infinite, then the result is 1.0.
      *
      * <li>If
      * <ul>

@@ -27,6 +27,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -35,11 +36,12 @@ import android.os.UserHandle;
 
 import android.telecom.Call;
 import android.telecom.PhoneAccount;
-import android.telecom.PhoneAccountHandle;
 import android.telecom.cts.redirectiontestapp.CtsCallRedirectionService;
 import android.telecom.cts.redirectiontestapp.CtsCallRedirectionServiceController;
 import android.telecom.cts.redirectiontestapp.ICtsCallRedirectionServiceController;
 import android.text.TextUtils;
+
+import com.android.compatibility.common.util.CddTest;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -57,7 +59,18 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
 
     private static final Uri SAMPLE_HANDLE = Uri.fromParts(PhoneAccount.SCHEME_TEL, "0001112222",
             null);
-
+    private static final Uri SAMPLE_HANDLE_WITH_POST_DIAL = new Uri.Builder()
+            .scheme(PhoneAccount.SCHEME_TEL)
+            .encodedOpaquePart("6505551212,1234567890")
+            .build();
+    private static final Uri SAMPLE_REDIRECT_HANDLE = new Uri.Builder()
+            .scheme(PhoneAccount.SCHEME_TEL)
+            .encodedOpaquePart("6505551213")
+            .build();
+    private static final Uri SAMPLE_REDIRECT_HANDLE_WITH_POST_DIAL = new Uri.Builder()
+            .scheme(PhoneAccount.SCHEME_TEL)
+            .encodedOpaquePart("6505551213,1234567890")
+            .build();
     private static final int ASYNC_TIMEOUT = 10000;
     private RoleManager mRoleManager;
     private Handler mHandler;
@@ -109,12 +122,40 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
         }
         mCallRedirectionServiceController.setRedirectCall(
                 SAMPLE_HANDLE, null, false);
-        placeAndVerifyCall(true /* viaCallRedirection */, false /* cancelledByCallRedirection */);
+        placeAndVerifyCallByRedirection(false /* cancelledByCallRedirection */);
         mInCallService = mInCallCallbacks.getService();
         assertCallGatewayConstructed(mInCallService.getLastCall(), true);
         mCall = mInCallService.getLastCall();
         assertEquals(SAMPLE_HANDLE, mCall.getDetails().getGatewayInfo().getGatewayAddress());
         assertEquals(getTestNumber(), mCall.getDetails().getGatewayInfo().getOriginalAddress());
+        assertEquals(TestUtils.TEST_PHONE_ACCOUNT_HANDLE, mCall.getDetails().getAccountHandle());
+        assertTrue(Call.STATE_DISCONNECTED != mCall.getState());
+    }
+
+    /**
+     * Verifies that post-dial digits will be re-added to a number after redirection.
+     * @throws Exception
+     */
+    public void testRedirectedCallWithPostDialDigits() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+        mCallRedirectionServiceController.setRedirectCall(SAMPLE_REDIRECT_HANDLE, null, false);
+        Bundle extras = new Bundle();
+        extras.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, SAMPLE_HANDLE_WITH_POST_DIAL);
+        placeAndVerifyCallByRedirection(extras, false /* cancelledByCallRedirection */);
+        mInCallService = mInCallCallbacks.getService();
+        assertCallGatewayConstructed(mInCallService.getLastCall(), true);
+        mCall = mInCallService.getLastCall();
+        assertEquals(SAMPLE_REDIRECT_HANDLE_WITH_POST_DIAL,
+                mCall.getDetails().getGatewayInfo().getGatewayAddress());
+        // The , (pause) separators get URI encoded in the call intent; compare decoded scheme to
+        // ensure proper equality for what it essentially the same thing.
+        assertEquals(Uri.decode(SAMPLE_HANDLE_WITH_POST_DIAL.getSchemeSpecificPart()),
+                Uri.decode(mCall.getDetails().getGatewayInfo().getOriginalAddress()
+                        .getSchemeSpecificPart()));
+        assertEquals(SAMPLE_REDIRECT_HANDLE_WITH_POST_DIAL,
+                mCall.getDetails().getHandle());
         assertEquals(TestUtils.TEST_PHONE_ACCOUNT_HANDLE, mCall.getDetails().getAccountHandle());
         assertTrue(Call.STATE_DISCONNECTED != mCall.getState());
     }
@@ -126,7 +167,7 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
         }
         mCallRedirectionServiceController.setRedirectCall(
                 SAMPLE_HANDLE, TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2, false);
-        placeAndVerifyCall(true /* viaCallRedirection */, false /* cancelledByCallRedirection */);
+        placeAndVerifyCallByRedirection(false /* cancelledByCallRedirection */);
         mInCallService = mInCallCallbacks.getService();
         assertCallGatewayConstructed(mInCallService.getLastCall(), true);
         mCall = mInCallService.getLastCall();
@@ -141,7 +182,7 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
             return;
         }
         mCallRedirectionServiceController.setCancelCall();
-        placeAndVerifyCall(true /* viaCallRedirection */, true /* cancelledByCallRedirection */);
+        placeAndVerifyCallByRedirection(true /* cancelledByCallRedirection */);
         mInCallService = mInCallCallbacks.getService();
         mCall = mInCallService.getLastCall();
         assertCallNotNull(mCall, false);
@@ -152,7 +193,7 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
             return;
         }
         mCallRedirectionServiceController.setPlaceCallUnmodified();
-        placeAndVerifyCall(true /* viaCallRedirection */, false /* cancelledByCallRedirection */);
+        placeAndVerifyCallByRedirection(false /* cancelledByCallRedirection */);
         mInCallService = mInCallCallbacks.getService();
         assertCallDetailsConstructed(mInCallService.getLastCall(), true);
         mCall = mInCallService.getLastCall();
@@ -194,6 +235,7 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
     /**
      * Use RoleManager to query the previous call redirection app so we can restore it later.
      */
+    @CddTest(requirement ="3.2.3.5/C-2-5")
     private void rememberPreviousCallRedirectionApp() {
         runWithShellPermissionIdentity(() -> {
             List<String> callRedirectionApps = mRoleManager.getRoleHolders(ROLE_CALL_REDIRECTION);
@@ -205,6 +247,7 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
         });
     }
 
+    @CddTest(requirement="3.2.3.5/C-2-4")
     private void addRoleHolder(String roleName, String packageName) throws Exception {
         UserHandle user = Process.myUserHandle();
         Executor executor = mContext.getMainExecutor();

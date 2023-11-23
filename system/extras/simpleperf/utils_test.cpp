@@ -99,3 +99,10 @@ TEST(utils, ArchiveHelper) {
   ASSERT_FALSE(ArchiveHelper::CreateInstance(GetTestData(ELF_FILE)));
   ASSERT_FALSE(ArchiveHelper::CreateInstance("/dev/zero"));
 }
+
+TEST(utils, GetCpusFromString) {
+  ASSERT_EQ(GetCpusFromString(""), std::vector<int>());
+  ASSERT_EQ(GetCpusFromString("0-2"), std::vector<int>({0, 1, 2}));
+  ASSERT_EQ(GetCpusFromString("0,2-3"), std::vector<int>({0, 2, 3}));
+  ASSERT_EQ(GetCpusFromString("1,0-3,3,4"), std::vector<int>({0, 1, 2, 3, 4}));
+}

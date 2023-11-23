@@ -15,12 +15,15 @@
  */
 package com.android.tradefed.device;
 
+import com.android.tradefed.build.BuildSerializedVersion;
+
 /**
  * Thrown when a device is not able to connect to network for testing.
  * This usually gets thrown if a device fails to reconnect to wifi after reboot.
  */
-@SuppressWarnings("serial")
 public class NetworkNotAvailableException extends RuntimeException {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
+
     /**
      * Creates a {@link NetworkNotAvailableException}.
      */

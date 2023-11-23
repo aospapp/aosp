@@ -24,16 +24,32 @@ from acts.base_test import BaseTestClass
 from acts.test_utils.wifi import wifi_test_utils as wutils
 from acts.test_utils.wifi.p2p import wifi_p2p_const as p2pconsts
 
+WAIT_TIME = 60
+
+
 class WifiP2pBaseTest(BaseTestClass):
     def __init__(self, controllers):
         if not hasattr(self, 'android_devices'):
             super(WifiP2pBaseTest, self).__init__(controllers)
 
     def setup_class(self):
+        for ad in self.android_devices:
+            ad.droid.wakeLockAcquireBright()
+            ad.droid.wakeUpNow()
+        required_params = ()
+        optional_params = ("skip_read_factory_mac", )
+        self.unpack_userparams(required_params,
+                               optional_params,
+                               skip_read_factory_mac=0)
+
         self.dut1 = self.android_devices[0]
         self.dut2 = self.android_devices[1]
-        self.dut1_mac = self.get_p2p_mac_address(self.dut1)
-        self.dut2_mac = self.get_p2p_mac_address(self.dut2)
+        if self.skip_read_factory_mac:
+            self.dut1_mac = None
+            self.dut2_mac = None
+        else:
+            self.dut1_mac = self.get_p2p_mac_address(self.dut1)
+            self.dut2_mac = self.get_p2p_mac_address(self.dut2)
 
         #init location before init p2p
         acts.utils.set_location_service(self.dut1, True)
@@ -44,7 +60,7 @@ class WifiP2pBaseTest(BaseTestClass):
         self.dut1.droid.wifiP2pInitialize()
         time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)
         asserts.assert_true(self.dut1.droid.wifiP2pIsEnabled(),
-                "DUT1's p2p should be initialized but it didn't")
+                            "DUT1's p2p should be initialized but it didn't")
         self.dut1.name = "Android_" + self.dut1.serial
         self.dut1.droid.wifiP2pSetDeviceName(self.dut1.name)
         wutils.wifi_test_device_init(self.dut2)
@@ -52,22 +68,22 @@ class WifiP2pBaseTest(BaseTestClass):
         self.dut2.droid.wifiP2pInitialize()
         time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)
         asserts.assert_true(self.dut2.droid.wifiP2pIsEnabled(),
-                "DUT2's p2p should be initialized but it didn't")
+                            "DUT2's p2p should be initialized but it didn't")
         self.dut2.name = "Android_" + self.dut2.serial
         self.dut2.droid.wifiP2pSetDeviceName(self.dut2.name)
 
         if len(self.android_devices) > 2:
             self.dut3 = self.android_devices[2]
+            acts.utils.set_location_service(self.dut3, True)
             wutils.wifi_test_device_init(self.dut3)
             utils.sync_device_time(self.dut3)
             self.dut3.droid.wifiP2pInitialize()
             time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)
-            asserts.assert_true(self.dut3.droid.wifiP2pIsEnabled(),
-                    "DUT1's p2p should be initialized but it didn't")
+            asserts.assert_true(
+                self.dut3.droid.wifiP2pIsEnabled(),
+                "DUT3's p2p should be initialized but it didn't")
             self.dut3.name = "Android_" + self.dut3.serial
             self.dut3.droid.wifiP2pSetDeviceName(self.dut3.name)
-            acts.utils.set_location_service(self.dut3, True)
-
 
     def teardown_class(self):
         self.dut1.droid.wifiP2pClose()
@@ -78,11 +94,12 @@ class WifiP2pBaseTest(BaseTestClass):
         if len(self.android_devices) > 2:
             self.dut3.droid.wifiP2pClose()
             acts.utils.set_location_service(self.dut3, False)
+        for ad in self.android_devices:
+            ad.droid.wakeLockRelease()
+            ad.droid.goToSleepNow()
 
     def setup_test(self):
         for ad in self.android_devices:
-            ad.droid.wakeLockAcquireBright()
-            ad.droid.wakeUpNow()
             ad.ed.clear_all_events()
 
     def teardown_test(self):
@@ -90,13 +107,11 @@ class WifiP2pBaseTest(BaseTestClass):
             # Clear p2p group info
             ad.droid.wifiP2pRequestPersistentGroupInfo()
             event = ad.ed.pop_event("WifiP2pOnPersistentGroupInfoAvailable",
-                    p2pconsts.DEFAULT_TIMEOUT)
+                                    p2pconsts.DEFAULT_TIMEOUT)
             for network in event['data']:
                 ad.droid.wifiP2pDeletePersistentGroup(network['NetworkId'])
             # Clear p2p local service
             ad.droid.wifiP2pClearLocalServices()
-            ad.droid.wakeLockRelease()
-            ad.droid.goToSleepNow()
 
     def on_fail(self, test_name, begin_time):
         for ad in self.android_devices:
@@ -105,5 +120,7 @@ class WifiP2pBaseTest(BaseTestClass):
 
     def get_p2p_mac_address(self, dut):
         """Gets the current MAC address being used for Wi-Fi Direct."""
+        dut.reboot()
+        time.sleep(WAIT_TIME)
         out = dut.adb.shell("ifconfig p2p0")
         return re.match(".* HWaddr (\S+).*", out, re.S).group(1)

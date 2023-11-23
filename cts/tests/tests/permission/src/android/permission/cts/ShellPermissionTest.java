@@ -47,6 +47,7 @@ public class ShellPermissionTest {
     /** Permissions that shell is NOT permitted to have. */
     private static final String[] BLACKLISTED_PERMISSIONS = {
             "android.permission.MANAGE_USERS",
+            "android.permission.NETWORK_STACK",
     };
 
     private static final Context sContext = InstrumentationRegistry.getTargetContext();

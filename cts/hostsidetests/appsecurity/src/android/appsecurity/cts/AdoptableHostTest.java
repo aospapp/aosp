@@ -23,11 +23,13 @@ import static android.appsecurity.cts.SplitTests.APK_xxhdpi;
 import static android.appsecurity.cts.SplitTests.CLASS;
 import static android.appsecurity.cts.SplitTests.PKG;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.platform.test.annotations.AppModeFull;
 
 import com.android.tradefed.device.CollectingOutputReceiver;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
@@ -49,10 +51,18 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
 
     public static final String FEATURE_ADOPTABLE_STORAGE = "feature:android.software.adoptable_storage";
 
+    private String mListVolumesInitialState;
+
     @Before
     public void setUp() throws Exception {
         // Start all possible users to make sure their storage is unlocked
         Utils.prepareMultipleUsers(getDevice(), Integer.MAX_VALUE);
+
+        // Users are starting, wait for all volumes are ready
+        waitForVolumeReady();
+
+        // Initial state of all volumes
+        mListVolumesInitialState = getDevice().executeShellCommand("sm list-volumes");
 
         getDevice().uninstallPackage(PKG);
 
@@ -61,6 +71,19 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
         // currently have an SD card inserted.
         if (isSupportedDevice()) {
             getDevice().executeShellCommand("sm set-virtual-disk true");
+
+            // Ensure virtual disk is mounted.
+            int attempt = 0;
+            boolean hasVirtualDisk = false;
+            String result = "";
+            while (!hasVirtualDisk && attempt++ < 20) {
+                Thread.sleep(1000);
+                result = getDevice().executeShellCommand("sm list-disks adoptable").trim();
+                hasVirtualDisk = result.startsWith("disk:");
+            }
+            assertTrue("Virtual disk is not ready: " + result, hasVirtualDisk);
+
+            waitForVolumeReady();
         }
     }
 
@@ -70,6 +93,32 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
 
         if (isSupportedDevice()) {
             getDevice().executeShellCommand("sm set-virtual-disk false");
+
+            // Ensure virtual disk is removed.
+            int attempt = 0;
+            boolean hasVirtualDisk = true;
+            String result = "";
+            while (hasVirtualDisk && attempt++ < 20) {
+                Thread.sleep(1000);
+                result = getDevice().executeShellCommand("sm list-disks adoptable").trim();
+                hasVirtualDisk = result.startsWith("disk:");
+            }
+            if (hasVirtualDisk) {
+                CLog.w("Virtual disk is not removed: " + result);
+            }
+
+            // Ensure all volumes go back to the original state.
+            attempt = 0;
+            boolean volumeStateRecovered = false;
+            result = "";
+            while (!volumeStateRecovered && attempt++ < 20) {
+                Thread.sleep(1000);
+                result = getDevice().executeShellCommand("sm list-volumes");
+                volumeStateRecovered = mListVolumesInitialState.equals(result);
+            }
+            if (!volumeStateRecovered) {
+                CLog.w("Volume state is not recovered: " + result);
+            }
         }
     }
 
@@ -87,6 +136,19 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
         }
     }
 
+    // Ensure no volume is in ejecting or checking state
+    private void waitForVolumeReady() throws Exception {
+        int attempt = 0;
+        boolean noCheckingEjecting = false;
+        String result = "";
+        while (!noCheckingEjecting && attempt++ < 60) {
+            result = getDevice().executeShellCommand("sm list-volumes");
+            noCheckingEjecting = !result.contains("ejecting") && !result.contains("checking");
+            Thread.sleep(100);
+        }
+        assertTrue("Volumes are not ready: " + result, noCheckingEjecting);
+    }
+
     @Test
     public void testApps() throws Exception {
         if (!isSupportedDevice()) return;
@@ -97,7 +159,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             Assert.assertNotNull("Failed to find APK for ABI " + abi, apk);
 
             // Install simple app on internal
-            new InstallMultiple().useNaturalAbi().addApk(APK).addApk(apk).run();
+            new InstallMultiple().useNaturalAbi().addFile(APK).addFile(apk).run();
             runDeviceTests(PKG, CLASS, "testDataInternal");
             runDeviceTests(PKG, CLASS, "testDataWrite");
             runDeviceTests(PKG, CLASS, "testDataRead");
@@ -110,24 +172,16 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             // Move app and verify
             assertSuccess(getDevice().executeShellCommand(
                     "pm move-package " + PKG + " " + vol.uuid));
+            waitForBroadcastsIdle();
             runDeviceTests(PKG, CLASS, "testDataNotInternal");
             runDeviceTests(PKG, CLASS, "testDataRead");
             runDeviceTests(PKG, CLASS, "testNative");
 
             // Unmount, remount and verify
             getDevice().executeShellCommand("sm unmount " + vol.volId);
+            waitForVolumeReady();
             getDevice().executeShellCommand("sm mount " + vol.volId);
-
-            int attempt = 0;
-            String pkgPath = getDevice().executeShellCommand("pm path " + PKG);
-            while ((pkgPath == null || pkgPath.isEmpty()) && attempt++ < 15) {
-                Thread.sleep(1000);
-                pkgPath = getDevice().executeShellCommand("pm path " + PKG);
-            }
-
-            if (pkgPath == null || pkgPath.isEmpty()) {
-                throw new AssertionError("Package not ready yet");
-            }
+            waitForInstrumentationReady();
 
             runDeviceTests(PKG, CLASS, "testDataNotInternal");
             runDeviceTests(PKG, CLASS, "testDataRead");
@@ -135,6 +189,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
 
             // Move app back and verify
             assertSuccess(getDevice().executeShellCommand("pm move-package " + PKG + " internal"));
+            waitForBroadcastsIdle();
             runDeviceTests(PKG, CLASS, "testDataInternal");
             runDeviceTests(PKG, CLASS, "testDataRead");
             runDeviceTests(PKG, CLASS, "testNative");
@@ -170,7 +225,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
 
     private void verifyPrimaryInternal(String diskId) throws Exception {
         // Write some data to shared storage
-        new InstallMultiple().addApk(APK).run();
+        new InstallMultiple().addFile(APK).run();
         runDeviceTests(PKG, CLASS, "testPrimaryOnSameVolume");
         runDeviceTests(PKG, CLASS, "testPrimaryInternal");
         runDeviceTests(PKG, CLASS, "testPrimaryDataWrite");
@@ -185,21 +240,27 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
         getDevice().executeShellCommand("pm move-primary-storage " + vol.uuid, out, 2,
                 TimeUnit.HOURS, 1);
         assertSuccess(out.getOutput());
+        waitForBroadcastsIdle();
         runDeviceTests(PKG, CLASS, "testPrimaryAdopted");
         runDeviceTests(PKG, CLASS, "testPrimaryDataRead");
 
         // Unmount and verify
         getDevice().executeShellCommand("sm unmount " + vol.volId);
+        waitForVolumeReady();
         runDeviceTests(PKG, CLASS, "testPrimaryUnmounted");
         getDevice().executeShellCommand("sm mount " + vol.volId);
+        waitForInstrumentationReady();
+        waitForVolumeReady();
+
         runDeviceTests(PKG, CLASS, "testPrimaryAdopted");
         runDeviceTests(PKG, CLASS, "testPrimaryDataRead");
 
         // Move app and verify backing storage volume is same
         assertSuccess(getDevice().executeShellCommand("pm move-package " + PKG + " " + vol.uuid));
+        waitForBroadcastsIdle();
+
         runDeviceTests(PKG, CLASS, "testPrimaryOnSameVolume");
         runDeviceTests(PKG, CLASS, "testPrimaryDataRead");
-
         // And move back to internal
         out = new CollectingOutputReceiver();
         getDevice().executeShellCommand("pm move-primary-storage internal", out, 2,
@@ -210,13 +271,15 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
         runDeviceTests(PKG, CLASS, "testPrimaryDataRead");
 
         assertSuccess(getDevice().executeShellCommand("pm move-package " + PKG + " internal"));
+        waitForBroadcastsIdle();
+
         runDeviceTests(PKG, CLASS, "testPrimaryOnSameVolume");
         runDeviceTests(PKG, CLASS, "testPrimaryDataRead");
     }
 
     private void verifyPrimaryPhysical(String diskId) throws Exception {
         // Write some data to shared storage
-        new InstallMultiple().addApk(APK).run();
+        new InstallMultiple().addFile(APK).run();
         runDeviceTests(PKG, CLASS, "testPrimaryPhysical");
         runDeviceTests(PKG, CLASS, "testPrimaryDataWrite");
         runDeviceTests(PKG, CLASS, "testPrimaryDataRead");
@@ -234,8 +297,12 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
 
         // Unmount and verify
         getDevice().executeShellCommand("sm unmount " + vol.volId);
+        waitForVolumeReady();
         runDeviceTests(PKG, CLASS, "testPrimaryUnmounted");
         getDevice().executeShellCommand("sm mount " + vol.volId);
+        waitForInstrumentationReady();
+        waitForVolumeReady();
+
         runDeviceTests(PKG, CLASS, "testPrimaryAdopted");
         runDeviceTests(PKG, CLASS, "testPrimaryDataRead");
 
@@ -260,13 +327,13 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
 
             // Install directly onto adopted volume
             new InstallMultiple().locationAuto().forceUuid(vol.uuid)
-                    .addApk(APK).addApk(APK_mdpi).run();
+                    .addFile(APK).addFile(APK_mdpi).run();
             runDeviceTests(PKG, CLASS, "testDataNotInternal");
             runDeviceTests(PKG, CLASS, "testDensityBest1");
 
             // Now splice in an additional split which offers better resources
             new InstallMultiple().locationAuto().inheritFrom(PKG)
-                    .addApk(APK_xxhdpi).run();
+                    .addFile(APK_xxhdpi).run();
             runDeviceTests(PKG, CLASS, "testDataNotInternal");
             runDeviceTests(PKG, CLASS, "testDensityBest2");
 
@@ -288,21 +355,25 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             final LocalVolumeInfo vol = getAdoptionVolume();
 
             // Install directly onto adopted volume, and write data there
-            new InstallMultiple().locationAuto().forceUuid(vol.uuid).addApk(APK).run();
+            new InstallMultiple().locationAuto().forceUuid(vol.uuid).addFile(APK).run();
             runDeviceTests(PKG, CLASS, "testDataNotInternal");
             runDeviceTests(PKG, CLASS, "testDataWrite");
             runDeviceTests(PKG, CLASS, "testDataRead");
 
             // Now unmount and uninstall; leaving stale package on adopted volume
             getDevice().executeShellCommand("sm unmount " + vol.volId);
+            waitForVolumeReady();
             getDevice().uninstallPackage(PKG);
 
             // Install second copy on internal, but don't write anything
-            new InstallMultiple().locationInternalOnly().addApk(APK).run();
+            new InstallMultiple().locationInternalOnly().addFile(APK).run();
             runDeviceTests(PKG, CLASS, "testDataInternal");
 
             // Kick through a remount cycle, which should purge the adopted app
             getDevice().executeShellCommand("sm mount " + vol.volId);
+            waitForInstrumentationReady();
+            waitForVolumeReady();
+
             runDeviceTests(PKG, CLASS, "testDataInternal");
             boolean didThrow = false;
             try {
@@ -314,6 +385,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
                 fail("Unexpected data from adopted volume picked up");
             }
             getDevice().executeShellCommand("sm unmount " + vol.volId);
+            waitForVolumeReady();
 
             // Uninstall the internal copy and remount; we should have no record of app
             getDevice().uninstallPackage(PKG);
@@ -364,12 +436,43 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             for (String line : lines) {
                 final LocalVolumeInfo info = new LocalVolumeInfo(line.trim());
                 if (!"private".equals(info.volId) && "mounted".equals(info.state)) {
-                    return info;
+                    return waitForVolumeReady(info);
                 }
             }
             Thread.sleep(1000);
         }
         throw new AssertionError("Expected private volume; found " + Arrays.toString(lines));
+    }
+
+    private LocalVolumeInfo waitForVolumeReady(LocalVolumeInfo vol) throws Exception {
+        int attempt = 0;
+        while (attempt++ < 15) {
+            if (getDevice().executeShellCommand("dumpsys package volumes").contains(vol.volId)) {
+                return vol;
+            }
+            Thread.sleep(1000);
+        }
+        throw new AssertionError("Volume not ready " + vol.volId);
+    }
+
+    private void waitForBroadcastsIdle() throws Exception {
+        getDevice().executeShellCommand("am wait-for-broadcast-idle");
+    }
+
+    private void waitForInstrumentationReady() throws Exception {
+        // Wait for volume ready first
+        getAdoptionVolume();
+
+        int attempt = 0;
+        String pkgInstr = getDevice().executeShellCommand("pm list instrumentation");
+        while ((pkgInstr == null || !pkgInstr.contains(PKG)) && attempt++ < 15) {
+            Thread.sleep(1000);
+            pkgInstr = getDevice().executeShellCommand("pm list instrumentation");
+        }
+
+        if (pkgInstr == null || !pkgInstr.contains(PKG)) {
+            throw new AssertionError("Package not ready yet");
+        }
     }
 
     private void cleanUp(String diskId) throws Exception {
@@ -405,6 +508,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
     private class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {
         public InstallMultiple() {
             super(getDevice(), getBuild(), getAbi());
+            addArg("--force-queryable");
         }
     }
 }

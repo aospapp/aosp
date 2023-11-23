@@ -22,11 +22,10 @@
 
 using android::status_t;
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 status_t PnoNetwork::writeToParcel(::android::Parcel* parcel) const {
   RETURN_IF_FAILED(parcel->writeInt32(is_hidden_ ? 1 : 0));
@@ -44,8 +43,7 @@ status_t PnoNetwork::readFromParcel(const ::android::Parcel* parcel) {
   return ::android::OK;
 }
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com

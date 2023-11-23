@@ -16,8 +16,14 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
+import android.hardware.display.DisplayManager;
+import android.view.Display;
+
+import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
@@ -28,13 +34,17 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Optional;
+
 @FlakyTest
 @RunWith(AndroidJUnit4.class)
 public class ChoreographerNativeTest {
     private long mChoreographerPtr;
 
     private static native long nativeGetChoreographer();
-    private static native boolean nativePrepareChoreographerTests(long ptr);
+    private static native boolean nativePrepareChoreographerTests(long ptr, long[] refreshPeriods);
     private static native void nativeTestPostCallbackWithoutDelayEventuallyRunsCallbacks(long ptr);
     private static native void nativeTestPostCallbackWithDelayEventuallyRunsCallbacks(long ptr);
     private static native void nativeTestPostCallback64WithoutDelayEventuallyRunsCallbacks(
@@ -44,6 +54,16 @@ public class ChoreographerNativeTest {
             long ptr);
     private static native void nativeTestPostCallbackMixedWithDelayEventuallyRunsCallbacks(
             long ptr);
+    private static native void nativeTestRefreshRateCallback(
+            long ptr);
+    private static native void nativeTestUnregisteringRefreshRateCallback(long ptr);
+    private static native void nativeTestMultipleRefreshRateCallbacks(long ptr);
+    private static native void nativeTestAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice(
+            long ptr);
+    private static native void nativeTestRefreshRateCallbackMixedWithFrameCallbacks(long ptr);
+
+    private Context mContext;
+    private DisplayManager mDisplayManager;
 
     static {
         System.loadLibrary("ctsview_jni");
@@ -52,8 +72,22 @@ public class ChoreographerNativeTest {
     @UiThreadTest
     @Before
     public void setup() {
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
+        mDisplayManager = (DisplayManager) mContext.getSystemService(Context.DISPLAY_SERVICE);
+
+        Optional<Display> defaultDisplayOpt = Arrays.stream(mDisplayManager.getDisplays())
+                .filter(display -> display.getDisplayId() == Display.DEFAULT_DISPLAY)
+                .findFirst();
+
+        assertTrue(defaultDisplayOpt.isPresent());
+        Display defaultDisplay = defaultDisplayOpt.get();
+
+        long[] supportedPeriods = Arrays.stream(defaultDisplay.getSupportedModes())
+                .mapToLong(mode -> (long) (Duration.ofSeconds(1).toNanos() / mode.getRefreshRate()))
+                .toArray();
+
         mChoreographerPtr = nativeGetChoreographer();
-        if (!nativePrepareChoreographerTests(mChoreographerPtr)) {
+        if (!nativePrepareChoreographerTests(mChoreographerPtr, supportedPeriods)) {
             fail("Failed to setup choreographer tests");
         }
     }
@@ -93,4 +127,36 @@ public class ChoreographerNativeTest {
     public void testPostCallbackMixedWithDelayEventuallyRunsCallbacks() {
         nativeTestPostCallbackMixedWithDelayEventuallyRunsCallbacks(mChoreographerPtr);
     }
+
+    @SmallTest
+    @Test
+    public void testRefreshRateCallback() {
+        nativeTestRefreshRateCallback(mChoreographerPtr);
+    }
+
+    @SmallTest
+    @Test
+    public void testUnregisteringRefreshRateCallback() {
+        nativeTestUnregisteringRefreshRateCallback(mChoreographerPtr);
+    }
+
+    @SmallTest
+    @Test
+    public void testMultipleRefreshRateCallbacks() {
+        nativeTestMultipleRefreshRateCallbacks(mChoreographerPtr);
+    }
+
+    @SmallTest
+    @Test
+    public void testAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice() {
+        nativeTestAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice(mChoreographerPtr);
+    }
+
+    @UiThreadTest
+    @SmallTest
+    @Test
+    public void testRefreshRateCallbackMixedWithFrameCallbacks() {
+        nativeTestRefreshRateCallbackMixedWithFrameCallbacks(mChoreographerPtr);
+    }
+
 }

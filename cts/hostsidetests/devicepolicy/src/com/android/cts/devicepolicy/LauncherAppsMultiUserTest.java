@@ -16,9 +16,7 @@
 
 package com.android.cts.devicepolicy;
 
-import com.android.ddmlib.Log.LogLevel;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.log.LogUtil.CLog;
+import org.junit.Test;
 
 import java.util.Collections;
 
@@ -34,7 +32,7 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
     private boolean mMultiUserSupported;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
         // We need multi user to be supported in order to create a secondary user
         // and api level 21 to support LauncherApps
@@ -52,7 +50,7 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mMultiUserSupported) {
             removeUser(mSecondaryUserId);
             uninstallTestApps();
@@ -60,6 +58,7 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
         super.tearDown();
     }
 
+    @Test
     public void testGetActivitiesForNonProfileFails() throws Exception {
         if (!mMultiUserSupported) {
             return;
@@ -72,6 +71,7 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
                 Collections.singletonMap(PARAM_TEST_USER, mSecondaryUserSerialNumber));
     }
 
+    @Test
     public void testNoLauncherCallbackPackageAddedSecondaryUser() throws Exception {
         if (!mMultiUserSupported) {
             return;

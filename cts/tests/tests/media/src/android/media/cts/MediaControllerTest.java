@@ -19,6 +19,7 @@ import static android.media.cts.Utils.compareRemoteUserInfo;
 import static android.media.session.PlaybackState.STATE_PLAYING;
 
 import android.content.Intent;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.Rating;
 import android.media.VolumeProvider;
@@ -39,6 +40,7 @@ import android.view.KeyEvent;
 /**
  * Test {@link android.media.session.MediaController}.
  */
+@NonMediaMainlineTest
 public class MediaControllerTest extends AndroidTestCase {
     // The maximum time to wait for an operation.
     private static final long TIME_OUT_MS = 3000L;
@@ -125,6 +127,10 @@ public class MediaControllerTest extends AndroidTestCase {
         Bundle sessionInfo = mController.getSessionInfo();
         assertNotNull(sessionInfo);
         assertEquals(EXTRAS_VALUE, sessionInfo.getString(EXTRAS_KEY));
+    }
+
+    public void testGetTag() {
+        assertEquals(SESSION_TAG, mController.getTag());
     }
 
     public void testSendCommand() throws Exception {
@@ -399,25 +405,6 @@ public class MediaControllerTest extends AndroidTestCase {
             }
         }
     }
-
-    /*
-    public void testPlaybackInfo() {
-        final int playbackType = MediaController.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
-        final int volumeControl = VolumeProvider.VOLUME_CONTROL_ABSOLUTE;
-        final int maxVolume = 10;
-        final int currentVolume = 3;
-
-        AudioAttributes audioAttributes = new AudioAttributes.Builder().build();
-        MediaController.PlaybackInfo info = new MediaController.PlaybackInfo(
-                playbackType, audioAttributes, volumeControl, maxVolume, currentVolume);
-
-        assertEquals(playbackType, info.getPlaybackType());
-        assertEquals(audioAttributes, info.getAudioAttributes());
-        assertEquals(volumeControl, info.getVolumeControl());
-        assertEquals(maxVolume, info.getMaxVolume());
-        assertEquals(currentVolume, info.getCurrentVolume());
-    }
-    */
 
     private class MediaSessionCallback extends MediaSession.Callback {
         private long mSeekPosition;

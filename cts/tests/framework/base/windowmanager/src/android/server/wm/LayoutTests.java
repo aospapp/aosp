@@ -20,11 +20,14 @@ import static android.provider.Settings.Global.WINDOW_ANIMATION_SCALE;
 import static android.view.View.SYSTEM_UI_FLAG_FULLSCREEN;
 import static android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
 import static android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
+import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_PANEL;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -37,9 +40,8 @@ import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.WindowInsets.Type;
 import android.view.WindowManager.LayoutParams;
-
-import androidx.test.filters.FlakyTest;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;
@@ -48,13 +50,14 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
+
 /**
  * Test whether WindowManager performs the correct layout after we make some changes to it.
  *
  * Build/Install/Run:
  *     atest CtsWindowManagerDeviceTestCases:LayoutTests
  */
-@FlakyTest(detail = "Can be promoted to pre-submit once confirmed stable.")
 @AppModeFull(reason = "Cannot write global settings as an instant app.")
 @Presubmit
 public class LayoutTests extends WindowManagerTestBase {
@@ -107,19 +110,20 @@ public class LayoutTests extends WindowManagerTestBase {
         getInstrumentation().runOnMainSync(() -> {
             final View view = new View(activity);
             view.setSystemUiVisibility(systemUiFlags);
-            activity.getWindowManager().addView(view, new LayoutParams(TYPE_APPLICATION_PANEL));
-            activity.mView = view;
+            activity.addWindow(view, new LayoutParams());
         });
 
         // Wait for the global layout triggered by adding window.
         activity.waitForGlobalLayout();
 
         // Remove the window we added previously.
-        getInstrumentation().runOnMainSync(() ->
-                activity.getWindowManager().removeViewImmediate(activity.mView));
+        getInstrumentation().runOnMainSync(activity::removeAllWindows);
 
         // Wait for the global layout triggered by removing window.
         activity.waitForGlobalLayout();
+
+        // Wait for the activity has focus before get the visible frame
+        activity.waitAndAssertWindowFocusState(true);
 
         // Get the visible frame of the main activity after removing the window we added.
         final Rect visibleFrameAfterRemovingWindow = new Rect();
@@ -151,7 +155,7 @@ public class LayoutTests extends WindowManagerTestBase {
                             }
                         }
                     });
-            activity.getWindowManager().addView(view, new LayoutParams(TYPE_APPLICATION_PANEL));
+            activity.addWindow(view, new LayoutParams());
         });
 
         // Wait for the possible failure.
@@ -165,6 +169,7 @@ public class LayoutTests extends WindowManagerTestBase {
 
     @Test
     public void testChangingFocusableFlag() throws Exception {
+        final View[] view = new View[1];
         final LayoutParams attrs = new LayoutParams(TYPE_APPLICATION_PANEL, FLAG_NOT_FOCUSABLE);
         final boolean[] childWindowHasFocus = { false };
         final boolean[] childWindowGotKeyEvent = { false };
@@ -172,7 +177,7 @@ public class LayoutTests extends WindowManagerTestBase {
 
         // Add a not-focusable window.
         getInstrumentation().runOnMainSync(() -> {
-            final View view = new View(activity) {
+            view[0] = new View(activity) {
                 public void onWindowFocusChanged(boolean hasWindowFocus) {
                     super.onWindowFocusChanged(hasWindowFocus);
                     childWindowHasFocus[0] = hasWindowFocus;
@@ -188,15 +193,14 @@ public class LayoutTests extends WindowManagerTestBase {
                     return super.onKeyDown(keyCode, event);
                 }
             };
-            activity.getWindowManager().addView(view, attrs);
-            activity.mView = view;
+            activity.addWindow(view[0], attrs);
         });
         getInstrumentation().waitForIdleSync();
 
         // Make the window focusable.
         getInstrumentation().runOnMainSync(() -> {
             attrs.flags &= ~FLAG_NOT_FOCUSABLE;
-            activity.getWindowManager().updateViewLayout(activity.mView, attrs);
+            activity.getWindowManager().updateViewLayout(view[0], attrs);
         });
         synchronized (activity) {
             activity.wait(TIMEOUT_WINDOW_FOCUS_CHANGED);
@@ -214,12 +218,60 @@ public class LayoutTests extends WindowManagerTestBase {
         });
     }
 
+    @Test
+    public void testSysuiFlagLayoutFullscreen() {
+        final TestActivity activity = startActivity(TestActivity.class);
+
+        final View[] views = new View[2];
+        getInstrumentation().runOnMainSync(() -> {
+            views[0] = new View(activity);
+            final LayoutParams attrs = new LayoutParams();
+            attrs.setFitInsetsTypes(attrs.getFitInsetsTypes() & ~Type.statusBars());
+            activity.addWindow(views[0], attrs);
+
+            views[1] = new View(activity);
+            views[1].setSystemUiVisibility(SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+            activity.addWindow(views[1], new LayoutParams());
+        });
+        getInstrumentation().waitForIdleSync();
+
+        assertLayoutEquals(views[0], views[1]);
+    }
+
+    @Test
+    public void testSysuiFlagLayoutHideNavigation() {
+        final TestActivity activity = startActivity(TestActivity.class);
+
+        final View[] views = new View[2];
+        getInstrumentation().runOnMainSync(() -> {
+            views[0] = new View(activity);
+            final LayoutParams attrs = new LayoutParams();
+            attrs.setFitInsetsTypes(attrs.getFitInsetsTypes() & ~Type.systemBars());
+            activity.addWindow(views[0], attrs);
+
+            views[1] = new View(activity);
+            views[1].setSystemUiVisibility(SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+            activity.addWindow(views[1], new LayoutParams());
+        });
+        getInstrumentation().waitForIdleSync();
+
+        assertLayoutEquals(views[0], views[1]);
+    }
+
+    private static void assertLayoutEquals(View view1, View view2) {
+        final int[][] locations = new int[2][2];
+        view1.getLocationOnScreen(locations[0]);
+        view2.getLocationOnScreen(locations[1]);
+        assertArrayEquals("Location must be the same.", locations[0], locations[1]);
+        assertEquals("Width must be the same.", view1.getWidth(), view2.getWidth());
+        assertEquals("Height must be the same.", view1.getHeight(), view2.getHeight());
+    }
+
     public static class TestActivity extends FocusableActivity {
         private static final long TIMEOUT_LAYOUT = 200; // milliseconds
 
         private final Object mLockGlobalLayout = new Object();
-
-        View mView = null;
+        private ArrayList<View> mViews = new ArrayList<>();
 
         @Override
         protected void onCreate(Bundle savedInstanceState) {
@@ -235,6 +287,24 @@ public class LayoutTests extends WindowManagerTestBase {
             synchronized (mLockGlobalLayout) {
                 mLockGlobalLayout.wait(TIMEOUT_LAYOUT);
             }
+        }
+
+        void addWindow(View view, LayoutParams attrs) {
+            getWindowManager().addView(view, attrs);
+            mViews.add(view);
+        }
+
+        void removeAllWindows() {
+            for (View view : mViews) {
+                getWindowManager().removeViewImmediate(view);
+            }
+            mViews.clear();
+        }
+
+        @Override
+        protected void onPause() {
+            super.onPause();
+            removeAllWindows();
         }
     }
 }

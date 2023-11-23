@@ -77,4 +77,10 @@ public class Activities {
 
     public static class LauncherActivity extends Activity {
     }
+
+    public static class RelinquishTaskIdentityActivity extends Activity {
+    }
+
+    public static class TaskAffinity1RelinquishTaskIdentityActivity extends Activity {
+    }
 }

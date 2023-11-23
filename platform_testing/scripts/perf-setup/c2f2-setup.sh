@@ -18,6 +18,7 @@
 
 stop vendor.thermal-engine
 setprop vendor.powerhal.init 0
+setprop ctl.restart vendor.power-hal-aidl
 setprop ctl.interface_restart android.hardware.power@1.0::IPower/default
 
 cpubase=/sys/devices/system/cpu

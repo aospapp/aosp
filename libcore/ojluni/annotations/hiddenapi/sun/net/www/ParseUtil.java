@@ -37,7 +37,7 @@ public class ParseUtil {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.lang.String encodePath(java.lang.String path, boolean flag) {
         throw new RuntimeException("Stub!");
     }
@@ -50,7 +50,7 @@ public class ParseUtil {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.lang.String decode(java.lang.String s) {
         throw new RuntimeException("Stub!");
     }
@@ -59,7 +59,7 @@ public class ParseUtil {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.net.URL fileToEncodedURL(java.io.File file)
             throws java.net.MalformedURLException {
         throw new RuntimeException("Stub!");

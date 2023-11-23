@@ -16,6 +16,7 @@
 
 package android.server.wm;
 
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.app.Components.SPLASHSCREEN_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
 
@@ -28,6 +29,8 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.platform.test.annotations.Presubmit;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -37,15 +40,28 @@ import org.junit.Test;
 @Presubmit
 public class SplashscreenTests extends ActivityManagerTestBase {
 
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        mWmState.setSanityCheckWithFocusedWindow(false);
+    }
+
+    @After
+    public void tearDown() {
+        mWmState.setSanityCheckWithFocusedWindow(true);
+    }
+
     @Test
     public void testSplashscreenContent() {
         launchActivityNoWait(SPLASHSCREEN_ACTIVITY);
-        mAmWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
-        mAmWmState.getWmState().getStableBounds();
+        // Activity may not be launched yet even if app transition is in idle state.
+        mWmState.waitForActivityState(SPLASHSCREEN_ACTIVITY, STATE_RESUMED);
+        mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
+        mWmState.getStableBounds();
         final Bitmap image = takeScreenshot();
         // Use ratios to flexibly accomodate circular or not quite rectangular displays
         // Note: Color.BLACK is the pixel color outside of the display region
-        assertColors(image, mAmWmState.getWmState().getStableBounds(),
+        assertColors(image, mWmState.getStableBounds(),
             Color.RED, 0.50f, Color.BLACK, 0.02f);
     }
 

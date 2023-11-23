@@ -30,6 +30,7 @@
 
 #include "dso.h"
 #include "event_attr.h"
+#include "event_type.h"
 #include "perf_event.h"
 #include "record.h"
 #include "record_file_format.h"
@@ -55,6 +56,7 @@ class RecordFileWriter {
   bool WriteFeatureString(int feature, const std::string& s);
   bool WriteCmdlineFeature(const std::vector<std::string>& cmdline);
   bool WriteBranchStackFeature();
+  bool WriteAuxTraceFeature(const std::vector<uint64_t>& auxtrace_offset);
   bool WriteFileFeatures(const std::vector<Dso*>& files);
   bool WriteMetaInfoFeature(const std::unordered_map<std::string, std::string>& info_map);
   bool WriteFeature(int feature, const std::vector<char>& data);
@@ -143,6 +145,7 @@ class RecordFileReader {
   std::vector<std::string> ReadCmdlineFeature();
   std::vector<BuildIdRecord> ReadBuildIdFeature();
   std::string ReadFeatureString(int feature);
+  std::vector<uint64_t> ReadAuxTraceFeature();
 
   // File feature section contains many file information. This function reads
   // one file information located at [read_pos]. [read_pos] is 0 at the first
@@ -152,9 +155,12 @@ class RecordFileReader {
   bool ReadFileFeature(size_t& read_pos, std::string* file_path, uint32_t* file_type,
                        uint64_t* min_vaddr, uint64_t* file_offset_of_min_vaddr,
                        std::vector<Symbol>* symbols, std::vector<uint64_t>* dex_file_offsets);
-  bool ReadMetaInfoFeature(std::unordered_map<std::string, std::string>* info_map);
+
+  const std::unordered_map<std::string, std::string>& GetMetaInfoFeature() { return meta_info_; }
 
   void LoadBuildIdAndFileFeatures(ThreadTree& thread_tree);
+
+  bool ReadAuxData(uint32_t cpu, uint64_t aux_offset, void* buf, size_t size);
 
   bool Close();
 
@@ -167,9 +173,13 @@ class RecordFileReader {
   bool ReadAttrSection();
   bool ReadIdsForAttr(const PerfFileFormat::FileAttr& attr, std::vector<uint64_t>* ids);
   bool ReadFeatureSectionDescriptors();
-  std::unique_ptr<Record> ReadRecord(uint64_t* nbytes_read);
+  bool ReadMetaInfoFeature();
+  void UseRecordingEnvironment();
+  std::unique_ptr<Record> ReadRecord();
   bool Read(void* buf, size_t len);
+  bool ReadAtOffset(uint64_t offset, void* buf, size_t len);
   void ProcessEventIdRecord(const EventIdRecord& r);
+  bool BuildAuxDataLocation();
 
   const std::string filename_;
   FILE* record_fp_;
@@ -184,6 +194,22 @@ class RecordFileReader {
   size_t event_id_reverse_pos_in_non_sample_records_;
 
   uint64_t read_record_size_;
+
+  std::unordered_map<std::string, std::string> meta_info_;
+  std::unique_ptr<ScopedCurrentArch> scoped_arch_;
+  std::unique_ptr<ScopedEventTypes> scoped_event_types_;
+
+  struct AuxDataLocation {
+    uint64_t aux_offset;
+    uint64_t aux_size;
+    uint64_t file_offset;
+
+    AuxDataLocation(uint64_t aux_offset, uint64_t aux_size, uint64_t file_offset)
+        : aux_offset(aux_offset), aux_size(aux_size), file_offset(file_offset) {}
+  };
+  // It maps from a cpu id to the locations (file offsets in perf.data) of aux data received from
+  // that cpu's aux buffer. It is used to locate aux data in perf.data.
+  std::unordered_map<uint32_t, std::vector<AuxDataLocation>> aux_data_location_;
 
   DISALLOW_COPY_AND_ASSIGN(RecordFileReader);
 };

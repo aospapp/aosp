@@ -15,6 +15,8 @@
 
 from subprocess import Popen, PIPE
 
+import socket
+
 
 def exe_cmd(*cmds):
     """Executes commands in a new shell. Directing stderr to PIPE.
@@ -38,6 +40,15 @@ def exe_cmd(*cmds):
         return out
     return err
 
+def isFastbootOverTcp(serial):
+    token = serial.split(':')
+    if len(token) == 2:
+        try:
+            socket.inet_aton(token[0])
+            return True
+        except socket.error:
+            return False
+    return False
 
 class FastbootError(Exception):
     """Raised when there is an error in fastboot operations."""
@@ -55,7 +66,10 @@ class FastbootProxy():
     def __init__(self, serial=""):
         self.serial = serial
         if serial:
-            self.fastboot_str = "fastboot -s {}".format(serial)
+            if isFastbootOverTcp(serial):
+                self.fastboot_str = "fastboot -s tcp:{}".format(serial[:serial.index(':')])
+            else:
+                self.fastboot_str = "fastboot -s {}".format(serial)
         else:
             self.fastboot_str = "fastboot"
 

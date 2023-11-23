@@ -39,6 +39,7 @@ import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.suite.TestSuiteInfo;
+import com.android.tradefed.testtype.suite.params.ModuleParameters;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.MultiMap;
@@ -123,12 +124,26 @@ public class CompatibilityConsole extends Console {
                 listPlans();
             }
         }, LIST_PATTERN, "p(?:lans)?");
-        trie.put(new Runnable() {
-            @Override
-            public void run() {
-                listModules();
-            }
-        }, LIST_PATTERN, "m(?:odules)?");
+        trie.put(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        listModules(null);
+                    }
+                },
+                LIST_PATTERN,
+                "m(?:odules)?");
+        trie.put(
+                new ArgRunnable<CaptureList>() {
+                    @Override
+                    public void run(CaptureList args) {
+                        String parameter = args.get(2).get(0);
+                        listModules(parameter);
+                    }
+                },
+                LIST_PATTERN,
+                "m(?:odules)?",
+                "(.*)");
         trie.put(new Runnable() {
             @Override
             public void run() {
@@ -187,13 +202,24 @@ public class CompatibilityConsole extends Console {
             // no help? Unexpected, but soldier on
             listHelp = new String();
         }
-        String combinedHelp = listHelp +
-                LINE_SEPARATOR +
-                "\t----- " + TestSuiteInfo.getInstance().getFullName()
-                + " specific options ----- " + LINE_SEPARATOR +
-                "\tp[lans]               List all plans available" + LINE_SEPARATOR +
-                "\tm[odules]             List all modules available" + LINE_SEPARATOR +
-                "\tr[esults]             List all results" + LINE_SEPARATOR;
+        String combinedHelp =
+                listHelp
+                        + LINE_SEPARATOR
+                        + "\t----- "
+                        + TestSuiteInfo.getInstance().getFullName()
+                        + " specific options ----- "
+                        + LINE_SEPARATOR
+                        + "\tp[lans]               List all plans available"
+                        + LINE_SEPARATOR
+                        + "\tm[odules]             List all modules available"
+                        + LINE_SEPARATOR
+                        + String.format(
+                                "\tm[odules] [module parameter] List all modules matching the "
+                                        + "parameter. (available params: %s)",
+                                Arrays.asList(ModuleParameters.values()))
+                        + LINE_SEPARATOR
+                        + "\tr[esults]             List all results"
+                        + LINE_SEPARATOR;
         commandHelp.put(LIST_PATTERN, combinedHelp);
 
         // Update existing RUN_PATTERN with CTS specific extra run possibilities.
@@ -247,7 +273,13 @@ public class CompatibilityConsole extends Console {
         return String.format("%s-tf > ", TestSuiteInfo.getInstance().getName().toLowerCase());
     }
 
-    private void listModules() {
+    /**
+     * List all the modules available in the suite, if a specific parameter is requested, only
+     * display that one.
+     *
+     * @param moduleParameter The parameter requested to be displayed. Null if all should be shown.
+     */
+    private void listModules(String moduleParameter) {
         CompatibilityTestSuite test = new CompatibilityTestSuite() {
             @Override
             public Set<IAbi> getAbis(ITestDevice device) throws DeviceNotAvailableException {
@@ -262,6 +294,11 @@ public class CompatibilityConsole extends Console {
             }
         };
         if (getBuild() != null) {
+            test.setEnableParameterizedModules(true);
+            test.setEnableOptionalParameterizedModules(true);
+            if (moduleParameter != null) {
+                test.setModuleParameter(ModuleParameters.valueOf(moduleParameter.toUpperCase()));
+            }
             test.setBuild(getBuild());
             LinkedHashMap<String, IConfiguration> configs = test.loadTests();
             printLine(String.format("%s", Joiner.on("\n").join(configs.keySet())));

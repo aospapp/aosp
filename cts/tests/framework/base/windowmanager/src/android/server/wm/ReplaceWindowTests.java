@@ -92,12 +92,12 @@ public class ReplaceWindowTests extends ActivityManagerTestBase {
     }
 
     private String getWindowToken(String windowName, ComponentName activityName) throws Exception {
-        mAmWmState.computeState(activityName);
+        mWmState.computeState(activityName);
 
-        mAmWmState.assertVisibility(activityName, true);
+        mWmState.assertVisibility(activityName, true);
 
         final List<String> windowTokens =
-                mAmWmState.getWmState().getMatchingWindowTokens(windowName);
+                mWmState.getMatchingWindowTokens(windowName);
 
         assertEquals("Should have exactly one window for the activity.",
                 1, windowTokens.size());

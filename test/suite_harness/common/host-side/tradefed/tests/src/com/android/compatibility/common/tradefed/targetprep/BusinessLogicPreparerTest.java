@@ -169,6 +169,17 @@ public class BusinessLogicPreparerTest {
         testBuildRequestString(14, attributes);
     }
 
+    @Test
+    public void testBuildRequestString_noDeviceInfoJSONFileExists() throws Exception {
+        Map<String, String> attributes = new HashMap<>();
+        // Create a memory device info JSON file for test.
+        File jsonPath = createTestDeviceInfoTextFile("MemoryDeviceInfo");
+        mMockBuildInfo.setFile(DeviceInfoCollector.DEVICE_INFO_DIR, jsonPath, "v1");
+        // Setup BuildInfo attributes.
+        mMockBuildInfo.addBuildAttribute(CompatibilityBuildHelper.SUITE_VERSION, "v1");
+        testBuildRequestString(14, attributes);
+    }
+
     private void testBuildRequestString(int expectedParams, Map<String, String> attributes) throws Exception {
         for (String key: attributes.keySet()) {
             mMockBuildInfo.addBuildAttribute(key, attributes.get(key));
@@ -262,6 +273,12 @@ public class BusinessLogicPreparerTest {
         stream.write(jsonStr.getBytes());
         stream.flush();
         stream.close();
+        return mTmpDir;
+    }
+
+    private File createTestDeviceInfoTextFile(String DeviceInfoClassName)
+        throws IOException {
+        new File(mTmpDir, DeviceInfoClassName + ".deviceinfo.text");
         return mTmpDir;
     }
 

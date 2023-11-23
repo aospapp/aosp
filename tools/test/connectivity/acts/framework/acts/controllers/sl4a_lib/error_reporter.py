@@ -87,7 +87,7 @@ class ErrorReporter(object):
 
     def report_on_adb(self, adb, report):
         """Creates an error report for ADB. Returns false if ADB has failed."""
-        adb_uptime = utils.get_process_uptime('adb')
+        adb_uptime = utils.get_command_uptime('"adb .* server"')
         if adb_uptime:
             report.info('The adb daemon has an uptime of %s '
                         '([[dd-]hh:]mm:ss).' % adb_uptime)
@@ -161,9 +161,8 @@ class ErrorReporter(object):
         ports = rpc_connection.ports
         forwarded_ports_output = adb.forward('--list')
 
-        expected_output = '%s tcp:%s tcp:%s' % (adb.serial,
-                                                ports.forwarded_port,
-                                                ports.server_port)
+        expected_output = '%s tcp:%s tcp:%s' % (
+            adb.serial, ports.forwarded_port, ports.server_port)
         if expected_output not in forwarded_ports_output:
             formatted_output = re.sub(
                 '^', '    ', forwarded_ports_output, flags=re.MULTILINE)

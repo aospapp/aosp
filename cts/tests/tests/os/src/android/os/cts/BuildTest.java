@@ -16,7 +16,7 @@
 
 package android.os.cts;
 
-import static android.os.Build.VERSION.CODENAME;
+import static android.os.Build.VERSION.ACTIVE_CODENAMES;
 import static android.os.Build.VERSION_CODES.CUR_DEVELOPMENT;
 
 import android.os.Build;
@@ -264,6 +264,7 @@ public class BuildTest extends TestCase {
 
         // CUR_DEVELOPMENT must be larger than any released version.
         Field[] fields = Build.VERSION_CODES.class.getDeclaredFields();
+        List<String> codenames = Arrays.asList(ACTIVE_CODENAMES);
         for (Field field : fields) {
             if (field.getType().equals(int.class) && Modifier.isStatic(field.getModifiers())) {
                 String fieldName = field.getName();
@@ -277,7 +278,7 @@ public class BuildTest extends TestCase {
                     // It should be okay to change the value of this constant in future, but it
                     // should at least be a conscious decision.
                     assertEquals(10000, fieldValue);
-                } else if (fieldName.equals(CODENAME) && !CODENAME.equals("REL")) {
+                } else if (codenames.contains(fieldName)) {
                     // This is the current development version. Note that fieldName can
                     // become < CUR_DEVELOPMENT before CODENAME becomes "REL", so we
                     // can't assertEquals(CUR_DEVELOPMENT, fieldValue) here.

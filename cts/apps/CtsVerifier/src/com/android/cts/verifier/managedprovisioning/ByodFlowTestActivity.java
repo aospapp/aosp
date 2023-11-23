@@ -19,12 +19,16 @@ package com.android.cts.verifier.managedprovisioning;
 import android.app.KeyguardManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
@@ -59,12 +63,20 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     protected static final String HELPER_APP_PATH = "/data/local/tmp/NotificationBot.apk";
 
     private static final String TAG = "ByodFlowTestActivity";
+    private static final int PROVISIONING_CHECK_PERIOD_MS = 3000;
     private static ConnectivityManager mCm;
     private static final int REQUEST_MANAGED_PROVISIONING = 0;
     private static final int REQUEST_PROFILE_OWNER_STATUS = 1;
     private static final int REQUEST_INTENT_FILTERS_STATUS = 2;
     private static final int REQUEST_CHECK_DISK_ENCRYPTION = 3;
     private static final int REQUEST_SET_LOCK_FOR_ENCRYPTION = 4;
+
+    private static final String PROVISIONING_PREFERENCES = "provisioning_preferences";
+    private static final String PREFERENCE_PROVISIONING_COMPLETE_STATUS =
+            "provisioning_complete_status";
+    private static final int PREFERENCE_PROVISIONING_COMPLETE_STATUS_NOT_RECEIVED = 0;
+    private static final int PREFERENCE_PROVISIONING_COMPLETE_STATUS_RECEIVED = 1;
+    private static final int PREFERENCE_PROVISIONING_COMPLETE_STATUS_PROCESSED = 2;
 
     private ComponentName mAdminReceiverComponent;
     private KeyguardManager mKeyguardManager;
@@ -77,6 +89,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private DialogTestListItem mWorkAppVisibleTest;
     private DialogTestListItem mCrossProfileIntentFiltersTestFromPersonal;
     private DialogTestListItem mCrossProfileIntentFiltersTestFromWork;
+    private TestListItem mCrossProfilePermissionControl;
     private DialogTestListItem mAppLinkingTest;
     private TestListItem mNonMarketAppsTest;
     private DialogTestListItem mWorkNotificationBadgedTest;
@@ -116,6 +129,26 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private TestListItem mPolicyTransparencyTest;
     private TestListItem mTurnOffWorkFeaturesTest;
     private TestListItem mWidgetTest;
+    private final Handler mHandler = new Handler(Looper.myLooper());
+
+    private final Runnable mPeriodicProvisioningCheckRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (isProvisioningCompleteBroadcastReceived(getApplicationContext())) {
+                markProvisioningCompleteBroadcastProcessed(getApplicationContext());
+                queryProfileOwner(true);
+            } else {
+                mHandler.postDelayed(this, PROVISIONING_CHECK_PERIOD_MS);
+            }
+        }
+    };
+
+    public static class ProvisioningCompleteReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            markProvisioningCompleteBroadcastReceived(context);
+        }
+    }
 
     public ByodFlowTestActivity() {
         super(R.layout.provisioning_byod,
@@ -149,6 +182,27 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         } else {
             queryProfileOwner(false);
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        startPeriodicProvisioningCheckIfNecessary();
+    }
+
+    private void startPeriodicProvisioningCheckIfNecessary() {
+        if (mHandler.hasCallbacks(mPeriodicProvisioningCheckRunnable)) {
+            return;
+        }
+        if (!isProvisioningCompleteBroadcastProcessed(this)) {
+            mHandler.post(mPeriodicProvisioningCheckRunnable);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mHandler.removeCallbacks(mPeriodicProvisioningCheckRunnable);
     }
 
     @Override
@@ -192,7 +246,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private void handleStatusUpdate(int resultCode, Intent data) {
         boolean provisioned = data != null &&
                 data.getBooleanExtra(ByodHelperActivity.EXTRA_PROVISIONED, false);
-        setTestResult(mProfileOwnerInstalled, (provisioned && resultCode == RESULT_OK) ?
+        setProfileOwnerTestResult((provisioned && resultCode == RESULT_OK) ?
                 TestResult.TEST_RESULT_PASSED : TestResult.TEST_RESULT_FAILED);
     }
 
@@ -397,6 +451,13 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
             }
         };
 
+        mCrossProfilePermissionControl = TestListItem.newTest(this,
+                R.string.provisioning_byod_cross_profile_permission_control,
+                CrossProfilePermissionControlActivity.class.getName(),
+                new Intent(
+                        CrossProfilePermissionControlActivity.ACTION_CROSS_PROFILE_PERMISSION_CONTROL),
+                        null);
+
         mTurnOffWorkFeaturesTest = TestListItem.newTest(this,
                 R.string.provisioning_byod_turn_off_work,
                 TurnOffWorkActivity.class.getName(),
@@ -490,6 +551,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         adapter.add(mAppLinkingTest);
         */
         adapter.add(mIntentFiltersTest);
+        adapter.add(mCrossProfilePermissionControl);
         adapter.add(mNonMarketAppsTest);
         adapter.add(mPermissionLockdownTest);
         adapter.add(mKeyguardDisabledFeaturesTest);
@@ -693,15 +755,25 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
 
     private void queryProfileOwner(boolean showToast) {
         try {
+            // Set execution start time for counting test execution time.
+            mStartTime = System.currentTimeMillis();
             Intent intent = new Intent(ByodHelperActivity.ACTION_QUERY_PROFILE_OWNER);
             startActivityForResult(intent, REQUEST_PROFILE_OWNER_STATUS);
         }
         catch (ActivityNotFoundException e) {
             Log.d(TAG, "queryProfileOwner: ActivityNotFoundException", e);
-            setTestResult(mProfileOwnerInstalled, TestResult.TEST_RESULT_FAILED);
+            setProfileOwnerTestResult(TestResult.TEST_RESULT_FAILED);
             if (showToast) {
                 Utils.showToast(this, R.string.provisioning_byod_no_activity);
             }
+        }
+    }
+
+    private void setProfileOwnerTestResult(int result) {
+        setTestResult(mProfileOwnerInstalled, result);
+        if (result == TestResult.TEST_RESULT_FAILED) {
+            clearProvisioningCompleteBroadcastStatus(this);
+            startPeriodicProvisioningCheckIfNecessary();
         }
     }
 
@@ -797,5 +869,43 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         getPackageManager().setComponentEnabledSetting(
             new ComponentName(ByodFlowTestActivity.this, HandleIntentActivity.class.getName()),
             enableState, PackageManager.DONT_KILL_APP);
+    }
+
+    private static void markProvisioningCompleteBroadcastReceived(Context context) {
+        markProvisioningCompleteBroadcastWithStatus(context,
+                PREFERENCE_PROVISIONING_COMPLETE_STATUS_RECEIVED);
+    }
+
+    private static void markProvisioningCompleteBroadcastProcessed(Context context) {
+        markProvisioningCompleteBroadcastWithStatus(context,
+                PREFERENCE_PROVISIONING_COMPLETE_STATUS_PROCESSED);
+    }
+
+    private static void clearProvisioningCompleteBroadcastStatus(Context context) {
+        markProvisioningCompleteBroadcastWithStatus(context,
+                PREFERENCE_PROVISIONING_COMPLETE_STATUS_NOT_RECEIVED);
+    }
+
+    private static void markProvisioningCompleteBroadcastWithStatus(Context context, int status) {
+        final SharedPreferences prefs = getProvisioningPreferences(context);
+        final SharedPreferences.Editor editor = prefs.edit();
+        editor.putInt(PREFERENCE_PROVISIONING_COMPLETE_STATUS, status);
+        editor.commit();
+    }
+
+    private static boolean isProvisioningCompleteBroadcastReceived(Context context) {
+        return getProvisioningPreferences(context)
+                .getInt(PREFERENCE_PROVISIONING_COMPLETE_STATUS, 0) ==
+                PREFERENCE_PROVISIONING_COMPLETE_STATUS_RECEIVED;
+    }
+
+    private static boolean isProvisioningCompleteBroadcastProcessed(Context context) {
+        return getProvisioningPreferences(context)
+                .getInt(PREFERENCE_PROVISIONING_COMPLETE_STATUS, 0) ==
+                PREFERENCE_PROVISIONING_COMPLETE_STATUS_PROCESSED;
+    }
+
+    private static SharedPreferences getProvisioningPreferences(Context context) {
+        return context.getSharedPreferences(PROVISIONING_PREFERENCES, MODE_PRIVATE);
     }
 }

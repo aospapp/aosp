@@ -42,6 +42,7 @@
             android:maxLength="25"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:textCursorDrawable="@android:color/transparent"
             android:imeOptions="flagNoFullscreen" />
     </LinearLayout>
 
@@ -61,6 +62,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textPassword"
+            android:textCursorDrawable="@android:color/transparent"
             android:imeOptions="flagNoFullscreen" />
     </LinearLayout>
 

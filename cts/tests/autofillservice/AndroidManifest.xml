@@ -22,6 +22,7 @@
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
     <application>
 
@@ -43,6 +44,16 @@
         <activity android:name=".LoginNotImportantForAutofillWrappedActivityContextActivity" />
         <activity android:name=".LoginNotImportantForAutofillWrappedApplicationContextActivity" />
         <activity android:name=".WelcomeActivity" android:taskAffinity=".WelcomeActivity"/>
+        <activity android:name=".ViewActionActivity"
+                  android:taskAffinity=".ViewActionActivity"
+                  android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <data android:scheme="autofillcts" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".SecondActivity" android:taskAffinity=".SecondActivity"/>
         <activity android:name=".ViewAttributesTestActivity" />
         <activity android:name=".AuthenticationActivity" />
         <activity android:name=".ManualAuthenticationActivity" />
@@ -123,6 +134,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".SimpleAfterLoginActivity" />
+        <activity android:name=".SimpleBeforeLoginActivity" />
+        <activity android:name=".NonAutofillableActivity" />
 
         <receiver android:name=".SelfDestructReceiver"
             android:exported="true"
@@ -149,6 +163,18 @@
             <meta-data
                 android:name="android.autofill"
                 android:resource="@xml/autofill_service_compat_mode_config">
+            </meta-data>
+        </service>
+        <service
+            android:name=".inline.InstrumentedAutoFillServiceInlineEnabled"
+            android:label="InstrumentedAutoFillServiceInlineEnabled"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE" >
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.autofill"
+                android:resource="@xml/autofill_service_inline_enabled">
             </meta-data>
         </service>
         <service

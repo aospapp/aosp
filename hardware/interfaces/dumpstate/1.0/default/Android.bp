@@ -1,5 +1,5 @@
 cc_binary {
-    name: "android.hardware.dumpstate@1.0-service",
+    name: "android.hardware.dumpstate@1.0-service.example",
     init_rc: ["android.hardware.dumpstate@1.0-service.rc"],
     relative_install_path: "hw",
     vendor: true,
@@ -18,7 +18,6 @@ cc_binary {
         "libcutils",
         "libdumpstateutil",
         "libhidlbase",
-        "libhidltransport",
         "liblog",
         "libutils",
     ],

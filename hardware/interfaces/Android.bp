@@ -21,9 +21,14 @@ cc_defaults {
 
     // Lists all dependencies that can *not* be expected on the device.
     static_libs: [
-        "VtsHalHidlTargetTestBase",
+        "VtsHalHidlTestUtils",
         "libhidl-gen-utils",
     ],
+
+    header_libs: [
+        "libhidl_gtest_helper",
+    ],
+
     group_static_libs: true,
 
     // Lists all system dependencies that can be expected on the device.
@@ -33,8 +38,6 @@ cc_defaults {
         "libcutils",
         "liblog",
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "libutils",
     ],
     cflags: [
@@ -42,4 +45,17 @@ cc_defaults {
         "-g",
     ],
 
+    require_root: true,
+}
+
+// TODO: Remove this after all vts tests under vendor/qcom are converted to
+// parameterized gtest.
+cc_defaults {
+    name: "Vts10HalTargetTestDefaults",
+    defaults: [
+        "VtsHalTargetTestDefaults",
+    ],
+    static_libs: [
+        "VtsHalHidlTargetTestBase",
+    ],
 }

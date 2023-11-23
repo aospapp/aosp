@@ -23,6 +23,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BaseTargetPreparer;
@@ -60,8 +61,8 @@ public abstract class PreconditionPreparer extends BaseTargetPreparer {
     protected final String mLogTag = getClass().getSimpleName();
 
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
-            BuildError, DeviceNotAvailableException {
+    public void setUp(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
         if (mSkipPreconditions) {
             return;
         }
@@ -72,7 +73,7 @@ public abstract class PreconditionPreparer extends BaseTargetPreparer {
             String argValue = (parts.length > 1) ? parts[1] : Boolean.toString(true);
             setOption(argName, argValue);
         }
-        run(device, buildInfo);
+        run(testInfo);
     }
 
     private void setOption(String option, String value) {
@@ -89,8 +90,18 @@ public abstract class PreconditionPreparer extends BaseTargetPreparer {
      * All PreconditionPreparer implementations share a base setup and can implement their own
      * specific run logic.
      */
-    public abstract void run(ITestDevice device, IBuildInfo buildInfo)
-            throws TargetSetupError, BuildError, DeviceNotAvailableException;
+    public void run(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        // TODO: Make this method abstract again once other one is removed.
+        run(testInfo.getDevice(), testInfo.getBuildInfo());
+    }
+
+    /** @deprecated Use {@link #run(TestInformation)} instead. */
+    @Deprecated
+    public void run(ITestDevice device, IBuildInfo buildInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        // Empty on purpose.
+    }
 
     /** @deprecated Use {@link CLog} instead. */
     @Deprecated

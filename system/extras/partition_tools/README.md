@@ -44,6 +44,27 @@ It also accepts an optional argument `-s,--slot=N` which can dump a specific met
 
 Usage: `lpdump [-s,--slot=N] PATH`
 
+## lpadd
+
+lpadd is a command-line tool for adding images to a super.img file, or a partition to a super\_empty.img file. This is useful for mixed or split builds involving dynamic partitions. The syntax is:
+
+```
+lpadd [options] SUPER_FILE PART_NAME GROUP_NAME [IMAGE_FILE]
+```
+
+The parameters are:
+* `--readonly` - The partition should be mapped as read-only.
+* `SUPER_FILE` - The `super.img` or `super_empty.img` file. If the image is sparsed, it will be temporarily unsparsed, and re-sparsed at the end.
+* `PART_NAME` - The partition name. It must not already exist.
+* `GROUP_NAME` - The updateable group name for the partition.
+* `IMAGE_FILE` - If specified, the contents of the image will be embedded in the given super.img. This does not work for a `super_empty.img` file. If the source image is sparsed, the unsparsed content will be embedded. The new partition size will be the smallest block-aligned size capable of holding the entire image.
+
+Note that when interacting with sparsed images, `lpadd` can consume a great deal of space in `TMPDIR`. If `TMPDIR` does not have enough free space, it can be set in the environment, eg:
+
+```
+TMPDIR=/path/to/temp lpadd ...
+```
+
 ## lpflash
 
 lpflash writes a non-sparse image from lpmake to a block device. It is intended to be run on the device itself.

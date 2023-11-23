@@ -1,3 +1,7 @@
+# HALs released in Android P MAR20 QPR
+
+bcaa8ef72b0ebbcbd0873f600a8d2bc45f76a6fb119ad6aeae4c5347a790aedb hardware.google.light@1.1::ILight
+
 # HALs released in Android P
 
 b5f3bf3382d7bddf9c22a5f132ff265168e68c4e5373db702cb260d8b20f27d8 hardware.google.light@1.0::ILight

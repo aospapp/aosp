@@ -23,11 +23,13 @@ import android.app.AppOpsManager;
 import android.app.usage.UsageEvents;
 import android.app.usage.UsageEvents.Event;
 import android.app.usage.UsageStatsManager;
+import android.content.Context;
 import android.content.pm.cts.shortcutmanager.common.Constants;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.format.Time;
 
 import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.ShellIdentityUtils;
 
 @CddTest(requirement="3.8.1/C-4-1")
 @SmallTest
@@ -38,12 +40,16 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
     // We need some allowance due to b/30415390.
     private static long USAGE_STATS_RANGE_ALLOWANCE = 60 * 1000;
 
+    private UsageStatsManager mUsageStatsManager;
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
         appOps(getInstrumentation(), getTestContext().getPackageName(),
                 AppOpsManager.OPSTR_GET_USAGE_STATS, "allow");
+
+        mUsageStatsManager = getTestContext().getSystemService(UsageStatsManager.class);
     }
 
     @Override
@@ -105,16 +111,13 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
             )));
         });
 
-        final UsageStatsManager usm = getTestContext().getSystemService(UsageStatsManager.class);
-
         // Report usage.
         final long start1 = System.currentTimeMillis() - USAGE_STATS_RANGE_ALLOWANCE;
         runWithCallerWithStrictMode(mPackageContext2, () -> getManager().reportShortcutUsed(id3));
         final long end1 = System.currentTimeMillis() + USAGE_STATS_RANGE_ALLOWANCE;
 
         // Check the log.
-        retryUntil(() -> hasEvent(usm.queryEvents(start1, end1),
-                mPackageContext2.getPackageName(), id3), "Events weren't populated");
+        checkEventReported(start1, end1, mPackageContext2, id3, "Events weren't populated");
 
         // Report usage.
         final long start2 = System.currentTimeMillis() - USAGE_STATS_RANGE_ALLOWANCE;
@@ -122,8 +125,7 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
         final long end2 = System.currentTimeMillis() + USAGE_STATS_RANGE_ALLOWANCE;
 
         // Check the log.
-        retryUntil(() -> hasEvent(usm.queryEvents(start2, end2),
-                mPackageContext1.getPackageName(), id1), "Events weren't populated");
+        checkEventReported(start2, end2, mPackageContext1, id1, "Events weren't populated");
 
         // Report usage.
         final long start3 = System.currentTimeMillis() - USAGE_STATS_RANGE_ALLOWANCE;
@@ -132,10 +134,53 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
         final long end3 = System.currentTimeMillis() + USAGE_STATS_RANGE_ALLOWANCE;
 
         // Check the log.
-        retryUntil(() -> hasEvent(usm.queryEvents(start3, end3),
-                mPackageContext1.getPackageName(), idManifest), "Events weren't populated");
+        checkEventReported(start3, end3, mPackageContext1, idManifest, "Events weren't populated");
         // Ensure that the nonexistent shortcut is not reported, even after the other one is.
-        assertFalse(hasEvent(usm.queryEvents(start3, end3),
-                    mPackageContext1.getPackageName(), idNonexistance));
+        assertFalse(hasEvent(ShellIdentityUtils.invokeMethodWithShellPermissions(
+                mUsageStatsManager, (usm) -> usm.queryEvents(start3, end3)),
+                mPackageContext1.getPackageName(), idNonexistance));
+    }
+
+    public void testShortcutInvocationEventIsVisible() {
+        final String id1 = generateRandomId("id1");
+        final String id2 = generateRandomId("id2");
+        runWithCallerWithStrictMode(mPackageContext1,
+                () -> assertTrue(getManager().setDynamicShortcuts(
+                        list(makeShortcut(id1), makeShortcut(id2)))));
+
+        // report shortcut usage
+        final long start = System.currentTimeMillis() - USAGE_STATS_RANGE_ALLOWANCE;
+        runWithCallerWithStrictMode(mPackageContext1, () -> getManager().reportShortcutUsed(id1));
+        final long end = System.currentTimeMillis() + USAGE_STATS_RANGE_ALLOWANCE;
+
+        // ensure visibility of SHORTCUT_INVOCATION event
+        checkEventReported(start, end, mPackageContext1, id1,
+                "SHORTCUT_INVOCATION event was not reported.");
+    }
+
+    public void testShortcutInvocationEventIsNotVisible() {
+        final String id1 = generateRandomId("id1");
+        final String id2 = generateRandomId("id2");
+        runWithCallerWithStrictMode(mPackageContext1,
+                () -> assertTrue(getManager().setDynamicShortcuts(
+                        list(makeShortcut(id1), makeShortcut(id2)))));
+
+        // report shortcut usage
+        final long start = System.currentTimeMillis() - USAGE_STATS_RANGE_ALLOWANCE;
+        runWithCallerWithStrictMode(mPackageContext1, () -> getManager().reportShortcutUsed(id1));
+        final long end = System.currentTimeMillis() + USAGE_STATS_RANGE_ALLOWANCE;
+
+        // SHORTCUT_INVOCATION event should not be visible
+        assertFalse("SHORTCUT_INVOCATION event was visible.",
+                hasEvent(mUsageStatsManager.queryEvents(start, end),
+                        mPackageContext1.getPackageName(), id1));
+    }
+
+    private void checkEventReported(long start, long end, Context packageContext, String id,
+            String failureMessage) {
+        retryUntil(() -> hasEvent(
+                ShellIdentityUtils.invokeMethodWithShellPermissions(mUsageStatsManager,
+                        (usm) -> usm.queryEvents(start, end)), packageContext.getPackageName(), id),
+                failureMessage);
     }
 }

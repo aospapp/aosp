@@ -24,7 +24,7 @@
 
 namespace chre {
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 class FixedSizeVector : public NonCopyable {
  public:
   /**
@@ -35,14 +35,14 @@ class FixedSizeVector : public NonCopyable {
   /**
    * @return A reference to the last element in the vector
    */
-  ElementType& back();
-  const ElementType& back() const;
+  ElementType &back();
+  const ElementType &back() const;
 
   /**
    * @return A reference to the first element in the vector
    */
-  ElementType& front();
-  const ElementType& front() const;
+  ElementType &front();
+  const ElementType &front() const;
 
   /**
    * Obtains a pointer to the underlying storage for the vector.
@@ -96,7 +96,7 @@ class FixedSizeVector : public NonCopyable {
    *
    * @param The element to push onto the vector.
    */
-  void push_back(const ElementType& element);
+  void push_back(const ElementType &element);
 
   /**
    * Constructs an element onto the back of the vector. It is illegal to
@@ -106,8 +106,8 @@ class FixedSizeVector : public NonCopyable {
    *
    * @param The arguments to the constructor
    */
-  template<typename... Args>
-  void emplace_back(Args&&... args);
+  template <typename... Args>
+  void emplace_back(Args &&... args);
 
   /**
    * Erases the last element in the vector. Invalid to call on an empty vector.
@@ -125,7 +125,7 @@ class FixedSizeVector : public NonCopyable {
    * @param The index of the element.
    * @return The element.
    */
-  ElementType& operator[](size_t index);
+  ElementType &operator[](size_t index);
 
   /**
    * Obtains a const element of the vector given an index. It is illegal to
@@ -136,7 +136,7 @@ class FixedSizeVector : public NonCopyable {
    * @param The index of the element.
    * @return The element.
    */
-  const ElementType& operator[](size_t index) const;
+  const ElementType &operator[](size_t index) const;
 
   /**
    * Removes an element from the vector given an index. All elements after the
@@ -177,15 +177,17 @@ class FixedSizeVector : public NonCopyable {
   /**
    * Random-access iterator that points to some element in the container.
    */
-  typedef ElementType* iterator;
-  typedef const ElementType* const_iterator;
+  typedef ElementType *iterator;
+  typedef const ElementType *const_iterator;
 
   /**
    * @return A random-access iterator to the beginning.
    */
   typename FixedSizeVector<ElementType, kCapacity>::iterator begin();
-  typename FixedSizeVector<ElementType, kCapacity>::const_iterator begin() const;
-  typename FixedSizeVector<ElementType, kCapacity>::const_iterator cbegin() const;
+  typename FixedSizeVector<ElementType, kCapacity>::const_iterator begin()
+      const;
+  typename FixedSizeVector<ElementType, kCapacity>::const_iterator cbegin()
+      const;
 
   /**
    * @return A random-access iterator to the end.
@@ -197,8 +199,8 @@ class FixedSizeVector : public NonCopyable {
  private:
   //! Storage for vector elements. To avoid static initialization of members,
   //! std::aligned_storage is used.
-  typename std::aligned_storage<sizeof(ElementType),
-      alignof(ElementType)>::type mData[kCapacity];
+  typename std::aligned_storage<sizeof(ElementType), alignof(ElementType)>::type
+      mData[kCapacity];
 
   //! The number of elements in the vector. This will never be more than
   //! kCapacity.

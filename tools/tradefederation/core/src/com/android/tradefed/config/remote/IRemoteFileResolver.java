@@ -15,10 +15,12 @@
  */
 package com.android.tradefed.config.remote;
 
-import com.android.tradefed.config.ConfigurationException;
-import com.android.tradefed.config.Option;
+import com.android.tradefed.build.BuildRetrievalError;
+import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
 
 import java.io.File;
+import java.util.Map;
 
 import javax.annotation.Nonnull;
 
@@ -32,13 +34,38 @@ public interface IRemoteFileResolver {
      * Resolve the remote file.
      *
      * @param consideredFile {@link File} evaluated as remote.
-     * @param option The original option configuring the file.
      * @return The resolved local file.
-     * @throws ConfigurationException if something goes wrong.
+     * @throws BuildRetrievalError if something goes wrong.
      */
-    public @Nonnull File resolveRemoteFiles(File consideredFile, Option option)
-            throws ConfigurationException;
+    public default @Nonnull File resolveRemoteFiles(File consideredFile)
+            throws BuildRetrievalError {
+        throw new BuildRetrievalError(
+                "Should not have been called", InfraErrorIdentifier.ARTIFACT_UNSUPPORTED_PATH);
+    }
+
+    /**
+     * Resolve the remote file.
+     *
+     * @param consideredFile {@link File} evaluated as remote.
+     * @param queryArgs The arguments passed as a query to the URL.
+     * @return The resolved local file.
+     * @throws BuildRetrievalError if something goes wrong.
+     */
+    public default @Nonnull File resolveRemoteFiles(
+            File consideredFile, Map<String, String> queryArgs) throws BuildRetrievalError {
+        return resolveRemoteFiles(consideredFile);
+    }
 
     /** Returns the associated protocol supported for download. */
     public @Nonnull String getSupportedProtocol();
+
+    /**
+     * Optional way for the implementation to receive an {@ink ITestDevice} representation of the
+     * device under tests.
+     *
+     * @param device The {@link ITestDevice} of the current invocation.
+     */
+    public default void setPrimaryDevice(ITestDevice device) {
+        // Do nothing by default
+    }
 }

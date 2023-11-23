@@ -41,3 +41,16 @@ class FuchsiaGattsLib(BaseLib):
         self.test_counter += 1
 
         return self.send_command(test_id, test_cmd, test_args)
+
+    def closeServer(self):
+        """Closes an active GATT server.
+
+        Returns:
+            Dictionary, None if success, error if error.
+        """
+        test_cmd = "gatt_server_facade.GattServerCloseServer"
+        test_args = {}
+        test_id = self.build_id(self.test_counter)
+        self.test_counter += 1
+
+        return self.send_command(test_id, test_cmd, test_args)

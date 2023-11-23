@@ -15,7 +15,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 8401224907861490260 (0x7497258ac73f7a54)
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: C=US, O=AffirmTrust, CN=AffirmTrust Premium ECC
         Validity
             Not Before: Jan 29 14:20:24 2010 GMT

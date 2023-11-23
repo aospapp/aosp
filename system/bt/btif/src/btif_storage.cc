@@ -72,9 +72,6 @@ using bluetooth::Uuid;
 #define BTIF_STORAGE_PATH_REMOTE_DEVCLASS "DevClass"
 #define BTIF_STORAGE_PATH_REMOTE_DEVTYPE "DevType"
 #define BTIF_STORAGE_PATH_REMOTE_NAME "Name"
-#define BTIF_STORAGE_PATH_REMOTE_VER_MFCT "Manufacturer"
-#define BTIF_STORAGE_PATH_REMOTE_VER_VER "LmpVer"
-#define BTIF_STORAGE_PATH_REMOTE_VER_SUBVER "LmpSubVer"
 
 //#define BTIF_STORAGE_PATH_REMOTE_LINKKEYS "remote_linkkeys"
 #define BTIF_STORAGE_PATH_REMOTE_ALIASE "Aliase"
@@ -260,11 +257,10 @@ static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
 
       if (!info) return false;
 
-      btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_MFCT,
+      btif_config_set_int(bdstr, BT_CONFIG_KEY_REMOTE_VER_MFCT,
                           info->manufacturer);
-      btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_VER,
-                          info->version);
-      btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_SUBVER,
+      btif_config_set_int(bdstr, BT_CONFIG_KEY_REMOTE_VER_VER, info->version);
+      btif_config_set_int(bdstr, BT_CONFIG_KEY_REMOTE_VER_SUBVER,
                           info->sub_ver);
     } break;
 
@@ -382,15 +378,15 @@ static int cfg2prop(const RawAddress* remote_bd_addr, bt_property_t* prop) {
       bt_remote_version_t* info = (bt_remote_version_t*)prop->val;
 
       if (prop->len >= (int)sizeof(bt_remote_version_t)) {
-        ret = btif_config_get_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_MFCT,
+        ret = btif_config_get_int(bdstr, BT_CONFIG_KEY_REMOTE_VER_MFCT,
                                   &info->manufacturer);
 
         if (ret)
-          ret = btif_config_get_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_VER,
+          ret = btif_config_get_int(bdstr, BT_CONFIG_KEY_REMOTE_VER_VER,
                                     &info->version);
 
         if (ret)
-          ret = btif_config_get_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_SUBVER,
+          ret = btif_config_get_int(bdstr, BT_CONFIG_KEY_REMOTE_VER_SUBVER,
                                     &info->sub_ver);
       }
     } break;
@@ -889,8 +885,9 @@ static void remove_devices_with_sample_ltk() {
     tBTA_LE_KEY_VALUE key;
     memset(&key, 0, sizeof(key));
 
-    if (btif_storage_get_ble_bonding_key(&bd_addr, BTIF_DM_LE_KEY_PENC, (uint8_t*)&key, sizeof(tBTM_LE_PENC_KEYS)) ==
-        BT_STATUS_SUCCESS) {
+    if (btif_storage_get_ble_bonding_key(
+            &bd_addr, BTIF_DM_LE_KEY_PENC, (uint8_t*)&key,
+            sizeof(tBTM_LE_PENC_KEYS)) == BT_STATUS_SUCCESS) {
       if (is_sample_ltk(key.penc_key.ltk)) {
         bad_ltk.push_back(bd_addr);
       }
@@ -899,7 +896,8 @@ static void remove_devices_with_sample_ltk() {
 
   for (RawAddress address : bad_ltk) {
     android_errorWriteLog(0x534e4554, "128437297");
-    LOG(ERROR) << __func__ << ": removing bond to device using test TLK: " << address;
+    LOG(ERROR) << __func__
+               << ": removing bond to device using test TLK: " << address;
 
     btif_storage_remove_bonded_device(&address);
   }
@@ -1119,6 +1117,7 @@ bt_status_t btif_storage_get_ble_bonding_key(RawAddress* remote_bd_addr,
       break;
     case BTIF_DM_LE_KEY_LID:
       name = "LE_KEY_LID";
+      break;
     default:
       return BT_STATUS_FAIL;
   }

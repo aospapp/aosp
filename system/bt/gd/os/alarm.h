@@ -20,6 +20,8 @@
 #include <memory>
 #include <mutex>
 
+#include "common/callback.h"
+#include "os/handler.h"
 #include "os/thread.h"
 #include "os/utils.h"
 
@@ -31,8 +33,8 @@ namespace os {
 // itself from the thread.
 class Alarm {
  public:
-  // Create and register a single-shot alarm on given thread
-  explicit Alarm(Thread* thread);
+  // Create and register a single-shot alarm on a given handler
+  explicit Alarm(Handler* handler);
 
   // Unregister this alarm from the thread and release resource
   ~Alarm();
@@ -40,14 +42,14 @@ class Alarm {
   DISALLOW_COPY_AND_ASSIGN(Alarm);
 
   // Schedule the alarm with given delay
-  void Schedule(Closure task, std::chrono::milliseconds delay);
+  void Schedule(OnceClosure task, std::chrono::milliseconds delay);
 
   // Cancel the alarm. No-op if it's not armed.
   void Cancel();
 
  private:
-  Closure task_;
-  Thread* thread_;
+  OnceClosure task_;
+  Handler* handler_;
   int fd_ = 0;
   Reactor::Reactable* token_;
   mutable std::mutex mutex_;

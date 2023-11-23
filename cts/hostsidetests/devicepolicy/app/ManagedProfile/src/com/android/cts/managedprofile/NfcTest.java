@@ -20,21 +20,34 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.test.AndroidTestCase;
-import android.util.Log;
 
 public class NfcTest extends AndroidTestCase {
     private static final String SAMPLE_TEXT = "This is my text to send.";
     private static final String TEXT_MIME_TYPE = "text/plain";
     private static final String NFC_BEAM_ACTIVITY = "com.android.nfc.BeamShareActivity";
+    private static int NFC_RESOLVE_TIME_STEP_MILLIS = 1000;
+    private static int NFC_RESOLVE_TIMEOUT_MILLIS = 16000;
 
     public void testNfcShareDisabled() throws Exception {
         Intent intent = getTextShareIntent();
+        // After the "no_outgoing_beam" configuration item is modified, it takes a while
+        // until NFC receives the DEVICE_POLICY_MANAGER_STATE_CHANGED broadcast
+        waitForNfcBeamActivityDisabled(intent, NFC_RESOLVE_TIMEOUT_MILLIS);
         assertFalse("Nfc beam activity should not be resolved", isNfcBeamActivityResolved(intent));
     }
 
     public void testNfcShareEnabled() throws Exception {
         Intent intent = getTextShareIntent();
         assertTrue("Nfc beam activity should be resolved", isNfcBeamActivityResolved(intent));
+    }
+
+    private void waitForNfcBeamActivityDisabled(Intent intent, int maxDelayMillis)
+            throws Exception {
+        int totalDelayedMillis = 0;
+        while (isNfcBeamActivityResolved(intent) && totalDelayedMillis <= maxDelayMillis) {
+            Thread.sleep(NFC_RESOLVE_TIME_STEP_MILLIS);
+            totalDelayedMillis += NFC_RESOLVE_TIME_STEP_MILLIS;
+        }
     }
 
     private Intent getTextShareIntent() {

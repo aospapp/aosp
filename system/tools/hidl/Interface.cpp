@@ -30,6 +30,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <unordered_map>
 
 #include <android-base/logging.h>
@@ -71,12 +72,12 @@ enum {
 const std::unique_ptr<ConstantExpression> Interface::FLAG_ONE_WAY =
     std::make_unique<LiteralConstantExpression>(ScalarType::KIND_UINT32, 0x01, "oneway");
 
-Interface::Interface(const char* localName, const FQName& fullName, const Location& location,
+Interface::Interface(const std::string& localName, const FQName& fullName, const Location& location,
                      Scope* parent, const Reference<Type>& superType, const Hash* fileHash)
     : Scope(localName, fullName, location, parent), mSuperType(superType), mFileHash(fileHash) {}
 
 std::string Interface::typeName() const {
-    return "interface " + localName();
+    return "interface " + definedName();
 }
 
 const Hash* Interface::getFileHash() const {
@@ -273,7 +274,7 @@ bool Interface::fillDescriptorChainMethod(Method *method) const {
                 }
             });
             out << ");\n";
-            out << "return ::android::hardware::Void();";
+            out << "return ::android::hardware::Void();\n";
         } } }, /* cppImpl */
         { { IMPL_INTERFACE, [this](auto &out) {
             std::vector<const Interface *> chain = typeChain();
@@ -441,23 +442,9 @@ bool Interface::fillDebugMethod(Method *method) const {
     return true;
 }
 
-static std::map<std::string, Method *> gAllReservedMethods;
-
-bool Interface::addMethod(Method *method) {
-    if (isIBase()) {
-        if (!gAllReservedMethods.emplace(method->name(), method).second) {
-            std::cerr << "ERROR: hidl-gen encountered duplicated reserved method " << method->name()
-                      << std::endl;
-            return false;
-        }
-        // will add it in addAllReservedMethods
-        return true;
-    }
-
+void Interface::addUserDefinedMethod(Method* method) {
     CHECK(!method->isHidlReserved());
     mUserMethods.push_back(method);
-
-    return true;
 }
 
 std::vector<const Reference<Type>*> Interface::getReferences() const {
@@ -472,15 +459,6 @@ std::vector<const Reference<Type>*> Interface::getReferences() const {
         ret.insert(ret.end(), references.begin(), references.end());
     }
 
-    return ret;
-}
-
-std::vector<const ConstantExpression*> Interface::getConstantExpressions() const {
-    std::vector<const ConstantExpression*> ret;
-    for (const auto* method : methods()) {
-        const auto& retMethod = method->getConstantExpressions();
-        ret.insert(ret.end(), retMethod.begin(), retMethod.end());
-    }
     return ret;
 }
 
@@ -600,10 +578,10 @@ status_t Interface::validateAnnotations() const {
     return OK;
 }
 
-bool Interface::addAllReservedMethods() {
+bool Interface::addAllReservedMethods(const std::map<std::string, Method*>& allReservedMethods) {
     // use a sorted map to insert them in serial ID order.
     std::map<int32_t, Method *> reservedMethodsById;
-    for (const auto &pair : gAllReservedMethods) {
+    for (const auto& pair : allReservedMethods) {
         Method *method = pair.second->copySignature();
         bool fillSuccess = fillPingMethod(method)
             || fillDescriptorChainMethod(method)
@@ -760,7 +738,7 @@ std::string Interface::getJavaType(bool /* forInitializer */) const {
 }
 
 std::string Interface::getVtsType() const {
-    if (StringHelper::EndsWith(localName(), "Callback")) {
+    if (StringHelper::EndsWith(definedName(), "Callback")) {
         return "TYPE_HIDL_CALLBACK";
     } else {
         return "TYPE_HIDL_INTERFACE";
@@ -836,6 +814,33 @@ void Interface::emitReaderWriter(
     }
 }
 
+void Interface::emitHidlDefinition(Formatter& out) const {
+    if (getDocComment() != nullptr) getDocComment()->emit(out);
+    out << typeName() << " ";
+
+    const Interface* super = superType();
+    if (super != nullptr && !super->isIBase()) {
+        out << "extends " << super->fqName().getRelativeFQName(fqName()) << " ";
+    }
+
+    out << "{";
+
+    out.indent([&] {
+        const std::vector<const NamedType*>& definedTypes = getSortedDefinedTypes();
+        if (definedTypes.size() > 0 || userDefinedMethods().size() > 0) out << "\n";
+
+        out.join(definedTypes.begin(), definedTypes.end(), "\n",
+                 [&](auto t) { t->emitHidlDefinition(out); });
+
+        if (definedTypes.size() > 0 && userDefinedMethods().size() > 0) out << "\n";
+
+        out.join(userDefinedMethods().begin(), userDefinedMethods().end(), "\n",
+                 [&](auto method) { method->emitHidlDefinition(out); });
+    });
+
+    out << "};\n";
+}
+
 void Interface::emitPackageTypeDeclarations(Formatter& out) const {
     Scope::emitPackageTypeDeclarations(out);
 
@@ -859,7 +864,7 @@ void Interface::emitPackageTypeHeaderDefinitions(Formatter& out) const {
 void Interface::emitTypeDefinitions(Formatter& out, const std::string& prefix) const {
     std::string space = prefix.empty() ? "" : (prefix + "::");
 
-    Scope::emitTypeDefinitions(out, space + localName());
+    Scope::emitTypeDefinitions(out, space + definedName());
 }
 
 void Interface::emitJavaReaderWriter(
@@ -959,22 +964,6 @@ void Interface::emitVtsAttributeType(Formatter& out) const {
         << "\"\n";
 }
 
-bool Interface::hasOnewayMethods() const {
-    for (auto const &method : methods()) {
-        if (method->isOneway()) {
-            return true;
-        }
-    }
-
-    const Interface* superClass = superType();
-
-    if (superClass != nullptr) {
-        return superClass->hasOnewayMethods();
-    }
-
-    return false;
-}
-
 bool Interface::deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const {
     if (superType() != nullptr && !superType()->isJavaCompatible(visited)) {
         return false;
@@ -992,6 +981,9 @@ bool Interface::deepIsJavaCompatible(std::unordered_set<const Type*>* visited) c
 bool Interface::isNeverStrongReference() const {
     return true;
 }
+
+const FQName gIBaseFqName = FQName("android.hidl.base", "1.0", "IBase");
+const FQName gIManagerFqName = FQName("android.hidl.manager", "1.0", "IServiceManager");
 
 }  // namespace android
 

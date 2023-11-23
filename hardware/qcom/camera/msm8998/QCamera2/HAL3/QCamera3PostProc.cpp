@@ -796,8 +796,29 @@ int32_t QCamera3PostProcessor::processPPData(mm_camera_super_buf_t *frame)
     // free pp job buf
     free(job);
 
-    // enqueu reprocessed frame to jpeg input queue
-    m_inputJpegQ.enqueue((void *)jpeg_job);
+    return processJpegJob(jpeg_job);
+}
+
+/*===========================================================================
+ * FUNCTION   : processJpegJob
+ *
+ * DESCRIPTION: process received jpeg job.
+ *
+ * PARAMETERS :
+ *   @job    : received jpeg job.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *
+ *==========================================================================*/
+int32_t QCamera3PostProcessor::processJpegJob(qcamera_hal3_jpeg_data_t *job) {
+    if (job == nullptr) {
+        return BAD_VALUE;
+    }
+
+    // queue job to jpeg input queue
+    m_inputJpegQ.enqueue((void *)job);
 
     // wait up data proc thread
     m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_DO_NEXT_JOB, FALSE, FALSE);
@@ -1014,7 +1035,7 @@ void QCamera3PostProcessor::releaseJpegJobData(qcamera_hal3_jpeg_data_t *job)
         }
 
         if (NULL != job->src_frame) {
-            if (NULL != m_pReprocChannel) {
+            if (NULL != m_pReprocChannel && !job->hdr_plus_processing) {
                 rc = m_pReprocChannel->bufDone(job->src_frame);
                 if (NO_ERROR != rc)
                     LOGE("bufDone error: %d", rc);

@@ -775,4 +775,69 @@ class ConvertTest : DriverTest() {
             )
         )
     }
+
+    @Test
+    fun `Test convert v2 to v2`() {
+        check(
+            compatibilityMode = false,
+            convertToJDiff = listOf(
+                ConvertData(
+                    strip = false,
+                    format = FileFormat.V2,
+                    fromApi =
+                    """
+                    // Signature format: 2.0
+                    package test.pkg {
+                      public class MyTest1 {
+                        ctor public MyTest1();
+                        method @Deprecated public int clamp(int);
+                        method public Double convert(Float);
+                        field public static final String ANY_CURSOR_ITEM_TYPE = "vnd.android.cursor.item/*";
+                        field @Annot @Annot.Nested @NonNull public String annotationLoaded;
+                        field @Deprecated public Number myNumber;
+                      }
+                      public class MyTest2 {
+                        ctor public MyTest2();
+                        method public Double convert(Float);
+                      }
+                    }
+                    package test.pkg.new {
+                      public interface MyInterface {
+                      }
+                      public abstract class MyTest3 implements java.util.List {
+                      }
+                      public abstract class MyTest4 implements test.pkg.new.MyInterface {
+                      }
+                    }
+                    """,
+                    outputFile =
+                    """
+                    // Signature format: 2.0
+                    package test.pkg {
+                      public class MyTest1 {
+                        ctor public MyTest1();
+                        method @Deprecated public int clamp(int);
+                        method public Double convert(Float);
+                        field public static final String ANY_CURSOR_ITEM_TYPE = "vnd.android.cursor.item/*";
+                        field @Annot @Annot.Nested @NonNull public String annotationLoaded;
+                        field @Deprecated public Number myNumber;
+                      }
+                      public class MyTest2 {
+                        ctor public MyTest2();
+                        method public Double convert(Float);
+                      }
+                    }
+                    package test.pkg.new {
+                      public interface MyInterface {
+                      }
+                      public abstract class MyTest3 implements java.util.List {
+                      }
+                      public abstract class MyTest4 implements test.pkg.new.MyInterface {
+                      }
+                    }
+                    """
+                )
+            )
+        )
+    }
 }

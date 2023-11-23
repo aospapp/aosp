@@ -43,7 +43,7 @@ public class TotalPssHelper implements ICollectorHelper<Long> {
     private static final int DEFAULT_MIN_ITERATIONS = 6;
     private static final int DEFAULT_MAX_ITERATIONS = 20;
     private static final int DEFAULT_SLEEP_TIME = 1000;
-    private static final String PSS_METRIC_PREFIX = "AM_TOTAL_PSS";
+    private static final String PSS_METRIC_PREFIX = "am_totalpss_bytes";
 
     private String[] mProcessNames;
     // Minimum number of iterations needed before deciding on the memory usage.
@@ -110,7 +110,8 @@ public class TotalPssHelper implements ICollectorHelper<Long> {
             pssData.add(pss);
             if (iteration >= mMinIterations && stabilized(pssData)) {
                 Log.i(TAG, "Memory usage stabilized at iteration count = " + iteration);
-                mPssFinalMap.put(constructKey(PSS_METRIC_PREFIX, processName), pss);
+                // Final metric reported in bytes.
+                mPssFinalMap.put(constructKey(PSS_METRIC_PREFIX, processName), pss * 1024);
                 return;
             }
             iteration++;
@@ -118,7 +119,8 @@ public class TotalPssHelper implements ICollectorHelper<Long> {
 
         Log.i(TAG, processName + " memory usage did not stabilize."
                 + " Returning the average of the pss data collected.");
-        mPssFinalMap.put(constructKey(PSS_METRIC_PREFIX, processName), average(pssData));
+        // Final metric reported in bytes.
+        mPssFinalMap.put(constructKey(PSS_METRIC_PREFIX, processName), average(pssData) * 1024);
     }
 
     /**

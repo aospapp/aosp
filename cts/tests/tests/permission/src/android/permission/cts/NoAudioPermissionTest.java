@@ -20,11 +20,13 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
 
 /**
  * Verify the audio related operations require specific permissions.
  */
 public class NoAudioPermissionTest extends AndroidTestCase {
+    private static final String TAG = NoAudioPermissionTest.class.getSimpleName();
     private AudioManager mAudioManager;
     private static final int MODE_COUNT = 3;
 
@@ -45,8 +47,11 @@ public class NoAudioPermissionTest extends AndroidTestCase {
         boolean muteState = mAudioManager.isMicrophoneMute();
         int originalMode = mAudioManager.getMode();
         // If there is no permission of MODIFY_AUDIO_SETTINGS, setMicrophoneMute does nothing.
-        mAudioManager.setMicrophoneMute(!muteState);
-        assertEquals(muteState, mAudioManager.isMicrophoneMute());
+        if (!muteState) {
+            Log.w(TAG, "Mic seems muted by hardware! Please unmute and rerrun the test.");
+            mAudioManager.setMicrophoneMute(!muteState);
+            assertEquals(muteState, mAudioManager.isMicrophoneMute());
+        }
 
         // If there is no permission of MODIFY_AUDIO_SETTINGS, setMode does nothing.
         assertTrue(AudioManager.MODE_NORMAL != AudioManager.MODE_RINGTONE);

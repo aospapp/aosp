@@ -122,80 +122,84 @@ class ReleaseParser {
         List<Entry> entryList = new ArrayList<Entry>();
 
         // walks through all files
-        for (File file : fileList) {
-            if (file.isFile()) {
-                String fileRelativePath =
-                        mRootPath.relativize(Paths.get(file.getAbsolutePath())).toString();
-                FileParser fParser = FileParser.getParser(file);
-                Entry.Builder fileEntryBuilder = fParser.getFileEntryBuilder();
-                fileEntryBuilder.setRelativePath(fileRelativePath);
+        System.out.println("Parsing: " + folderRelativePath);
+        // skip if it's a symbolic link to a folder
+        if (fileList != null) {
+            for (File file : fileList) {
+                if (file.isFile()) {
+                    String fileRelativePath =
+                            mRootPath.relativize(Paths.get(file.getAbsolutePath())).toString();
+                    FileParser fParser = FileParser.getParser(file);
+                    Entry.Builder fileEntryBuilder = fParser.getFileEntryBuilder();
+                    fileEntryBuilder.setRelativePath(fileRelativePath);
 
-                if (folderRelativePath.isEmpty()) {
-                    fileEntryBuilder.setParentFolder(ROOT_FOLDER_TAG);
-                } else {
-                    fileEntryBuilder.setParentFolder(folderRelativePath);
-                }
+                    if (folderRelativePath.isEmpty()) {
+                        fileEntryBuilder.setParentFolder(ROOT_FOLDER_TAG);
+                    } else {
+                        fileEntryBuilder.setParentFolder(folderRelativePath);
+                    }
 
-                Entry.EntryType eType = fParser.getType();
-                switch (eType) {
-                    case TEST_SUITE_TRADEFED:
-                        mRelContentBuilder.setTestSuiteTradefed(fileRelativePath);
-                        TestSuiteTradefedParser tstParser = (TestSuiteTradefedParser) fParser;
-                        // get [cts]-known-failures.xml
-                        mRelContentBuilder.addAllKnownFailures(tstParser.getKnownFailureList());
-                        mRelContentBuilder.setName(tstParser.getName());
-                        mRelContentBuilder.setFullname(tstParser.getFullName());
-                        mRelContentBuilder.setBuildNumber(tstParser.getBuildNumber());
-                        mRelContentBuilder.setTargetArch(tstParser.getTargetArch());
-                        mRelContentBuilder.setVersion(tstParser.getVersion());
-                        mRelContentBuilder.setReleaseType(ReleaseType.TEST_SUITE);
-                        break;
-                    case BUILD_PROP:
-                        BuildPropParser bpParser = (BuildPropParser) fParser;
-                        try {
-                            mRelContentBuilder.setReleaseType(ReleaseType.DEVICE_BUILD);
-                            mRelContentBuilder.setName(bpParser.getName());
-                            mRelContentBuilder.setFullname(bpParser.getFullName());
-                            mRelContentBuilder.setBuildNumber(bpParser.getBuildNumber());
-                            mRelContentBuilder.setVersion(bpParser.getVersion());
-                            mRelContentBuilder.putAllProperties(bpParser.getProperties());
-                        } catch (Exception e) {
-                            System.err.println(
-                                    "No product name, version & etc. in "
-                                            + file.getAbsoluteFile()
-                                            + ", err:"
-                                            + e.getMessage());
-                        }
-                        break;
-                    default:
-                }
-                // System.err.println("File:" + file.getAbsoluteFile());
-                if (fParser.getDependencies() != null) {
-                    fileEntryBuilder.addAllDependencies(fParser.getDependencies());
-                }
-                if (fParser.getDynamicLoadingDependencies() != null) {
-                    fileEntryBuilder.addAllDynamicLoadingDependencies(
-                            fParser.getDynamicLoadingDependencies());
-                }
-                fileEntryBuilder.setAbiBits(fParser.getAbiBits());
-                fileEntryBuilder.setAbiArchitecture(fParser.getAbiArchitecture());
+                    Entry.EntryType eType = fParser.getType();
+                    switch (eType) {
+                        case TEST_SUITE_TRADEFED:
+                            mRelContentBuilder.setTestSuiteTradefed(fileRelativePath);
+                            TestSuiteTradefedParser tstParser = (TestSuiteTradefedParser) fParser;
+                            // get [cts]-known-failures.xml
+                            mRelContentBuilder.addAllKnownFailures(tstParser.getKnownFailureList());
+                            mRelContentBuilder.setName(tstParser.getName());
+                            mRelContentBuilder.setFullname(tstParser.getFullName());
+                            mRelContentBuilder.setBuildNumber(tstParser.getBuildNumber());
+                            mRelContentBuilder.setTargetArch(tstParser.getTargetArch());
+                            mRelContentBuilder.setVersion(tstParser.getVersion());
+                            mRelContentBuilder.setReleaseType(ReleaseType.TEST_SUITE);
+                            break;
+                        case BUILD_PROP:
+                            BuildPropParser bpParser = (BuildPropParser) fParser;
+                            try {
+                                mRelContentBuilder.setReleaseType(ReleaseType.DEVICE_BUILD);
+                                mRelContentBuilder.setName(bpParser.getName());
+                                mRelContentBuilder.setFullname(bpParser.getFullName());
+                                mRelContentBuilder.setBuildNumber(bpParser.getBuildNumber());
+                                mRelContentBuilder.setVersion(bpParser.getVersion());
+                                mRelContentBuilder.putAllProperties(bpParser.getProperties());
+                            } catch (Exception e) {
+                                System.err.println(
+                                        "No product name, version & etc. in "
+                                                + file.getAbsoluteFile()
+                                                + ", err:"
+                                                + e.getMessage());
+                            }
+                            break;
+                        default:
+                    }
+                    // System.err.println("File:" + file.getAbsoluteFile());
+                    if (fParser.getDependencies() != null) {
+                        fileEntryBuilder.addAllDependencies(fParser.getDependencies());
+                    }
+                    if (fParser.getDynamicLoadingDependencies() != null) {
+                        fileEntryBuilder.addAllDynamicLoadingDependencies(
+                                fParser.getDynamicLoadingDependencies());
+                    }
+                    fileEntryBuilder.setAbiBits(fParser.getAbiBits());
+                    fileEntryBuilder.setAbiArchitecture(fParser.getAbiArchitecture());
 
-                Entry fEntry = fileEntryBuilder.build();
-                entryList.add(fEntry);
-                mEntries.put(fEntry.getRelativePath(), fEntry);
-                folderSize += file.length();
-            } else if (file.isDirectory()) {
-                // Checks subfolders
-                Entry.Builder subFolderEntry = parseFolder(file.getAbsolutePath());
-                if (folderRelativePath.isEmpty()) {
-                    subFolderEntry.setParentFolder(ROOT_FOLDER_TAG);
-                } else {
-                    subFolderEntry.setParentFolder(folderRelativePath);
+                    Entry fEntry = fileEntryBuilder.build();
+                    entryList.add(fEntry);
+                    mEntries.put(fEntry.getRelativePath(), fEntry);
+                    folderSize += file.length();
+                } else if (file.isDirectory()) {
+                    // Checks subfolders
+                    Entry.Builder subFolderEntry = parseFolder(file.getAbsolutePath());
+                    if (folderRelativePath.isEmpty()) {
+                        subFolderEntry.setParentFolder(ROOT_FOLDER_TAG);
+                    } else {
+                        subFolderEntry.setParentFolder(folderRelativePath);
+                    }
+                    Entry sfEntry = subFolderEntry.build();
+                    entryList.add(sfEntry);
+                    mEntries.put(sfEntry.getRelativePath(), sfEntry);
+                    folderSize += sfEntry.getSize();
                 }
-                Entry sfEntry = subFolderEntry.build();
-                entryList.add(sfEntry);
-                mEntries.put(sfEntry.getRelativePath(), sfEntry);
-                folderSize += sfEntry.getSize();
             }
         }
         folderEntry.setName(folderRelativePath);

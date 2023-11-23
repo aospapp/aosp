@@ -18,10 +18,11 @@ package android.permission.cts;
 
 import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
+import static android.Manifest.permission.ACCESS_MEDIA_LOCATION;
 import static android.Manifest.permission.READ_CALL_LOG;
 import static android.Manifest.permission.READ_CONTACTS;
+import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.app.AppOpsManager.MODE_FOREGROUND;
-import static android.app.AppOpsManager.MODE_IGNORED;
 import static android.content.pm.PackageManager.FLAG_PERMISSION_REVIEW_REQUIRED;
 import static android.content.pm.PackageManager.FLAG_PERMISSION_USER_SET;
 import static android.permission.cts.PermissionUtils.getAppOp;
@@ -30,9 +31,10 @@ import static android.permission.cts.PermissionUtils.getPermissions;
 import static android.permission.cts.PermissionUtils.grantPermission;
 import static android.permission.cts.PermissionUtils.isGranted;
 import static android.permission.cts.PermissionUtils.revokePermission;
-import static android.permission.cts.PermissionUtils.setAppOp;
 import static android.permission.cts.PermissionUtils.setPermissionFlags;
 import static android.permission.cts.PermissionUtils.uninstallApp;
+
+import static com.android.compatibility.common.util.SystemUtil.eventually;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -40,6 +42,7 @@ import static org.junit.Assert.assertEquals;
 
 import android.app.UiAutomation;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.FlakyTest;
 
 import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
@@ -71,6 +74,10 @@ public class SplitPermissionTest {
             TMP_DIR + "CtsAppThatRequestsContactsPermission15.apk";
     private static final String APK_CONTACTS_CALLLOG_16 =
             TMP_DIR + "CtsAppThatRequestsContactsAndCallLogPermission16.apk";
+    private static final String APK_STORAGE_29 =
+            TMP_DIR + "CtsAppThatRequestsStoragePermission29.apk";
+    private static final String APK_STORAGE_28 =
+            TMP_DIR + "CtsAppThatRequestsStoragePermission28.apk";
     private static final String APK_LOCATION_29 =
             TMP_DIR + "CtsAppThatRequestsLocationPermission29.apk";
     private static final String APK_LOCATION_28 =
@@ -111,7 +118,7 @@ public class SplitPermissionTest {
      * @param permName The permission that needs to be granted
      */
     private void assertPermissionGranted(@NonNull String permName) throws Exception {
-        assertThat(isGranted(APP_PKG, permName)).named(permName + " is granted").isTrue();
+        eventually(() -> assertThat(isGranted(APP_PKG, permName)).named(permName + " is granted").isTrue());
     }
 
     /**
@@ -246,6 +253,7 @@ public class SplitPermissionTest {
      * If a permission was granted before the split happens, the new permission should inherit the
      * granted state.
      */
+    @FlakyTest(bugId = 152580253)
     @Test
     public void inheritGrantedPermissionState() throws Exception {
         install(APK_LOCATION_29);
@@ -254,6 +262,22 @@ public class SplitPermissionTest {
         install(APK_LOCATION_28);
 
         assertPermissionGranted(ACCESS_BACKGROUND_LOCATION);
+    }
+
+    /**
+     * If a permission was granted before the split happens, the new permission should inherit the
+     * granted state.
+     *
+     * This is a duplicate of {@link #inheritGrantedPermissionState} but for the storage permission
+     */
+    @Test
+    public void inheritGrantedPermissionStateStorage() throws Exception {
+        install(APK_STORAGE_29);
+        grantPermission(APP_PKG, READ_EXTERNAL_STORAGE);
+
+        install(APK_STORAGE_28);
+
+        assertPermissionGranted(ACCESS_MEDIA_LOCATION);
     }
 
     /**
@@ -278,6 +302,7 @@ public class SplitPermissionTest {
      *
      * <p>(Pre-M version of test)
      */
+    @FlakyTest(bugId = 152580253)
     @Test
     public void inheritFlagsPreM() {
         install(APK_CONTACTS_16);
@@ -294,6 +319,7 @@ public class SplitPermissionTest {
      * If a permission has flags before the split happens, the new permission should inherit the
      * flags.
      */
+    @FlakyTest(bugId = 152580253)
     @Test
     public void inheritFlags() {
         install(APK_LOCATION_29);
@@ -451,8 +477,8 @@ public class SplitPermissionTest {
 
         install(APK_LOCATION_BACKGROUND_29);
 
-        assertThat(getAppOp(APP_PKG, ACCESS_COARSE_LOCATION)).named("foreground app-op")
-                .isEqualTo(MODE_FOREGROUND);
+        eventually(() -> assertThat(getAppOp(APP_PKG, ACCESS_COARSE_LOCATION)).named("foreground app-op")
+                .isEqualTo(MODE_FOREGROUND));
     }
 
     /**

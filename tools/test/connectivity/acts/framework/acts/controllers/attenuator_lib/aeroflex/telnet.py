@@ -38,6 +38,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
                                              rx_cmd_separator='\r\n',
                                              prompt='>')
         self.properties = None
+        self.address = None
 
     def open(self, host, port=23):
         """Opens a telnet connection to the desired AttenuatorInstrument and
@@ -52,6 +53,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
 
         # work around a bug in IO, but this is a good thing to do anyway
         self._tnhelper.cmd('*CLS', False)
+        self.address = host
 
         if self.num_atten == 0:
             self.num_atten = int(self._tnhelper.cmd('RFCONFIG? CHAN'))

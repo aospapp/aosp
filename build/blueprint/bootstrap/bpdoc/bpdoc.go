@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 )
 
@@ -146,14 +145,6 @@ func assembleModuleTypeInfo(r *Reader, name string, factory reflect.Value,
 				return nil, fmt.Errorf("nesting point %q not found", nestedName)
 			}
 
-			key, value, err := blueprint.HasFilter(nestPoint.Tag)
-			if err != nil {
-				return nil, err
-			}
-			if key != "" {
-				nested.IncludeByTag(key, value)
-			}
-
 			nestPoint.Nest(nested)
 		}
 		mt.PropertyStructs = append(mt.PropertyStructs, ps)
@@ -171,6 +162,9 @@ func nestedPropertyStructs(s reflect.Value) map[string]reflect.Value {
 			field := typ.Field(i)
 			if field.PkgPath != "" {
 				// The field is not exported so just skip it.
+				continue
+			}
+			if proptools.HasTag(field, "blueprint", "mutated") {
 				continue
 			}
 

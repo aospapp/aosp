@@ -58,6 +58,18 @@ public class SuspendPackageTest extends BaseDeviceAdminTest {
         assertTrue(isSuspended);
     }
 
+    public void testSetPackagesNotSuspendedWithPackageManager() throws NameNotFoundException {
+        String[] notHandledPackages = mContext.getPackageManager().setPackagesSuspended(
+                new String[] {INTENT_RECEIVER_PKG}, false, null, null, (SuspendDialogInfo) null);
+        // all packages should be handled.
+        assertEquals(0, notHandledPackages.length);
+        // test isPackageSuspended
+        boolean isSuspended =
+                mDevicePolicyManager.isPackageSuspended(
+                        ADMIN_RECEIVER_COMPONENT, INTENT_RECEIVER_PKG);
+        assertFalse(isSuspended);
+    }
+
     public void testSetPackagesNotSuspended() throws NameNotFoundException {
         String[] notHandledPackages = mDevicePolicyManager.setPackagesSuspended(
                 ADMIN_RECEIVER_COMPONENT,

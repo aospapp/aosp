@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------
-Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -1633,6 +1633,13 @@ void venc_dev::venc_close()
         if (async_thread_created)
             pthread_join(m_tid,NULL);
 
+        if (venc_handle->msg_thread_created) {
+            venc_handle->msg_thread_created = false;
+            venc_handle->msg_thread_stop = true;
+            post_message(venc_handle, omx_video::OMX_COMPONENT_CLOSE_MSG);
+            DEBUG_PRINT_HIGH("omx_video: Waiting on Msg Thread exit");
+            pthread_join(venc_handle->msg_thread_id, NULL);
+        }
         DEBUG_PRINT_HIGH("venc_close X");
         unsubscribe_to_events(m_nDriver_fd);
         close(m_poll_efd);

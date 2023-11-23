@@ -32,10 +32,6 @@
 #include "utils/String16.h"
 
 using android::bpf::BpfMap;
-using android::bpf::IfaceValue;
-using android::bpf::StatsKey;
-using android::bpf::StatsValue;
-using android::bpf::UidTag;
 
 namespace android {
 namespace net {
@@ -85,7 +81,7 @@ class TrafficController {
      * Check if the current device have the bpf traffic stats accounting service
      * running.
      */
-    bpf::BpfLevel getBpfLevel();
+    bool getBpfEnabled();
 
     /*
      * Swap the stats map config from current active stats map to the idle one.
@@ -136,9 +132,9 @@ class TrafficController {
      * that receives them, then the kernel will drop some of these sockets and we
      * won't delete their tags.
      * Map Key: uint64_t socket cookie
-     * Map Value: struct UidTag, contains a uint32 uid and a uint32 tag.
+     * Map Value: UidTagValue, contains a uint32 uid and a uint32 tag.
      */
-    BpfMap<uint64_t, UidTag> mCookieTagMap GUARDED_BY(mMutex);
+    BpfMap<uint64_t, UidTagValue> mCookieTagMap GUARDED_BY(mMutex);
 
     /*
      * mUidCounterSetMap: Store the counterSet of a specific uid.
@@ -159,9 +155,9 @@ class TrafficController {
      * mStatsMapA/mStatsMapB: Store the traffic statistics for a specific
      * combination of uid, tag, iface and counterSet. These two maps contain
      * both tagged and untagged traffic.
-     * Map Key: Struct StatsKey contains the uid, tag, counterSet and ifaceIndex
+     * Map Key: StatsKey contains the uid, tag, counterSet and ifaceIndex
      * information.
-     * Map Value: struct Stats, contains packet count and byte count of each
+     * Map Value: Stats, contains packet count and byte count of each
      * transport protocol on egress and ingress direction.
      */
     BpfMap<StatsKey, StatsValue> mStatsMapA GUARDED_BY(mMutex);
@@ -213,7 +209,7 @@ class TrafficController {
     netdutils::Status addRule(BpfMap<uint32_t, UidOwnerValue>& map, uint32_t uid,
                               UidOwnerMatchType match, uint32_t iif = 0) REQUIRES(mMutex);
 
-    bpf::BpfLevel mBpfLevel;
+    bool mBpfEnabled;
 
     // mMutex guards all accesses to mConfigurationMap, mUidOwnerMap, mUidPermissionMap,
     // mStatsMapA, mStatsMapB and mPrivilegedUser. It is designed to solve the following

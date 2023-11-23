@@ -514,7 +514,7 @@ public class SplitAppTest extends AndroidTestCase {
         // enforcement, so we verify that total/free space are identical.
         final long totalDelta = Math.abs(current.getTotalSpace() - primary.getTotalSpace());
         final long freeDelta = Math.abs(current.getFreeSpace() - primary.getFreeSpace());
-        if (totalDelta > MB_IN_BYTES || freeDelta > MB_IN_BYTES) {
+        if (totalDelta > MB_IN_BYTES * 300 || freeDelta > MB_IN_BYTES * 300) {
             fail("Expected primary storage to be on same volume as app");
         }
     }

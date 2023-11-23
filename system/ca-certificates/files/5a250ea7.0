@@ -34,7 +34,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 10003001 (0x98a239)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=NL, O=Staat der Nederlanden, CN=Staat der Nederlanden Root CA - G3
         Validity
             Not Before: Nov 14 11:28:42 2013 GMT
@@ -42,7 +42,7 @@ Certificate:
         Subject: C=NL, O=Staat der Nederlanden, CN=Staat der Nederlanden Root CA - G3
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:be:32:a2:54:0f:70:fb:2c:5c:59:eb:6c:c4:a4:
                     51:e8:85:2a:b3:cc:4a:34:f2:b0:5f:f3:0e:c7:1c:

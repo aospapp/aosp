@@ -39,12 +39,13 @@
 #undef LOGW
 #undef LOGI
 #undef LOGD
-#endif // CHRE_UTIL_NANOAPP_LOG_H_
+#endif  // CHRE_UTIL_NANOAPP_LOG_H_
 
 #include "chre/target_platform/static_nanoapp_init.h"
 
 #ifndef CHRE_STATIC_NANOAPP_INIT
-#error "CHRE_STATIC_NANOAPP_INIT must be defined by the target platform's static_nanoapp_init.h"
+#error \
+    "CHRE_STATIC_NANOAPP_INIT must be defined by the target platform's static_nanoapp_init.h"
 #endif
 
 #endif  // CHRE_PLATFORM_STATIC_NANOAPP_INIT_H_

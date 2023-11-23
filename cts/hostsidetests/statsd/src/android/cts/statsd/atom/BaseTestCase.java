@@ -16,6 +16,9 @@
 
 package android.cts.statsd.atom;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.cts.statsd.validation.ValidationTestUtil;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
@@ -52,7 +55,7 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        assertNotNull(mCtsBuild);
+        assertThat(mCtsBuild).isNotNull();
     }
 
     @Override
@@ -89,7 +92,19 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
             throws DeviceNotAvailableException, InvalidProtocolBufferException {
         final CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
         getDevice().executeShellCommand(command, receiver);
-        return parser.parseFrom(receiver.getOutput());
+        if (false) {
+            CLog.d("Command output while parsing " + parser.getClass().getCanonicalName()
+                    + " for command: " + command + "\n"
+                    + BufferDebug.debugString(receiver.getOutput(), -1));
+        }
+        try {
+            return parser.parseFrom(receiver.getOutput());
+        } catch (Exception ex) {
+            CLog.d("Error parsing " + parser.getClass().getCanonicalName() + " for command: "
+                    + command
+                    + BufferDebug.debugString(receiver.getOutput(), 16384));
+            throw ex;
+        }
     }
 
     /**
@@ -104,7 +119,8 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         final String result = getDevice().installPackage(
                 buildHelper.getTestFile(appFileName), true, grantPermissions);
-        assertNull("Failed to install " + appFileName + ": " + result, result);
+        assertWithMessage(String.format("Failed to install %s: %s", appFileName, result))
+            .that(result).isNull();
     }
 
     protected CompatibilityBuildHelper getBuildHelper() {
@@ -117,9 +133,11 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
      * @param pkgName Test package name, such as "com.android.server.cts.netstats".
      * @param testClassName Test class name; either a fully qualified name, or "." + a class name.
      * @param testMethodName Test method name.
+     * @return {@link TestRunResult} of this invocation.
      * @throws DeviceNotAvailableException
      */
-    protected void runDeviceTests(@Nonnull String pkgName,
+    @Nonnull
+    protected TestRunResult runDeviceTests(@Nonnull String pkgName,
             @Nullable String testClassName, @Nullable String testMethodName)
             throws DeviceNotAvailableException {
         if (testClassName != null && testClassName.startsWith(".")) {
@@ -135,7 +153,7 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
         }
 
         CollectingTestListener listener = new CollectingTestListener();
-        assertTrue(getDevice().runInstrumentationTests(testRunner, listener));
+        assertThat(getDevice().runInstrumentationTests(testRunner, listener)).isTrue();
 
         final TestRunResult result = listener.getCurrentRunResults();
         if (result.isRunFailure()) {
@@ -159,15 +177,7 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
             }
             throw new AssertionError(errorBuilder.toString());
         }
-    }
 
-    protected boolean statsdDisabled() throws DeviceNotAvailableException {
-        // if ro.statsd.enable doesn't exist, statsd is running by default.
-        if ("false".equals(getDevice().getProperty("ro.statsd.enable"))
-                && "true".equals(getDevice().getProperty("ro.config.low_ram"))) {
-            CLog.d("Statsd is not enabled on the device");
-            return true;
-        }
-        return false;
+        return result;
     }
 }

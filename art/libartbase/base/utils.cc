@@ -16,6 +16,7 @@
 
 #include "utils.h"
 
+#include <dirent.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <sys/stat.h>
@@ -47,6 +48,7 @@
 #if defined(__linux__)
 #include <linux/unistd.h>
 #include <sys/syscall.h>
+#include <sys/utsname.h>
 #endif
 
 #if defined(_WIN32)
@@ -124,7 +126,6 @@ bool FlushCpuCaches(void* begin, void* end) {
   // (2) fault handling that allows flushing/invalidation to continue after
   //     a missing page has been faulted in.
 
-  // In the common case, this flush of the complete range succeeds.
   uintptr_t start = reinterpret_cast<uintptr_t>(begin);
   const uintptr_t limit = reinterpret_cast<uintptr_t>(end);
   if (LIKELY(CacheFlush(start, limit) == 0)) {
@@ -154,6 +155,29 @@ bool FlushCpuCaches(void* begin, void* end) {
 }
 
 #endif
+
+bool CacheOperationsMaySegFault() {
+#if defined(__linux__) && defined(__aarch64__)
+  // Avoid issue on older ARM64 kernels where data cache operations could be classified as writes
+  // and cause segmentation faults. This was fixed in Linux 3.11rc2:
+  //
+  // https://github.com/torvalds/linux/commit/db6f41063cbdb58b14846e600e6bc3f4e4c2e888
+  //
+  // This behaviour means we should avoid the dual view JIT on the device. This is just
+  // an issue when running tests on devices that have an old kernel.
+  static constexpr int kRequiredMajor = 3;
+  static constexpr int kRequiredMinor = 12;
+  struct utsname uts;
+  int major, minor;
+  if (uname(&uts) != 0 ||
+      strcmp(uts.sysname, "Linux") != 0 ||
+      sscanf(uts.release, "%d.%d", &major, &minor) != 2 ||
+      (major < kRequiredMajor || (major == kRequiredMajor && minor < kRequiredMinor))) {
+    return true;
+  }
+#endif
+  return false;
+}
 
 pid_t GetTid() {
 #if defined(__APPLE__)
@@ -228,14 +252,14 @@ void Split(const std::string& s, char separator, std::vector<std::string>* resul
 }
 
 void SetThreadName(const char* thread_name) {
-  int hasAt = 0;
-  int hasDot = 0;
+  bool hasAt = false;
+  bool hasDot = false;
   const char* s = thread_name;
   while (*s) {
     if (*s == '.') {
-      hasDot = 1;
+      hasDot = true;
     } else if (*s == '@') {
-      hasAt = 1;
+      hasAt = true;
     }
     s++;
   }
@@ -285,7 +309,7 @@ void GetTaskStats(pid_t tid, char* state, int* utime, int* stime, int* task_cpu)
 
 void SleepForever() {
   while (true) {
-    usleep(1000000);
+    sleep(100000000);
   }
 }
 
@@ -308,6 +332,46 @@ std::string GetProcessStatus(const char* key) {
     }
   }
   return "<unknown>";
+}
+
+bool IsAddressKnownBackedByFileOrShared(const void* addr) {
+  // We use the Linux pagemap interface for knowing if an address is backed
+  // by a file or is shared. See:
+  // https://www.kernel.org/doc/Documentation/vm/pagemap.txt
+  uintptr_t vmstart = reinterpret_cast<uintptr_t>(AlignDown(addr, kPageSize));
+  off_t index = (vmstart / kPageSize) * sizeof(uint64_t);
+  android::base::unique_fd pagemap(open("/proc/self/pagemap", O_RDONLY | O_CLOEXEC));
+  if (pagemap == -1) {
+    return false;
+  }
+  if (lseek(pagemap, index, SEEK_SET) != index) {
+    return false;
+  }
+  uint64_t flags;
+  if (read(pagemap, &flags, sizeof(uint64_t)) != sizeof(uint64_t)) {
+    return false;
+  }
+  // From https://www.kernel.org/doc/Documentation/vm/pagemap.txt:
+  //  * Bit  61    page is file-page or shared-anon (since 3.5)
+  return (flags & (1LL << 61)) != 0;
+}
+
+int GetTaskCount() {
+  DIR* directory = opendir("/proc/self/task");
+  if (directory == nullptr) {
+    return -1;
+  }
+
+  uint32_t count = 0;
+  struct dirent* entry = nullptr;
+  while ((entry = readdir(directory)) != nullptr) {
+    if ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) {
+      continue;
+    }
+    ++count;
+  }
+  closedir(directory);
+  return count;
 }
 
 }  // namespace art

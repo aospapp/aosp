@@ -39,7 +39,9 @@ public enum ResultUnit {
     /** unit for benchmarking with generic score. */
     SCORE,
     /** radian */
-    RADIAN;
+    RADIAN,
+    /** Audio or Video frames count, dropped, repeated, etc... */
+    FRAMES;
 
     /**
      * @return a string to be used in the report.

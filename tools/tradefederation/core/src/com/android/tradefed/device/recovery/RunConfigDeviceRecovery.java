@@ -55,9 +55,8 @@ public class RunConfigDeviceRecovery implements IMultiDeviceRecovery {
     private String mRecoveryConfigName = null;
 
     @Option(
-        name = "extra-arg",
-        description = "Extra arguments to be passed to the recovery " + "invocation."
-    )
+            name = "extra-arg",
+            description = "Extra arguments to be passed to the recovery invocation.")
     private List<String> mExtraArgs = new ArrayList<>();
 
     @Override

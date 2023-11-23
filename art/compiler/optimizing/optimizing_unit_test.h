@@ -180,7 +180,29 @@ class OptimizingUnitTestHelper {
     }
   }
 
+  // Run GraphChecker with all checks.
+  //
+  // Return: the status whether the run is successful.
+  bool CheckGraph(HGraph* graph) {
+    return CheckGraph(graph, /*check_ref_type_info=*/true);
+  }
+
+  // Run GraphChecker with all checks except reference type information checks.
+  //
+  // Return: the status whether the run is successful.
+  bool CheckGraphSkipRefTypeInfoChecks(HGraph* graph) {
+    return CheckGraph(graph, /*check_ref_type_info=*/false);
+  }
+
  private:
+  bool CheckGraph(HGraph* graph, bool check_ref_type_info) {
+    GraphChecker checker(graph);
+    checker.SetRefTypeInfoCheckEnabled(check_ref_type_info);
+    checker.Run();
+    checker.Dump(std::cerr);
+    return checker.IsValid();
+  }
+
   std::vector<std::unique_ptr<const StandardDexFile>> dex_files_;
   std::unique_ptr<ArenaPoolAndAllocator> pool_and_allocator_;
   std::unique_ptr<VariableSizedHandleScope> handles_;
@@ -194,8 +216,7 @@ class ImprovedOptimizingUnitTest : public OptimizingUnitTest {
   ImprovedOptimizingUnitTest() : graph_(CreateGraph()),
                                  entry_block_(nullptr),
                                  return_block_(nullptr),
-                                 exit_block_(nullptr),
-                                 parameter_(nullptr) {}
+                                 exit_block_(nullptr) {}
 
   virtual ~ImprovedOptimizingUnitTest() {}
 
@@ -214,25 +235,21 @@ class ImprovedOptimizingUnitTest : public OptimizingUnitTest {
     entry_block_->AddSuccessor(return_block_);
     return_block_->AddSuccessor(exit_block_);
 
-    parameter_ = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
-                                                      dex::TypeIndex(0),
-                                                      0,
-                                                      DataType::Type::kInt32);
-    entry_block_->AddInstruction(parameter_);
+    CreateParameters();
+    for (HInstruction* parameter : parameters_) {
+      entry_block_->AddInstruction(parameter);
+    }
+
     return_block_->AddInstruction(new (GetAllocator()) HReturnVoid());
     exit_block_->AddInstruction(new (GetAllocator()) HExit());
   }
 
   bool CheckGraph() {
-    GraphChecker checker(graph_);
-    checker.Run();
-    if (!checker.IsValid()) {
-      for (const std::string& error : checker.GetErrors()) {
-        std::cout << error << std::endl;
-      }
-      return false;
-    }
-    return true;
+    return OptimizingUnitTestHelper::CheckGraph(graph_);
+  }
+
+  bool CheckGraphSkipRefTypeInfoChecks() {
+    return OptimizingUnitTestHelper::CheckGraphSkipRefTypeInfoChecks(graph_);
   }
 
   HEnvironment* ManuallyBuildEnvFor(HInstruction* instruction,
@@ -250,13 +267,17 @@ class ImprovedOptimizingUnitTest : public OptimizingUnitTest {
   }
 
  protected:
+  // Create parameters to be added to the graph entry block.
+  // Subclasses can override it to create parameters they need.
+  virtual void CreateParameters() { /* do nothing */ }
+
   HGraph* graph_;
 
   HBasicBlock* entry_block_;
   HBasicBlock* return_block_;
   HBasicBlock* exit_block_;
 
-  HInstruction* parameter_;
+  std::vector<HInstruction*> parameters_;
 };
 
 // Naive string diff data type.

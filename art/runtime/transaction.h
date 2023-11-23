@@ -30,6 +30,9 @@
 #include <map>
 
 namespace art {
+namespace gc {
+class Heap;
+}  // namespace gc
 namespace mirror {
 class Array;
 class Class;
@@ -38,14 +41,14 @@ class Object;
 class String;
 }  // namespace mirror
 class InternTable;
+template<class MirrorType> class ObjPtr;
 
 class Transaction final {
  public:
   static constexpr const char* kAbortExceptionDescriptor = "dalvik.system.TransactionAbortError";
   static constexpr const char* kAbortExceptionSignature = "Ldalvik/system/TransactionAbortError;";
 
-  Transaction();
-  explicit Transaction(bool strict, mirror::Class* root);
+  Transaction(bool strict, mirror::Class* root);
   ~Transaction();
 
   void Abort(const std::string& abort_message)
@@ -63,7 +66,9 @@ class Transaction final {
   // If the transaction is in strict mode, then all access of static fields will be constrained,
   // one class's clinit will not be allowed to read or modify another class's static fields, unless
   // the transaction is aborted.
-  bool IsStrict() REQUIRES(!log_lock_);
+  bool IsStrict() {
+    return strict_;
+  }
 
   // Record object field changes.
   void RecordWriteFieldBoolean(mirror::Object* obj,
@@ -135,11 +140,15 @@ class Transaction final {
       REQUIRES(!log_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool ReadConstraint(mirror::Object* obj, ArtField* field)
+  bool ReadConstraint(Thread* self, ObjPtr<mirror::Object> obj)
       REQUIRES(!log_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool WriteConstraint(mirror::Object* obj, ArtField* field)
+  bool WriteConstraint(Thread* self, ObjPtr<mirror::Object> obj)
+      REQUIRES(!log_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  bool WriteValueConstraint(Thread* self, ObjPtr<mirror::Object> value)
       REQUIRES(!log_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -307,11 +316,33 @@ class Transaction final {
   std::list<ResolveStringLog> resolve_string_logs_ GUARDED_BY(log_lock_);
   bool aborted_ GUARDED_BY(log_lock_);
   bool rolling_back_;  // Single thread, no race.
-  bool strict_ GUARDED_BY(log_lock_);
+  gc::Heap* const heap_;
+  const bool strict_;
   std::string abort_message_ GUARDED_BY(log_lock_);
   mirror::Class* root_ GUARDED_BY(log_lock_);
+  const char* assert_no_new_records_reason_ GUARDED_BY(log_lock_);
+
+  friend class ScopedAssertNoNewTransactionRecords;
 
   DISALLOW_COPY_AND_ASSIGN(Transaction);
+};
+
+class ScopedAssertNoNewTransactionRecords {
+ public:
+  explicit ScopedAssertNoNewTransactionRecords(const char* reason)
+    : transaction_(kIsDebugBuild ? InstallAssertion(reason) : nullptr) {}
+
+  ~ScopedAssertNoNewTransactionRecords() {
+    if (kIsDebugBuild && transaction_ != nullptr) {
+      RemoveAssertion(transaction_);
+    }
+  }
+
+ private:
+  static Transaction* InstallAssertion(const char* reason);
+  static void RemoveAssertion(Transaction* transaction);
+
+  Transaction* transaction_;
 };
 
 }  // namespace art

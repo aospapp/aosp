@@ -49,10 +49,10 @@ public class GTestListTestParserTest extends GTestParserTestBase {
             mockRunListener.testStarted((TestDescription) EasyMock.anyObject());
             mockRunListener.testEnded(
                     (TestDescription) EasyMock.anyObject(),
-                    (HashMap<String, Metric>) EasyMock.anyObject());
+                    EasyMock.<HashMap<String, Metric>>anyObject());
         }
         mockRunListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mockRunListener);
         GTestListTestParser parser = new GTestListTestParser(TEST_MODULE_NAME, mockRunListener);
         parser.processNewLines(contents);
@@ -74,10 +74,10 @@ public class GTestListTestParserTest extends GTestParserTestBase {
             mockRunListener.testStarted((TestDescription) EasyMock.anyObject());
             mockRunListener.testEnded(
                     (TestDescription) EasyMock.anyObject(),
-                    (HashMap<String, Metric>) EasyMock.anyObject());
+                    EasyMock.<HashMap<String, Metric>>anyObject());
         }
         mockRunListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mockRunListener);
         GTestListTestParser parser = new GTestListTestParser(TEST_MODULE_NAME, mockRunListener);
         parser.processNewLines(contents);
@@ -115,7 +115,7 @@ public class GTestListTestParserTest extends GTestParserTestBase {
                         "SD/AAudioStreamBuilderDirectionTest");
         mockRunListener.testStarted(test1);
         mockRunListener.testEnded(
-                EasyMock.eq(test1), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.eq(test1), EasyMock.<HashMap<String, Metric>>anyObject());
 
         TestDescription test2 =
                 new TestDescription(
@@ -123,10 +123,10 @@ public class GTestListTestParserTest extends GTestParserTestBase {
                         "testPlayback/SHARED__0__LOW_LATENCY");
         mockRunListener.testStarted(test2);
         mockRunListener.testEnded(
-                EasyMock.eq(test2), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.eq(test2), EasyMock.<HashMap<String, Metric>>anyObject());
 
         mockRunListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mockRunListener);
         GTestListTestParser parser = new GTestListTestParser(TEST_MODULE_NAME, mockRunListener);
         parser.processNewLines(contents);
@@ -151,10 +151,10 @@ public class GTestListTestParserTest extends GTestParserTestBase {
             mockRunListener.testStarted((TestDescription) EasyMock.anyObject());
             mockRunListener.testEnded(
                     (TestDescription) EasyMock.anyObject(),
-                    (HashMap<String, Metric>) EasyMock.anyObject());
+                    EasyMock.<HashMap<String, Metric>>anyObject());
         }
         mockRunListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mockRunListener);
         GTestListTestParser parser = new GTestListTestParser(TEST_MODULE_NAME, mockRunListener);
         parser.processNewLines(contents);

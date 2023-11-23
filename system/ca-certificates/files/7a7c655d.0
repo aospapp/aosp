@@ -15,7 +15,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             06:6c:9f:d5:74:97:36:66:3f:3b:0b:9a:d9:e8:9e:76:03:f2:4a
-    Signature Algorithm: ecdsa-with-SHA256
+        Signature Algorithm: ecdsa-with-SHA256
         Issuer: C=US, O=Amazon, CN=Amazon Root CA 3
         Validity
             Not Before: May 26 00:00:00 2015 GMT

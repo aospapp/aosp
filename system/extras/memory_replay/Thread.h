@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-#ifndef _MEMORY_REPLAY_THREAD_H
-#define _MEMORY_REPLAY_THREAD_H
+#pragma once
 
 #include <pthread.h>
 #include <stdint.h>
 #include <sys/types.h>
 
-class Action;
+// Forward Declarations.
+struct AllocEntry;
 class Pointers;
-
-constexpr size_t ACTION_MEMORY_SIZE = 128;
 
 class Thread {
  public:
@@ -36,13 +34,13 @@ class Thread {
   void SetPending();
   void ClearPending();
 
-  Action* CreateAction(uintptr_t key_pointer, const char* type, const char* line);
   void AddTimeNsecs(uint64_t nsecs) { total_time_nsecs_ += nsecs; }
 
   void set_pointers(Pointers* pointers) { pointers_ = pointers; }
   Pointers* pointers() { return pointers_; }
 
-  Action* GetAction() { return reinterpret_cast<Action*>(action_memory_); }
+  void SetAllocEntry(const AllocEntry* entry) { entry_ = entry; }
+  const AllocEntry& GetAllocEntry() { return *entry_; }
 
  private:
   pthread_mutex_t mutex_ = PTHREAD_MUTEX_INITIALIZER;
@@ -55,12 +53,7 @@ class Thread {
 
   Pointers* pointers_ = nullptr;
 
-  // Per thread memory for an Action. Only one action can be processed.
-  // at a time.
-  static constexpr size_t ACTION_SIZE = 128;
-  uint8_t action_memory_[ACTION_SIZE];
+  const AllocEntry* entry_;
 
   friend class Threads;
 };
-
-#endif // _MEMORY_REPLAY_THREAD_H

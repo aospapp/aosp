@@ -28,7 +28,10 @@ from vts.utils.python.library.elf import utils as elf_utils
 # > EOF
 
 # Test data: SLEB128 encoded byte stream
-_SLEB_INPUT_DATA = '0F71FF00800180800280807EFFFFFFFF0F8180808070FFFFFFFFFFFFFFFFFF008180808080808080807F8080808080808080807F'.decode('hex')
+_SLEB_INPUT_DATA = bytes(bytearray.fromhex('0F71FF00800180800280807EFFFFFFFF'
+                                           '0F8180808070FFFFFFFFFFFFFFFFFF00'
+                                           '8180808080808080807F808080808080'
+                                           '8080807F'))
 
 # Reference output: [(value, length)]
 _SLEB_OUTPUT_DATA = [

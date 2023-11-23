@@ -22,11 +22,11 @@ import android.util.Log;
 
 public class ResourceManagerTestActivity2 extends ResourceManagerTestActivityBase {
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onResume() {
         TAG = "ResourceManagerTestActivity2";
 
-        Log.d(TAG, "onCreate called.");
-        super.onCreate(savedInstanceState);
+        Log.d(TAG, "onResume called.");
+        super.onResume();
 
         int result = (allocateCodecs(1 /* max */) == 1) ? RESULT_OK : RESULT_CANCELED;
         finishWithResult(result);

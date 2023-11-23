@@ -30,18 +30,14 @@ class BleFuchsiaTest(BaseTestClass):
     active_adv_callback_list = []
     droid = None
 
-    def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
 
         if (len(self.fuchsia_devices) < 2):
             self.log.error("BleFuchsiaTest Init: Not enough fuchsia devices.")
         self.log.info("Running testbed setup with two fuchsia devices")
         self.fuchsia_adv = self.fuchsia_devices[0]
         self.fuchsia_scan = self.fuchsia_devices[1]
-
-    def teardown_test(self):
-        self.fuchsia_adv.clean_up()
-        self.fuchsia_scan.clean_up()
 
     def test_fuchsia_publish_service(self):
         service_id = 0
@@ -68,7 +64,7 @@ class BleFuchsiaTest(BaseTestClass):
         self.fuchsia_adv.ble_lib.bleStartBleAdvertising(adv_data, interval)
         self.log.info("Fuchsia advertising name: {}".format(fuchsia_name))
 
-        #Start scan
+        # Start scan
         scan_result = le_scan_for_device_by_name(
             self.fuchsia_scan, self.log, fuchsia_name, self.default_timeout)
         if not scan_result:
@@ -101,7 +97,7 @@ class BleFuchsiaTest(BaseTestClass):
         self.fuchsia_adv.ble_lib.bleStartBleAdvertising(adv_data, interval)
         self.log.info("Fuchsia advertising name: {}".format(fuchsia_name))
 
-        #Start Scan
+        # Start Scan
         scan_result = le_scan_for_device_by_name(
             self.fuchsia_scan, self.log, fuchsia_name, self.default_timeout)
         if not scan_result:

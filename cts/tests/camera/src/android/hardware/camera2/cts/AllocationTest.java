@@ -21,10 +21,13 @@ import static android.hardware.camera2.cts.helpers.Preconditions.*;
 import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
 import static android.hardware.camera2.cts.CameraTestUtils.*;
 import static com.android.ex.camera2.blocking.BlockingStateCallback.*;
+import static junit.framework.Assert.*;
 
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.RectF;
+
+import android.hardware.camera2.cts.Camera2ParameterizedTestCase;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -50,10 +53,11 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.renderscript.Allocation;
 import android.renderscript.Script.LaunchOptions;
-import android.test.AndroidTestCase;
 import android.util.Log;
 import android.util.Rational;
 import android.view.Surface;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.ex.camera2.blocking.BlockingCameraManager.BlockingOpenException;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
@@ -63,6 +67,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.Test;
+
 /**
  * Suite of tests for camera2 -> RenderScript APIs.
  *
@@ -71,17 +79,17 @@ import java.util.List;
  *
  * <p>YUV_420_888: flexible YUV420, it is a mandatory format for camera.</p>
  */
-public class AllocationTest extends AndroidTestCase {
+
+@RunWith(Parameterized.class)
+public class AllocationTest extends Camera2ParameterizedTestCase {
     private static final String TAG = "AllocationTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
-    private CameraManager mCameraManager;
     private CameraDevice mCamera;
     private CameraCaptureSession mSession;
     private BlockingStateCallback mCameraListener;
     private BlockingSessionCallback mSessionListener;
 
-    private String[] mCameraIds;
 
     private Handler mHandler;
     private HandlerThread mHandlerThread;
@@ -91,16 +99,8 @@ public class AllocationTest extends AndroidTestCase {
     private ResultIterable mResultIterable;
 
     @Override
-    public synchronized void setContext(Context context) {
-        super.setContext(context);
-        mCameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-        assertNotNull("Can't connect to camera manager!", mCameraManager);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
-        mCameraIds = mCameraManager.getCameraIdList();
         mHandlerThread = new HandlerThread("AllocationTest");
         mHandlerThread.start();
         mHandler = new Handler(mHandlerThread.getLooper());
@@ -110,11 +110,11 @@ public class AllocationTest extends AndroidTestCase {
         mSizeIterable = new SizeIterable();
         mResultIterable = new ResultIterable();
 
-        RenderScriptSingleton.setContext(getContext());
+        RenderScriptSingleton.setContext(mContext);
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         MaybeNull.close(mCamera);
         RenderScriptSingleton.clearContext();
         mHandlerThread.quitSafely();
@@ -431,7 +431,7 @@ public class AllocationTest extends AndroidTestCase {
         int width = size.getWidth();
         int height = size.getHeight();
         /**
-         * Check the input allocation is sane.
+         * Check the input allocation is valid.
          * - Byte size matches what we expect.
          * - The input is not all zeroes.
          */
@@ -475,6 +475,7 @@ public class AllocationTest extends AndroidTestCase {
         if (VERBOSE) Log.v(TAG, "validating Buffer , size = " + actualSize);
     }
 
+    @Test
     public void testAllocationFromCameraFlexibleYuv() throws Exception {
 
         /** number of frame (for streaming requests) to be verified. */
@@ -516,7 +517,7 @@ public class AllocationTest extends AndroidTestCase {
                             if (VERBOSE) Log.v(TAG, "Cleanup Renderscript cache");
                             scriptGraph.close();
                             RenderScriptSingleton.clearContext();
-                            RenderScriptSingleton.setContext(getContext());
+                            RenderScriptSingleton.setContext(mContext);
                         }
                     }
                 });
@@ -533,6 +534,7 @@ public class AllocationTest extends AndroidTestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testBlackWhite() throws CameraAccessException {
 
         /** low iso + low exposure (first shot) */
@@ -610,6 +612,7 @@ public class AllocationTest extends AndroidTestCase {
     /**
      * Test that the android.sensitivity.parameter is applied.
      */
+    @Test
     public void testParamSensitivity() throws CameraAccessException {
         final float THRESHOLD_MAX_MIN_DIFF = 0.3f;
         final float THRESHOLD_MAX_MIN_RATIO = 2.0f;
@@ -761,33 +764,33 @@ public class AllocationTest extends AndroidTestCase {
         public void forEachCamera(boolean fullHwLevel, CameraBlock runnable)
                 throws CameraAccessException {
             assertNotNull("No camera manager", mCameraManager);
-            assertNotNull("No camera IDs", mCameraIds);
+            assertNotNull("No camera IDs", mCameraIdsUnderTest);
 
-            for (int i = 0; i < mCameraIds.length; i++) {
+            for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
                 // Don't execute the runnable against non-FULL cameras if FULL is required
                 CameraCharacteristics properties =
-                        mCameraManager.getCameraCharacteristics(mCameraIds[i]);
+                        mCameraManager.getCameraCharacteristics(mCameraIdsUnderTest[i]);
                 StaticMetadata staticInfo = new StaticMetadata(properties);
                 if (fullHwLevel && !staticInfo.isHardwareLevelAtLeastFull()) {
                     Log.i(TAG, String.format(
                             "Skipping this test for camera %s, needs FULL hw level",
-                            mCameraIds[i]));
+                            mCameraIdsUnderTest[i]));
                     continue;
                 }
                 if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, String.format(
                         "Skipping this test for camera %s, does not support regular outputs",
-                        mCameraIds[i]));
+                        mCameraIdsUnderTest[i]));
                     continue;
                 }
                 // Open camera and execute test
-                Log.i(TAG, "Testing Camera " + mCameraIds[i]);
+                Log.i(TAG, "Testing Camera " + mCameraIdsUnderTest[i]);
                 try {
-                    openDevice(mCameraIds[i]);
+                    openDevice(mCameraIdsUnderTest[i]);
 
                     runnable.run(mCamera);
                 } finally {
-                    closeDevice(mCameraIds[i]);
+                    closeDevice(mCameraIdsUnderTest[i]);
                 }
             }
         }

@@ -17,6 +17,8 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.jvmti.cts.attaching">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application android:name="android.jvmti.JvmtiApplication" android:debuggable="true">
         <activity android:exported="true" android:name="android.jvmti.JvmtiActivity" >

@@ -151,6 +151,14 @@ bool FakeIoDelegate::GetWrittenContents(const string& path, string* content) {
   return true;
 }
 
+std::vector<std::string> FakeIoDelegate::ListOutputFiles() {
+  std::vector<std::string> out;
+  for (const auto& [file, contents] : written_file_contents_) {
+    out.push_back(file);
+  }
+  return out;
+}
+
 bool FakeIoDelegate::PathWasRemoved(const std::string& path) {
   if (removed_files_.count(path) > 0) {
     return true;
@@ -169,5 +177,5 @@ string FakeIoDelegate::CleanPath(const string& path) const {
 }
 
 }  // namespace test
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

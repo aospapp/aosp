@@ -10,7 +10,12 @@
       ]
     },
     {
-      "name": "suite/stub1"
+      "name": "suite/stub1",
+      "options": [
+        {
+          "include-filter": "some-filter2"
+        }
+      ]
     }
   ],
   "postsubmit": [
@@ -30,6 +35,9 @@
         },
         {
           "include-filter": "filter.com"
+        },
+        {
+          "run-a-test": "true"
         }
       ]
     }

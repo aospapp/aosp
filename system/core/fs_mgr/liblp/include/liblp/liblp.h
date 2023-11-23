@@ -70,11 +70,21 @@ bool UpdatePartitionTable(const std::string& super_partition, const LpMetadata& 
                           uint32_t slot_number);
 std::unique_ptr<LpMetadata> ReadMetadata(const std::string& super_partition, uint32_t slot_number);
 
-// Read/Write logical partition metadata to an image file, for diagnostics or
+// Returns whether an image is an "empty" image or not. An empty image contains
+// only metadata. Unlike a flashed block device, there are no reserved bytes or
+// backup sections, and only one slot is stored (even if multiple slots are
+// supported). It is a format specifically for storing only metadata.
+bool IsEmptySuperImage(const std::string& file);
+
+// Read/Write logical partition metadata and contents to an image file, for
 // flashing.
-bool WriteToImageFile(const char* file, const LpMetadata& metadata, uint32_t block_size,
+bool WriteToImageFile(const std::string& file, const LpMetadata& metadata, uint32_t block_size,
                       const std::map<std::string, std::string>& images, bool sparsify);
-bool WriteToImageFile(const char* file, const LpMetadata& metadata);
+
+// Read/Write logical partition metadata to an image file, for producing a
+// super_empty.img (for fastboot wipe-super/update-super) or for diagnostics.
+bool WriteToImageFile(const std::string& file, const LpMetadata& metadata);
+bool WriteToImageFile(android::base::borrowed_fd fd, const LpMetadata& metadata);
 std::unique_ptr<LpMetadata> ReadFromImageFile(const std::string& image_file);
 std::unique_ptr<LpMetadata> ReadFromImageBlob(const void* data, size_t bytes);
 
@@ -106,6 +116,10 @@ std::vector<std::string> GetBlockDevicePartitionNames(const LpMetadata& metadata
 uint32_t SlotNumberForSlotSuffix(const std::string& suffix);
 std::string SlotSuffixForSlotNumber(uint32_t slot_number);
 std::string GetPartitionSlotSuffix(const std::string& partition_name);
+
+// Helpers for common functions.
+const LpMetadataPartition* FindPartition(const LpMetadata& metadata, const std::string& name);
+uint64_t GetPartitionSize(const LpMetadata& metadata, const LpMetadataPartition& partition);
 
 }  // namespace fs_mgr
 }  // namespace android

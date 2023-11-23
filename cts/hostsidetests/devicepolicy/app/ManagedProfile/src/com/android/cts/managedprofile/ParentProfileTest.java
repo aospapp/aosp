@@ -16,6 +16,8 @@
 
 package com.android.cts.managedprofile;
 
+import static org.testng.Assert.assertThrows;
+
 import android.app.admin.DevicePolicyManager;
 import android.util.Log;
 
@@ -23,8 +25,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Collection;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -64,6 +66,9 @@ public class ParentProfileTest extends BaseManagedProfileTest {
             .add("setPasswordExpirationTimeout")
             .add("getPasswordExpiration")
             .add("getPasswordMaximumLength")
+            .add("getPasswordComplexity")
+            .add("setCameraDisabled")
+            .add("getCameraDisabled")
             .add("isActivePasswordSufficient")
             .add("getCurrentFailedPasswordAttempts")
             .add("getMaximumFailedPasswordsForWipe")
@@ -78,6 +83,20 @@ public class ParentProfileTest extends BaseManagedProfileTest {
             .add("getRequiredStrongAuthTimeout")
             .add("setRequiredStrongAuthTimeout")
             .add("isDeviceIdAttestationSupported")
+            .add("isUniqueDeviceAttestationSupported")
+            .add("wipeData")
+            .add("getAutoTimeEnabled")
+            .add("setAutoTimeEnabled")
+            .add("addUserRestriction")
+            .add("clearUserRestriction")
+            .add("getUserRestrictions")
+            .add("setApplicationHidden")
+            .add("isApplicationHidden")
+            .add("setScreenCaptureDisabled")
+            .add("getScreenCaptureDisabled")
+            .add("getAccountTypesWithManagementDisabled")
+            .add("setAccountManagementDisabled")
+            .add("setDefaultSmsApplication")
             .build();
 
     private static final String LOG_TAG = "ParentProfileTest";
@@ -142,4 +161,26 @@ public class ParentProfileTest extends BaseManagedProfileTest {
             assertTrue(name + " is not found in the API list", allNames.contains(name));
         }
     }
+
+    public void testCannotWipeParentProfile() {
+        assertThrows(SecurityException.class,
+                () -> mParentDevicePolicyManager.wipeData(0));
+    }
+
+    public void testCannotCallAutoTimeMethodsOnParentProfile() {
+        assertThrows(SecurityException.class,
+                () -> mParentDevicePolicyManager.setAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT,
+                        true));
+
+        assertThrows(SecurityException.class,
+                () -> mParentDevicePolicyManager.getAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT));
+    }
+
+    public void testCannotCallSetDefaultSmsApplicationOnParentProfile() {
+        String messagesPackageName = "com.google.android.apps.messaging";
+        assertThrows(SecurityException.class,
+                () -> mParentDevicePolicyManager.setDefaultSmsApplication(ADMIN_RECEIVER_COMPONENT,
+                        messagesPackageName));
+    }
+
 }

@@ -25,6 +25,9 @@ import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Utility class to save a Compatibility run as an XML.
@@ -39,34 +42,40 @@ public class CertificationResultXml extends XmlSuiteResultFormatter {
     private static final String SUITE_NAME_ATTR = "suite_name";
     private static final String SUITE_VERSION_ATTR = "suite_version";
     private static final String SUITE_BUILD_ATTR = "suite_build_number";
+    private static final String SUITE_VARIANT_ATTR = "suite_variant";
 
     private String mSuiteName;
     private String mSuiteVersion;
+    private String mSuiteVariant;
     private String mSuitePlan;
     private String mSuiteBuild;
     private String mReferenceUrl;
     private String mLogUrl;
+    private Map<String, String> mResultAttributes = new HashMap<String, String>();
 
     /**
      * Empty version of the constructor when loading results.
      */
     public CertificationResultXml() {}
 
-    /**
-     * Create an XML report specialized for the Compatibility Test cases.
-     */
-    public CertificationResultXml(String suiteName,
+    /** Create an XML report specialized for the Compatibility Test cases. */
+    public CertificationResultXml(
+            String suiteName,
             String suiteVersion,
+            String suiteVariant,
             String suitePlan,
             String suiteBuild,
             String referenceUrl,
-            String logUrl) {
+            String logUrl,
+            Map<String, String> resultAttributes) {
         mSuiteName = suiteName;
         mSuiteVersion = suiteVersion;
+        mSuiteVariant = suiteVariant;
         mSuitePlan = suitePlan;
         mSuiteBuild = suiteBuild;
         mReferenceUrl = referenceUrl;
         mLogUrl = logUrl;
+        mResultAttributes = resultAttributes;
     }
 
     /**
@@ -76,6 +85,12 @@ public class CertificationResultXml extends XmlSuiteResultFormatter {
     public void addSuiteAttributes(XmlSerializer serializer)
             throws IllegalArgumentException, IllegalStateException, IOException {
         serializer.attribute(NS, SUITE_NAME_ATTR, mSuiteName);
+        if (mSuiteVariant != null) {
+            serializer.attribute(NS, SUITE_VARIANT_ATTR, mSuiteVariant);
+        } else {
+            // Default suite_variant to the suite name itself if it's not a special variant.
+            serializer.attribute(NS, SUITE_VARIANT_ATTR, mSuiteName);
+        }
         serializer.attribute(NS, SUITE_VERSION_ATTR, mSuiteVersion);
         serializer.attribute(NS, SUITE_PLAN_ATTR, mSuitePlan);
         serializer.attribute(NS, SUITE_BUILD_ATTR, mSuiteBuild);
@@ -87,6 +102,12 @@ public class CertificationResultXml extends XmlSuiteResultFormatter {
 
         if (mLogUrl != null) {
             serializer.attribute(NS, LOG_URL_ATTR, mLogUrl);
+        }
+
+        if (mResultAttributes != null) {
+            for (Entry<String, String> entry : mResultAttributes.entrySet()) {
+                serializer.attribute(NS, entry.getKey(), entry.getValue());
+            }
         }
     }
 

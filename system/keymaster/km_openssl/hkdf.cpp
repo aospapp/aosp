@@ -18,7 +18,7 @@
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/km_openssl/hmac.h>
-#include <keymaster/new>
+#include <keymaster/new.h>
 
 namespace keymaster {
 

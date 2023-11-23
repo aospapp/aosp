@@ -25,7 +25,7 @@
 
 package java.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class TimerTask implements java.lang.Runnable {

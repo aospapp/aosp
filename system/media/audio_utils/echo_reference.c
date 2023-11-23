@@ -150,7 +150,7 @@ static int echo_reference_write(struct echo_reference_itfe *echo_reference,
     }
 
     ALOGV("echo_reference_write() START trying to write %zu frames", buffer->frame_count);
-    ALOGV("echo_reference_write() playbackTimestamp:[%d].[%d], er->playback_delay:[%" PRId32 "]",
+    ALOGV("echo_reference_write() playbackTimestamp:[%d].[%d], er->playback_delay:[%d]",
             (int)buffer->time_stamp.tv_sec,
             (int)buffer->time_stamp.tv_nsec, er->playback_delay);
 
@@ -274,7 +274,7 @@ static int echo_reference_write(struct echo_reference_itfe *echo_reference,
     er->frames_in += inFrames;
 
     ALOGV("echo_reference_write() frames written:[%zu], frames total:[%zu] buffer size:[%zu]\n"
-          "                       er->wr_render_time:[%d].[%d], er->playback_delay:[%" PRId32 "]",
+          "                       er->wr_render_time:[%d].[%d], er->playback_delay:[%d]",
           inFrames, er->frames_in, er->buf_size,
           (int)er->wr_render_time.tv_sec, (int)er->wr_render_time.tv_nsec, er->playback_delay);
 
@@ -309,7 +309,7 @@ static int echo_reference_read(struct echo_reference_itfe *echo_reference,
         goto exit;
     }
 
-    ALOGV("echo_reference_read() START, delayCapture:[%" PRId32 "], "
+    ALOGV("echo_reference_read() START, delayCapture:[%d], "
             "er->frames_in:[%zu],buffer->frame_count:[%zu]",
     buffer->delay_ns, er->frames_in, buffer->frame_count);
 
@@ -344,7 +344,7 @@ static int echo_reference_read(struct echo_reference_itfe *echo_reference,
         pthread_cond_timedwait(&er->cond, &er->lock, &ts);
 
         ALOGV_IF((er->frames_in < buffer->frame_count),
-                 "echo_reference_read() waited %d ms but still not enough frames"\
+                 "echo_reference_read() waited %d ms but still not enough frames"
                  " er->frames_in: %d, buffer->frame_count = %d",
                  timeoutMs, er->frames_in, buffer->frame_count);
     }
@@ -354,7 +354,7 @@ static int echo_reference_read(struct echo_reference_itfe *echo_reference,
 
     if ((er->wr_render_time.tv_sec == 0 && er->wr_render_time.tv_nsec == 0) ||
         (buffer->time_stamp.tv_sec == 0 && buffer->time_stamp.tv_nsec == 0)) {
-        ALOGV("echo_reference_read(): NEW:timestamp is zero---------setting timeDiff = 0, "\
+        ALOGV("echo_reference_read(): NEW:timestamp is zero---------setting timeDiff = 0, "
              "not updating delay this time");
         timeDiff = 0;
     } else {
@@ -376,7 +376,7 @@ static int echo_reference_read(struct echo_reference_itfe *echo_reference,
         }
 
         ALOGV("echo_reference_read(): expectedDelayNs[%" PRId64 "] = "
-                "er->playback_delay[%" PRId32 "] + delayCapture[%" PRId32
+                "er->playback_delay[%d] + delayCapture[%d"
                 "] - timeDiff[%" PRId64 "]",
                 expectedDelayNs, er->playback_delay, buffer->delay_ns, timeDiff);
 
@@ -441,7 +441,7 @@ static int echo_reference_read(struct echo_reference_itfe *echo_reference,
             }
         } else {
             ALOGV("echo_reference_read(): NEGATIVE expectedDelayNs[%" PRId64
-                 "] = er->playback_delay[%" PRId32 "] + delayCapture[%" PRId32
+                 "] = er->playback_delay[%d] + delayCapture[%d"
                  "] - timeDiff[%" PRId64 "]",
                  expectedDelayNs, er->playback_delay, buffer->delay_ns, timeDiff);
         }

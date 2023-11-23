@@ -25,6 +25,7 @@ import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.retryUntil;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.setDefaultLauncher;
 
+import android.content.LocusId;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -146,6 +147,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
 
         runWithCallerWithStrictMode(mPackageContext1, () -> {
             assertTrue(getManager().updateShortcuts(list(
+                    makeShortcutWithLocusId("s1", "ls1"),
+                    makeShortcutWithLocusId("s2", "ls2"),
                     makeShortcut("s3"))));
 
             setTargetActivityOverride("Launcher_manifest_2");
@@ -179,6 +182,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("s3", "s4", "s5")
                     .areAllNotWithKeyFieldsOnly();
@@ -187,6 +191,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("s1", "s2", "s3", "ms1", "ms21")
                     .areAllNotWithKeyFieldsOnly();
@@ -195,6 +200,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("ms1", "ms21", "ms22")
                     .areAllNotWithKeyFieldsOnly();
@@ -204,6 +210,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("s3", "s4", "s5")
                     .areAllWithKeyFieldsOnly();
@@ -213,6 +220,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("s3", "s4", "s5", "s1", "s2", "s3", "ms1", "ms21")
                     .areAllNotWithKeyFieldsOnly();
@@ -222,6 +230,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("s1", "s2", "s3", "ms1", "ms21", "ms1", "ms21", "ms22")
                     .areAllNotWithKeyFieldsOnly();
@@ -230,6 +239,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("s3", "s4", "s5", "s1", "s2", "ms1", "ms21", "ms1", "ms21", "ms22")
                     .areAllNotWithKeyFieldsOnly();
@@ -239,6 +249,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("s3", "s4", "s5", "s1", "s2", "ms1", "ms21", "ms1", "ms21", "ms22")
                     .areAllWithKeyFieldsOnly();
@@ -251,6 +262,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext2.getPackageName(),
                     null,
                     0,
+                    list(),
                     list()))
                     .haveIds("s2", "s3", "s4", "s5", "ms1", "ms31")
                     ;
@@ -261,6 +273,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     "Launcher_manifest_2",
                     0,
+                    list(),
                     list()))
                     .haveIds("ms21", "ms22", "s1", "s5")
                     .areAllNotWithKeyFieldsOnly();
@@ -271,8 +284,20 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     0,
-                    list("s1", "s2", "ms1")))
+                    list("s1", "s2", "ms1"),
+                    list()))
                     .haveIds("s1", "s2", "ms1")
+                    .areAllNotWithKeyFieldsOnly();
+
+            // With locus ids
+            assertWith(getShortcutsAsLauncher(
+                    FLAG_MATCH_DYNAMIC | FLAG_MATCH_PINNED | FLAG_MATCH_MANIFEST,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list(),
+                    list(new LocusId("ls1"), new LocusId("ls2"))))
+                    .haveIds("s1", "s2")
                     .areAllNotWithKeyFieldsOnly();
 
             // With time.
@@ -281,6 +306,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     time2,
+                    list(),
                     list()))
                     .haveIds("s4")
                     .areAllNotWithKeyFieldsOnly();
@@ -291,6 +317,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext1.getPackageName(),
                     null,
                     time3,
+                    list(),
                     list()))
                     .isEmpty();
             assertWith(getShortcutsAsLauncher(
@@ -298,6 +325,7 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
                     mPackageContext2.getPackageName(),
                     null,
                     time3,
+                    list(),
                     list()))
                     .isEmpty();
         });

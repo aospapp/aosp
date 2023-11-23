@@ -16,7 +16,7 @@
 
 package dalvik.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 /**
  * CloseGuard is a mechanism for flagging implicit finalizer cleanup of
@@ -134,11 +134,14 @@ public final class CloseGuard {
      */
     private static volatile Tracker currentTracker = null; // Disabled by default.
 
+    private static final String MESSAGE = "A resource was acquired at attached stack trace but never released. " +
+            "See java.io.Closeable for information on avoiding resource leaks.";
+
     /**
      * Returns a CloseGuard instance. {@code #open(String)} can be used to set
      * up the instance to warn on failure to close.
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(trackingBug=111170242)
     @libcore.api.CorePlatformApi
     @libcore.api.IntraCoreApi
     public static CloseGuard get() {
@@ -220,10 +223,25 @@ public final class CloseGuard {
      * @param closer non-null name of explicit termination method. Printed by warnIfOpen.
      * @throws NullPointerException if closer is null.
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(trackingBug=111170242)
     @libcore.api.CorePlatformApi
     @libcore.api.IntraCoreApi
     public void open(String closer) {
+        openWithCallSite(closer, null /* callsite */);
+    }
+
+    /**
+     * Like {@link #open(String)}, but with explicit callsite string being passed in for better
+     * performance.
+     * <p>
+     * This only has better performance than {@link #open(String)} if {@link #isEnabled()} returns {@code true}, which
+     * usually shouldn't happen on release builds.
+     *
+     * @param closer Non-null name of explicit termination method. Printed by warnIfOpen.
+     * @param callsite Non-null string uniquely identifying the callsite.
+     */
+    @libcore.api.CorePlatformApi
+    public void openWithCallSite(String closer, String callsite) {
         // always perform the check for valid API usage...
         if (closer == null) {
             throw new NullPointerException("closer == null");
@@ -233,12 +251,18 @@ public final class CloseGuard {
             closerNameOrAllocationInfo = closer;
             return;
         }
-        String message = "Explicit termination method '" + closer + "' not called";
-        Throwable stack = new Throwable(message);
-        closerNameOrAllocationInfo = stack;
+        // Always record stack trace when tracker installed, which only happens in tests. Otherwise, skip expensive
+        // stack trace creation when explicit callsite is passed in for better performance.
         Tracker tracker = currentTracker;
-        if (tracker != null) {
-            tracker.open(stack);
+        if (callsite == null || tracker != null) {
+            String message = "Explicit termination method '" + closer + "' not called";
+            Throwable stack = new Throwable(message);
+            closerNameOrAllocationInfo = stack;
+            if (tracker != null) {
+                tracker.open(stack);
+            }
+        } else {
+            closerNameOrAllocationInfo = callsite;
         }
     }
 
@@ -270,23 +294,22 @@ public final class CloseGuard {
      * the allocation to the current reporter. If it was not enabled, it just
      * directly logs a brief message.
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(trackingBug=111170242)
     @libcore.api.CorePlatformApi
     @libcore.api.IntraCoreApi
     public void warnIfOpen() {
         if (closerNameOrAllocationInfo != null) {
-            if (closerNameOrAllocationInfo instanceof String) {
+            if (closerNameOrAllocationInfo instanceof Throwable) {
+                reporter.report(MESSAGE, (Throwable) closerNameOrAllocationInfo);
+            } else if (stackAndTrackingEnabled) {
+                reporter.report(MESSAGE + " Callsite: " + closerNameOrAllocationInfo);
+            } else {
                 System.logW("A resource failed to call "
                         + (String) closerNameOrAllocationInfo + ". ");
-            } else {
-                String message =
-                        "A resource was acquired at attached stack trace but never released. ";
-                message += "See java.io.Closeable for information on avoiding resource leaks.";
-                Throwable stack = (Throwable) closerNameOrAllocationInfo;
-                reporter.report(message, stack);
             }
         }
     }
+
 
     /**
      * Interface to allow customization of tracking behaviour.
@@ -308,6 +331,9 @@ public final class CloseGuard {
         @UnsupportedAppUsage
         @libcore.api.CorePlatformApi
         void report(String message, Throwable allocationSite);
+
+        @libcore.api.CorePlatformApi
+        default void report(String message) {}
     }
 
     /**
@@ -319,6 +345,11 @@ public final class CloseGuard {
 
         @Override public void report (String message, Throwable allocationSite) {
             System.logW(message, allocationSite);
+        }
+
+        @Override
+        public void report(String message) {
+            System.logW(message);
         }
     }
 }

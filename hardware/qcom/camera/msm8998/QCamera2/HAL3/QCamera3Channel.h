@@ -589,13 +589,16 @@ public:
     // Return a YUV buffer (from getYuvBufferForRequest) and request jpeg encoding.
     int32_t returnYuvBufferAndEncode(mm_camera_buf_def_t *frame,
             buffer_handle_t *outBuffer, uint32_t frameNumber,
-            std::shared_ptr<metadata_buffer_t> metadata);
+            std::shared_ptr<metadata_buffer_t> metadata,
+            mm_camera_buf_def_t *metaFrame);
 
     // Return a YUV buffer (from getYuvBufferForRequest) without requesting jpeg encoding.
     int32_t returnYuvBuffer(mm_camera_buf_def_t *frame);
 
 private:
     int32_t queueJpegSetting(uint32_t out_buf_index, metadata_buffer_t *metadata);
+    int32_t initializeJpegSetting(uint32_t index, metadata_buffer_t *metadata,
+            jpeg_settings_t *settings);
 
 public:
     cam_dimension_t m_max_pic_dim;

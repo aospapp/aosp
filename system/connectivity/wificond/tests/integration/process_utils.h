@@ -24,7 +24,7 @@
 #include <android-base/macros.h>
 #include <utils/StrongPointer.h>
 
-#include "android/net/wifi/IWificond.h"
+#include "android/net/wifi/nl80211/IWificond.h"
 
 namespace android {
 namespace wificond {
@@ -57,9 +57,9 @@ class ScopedDevModeWificond final {
   // This makes avoids the nastiness of restarting a system process
   // because you instantiated an object.
   // ASSERTs that wificond starts in dev mode.
-  android::sp<android::net::wifi::IWificond> EnterDevModeOrDie();
+  android::sp<android::net::wifi::nl80211::IWificond> EnterDevModeOrDie();
   // Returns true iff wificond entered dev mode.
-  android::sp<android::net::wifi::IWificond> MaybeEnterDevMode();
+  android::sp<android::net::wifi::nl80211::IWificond> MaybeEnterDevMode();
 
   // This will be called for you in the destructor, but you can do it yourself
   // if you prefer.

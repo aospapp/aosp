@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsClassloaderSplitsHostTestCases.jar" />
         <option name="runtime-hint" value="1m" />

@@ -48,11 +48,3 @@ This is a helper tool to convert C headers to valid .hal files.
 ```
 m c2hal && c2hal -h
 ```
-
-# docs
-
-This tool generates html documentation for hal interfaces.
-
-```
-m hidl-doc && hidl-doc -h
-```

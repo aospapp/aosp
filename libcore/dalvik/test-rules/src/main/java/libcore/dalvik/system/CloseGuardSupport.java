@@ -261,6 +261,7 @@ public class CloseGuardSupport {
         private final Thread callingThread = Thread.currentThread();
 
         private final List<Throwable> unreleasedResourceAllocationSites = new ArrayList<>();
+        private final List<String> unreleasedResourceAllocationCallsites = new ArrayList<>();
 
         @Override
         public void report(String message, Throwable allocationSite) {
@@ -270,8 +271,17 @@ public class CloseGuardSupport {
             }
         }
 
+        @Override
+        public void report(String message) {
+            // Only care about resources that are not reported on this thread.
+            if (callingThread == Thread.currentThread()) {
+                unreleasedResourceAllocationCallsites.add(message);
+            }
+        }
+
         void assertUnreleasedResources(int expectedCount) {
-            int unreleasedResourceCount = unreleasedResourceAllocationSites.size();
+            int unreleasedResourceCount = unreleasedResourceAllocationSites.size()
+                    + unreleasedResourceAllocationCallsites.size();
             if (unreleasedResourceCount == expectedCount) {
                 return;
             }
@@ -281,6 +291,9 @@ public class CloseGuardSupport {
                             + unreleasedResourceCount + "; see suppressed exceptions for details");
             for (Throwable unreleasedResourceAllocationSite : unreleasedResourceAllocationSites) {
                 error.addSuppressed(unreleasedResourceAllocationSite);
+            }
+            for (String unreleasedResourceAllocationCallsite : unreleasedResourceAllocationCallsites) {
+                error.addSuppressed(new Throwable(unreleasedResourceAllocationCallsite));
             }
             throw error;
         }

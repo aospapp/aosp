@@ -26,7 +26,7 @@
 
 package java.security;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class Signature extends java.security.SignatureSpi {

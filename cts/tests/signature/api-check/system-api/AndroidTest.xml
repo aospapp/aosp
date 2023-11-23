@@ -16,19 +16,9 @@
 <configuration description="Config for CTS System API Signature test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="systems" />
-    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
-    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="mkdir -p /data/local/tmp/signature-test" />
-        <option name="teardown-command" value="rm -rf /data/local/tmp/signature-test" />
-    </target_preparer>
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="push" value="current.api->/data/local/tmp/signature-test/current.api" />
-        <option name="push" value="android-test-mock-current.api->/data/local/tmp/signature-test/android-test-mock-current.api" />
-        <option name="push" value="android-test-runner-current.api->/data/local/tmp/signature-test/android-test-runner-current.api" />
-        <!-- This zip file contains all versions of system APIs that the platform is supposed to implement -->
-        <option name="push" value="system-all.api.zip->/data/local/tmp/signature-test/system-all.api.zip" />
-    </target_preparer>
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsSystemApiSignatureTestCases.apk" />
@@ -37,9 +27,9 @@
         <option name="package" value="android.signature.cts.api.system" />
         <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
         <option name="class" value="android.signature.cts.api.system.SignatureTest" />
-        <option name="instrumentation-arg" key="base-api-files" value="current.api" />
-        <option name="instrumentation-arg" key="expected-api-files" value="system-all.api.zip" />
-        <option name="instrumentation-arg" key="unexpected-api-files" value="android-test-mock-current.api,android-test-runner-current.api" />
+        <option name="instrumentation-arg" key="base-api-files" value="current.api.gz" />
+        <option name="instrumentation-arg" key="expected-api-files" value="system-current.api.gz,system-removed.api.gz,system-all.api.zip" />
+        <option name="instrumentation-arg" key="unexpected-api-files" value="android-test-mock-current.api.gz,android-test-runner-current.api.gz" />
         <option name="runtime-hint" value="30s" />
     </test>
 </configuration>

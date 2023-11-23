@@ -20,7 +20,6 @@ from acts.keys import Config
 from acts.test_utils.bt.BtMetricsBaseTest import BtMetricsBaseTest
 from acts.test_utils.bt.bt_test_utils import bluetooth_enabled_check
 from acts.utils import bypass_setup_wizard
-from acts.utils import create_dir
 from acts.utils import exe_cmd
 from acts.utils import sync_device_time
 import json
@@ -115,8 +114,8 @@ class BtFunhausBaseTest(BtMetricsBaseTest):
         if type(music_path) is list:
             self.log.info("Media ready to push as is.")
         elif not os.path.isdir(music_path):
-            music_path = os.path.join(self.user_params[Config.key_config_path],
-                                      music_path)
+            music_path = os.path.join(
+                self.user_params[Config.key_config_path.value], music_path)
             if not os.path.isdir(music_path):
                 self.log.error(
                     "Unable to find music directory {}.".format(music_path))
@@ -145,7 +144,7 @@ class BtFunhausBaseTest(BtMetricsBaseTest):
             serial = ad.serial
             out_name = "{}_{}".format(serial, "bluetooth_dumpsys.txt")
             dumpsys_path = ''.join((ad.log_path, "/BluetoothDumpsys"))
-            create_dir(dumpsys_path)
+            os.makedirs(dumpsys_path, exist_ok=True)
             cmd = ''.join(
                 ("adb -s ", serial, " shell dumpsys bluetooth_manager > ",
                  dumpsys_path, "/", out_name))

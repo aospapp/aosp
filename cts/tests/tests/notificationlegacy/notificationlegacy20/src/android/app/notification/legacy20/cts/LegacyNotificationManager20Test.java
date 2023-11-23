@@ -16,14 +16,11 @@
 
 package android.app.notification.legacy20.cts;
 
-import static android.content.pm.PackageManager.FEATURE_WATCH;
-
 import static junit.framework.Assert.fail;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -64,7 +61,6 @@ public class LegacyNotificationManager20Test {
     private PackageManager mPackageManager;
     final String NOTIFICATION_CHANNEL_ID = "LegacyNotificationManagerTest";
     private NotificationManager mNotificationManager;
-    private ActivityManager mActivityManager;
     private Context mContext;
 
     private TestNotificationListener mListener;
@@ -78,7 +74,6 @@ public class LegacyNotificationManager20Test {
                 Context.NOTIFICATION_SERVICE);
         mNotificationManager.createNotificationChannel(new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT));
-        mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
         mPackageManager = mContext.getPackageManager();
     }
 
@@ -92,10 +87,6 @@ public class LegacyNotificationManager20Test {
 
     @Test
     public void testNotificationListener_cancelNotifications() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed

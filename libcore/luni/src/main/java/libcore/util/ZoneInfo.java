@@ -22,7 +22,8 @@
  */
 package libcore.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.Arrays;
@@ -31,7 +32,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
 import libcore.io.BufferIterator;
-import libcore.timezone.ZoneInfoDB;
+import libcore.timezone.ZoneInfoDb;
 
 /**
  * Our concrete TimeZone implementation, backed by zoneinfo data.
@@ -42,26 +43,15 @@ import libcore.timezone.ZoneInfoDB;
  * {@code man 8 zic}) and an index by long name, e.g. Europe/London.
  *
  * <p>The compacted form is created by {@code external/icu/tools/ZoneCompactor.java} and is used
- * by both this and Bionic. {@link ZoneInfoDB} is responsible for mapping the binary file, and
+ * by both this and Bionic. {@link ZoneInfoDb} is responsible for mapping the binary file, and
  * reading the index and creating a {@link BufferIterator} that provides access to an entry for a
  * specific file. This class is responsible for reading the data from that {@link BufferIterator}
  * and storing it a representation to support the {@link TimeZone} and {@link GregorianCalendar}
  * implementations. See {@link ZoneInfo#readTimeZone(String, BufferIterator, long)}.
  *
- * <p>The main difference between {@code tzfile} and the compacted form is that the
- * {@code struct ttinfo} only uses a single byte for {@code tt_isdst} and {@code tt_abbrind}.
- *
  * <p>This class does not use all the information from the {@code tzfile}; it uses:
  * {@code tzh_timecnt} and the associated transition times and type information. For each type
- * (described by {@code struct ttinfo}) it uses {@code tt_gmtoff} and {@code tt_isdst}. Note, that
- * the definition of {@code struct ttinfo} uses {@code long}, and {@code int} but they do not have
- * the same meaning as Java. The prose following the definition makes it clear that the {@code long}
- * is 4 bytes and the {@code int} fields are 1 byte.
- *
- * <p>As the data uses 32 bits to store the time in seconds the time range is limited to roughly
- * 69 years either side of the epoch (1st Jan 1970 00:00:00) that means that it cannot handle any
- * dates before 1900 and after 2038. There is an extended version of the table that uses 64 bits
- * to store the data but that information is not used by this.
+ * (described by {@code struct ttinfo}) it uses {@code tt_gmtoff} and {@code tt_isdst}.
  *
  * <p>This class should be in libcore.timezone but this class is Serializable so cannot
  * be moved there without breaking apps that have (for some reason) serialized TimeZone objects.
@@ -197,6 +187,19 @@ public final class ZoneInfo extends TimeZone {
 
     public static ZoneInfo readTimeZone(String id, BufferIterator it, long currentTimeMillis)
             throws IOException {
+
+        // Skip over the superseded 32-bit header and data.
+        skipOver32BitData(id, it);
+
+        // Read the v2+ 64-bit header and data.
+        return read64BitData(id, it, currentTimeMillis);
+    }
+
+    /**
+     * Skip over the 32-bit data with some minimal validation to make sure sure we reading a valid
+     * and supported file.
+     */
+    private static void skipOver32BitData(String id, BufferIterator it) throws IOException {
         // Variable names beginning tzh_ correspond to those in "tzfile.h".
 
         // Check tzh_magic.
@@ -205,24 +208,82 @@ public final class ZoneInfo extends TimeZone {
             throw new IOException("Timezone id=" + id + " has an invalid header=" + tzh_magic);
         }
 
-        // Skip the uninteresting part of the header.
-        it.skip(28);
+        byte tzh_version = it.readByte();
+        checkTzifVersionAcceptable(id, tzh_version);
+
+        // Skip the unused bytes.
+        it.skip(15);
+
+        // Read the header values necessary to read through all the 32-bit data.
+        int tzh_ttisgmtcnt = it.readInt();
+        int tzh_ttisstdcnt = it.readInt();
+        int tzh_leapcnt = it.readInt();
+        int tzh_timecnt = it.readInt();
+        int tzh_typecnt = it.readInt();
+        int tzh_charcnt = it.readInt();
+
+        // Skip transitions data, 4 bytes for each 32-bit time + 1 byte for isDst.
+        final int transitionInfoSize = 4 + 1;
+        it.skip(tzh_timecnt * transitionInfoSize);
+
+        // Skip ttinfos.
+        // struct ttinfo {
+        //     int32_t       tt_gmtoff;
+        //     unsigned char tt_isdst;
+        //     unsigned char tt_abbrind;
+        // };
+        final int ttinfoSize = 4 + 1 + 1;
+        it.skip(tzh_typecnt * ttinfoSize);
+
+        // Skip tzh_charcnt time zone abbreviations.
+        it.skip(tzh_charcnt);
+
+        // Skip tzh_leapcnt repetitions of a 32-bit time + a 32-bit correction.
+        int leapInfoSize = 4 + 4;
+        it.skip(tzh_leapcnt * leapInfoSize);
+
+        // Skip ttisstds and ttisgmts information. These can be ignored for our usecases as per
+        // https://mm.icann.org/pipermail/tz/2006-February/013359.html
+        it.skip(tzh_ttisstdcnt + tzh_ttisgmtcnt);
+    }
+
+    /**
+     * Read the 64-bit header and data for {@code id} from the current position of {@code it} and
+     * return a ZoneInfo.
+     */
+    private static ZoneInfo read64BitData(String id, BufferIterator it, long currentTimeMillis)
+            throws IOException {
+        // Variable names beginning tzh_ correspond to those in "tzfile.h".
+
+        // Check tzh_magic.
+        int tzh_magic = it.readInt();
+        if (tzh_magic != 0x545a6966) { // "TZif"
+            throw new IOException("Timezone id=" + id + " has an invalid header=" + tzh_magic);
+        }
+
+        byte tzh_version = it.readByte();
+        checkTzifVersionAcceptable(id, tzh_version);
+
+        // Skip the uninteresting parts of the header.
+        it.skip(27);
 
         // Read the sizes of the arrays we're about to read.
         int tzh_timecnt = it.readInt();
+
         // Arbitrary ceiling to prevent allocating memory for corrupt data.
-        // 2 per year with 2^32 seconds would give ~272 transitions.
         final int MAX_TRANSITIONS = 2000;
         if (tzh_timecnt < 0 || tzh_timecnt > MAX_TRANSITIONS) {
             throw new IOException(
-                    "Timezone id=" + id + " has an invalid number of transitions=" + tzh_timecnt);
+                    "Timezone id=" + id + " has an invalid number of transitions="
+                            + tzh_timecnt);
         }
 
         int tzh_typecnt = it.readInt();
         final int MAX_TYPES = 256;
         if (tzh_typecnt < 1) {
             throw new IOException("ZoneInfo requires at least one type "
-                    + "to be provided for each timezone but could not find one for '" + id + "'");
+                    + "to be provided for each timezone but could not find one for '" + id
+                    + "'");
         } else if (tzh_typecnt > MAX_TYPES) {
             throw new IOException(
                     "Timezone with id " + id + " has too many types=" + tzh_typecnt);
@@ -230,18 +291,9 @@ public final class ZoneInfo extends TimeZone {
 
         it.skip(4); // Skip tzh_charcnt.
 
-        // Transitions are signed 32 bit integers, but we store them as signed 64 bit
-        // integers since it's easier to compare them against 64 bit inputs (see getOffset
-        // and isDaylightTime) with much less risk of an overflow in our calculations.
-        //
-        // The alternative of checking the input against the first and last transition in
-        // the array is far more awkward and error prone.
-        int[] transitions32 = new int[tzh_timecnt];
-        it.readIntArray(transitions32, 0, transitions32.length);
-
         long[] transitions64 = new long[tzh_timecnt];
+        it.readLongArray(transitions64, 0, transitions64.length);
         for (int i = 0; i < tzh_timecnt; ++i) {
-            transitions64[i] = transitions32[i];
             if (i > 0 && transitions64[i] <= transitions64[i - 1]) {
                 throw new IOException(
                         id + " transition at " + i + " is not sorted correctly, is "
@@ -249,13 +301,14 @@ public final class ZoneInfo extends TimeZone {
             }
         }
 
-        byte[] type = new byte[tzh_timecnt];
-        it.readByteArray(type, 0, type.length);
-        for (int i = 0; i < type.length; i++) {
-            int typeIndex = type[i] & 0xff;
+        byte[] types = new byte[tzh_timecnt];
+        it.readByteArray(types, 0, types.length);
+        for (int i = 0; i < types.length; i++) {
+            int typeIndex = types[i] & 0xff;
             if (typeIndex >= tzh_typecnt) {
                 throw new IOException(
-                        id + " type at " + i + " is not < " + tzh_typecnt + ", is " + typeIndex);
+                        id + " type at " + i + " is not < " + tzh_typecnt + ", is "
+                                + typeIndex);
             }
         }
 
@@ -277,8 +330,19 @@ public final class ZoneInfo extends TimeZone {
             // for any locale. (The RI doesn't do any better than us here either.)
             it.skip(1);
         }
+        return new ZoneInfo(id, transitions64, types, gmtOffsets, isDsts, currentTimeMillis);
+    }
 
-        return new ZoneInfo(id, transitions64, type, gmtOffsets, isDsts, currentTimeMillis);
+    private static void checkTzifVersionAcceptable(String id, byte tzh_version) throws IOException {
+        char tzh_version_char = (char) tzh_version;
+        // Version >= 2 is required because the 64-bit time section is required. v3 is the latest
+        // version known at the time of writing and is identical to v2 in the parts used by this
+        // class.
+        if (tzh_version_char != '2' && tzh_version_char != '3') {
+            throw new IOException(
+                    "Timezone id=" + id + " has an invalid format version=\'" + tzh_version_char
+                            + "\' (" + tzh_version + ")");
+        }
     }
 
     private ZoneInfo(String name, long[] transitions, byte[] types, int[] gmtOffsets, byte[] isDsts,

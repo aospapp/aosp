@@ -28,6 +28,7 @@ import static android.provider.Settings.Secure.AUTOFILL_USER_DATA_MAX_FIELD_CLAS
 import static android.provider.Settings.Secure.AUTOFILL_USER_DATA_MAX_USER_DATA_SIZE;
 import static android.provider.Settings.Secure.AUTOFILL_USER_DATA_MAX_VALUE_LENGTH;
 import static android.provider.Settings.Secure.AUTOFILL_USER_DATA_MIN_VALUE_LENGTH;
+import static android.service.autofill.AutofillFieldClassificationService.REQUIRED_ALGORITHM_CREDIT_CARD;
 import static android.service.autofill.AutofillFieldClassificationService.REQUIRED_ALGORITHM_EDIT_DISTANCE;
 import static android.service.autofill.AutofillFieldClassificationService.REQUIRED_ALGORITHM_EXACT_MATCH;
 
@@ -80,12 +81,17 @@ public class FieldsClassificationTest extends AbstractGridActivityTestCase {
             new SettingsStateChangerRule(sContext, AUTOFILL_USER_DATA_MAX_CATEGORY_COUNT, "42");
 
     private AutofillManager mAfm;
-    private Bundle mLast4Bundle = new Bundle();
+    private final Bundle mLast4Bundle = new Bundle();
+    private final Bundle mCreditCardBundle = new Bundle();
 
     @Override
     protected void postActivityLaunched() {
         mAfm = mActivity.getAutofillManager();
-        mLast4Bundle.putInt("suffix", 4);
+        mLast4Bundle.putInt("MATCH_SUFFIX", 4);
+
+        mCreditCardBundle.putInt("REQUIRED_ARG_MIN_CC_LENGTH", 13);
+        mCreditCardBundle.putInt("REQUIRED_ARG_MAX_CC_LENGTH", 19);
+        mCreditCardBundle.putInt("OPTIONAL_ARG_SUFFIX_LENGTH", 4);
     }
 
     @Test
@@ -140,6 +146,7 @@ public class FieldsClassificationTest extends AbstractGridActivityTestCase {
         assertThat(availableAlgorithms).isNotNull();
         assertThat(availableAlgorithms.contains(REQUIRED_ALGORITHM_EDIT_DISTANCE)).isTrue();
         assertThat(availableAlgorithms.contains(REQUIRED_ALGORITHM_EXACT_MATCH)).isTrue();
+        assertThat(availableAlgorithms.contains(REQUIRED_ALGORITHM_CREDIT_CARD)).isTrue();
     }
 
     @Test
@@ -240,6 +247,43 @@ public class FieldsClassificationTest extends AbstractGridActivityTestCase {
         // Assert results
         final List<Event> events = InstrumentedAutoFillService.getFillEvents(1);
         assertFillEventForFieldsClassification(events.get(0), fieldId.get(), "cat", 1);
+    }
+
+    @Test
+    public void testHit_CreditCardAlgorithm() throws Exception {
+        enableService();
+
+        // Set expectations.
+        mAfm.setUserData(new UserData
+                .Builder("id", "1122334455667788", "card")
+                .setFieldClassificationAlgorithmForCategory("card",
+                        REQUIRED_ALGORITHM_CREDIT_CARD, mCreditCardBundle)
+                .build());
+        final MyAutofillCallback callback = mActivity.registerCallback();
+        final EditText field = mActivity.getCell(1, 1);
+        final AtomicReference<AutofillId> fieldId = new AtomicReference<>();
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setFieldClassificationIds(ID_L1C1)
+                .setVisitor((contexts, builder) -> fieldId
+                        .set(findAutofillIdByResourceId(contexts.get(0), ID_L1C1)))
+                .build());
+
+        // Trigger autofill
+        mActivity.focusCell(1, 1);
+        sReplier.getNextFillRequest();
+
+        mUiBot.assertNoDatasetsEver();
+        callback.assertUiUnavailableEvent(field);
+
+        // Simulate user input
+        mActivity.setText(1, 1, "7788");
+
+        // Finish context.
+        mAfm.commit();
+
+        // Assert results
+        final List<Event> events = InstrumentedAutoFillService.getFillEvents(1);
+        assertFillEventForFieldsClassification(events.get(0), fieldId.get(), "card", 1);
     }
 
     @Test

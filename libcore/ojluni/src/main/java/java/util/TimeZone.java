@@ -47,7 +47,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import libcore.io.IoUtils;
-import libcore.timezone.ZoneInfoDB;
+import libcore.timezone.ZoneInfoDb;
 
 import dalvik.system.RuntimeHooks;
 
@@ -557,7 +557,7 @@ abstract public class TimeZone implements Serializable, Cloneable {
      * @return the specified <code>TimeZone</code>, or the GMT zone if the given ID
      * cannot be understood.
      */
-    // Android-changed: param s/ID/id; use ZoneInfoDB instead of ZoneInfo class.
+    // Android-changed: param s/ID/id; use ZoneInfoDb instead of ZoneInfo class.
     public static synchronized TimeZone getTimeZone(String id) {
         if (id == null) {
             throw new NullPointerException("id == null");
@@ -576,7 +576,7 @@ abstract public class TimeZone implements Serializable, Cloneable {
         // In the database?
         TimeZone zone = null;
         try {
-            zone = ZoneInfoDB.getInstance().makeTimeZone(id);
+            zone = ZoneInfoDb.getInstance().makeTimeZone(id);
         } catch (IOException ignored) {
         }
 
@@ -666,7 +666,7 @@ abstract public class TimeZone implements Serializable, Cloneable {
      * @see #getRawOffset()
      */
     public static synchronized String[] getAvailableIDs(int rawOffset) {
-        return ZoneInfoDB.getInstance().getAvailableIDs(rawOffset);
+        return ZoneInfoDb.getInstance().getAvailableIDs(rawOffset);
     }
 
     /**
@@ -674,7 +674,7 @@ abstract public class TimeZone implements Serializable, Cloneable {
      * @return an array of IDs.
      */
     public static synchronized String[] getAvailableIDs() {
-        return ZoneInfoDB.getInstance().getAvailableIDs();
+        return ZoneInfoDb.getInstance().getAvailableIDs();
     }
 
     /**

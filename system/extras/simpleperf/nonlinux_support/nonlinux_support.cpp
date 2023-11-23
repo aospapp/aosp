@@ -38,3 +38,23 @@ bool ReadSymbolsFromDexFile(const std::string&, const std::vector<uint64_t>&,
                             std::vector<DexFileSymbol>*) {
   return true;
 }
+
+const char* GetTraceFsDir() {
+  return nullptr;
+}
+
+namespace simpleperf {
+
+class DummyOfflineUnwinder : public OfflineUnwinder {
+ public:
+  bool UnwindCallChain(const ThreadEntry&, const RegSet&, const char*, size_t,
+                       std::vector<uint64_t>*, std::vector<uint64_t>*) override {
+    return false;
+  }
+};
+
+std::unique_ptr<OfflineUnwinder> OfflineUnwinder::Create(bool) {
+  return std::unique_ptr<OfflineUnwinder>(new DummyOfflineUnwinder);
+}
+
+}  // namespace simpleperf

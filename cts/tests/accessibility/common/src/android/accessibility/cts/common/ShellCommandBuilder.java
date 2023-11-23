@@ -21,6 +21,8 @@ import android.app.UiAutomation;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -86,6 +88,25 @@ public class ShellCommandBuilder {
             execShellCommand(mUiAutomation, command);
         });
         return this;
+    }
+
+    public ShellCommandBuilder addCommandPrintOnLogCat(String command) {
+        mCommands.add(() -> {
+            execShellCommandAndPrintOnLogcat(mUiAutomation, command);
+        });
+        return this;
+    }
+
+    public static void execShellCommandAndPrintOnLogcat(UiAutomation automation, String command) {
+        Log.i(LOG_TAG, "command [" + command + "]");
+        try {
+            final String output = SystemUtil.runShellCommand(automation, command);
+            for (String line : output.split("\\n", -1)) {
+                Log.i(LOG_TAG, line);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to exec shell command [" + command + "]", e);
+        }
     }
 
     public static void execShellCommand(UiAutomation automation, String command) {

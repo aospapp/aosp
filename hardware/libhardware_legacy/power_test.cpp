@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#include <android/system/suspend/ISuspendControlService.h>
+#include <binder/IServiceManager.h>
+#include <gtest/gtest.h>
 #include <hardware_legacy/power.h>
+#include <wakelock/wakelock.h>
 
 #include <csignal>
 #include <cstdlib>
@@ -22,8 +26,9 @@
 #include <thread>
 #include <vector>
 
-#include <gtest/gtest.h>
-
+using android::sp;
+using android::system::suspend::ISuspendControlService;
+using android::system::suspend::WakeLockInfo;
 using namespace std::chrono_literals;
 
 namespace android {
@@ -73,14 +78,68 @@ TEST(LibpowerTest, WakeLockStressTest) {
             for (int j = 0; j < numLocks; j++) {
                 // We want ids to be unique.
                 std::string id = std::to_string(i) + "/" + std::to_string(j);
-                ASSERT_EQ(acquire_wake_lock(PARTIAL_WAKE_LOCK, id.c_str()), 0);
-                ASSERT_EQ(release_wake_lock(id.c_str()), 0);
+                ASSERT_EQ(acquire_wake_lock(PARTIAL_WAKE_LOCK, id.c_str()), 0)
+                    << "id: " << id;
+                ASSERT_EQ(release_wake_lock(id.c_str()), 0)
+                    << "id: " << id;;
             }
         });
     }
     for (auto& td : tds) {
         td.join();
     }
+}
+
+class WakeLockTest : public ::testing::Test {
+   public:
+    virtual void SetUp() override {
+        sp<IBinder> control =
+            android::defaultServiceManager()->getService(android::String16("suspend_control"));
+        ASSERT_NE(control, nullptr) << "failed to get the suspend control service";
+        controlService = interface_cast<ISuspendControlService>(control);
+    }
+
+    // Returns true iff found.
+    bool findWakeLockInfoByName(const sp<ISuspendControlService>& service, const std::string& name,
+                                WakeLockInfo* info) {
+        std::vector<WakeLockInfo> wlStats;
+        service->getWakeLockStats(&wlStats);
+        auto it = std::find_if(wlStats.begin(), wlStats.end(),
+                               [&name](const auto& x) { return x.name == name; });
+        if (it != wlStats.end()) {
+            *info = *it;
+            return true;
+        }
+        return false;
+    }
+
+    // All userspace wake locks are registered with system suspend.
+    sp<ISuspendControlService> controlService;
+};
+
+// Test RAII properties of WakeLock destructor.
+TEST_F(WakeLockTest, WakeLockDestructor) {
+    auto name = std::to_string(rand());
+    {
+        android::wakelock::WakeLock wl{name};
+
+        WakeLockInfo info;
+        auto success = findWakeLockInfoByName(controlService, name, &info);
+        ASSERT_TRUE(success);
+        ASSERT_EQ(info.name, name);
+        ASSERT_EQ(info.pid, getpid());
+        ASSERT_TRUE(info.isActive);
+    }
+
+    // SystemSuspend receives wake lock release requests on hwbinder thread, while stats requests
+    // come on binder thread. Sleep to make sure that stats are reported *after* wake lock release.
+    std::this_thread::sleep_for(1ms);
+    WakeLockInfo info;
+    auto success = findWakeLockInfoByName(controlService, name, &info);
+    ASSERT_TRUE(success);
+    ASSERT_EQ(info.name, name);
+    ASSERT_EQ(info.pid, getpid());
+    ASSERT_FALSE(info.isActive);
 }
 
 }  // namespace android

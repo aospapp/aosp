@@ -17,12 +17,21 @@
 #ifndef ANDROID_VINTF_VINTF_OBJECT_H_
 #define ANDROID_VINTF_VINTF_OBJECT_H_
 
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
+#include <tuple>
+#include <vector>
+
+#include <android-base/result.h>
+#include <hidl/metadata.h>
 
 #include "CheckFlags.h"
 #include "CompatibilityMatrix.h"
 #include "FileSystem.h"
 #include "HalManifest.h"
+#include "Level.h"
 #include "Named.h"
 #include "ObjectFactory.h"
 #include "PropertyFetcher.h"
@@ -59,10 +68,10 @@ class VintfObjectCompatibleTest;
  * An overall diagram of the public API:
  * VintfObject
  *   + GetDeviceHalManfiest
- *   |   + getTransport
+ *   |   + getHidlTransport
  *   |   + checkCompatibility
  *   + GetFrameworkHalManifest
- *   |   + getTransport
+ *   |   + getHidlTransport
  *   |   + checkCompatibility
  *   + GetRuntimeInfo
  *       + checkCompatibility
@@ -126,8 +135,7 @@ class VintfObject {
         bool skipCache = false, RuntimeInfo::FetchFlags flags = RuntimeInfo::FetchFlag::ALL);
 
     /**
-     * Check compatibility, given a set of manifests / matrices in packageInfo.
-     * They will be checked against the manifests / matrices on the device.
+     * Check compatibility on the device.
      *
      * @param error error message
      * @param flags flags to disable certain checks. See CheckFlags.
@@ -164,7 +172,9 @@ class VintfObject {
      *         > 0 if there is at least one deprecated HAL
      *         < 0 if any error (mount partition fails, illformed XML, etc.)
      */
-    int32_t checkDeprecation(const ListInstances& listInstances, std::string* error = nullptr);
+    int32_t checkDeprecation(const ListInstances& listInstances,
+                             const std::vector<HidlInterfaceMetadata>& hidlMetadata,
+                             std::string* error = nullptr);
 
     /**
      * Check deprecation on existing VINTF metadata. Use Device Manifest as the
@@ -174,7 +184,45 @@ class VintfObject {
      *         > 0 if there is at least one deprecated HAL
      *         < 0 if any error (mount partition fails, illformed XML, etc.)
      */
-    int32_t checkDeprecation(std::string* error = nullptr);
+    int32_t checkDeprecation(const std::vector<HidlInterfaceMetadata>& hidlMetadata,
+                             std::string* error = nullptr);
+
+    /**
+     * Return kernel FCM version.
+     *
+     * If any error, UNSPECIFIED is returned, and error is set to an error message.
+     */
+    Level getKernelLevel(std::string* error = nullptr);
+
+    /**
+     * Returns true if the framework compatibility matrix has extensions. In
+     * other words, returns true if any of the following exists on the device:
+     * - device framework compatibility matrix
+     * - product framework compatibility matrix
+     * - system_ext framework compatibility matrix
+     *
+     * Return result:
+     * - true if framework compatibility matrix has extensions
+     * - false if framework compatibility
+     *     matrix does not have extensions.
+     * - !result.has_value() if any error. Check
+     *     result.error() for detailed message.
+     */
+    android::base::Result<bool> hasFrameworkCompatibilityMatrixExtensions();
+
+    /**
+     * Check that there are no unused HALs in HAL manifests. Currently, only
+     * device manifest is checked against framework compatibility matrix.
+     *
+     * Return result:
+     * - result.ok() if no unused HALs
+     * - !result.ok() && result.error().code() == 0 if with unused HALs. Check
+     *     result.error() for detailed message.
+     * - !result.ok() && result.error().code() != 0 if any error. Check
+     *     result.error() for detailed message.
+     */
+    android::base::Result<void> checkUnusedHals(
+        const std::vector<HidlInterfaceMetadata>& hidlMetadata);
 
    private:
     std::unique_ptr<FileSystem> mFileSystem;
@@ -194,7 +242,6 @@ class VintfObject {
     details::LockedRuntimeInfoCache mDeviceRuntimeInfo;
 
     // Expose functions for testing and recovery
-    friend class VintfObjectRecovery;
     friend class testing::VintfObjectTestBase;
     friend class testing::VintfObjectRuntimeInfoTest;
     friend class testing::VintfObjectCompatibleTest;
@@ -258,51 +305,7 @@ class VintfObject {
     static std::shared_ptr<const RuntimeInfo> GetRuntimeInfo(
         bool skipCache = false, RuntimeInfo::FetchFlags flags = RuntimeInfo::FetchFlag::ALL);
 
-    /**
-     * Check compatibility, given a set of manifests / matrices in packageInfo.
-     * They will be checked against the manifests / matrices on the device.
-     *
-     * @param packageInfo a list of XMLs of HalManifest /
-     * CompatibilityMatrix objects.
-     * @param error error message
-     * @param flags flags to disable certain checks. See CheckFlags.
-     *
-     * @return = 0 if success (compatible)
-     *         > 0 if incompatible
-     *         < 0 if any error (mount partition fails, illformed XML, etc.)
-     */
-    static int32_t CheckCompatibility(const std::vector<std::string>& packageInfo,
-                                      std::string* error = nullptr,
-                                      CheckFlags::Type flags = CheckFlags::DEFAULT);
-
-    /**
-     * Check deprecation on framework matrices with a provided predicate.
-     *
-     * @param listInstances predicate that takes parameter in this format:
-     *        android.hardware.foo@1.0::IFoo
-     *        and returns {{"default", version}...} if HAL is in use, where version =
-     *        first version in interfaceChain where package + major version matches.
-     *
-     * @return = 0 if success (no deprecated HALs)
-     *         > 0 if there is at least one deprecated HAL
-     *         < 0 if any error (mount partition fails, illformed XML, etc.)
-     */
-    static int32_t CheckDeprecation(const ListInstances& listInstances,
-                                    std::string* error = nullptr);
-
-    /**
-     * Check deprecation on existing VINTF metadata. Use Device Manifest as the
-     * predicate to check if a HAL is in use.
-     *
-     * @return = 0 if success (no deprecated HALs)
-     *         > 0 if there is at least one deprecated HAL
-     *         < 0 if any error (mount partition fails, illformed XML, etc.)
-     */
-    static int32_t CheckDeprecation(std::string* error = nullptr);
-
    private:
-    static details::LockedSharedPtr<VintfObject> sInstance;
-
     status_t getCombinedFrameworkMatrix(const std::shared_ptr<const HalManifest>& deviceManifest,
                                         CompatibilityMatrix* out, std::string* error = nullptr);
     status_t getAllFrameworkMatrixLevels(std::vector<Named<CompatibilityMatrix>>* out,
@@ -316,18 +319,27 @@ class VintfObject {
     status_t fetchOdmHalManifest(HalManifest* out, std::string* error = nullptr);
     status_t fetchOneHalManifest(const std::string& path, HalManifest* out,
                                  std::string* error = nullptr);
+    status_t fetchVendorHalManifest(HalManifest* out, std::string* error = nullptr);
     status_t fetchFrameworkHalManifest(HalManifest* out, std::string* error = nullptr);
-    // Helper to CheckCompatibility with dependency injection.
-    int32_t checkCompatibility(const std::vector<std::string>& packageInfo,
-                               std::string* error = nullptr,
-                               CheckFlags::Type flags = CheckFlags::DEFAULT);
 
+    using ChildrenMap = std::multimap<std::string, std::string>;
     static bool IsHalDeprecated(const MatrixHal& oldMatrixHal,
                                 const CompatibilityMatrix& targetMatrix,
-                                const ListInstances& listInstances, std::string* error);
+                                const ListInstances& listInstances, const ChildrenMap& childrenMap,
+                                std::string* appendedError);
     static bool IsInstanceDeprecated(const MatrixInstance& oldMatrixInstance,
                                      const CompatibilityMatrix& targetMatrix,
-                                     const ListInstances& listInstances, std::string* error);
+                                     const ListInstances& listInstances,
+                                     const ChildrenMap& childrenMap, std::string* appendedError);
+
+    static android::base::Result<std::vector<FqInstance>> GetListedInstanceInheritance(
+        const std::string& package, const Version& version, const std::string& interface,
+        const std::string& instance, const ListInstances& listInstances,
+        const ChildrenMap& childrenMap);
+    static bool IsInstanceListed(const ListInstances& listInstances, const FqInstance& fqInstance);
+    static android::base::Result<void> IsFqInstanceDeprecated(
+        const CompatibilityMatrix& targetMatrix, HalFormat format, const FqInstance& fqInstance,
+        const ListInstances& listInstances);
 
    public:
     /**
@@ -368,6 +380,7 @@ extern const std::string kSystemVintfDir;
 extern const std::string kVendorVintfDir;
 extern const std::string kOdmVintfDir;
 extern const std::string kProductVintfDir;
+extern const std::string kSystemExtVintfDir;
 extern const std::string kOdmLegacyVintfDir;
 extern const std::string kOdmLegacyManifest;
 extern const std::string kVendorManifest;
@@ -376,10 +389,12 @@ extern const std::string kVendorMatrix;
 extern const std::string kOdmManifest;
 extern const std::string kProductMatrix;
 extern const std::string kProductManifest;
+extern const std::string kSystemExtManifest;
 extern const std::string kVendorManifestFragmentDir;
 extern const std::string kSystemManifestFragmentDir;
 extern const std::string kOdmManifestFragmentDir;
 extern const std::string kProductManifestFragmentDir;
+extern const std::string kSystemExtManifestFragmentDir;
 extern const std::string kVendorLegacyManifest;
 extern const std::string kVendorLegacyMatrix;
 extern const std::string kSystemLegacyManifest;

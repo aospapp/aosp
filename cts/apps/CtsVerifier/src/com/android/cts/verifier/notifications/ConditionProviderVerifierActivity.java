@@ -16,14 +16,18 @@
 
 package com.android.cts.verifier.notifications;
 
+import static android.app.NotificationManager.AUTOMATIC_RULE_STATUS_DISABLED;
+import static android.app.NotificationManager.AUTOMATIC_RULE_STATUS_ENABLED;
+import static android.app.NotificationManager.AUTOMATIC_RULE_STATUS_REMOVED;
+import static android.app.NotificationManager.AUTOMATIC_RULE_STATUS_UNKNOWN;
 import static android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY;
 
-import android.app.ActivityManager;
 import android.app.AutomaticZenRule;
 import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.provider.Settings;
 import android.service.notification.ZenPolicy;
@@ -31,6 +35,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 
 import com.android.cts.verifier.R;
 
@@ -41,9 +46,13 @@ import java.util.Objects;
 
 public class ConditionProviderVerifierActivity extends InteractiveVerifierActivity
         implements Runnable {
+    private static final String TAG = "CPVerifier";
     protected static final String CP_PACKAGE = "com.android.cts.verifier";
     protected static final String CP_PATH = CP_PACKAGE +
             "/com.android.cts.verifier.notifications.MockConditionProvider";
+
+    protected static final String PREFS = "zen_prefs";
+    private static final String BROADCAST_RULE_NAME = "123";
 
     @Override
     protected int getTitleResource() {
@@ -60,27 +69,26 @@ public class ConditionProviderVerifierActivity extends InteractiveVerifierActivi
     @Override
     protected List<InteractiveTestCase> createTestItems() {
         List<InteractiveTestCase> tests = new ArrayList<>(9);
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        if (am.isLowRamDevice()) {
-            tests.add(new CannotBeEnabledTest());
-            tests.add(new ServiceStoppedTest());
-        } else {
-            tests.add(new IsEnabledTest());
-            tests.add(new ServiceStartedTest());
-            tests.add(new CreateAutomaticZenRuleTest());
-            tests.add(new CreateAutomaticZenRuleWithZenPolicyTest());
-            tests.add(new UpdateAutomaticZenRuleTest());
-            tests.add(new UpdateAutomaticZenRuleWithZenPolicyTest());
-            tests.add(new GetAutomaticZenRuleTest());
-            tests.add(new GetAutomaticZenRulesTest());
-            tests.add(new SubscribeAutomaticZenRuleTest());
-            tests.add(new DeleteAutomaticZenRuleTest());
-            tests.add(new UnsubscribeAutomaticZenRuleTest());
-            tests.add(new RequestUnbindTest());
-            tests.add(new RequestBindTest());
-            tests.add(new IsDisabledTest());
-            tests.add(new ServiceStoppedTest());
-        }
+        tests.add(new IsEnabledTest());
+        tests.add(new ServiceStartedTest());
+        tests.add(new CreateAutomaticZenRuleTest());
+        tests.add(new CreateAutomaticZenRuleWithZenPolicyTest());
+        tests.add(new UpdateAutomaticZenRuleTest());
+        tests.add(new UpdateAutomaticZenRuleWithZenPolicyTest());
+        tests.add(new GetAutomaticZenRuleTest());
+        tests.add(new GetAutomaticZenRulesTest());
+        tests.add(new VerifyRulesIntent());
+        tests.add(new VerifyRulesAvailableToUsers());
+        tests.add(new ReceiveRuleDisableNoticeTest());
+        tests.add(new ReceiveRuleEnabledNoticeTest());
+        tests.add(new ReceiveRuleDeletedNoticeTest());
+        tests.add(new SubscribeAutomaticZenRuleTest());
+        tests.add(new DeleteAutomaticZenRuleTest());
+        tests.add(new UnsubscribeAutomaticZenRuleTest());
+        tests.add(new RequestUnbindTest());
+        tests.add(new RequestBindTest());
+        tests.add(new IsDisabledTest());
+        tests.add(new ServiceStoppedTest());
         return tests;
     }
 
@@ -106,45 +114,6 @@ public class ConditionProviderVerifierActivity extends InteractiveVerifierActivi
                     status = PASS;
                 } else {
                     status = WAIT_FOR_USER;
-                }
-                next();
-            }
-        }
-
-        protected void tearDown() {
-            // wait for the service to start
-            delay();
-        }
-
-        @Override
-        protected Intent getIntent() {
-            return new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
-        }
-    }
-
-    protected class CannotBeEnabledTest extends InteractiveTestCase {
-        @Override
-        protected View inflate(ViewGroup parent) {
-            return createNlsSettingsItem(parent, R.string.cp_cannot_enable_service);
-        }
-
-        @Override
-        boolean autoStart() {
-            return true;
-        }
-
-        @Override
-        protected void test() {
-            mNm.cancelAll();
-            Intent settings = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
-            if (settings.resolveActivity(mPackageManager) == null) {
-                logFail("no settings activity");
-                status = FAIL;
-            } else {
-                if (mNm.isNotificationPolicyAccessGranted()) {
-                    status = FAIL;
-                } else {
-                    status = PASS;
                 }
                 next();
             }
@@ -623,6 +592,292 @@ public class ConditionProviderVerifierActivity extends InteractiveVerifierActivi
                 mNm.removeAutomaticZenRule(id);
             }
             MockConditionProvider.getInstance().resetData();
+        }
+    }
+
+    protected class VerifyRulesIntent extends InteractiveTestCase {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createSettingsItem(parent, R.string.cp_show_rules);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            Intent settings = new Intent(Settings.ACTION_CONDITION_PROVIDER_SETTINGS);
+            if (settings.resolveActivity(mPackageManager) == null) {
+                logFail("no settings activity");
+                status = FAIL;
+            } else {
+                if (buttonPressed) {
+                    status = PASS;
+                } else {
+                    status = RETEST_AFTER_LONG_DELAY;
+                }
+                next();
+            }
+        }
+
+        protected void tearDown() {
+            // wait for the service to start
+            delay();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_CONDITION_PROVIDER_SETTINGS);
+        }
+    }
+
+    protected class VerifyRulesAvailableToUsers extends InteractiveTestCase {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createPassFailItem(parent, R.string.cp_show_rules_verification);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            status = WAIT_FOR_USER;
+            next();
+        }
+    }
+
+    /**
+     * Sends the user to settings to disable the rule. Waits to receive the broadcast that the rule
+     * was disabled, and confirms that the broadcast contains the correct extras.
+     */
+    protected class ReceiveRuleDisableNoticeTest extends InteractiveTestCase {
+        private final int EXPECTED_STATUS = AUTOMATIC_RULE_STATUS_DISABLED;
+        private int mRetries = 2;
+        private View mView;
+        private String mId;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.cp_disable_rule);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            status = READY;
+            // create enabled so it's ready to be disabled in app
+            AutomaticZenRule rule = new AutomaticZenRule(BROADCAST_RULE_NAME, null,
+                    new ComponentName(CP_PACKAGE,
+                            ConditionProviderVerifierActivity.this.getClass().getName()),
+                    Uri.EMPTY, null, INTERRUPTION_FILTER_PRIORITY, true);
+            mId = mNm.addAutomaticZenRule(rule);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            SharedPreferences prefs = mContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+
+            AutomaticZenRule rule = mNm.getAutomaticZenRule(mId);
+
+            if (!rule.isEnabled()) {
+                Log.d(TAG, "Check pref for broadcast " + prefs.contains(mId)
+                        + " " + prefs.getInt(mId, AUTOMATIC_RULE_STATUS_UNKNOWN));
+                if (prefs.contains(mId)
+                        && EXPECTED_STATUS == prefs.getInt(mId, AUTOMATIC_RULE_STATUS_UNKNOWN)) {
+                    status = PASS;
+                } else {
+                    if (mRetries > 0) {
+                        mRetries--;
+                        status = RETEST;
+                    } else {
+                        status = FAIL;
+                    }
+                }
+            } else {
+                Log.d(TAG, "Waiting for user");
+                // user hasn't jumped to settings yet
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            mNm.removeAutomaticZenRule(mId);
+            SharedPreferences prefs = mContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            prefs.edit().clear().commit();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_CONDITION_PROVIDER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        }
+    }
+
+    /**
+     * Sends the user to settings to enable the rule. Waits to receive the broadcast that the rule
+     * was enabled, and confirms that the broadcast contains the correct extras.
+     */
+    protected class ReceiveRuleEnabledNoticeTest extends InteractiveTestCase {
+        private final int EXPECTED_STATUS = AUTOMATIC_RULE_STATUS_ENABLED;
+        private int mRetries = 2;
+        private View mView;
+        private String mId;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.cp_enable_rule);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            status = READY;
+            // create disabled so it's ready to be enabled in Settings
+            AutomaticZenRule rule = new AutomaticZenRule(BROADCAST_RULE_NAME, null,
+                    new ComponentName(CP_PACKAGE,
+                            ConditionProviderVerifierActivity.this.getClass().getName()),
+                    Uri.EMPTY, null, INTERRUPTION_FILTER_PRIORITY, false);
+            mId = mNm.addAutomaticZenRule(rule);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            SharedPreferences prefs = mContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+
+            AutomaticZenRule rule = mNm.getAutomaticZenRule(mId);
+
+            if (rule.isEnabled()) {
+                Log.d(TAG, "Check pref for broadcast " + prefs.contains(mId)
+                        + " " + prefs.getInt(mId, AUTOMATIC_RULE_STATUS_UNKNOWN));
+                if (prefs.contains(mId)
+                        && EXPECTED_STATUS == prefs.getInt(mId, AUTOMATIC_RULE_STATUS_UNKNOWN)) {
+                    status = PASS;
+                } else {
+                    if (mRetries > 0) {
+                        mRetries--;
+                        status = RETEST;
+                    } else {
+                        status = FAIL;
+                    }
+                }
+            } else {
+                Log.d(TAG, "Waiting for user");
+                // user hasn't jumped to settings yet
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            mNm.removeAutomaticZenRule(mId);
+            SharedPreferences prefs = mContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            prefs.edit().clear().commit();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_CONDITION_PROVIDER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        }
+    }
+
+    /**
+     * Sends the user to settings to delete the rule. Waits to receive the broadcast that the rule
+     * was deleted, and confirms that the broadcast contains the correct extras.
+     */
+    protected class ReceiveRuleDeletedNoticeTest extends InteractiveTestCase {
+        private final int EXPECTED_STATUS = AUTOMATIC_RULE_STATUS_REMOVED;
+        private int mRetries = 2;
+        private View mView;
+        private String mId;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.cp_delete_rule_broadcast);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            status = READY;
+            AutomaticZenRule rule = new AutomaticZenRule(BROADCAST_RULE_NAME, null,
+                    new ComponentName(CP_PACKAGE,
+                            ConditionProviderVerifierActivity.this.getClass().getName()),
+                    Uri.EMPTY, null, INTERRUPTION_FILTER_PRIORITY, true);
+            mId = mNm.addAutomaticZenRule(rule);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            SharedPreferences prefs = mContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+
+            AutomaticZenRule rule = mNm.getAutomaticZenRule(mId);
+
+            if (rule == null) {
+                Log.d(TAG, "Check pref for broadcast " + prefs.contains(mId)
+                        + " " + prefs.getInt(mId, AUTOMATIC_RULE_STATUS_UNKNOWN));
+                if (prefs.contains(mId)
+                        && EXPECTED_STATUS == prefs.getInt(mId, AUTOMATIC_RULE_STATUS_UNKNOWN)) {
+                    status = PASS;
+                } else {
+                    if (mRetries > 0) {
+                        mRetries--;
+                        status = RETEST;
+                    } else {
+                        status = FAIL;
+                    }
+                }
+            } else {
+                Log.d(TAG, "Waiting for user");
+                // user hasn't jumped to settings yet
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            mNm.removeAutomaticZenRule(mId);
+            SharedPreferences prefs = mContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            prefs.edit().clear().commit();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_CONDITION_PROVIDER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
         }
     }
 

@@ -16,15 +16,6 @@
 
 # Provides a functioning ART environment without Android frameworks
 
-ifeq ($(TARGET_CORE_JARS),)
-$(error TARGET_CORE_JARS is empty; cannot update PRODUCT_PACKAGES variable)
-endif
-
-# Minimal boot classpath. This should be a subset of PRODUCT_BOOT_JARS, and equivalent to
-# TARGET_CORE_JARS.
-PRODUCT_PACKAGES += \
-    $(TARGET_CORE_JARS)
-
 # Additional mixins to the boot classpath.
 PRODUCT_PACKAGES += \
     android.test.base \
@@ -33,9 +24,14 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     ext \
 
-# Android Runtime APEX module.
+# Runtime (Bionic) APEX module.
 PRODUCT_PACKAGES += com.android.runtime
-PRODUCT_HOST_PACKAGES += com.android.runtime
+
+# ART APEX module.
+# Note that this package includes the minimal boot classpath JARs (listed in
+# ART_APEX_JARS), which should no longer be added directly to PRODUCT_PACKAGES.
+PRODUCT_PACKAGES += com.android.art
+PRODUCT_HOST_PACKAGES += com.android.art
 
 # Certificates.
 PRODUCT_PACKAGES += \
@@ -79,6 +75,10 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     pm.dexopt.inactive=verify \
     pm.dexopt.shared=speed
 
+# Pass file with the list of updatable boot class path packages to dex2oat.
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    dalvik.vm.dex2oat-updatable-bcp-packages-file=/system/etc/updatable-bcp-packages.txt
+
 # Enable resolution of startup const strings.
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     dalvik.vm.dex2oat-resolve-startup-strings=true
@@ -92,8 +92,8 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     dalvik.vm.minidebuginfo=true \
     dalvik.vm.dex2oat-minidebuginfo=true
 
-# Disable iorapd by default
+# Enable iorapd by default
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
-    ro.iorapd.enable=false
+    ro.iorapd.enable=true
 
-PRODUCT_USES_ART := true
+PRODUCT_USES_DEFAULT_ART_CONFIG := true

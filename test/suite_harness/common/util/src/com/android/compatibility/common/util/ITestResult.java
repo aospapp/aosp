@@ -15,6 +15,8 @@
  */
 package com.android.compatibility.common.util;
 
+import java.util.List;
+
 /**
  * Represents a single test result.
  */
@@ -150,4 +152,22 @@ public interface ITestResult extends Comparable<ITestResult> {
      * Clear the existing result and default to 'failed'
      */
     void removeResult();
+
+    /**
+     * This method is to record per-case history for CTS Verifier. If this field is used for large
+     * test suites like CTS, it may cause performance issues in APFE. Thus please do not use this
+     * field in other test suites.
+     *
+     * @return The test result histories
+     */
+    List<TestResultHistory> getTestResultHistories();
+
+    /**
+     * Set test result histories of test item. This method is for per-case history in CTS Verifier.
+     * If this field is used for large test suites like CTS, it may cause performance issues in
+     * APFE. Thus please do not use this field in other test suites.
+     *
+     * @param resultHistories The test result histories.
+     */
+    void setTestResultHistories(List<TestResultHistory> resultHistories);
 }

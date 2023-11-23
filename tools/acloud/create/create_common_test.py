@@ -14,16 +14,16 @@
 """Tests for create_common."""
 
 import os
-import tempfile
-import time
 import unittest
-import zipfile
+
+import mock
 
 from acloud import errors
 from acloud.create import create_common
-from acloud.internal import constants
+from acloud.internal.lib import android_build_client
+from acloud.internal.lib import auth
 from acloud.internal.lib import driver_test_lib
-
+from acloud.internal.lib import utils
 
 
 class FakeZipFile(object):
@@ -65,25 +65,86 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
         result_dict = create_common.ParseHWPropertyArgs(args_str)
         self.assertTrue(expected_dict == result_dict)
 
-    def testZipCFImageFiles(self):
-        """Test ZipCFImageFiles."""
-        # Should raise error if zip file already exists
-        fake_image_path = "/fake_image_dir/"
-        self.Patch(os.path, "exists", return_value=True)
-        self.Patch(os, "makedirs")
-        self.assertRaises(errors.ZipImageError,
-                          create_common.ZipCFImageFiles,
-                          fake_image_path)
+    def testGetCvdHostPackage(self):
+        """test GetCvdHostPackage."""
+        # Can't find the cvd host package
+        with mock.patch("os.path.exists") as exists:
+            exists.return_value = False
+            self.assertRaises(
+                errors.GetCvdLocalHostPackageError,
+                create_common.GetCvdHostPackage)
 
-        # Test should get archive name by timestamp if zip file does not exist.
-        self.Patch(zipfile, "ZipFile", return_value=FakeZipFile())
-        self.Patch(os.path, "exists", return_value=False)
-        self.Patch(os.environ, "get", return_value="fake_build_target")
-        self.Patch(time, "time", return_value=12345)
-        self.Patch(tempfile, "gettempdir", return_value="/fake_temp")
-        self.assertEqual(create_common.ZipCFImageFiles(fake_image_path),
-                         "/fake_temp/%s/fake_build_target-local-12345.zip" %
-                         constants.TEMP_ARTIFACTS_FOLDER)
+        self.Patch(os.environ, "get", return_value="/fake_dir2")
+        self.Patch(utils, "GetDistDir", return_value="/fake_dir1")
+        # First path is host out dir, 2nd path is dist dir.
+        self.Patch(os.path, "exists",
+                   side_effect=[False, True])
+
+        # Find cvd host in dist dir.
+        self.assertEqual(
+            create_common.GetCvdHostPackage(),
+            "/fake_dir1/cvd-host_package.tar.gz")
+
+        # Find cvd host in host out dir.
+        self.Patch(os.environ, "get", return_value="/fake_dir2")
+        self.Patch(utils, "GetDistDir", return_value=None)
+        with mock.patch("os.path.exists") as exists:
+            exists.return_value = True
+            self.assertEqual(
+                create_common.GetCvdHostPackage(),
+                "/fake_dir2/cvd-host_package.tar.gz")
+
+    @mock.patch.object(utils, "Decompress")
+    def testDownloadRemoteArtifact(self, mock_decompress):
+        """Test Download cuttlefish package."""
+        mock_build_client = mock.MagicMock()
+        self.Patch(
+            android_build_client,
+            "AndroidBuildClient",
+            return_value=mock_build_client)
+        self.Patch(auth, "CreateCredentials", return_value=mock.MagicMock())
+        avd_spec = mock.MagicMock()
+        avd_spec.cfg = mock.MagicMock()
+        avd_spec.remote_image = {"build_target" : "aosp_cf_x86_phone-userdebug",
+                                 "build_id": "1234"}
+        build_id = "1234"
+        build_target = "aosp_cf_x86_phone-userdebug"
+        checkfile1 = "aosp_cf_x86_phone-img-1234.zip"
+        checkfile2 = "cvd-host_package.tar.gz"
+        extract_path = "/tmp/1234"
+
+        create_common.DownloadRemoteArtifact(
+            avd_spec.cfg,
+            avd_spec.remote_image["build_target"],
+            avd_spec.remote_image["build_id"],
+            checkfile1,
+            extract_path,
+            decompress=True)
+
+        self.assertEqual(mock_build_client.DownloadArtifact.call_count, 1)
+        mock_build_client.DownloadArtifact.assert_called_once_with(
+            build_target,
+            build_id,
+            checkfile1,
+            "%s/%s" % (extract_path, checkfile1))
+        self.assertEqual(mock_decompress.call_count, 1)
+
+        mock_decompress.call_count = 0
+        mock_build_client.DownloadArtifact.call_count = 0
+        create_common.DownloadRemoteArtifact(
+            avd_spec.cfg,
+            avd_spec.remote_image["build_target"],
+            avd_spec.remote_image["build_id"],
+            checkfile2,
+            extract_path)
+
+        self.assertEqual(mock_build_client.DownloadArtifact.call_count, 1)
+        mock_build_client.DownloadArtifact.assert_called_once_with(
+            build_target,
+            build_id,
+            checkfile2,
+            "%s/%s" % (extract_path, checkfile2))
+        self.assertEqual(mock_decompress.call_count, 0)
 
 
 if __name__ == "__main__":

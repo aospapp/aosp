@@ -143,7 +143,7 @@ class VtsHalHidlTargetCallbackBase {
       milliseconds timeout_any = milliseconds(-1)) {
     unique_lock<mutex> lock(cb_wait_any_mtx_);
 
-    auto start_time = system_clock::now();
+    auto start_time = steady_clock::now();
 
     WaitForCallbackResult res = PeekCallbackLocks(callback_function_names);
     while (!res.no_timeout) {
@@ -304,7 +304,7 @@ class VtsHalHidlTargetCallbackBase {
         if (timeout < milliseconds(0)) {
           timeout = GetWaitTimeout();
         }
-        auto expiration = system_clock::now() + timeout;
+        auto expiration = steady_clock::now() + timeout;
         while (wait_count_ == 0) {
           auto status = wait_cv_.wait_until(lock, expiration);
           if (status == cv_status::timeout) {
@@ -376,16 +376,16 @@ class VtsHalHidlTargetCallbackBase {
    * If timeout_any is not negative, start_time + timeout_any will be returned.
    * Otherwise, the shortest timeout from the list will be returned.
    */
-  system_clock::time_point GetWaitAnyTimeout(
+  steady_clock::time_point GetWaitAnyTimeout(
       const vector<string>& callback_function_names,
-      system_clock::time_point start_time, milliseconds timeout_any) {
+      steady_clock::time_point start_time, milliseconds timeout_any) {
     if (timeout_any >= milliseconds(0)) {
       return start_time + timeout_any;
     }
 
     auto locks = GetWaitAnyCallbackLocks(callback_function_names);
 
-    auto timeout_min = system_clock::duration::max();
+    auto timeout_min = steady_clock::duration::max();
     for (auto lock : locks) {
       auto timeout = lock->GetWaitTimeout();
       if (timeout < timeout_min) {

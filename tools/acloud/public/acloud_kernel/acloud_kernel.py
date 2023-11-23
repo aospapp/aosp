@@ -24,6 +24,7 @@ from acloud.public import acloud_common
 from acloud.public import config
 from acloud.public.acloud_kernel import kernel_swapper
 
+
 DEFAULT_CONFIG_FILE = "acloud.config"
 
 # Commands

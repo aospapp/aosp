@@ -20,12 +20,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <thread>
 
 #include <android-base/macros.h>
+#include <android-base/threads.h>
+
 #include <gtest/gtest.h>
 
 #include "SignalUtils.h"
+#include "utils.h"
+
+using namespace std::chrono_literals;
 
 static int SIGNAL_MIN() {
   return 1; // Signals start at 1 (SIGHUP), not 0.
@@ -171,10 +177,10 @@ TEST(signal, sigwait64_SIGRTMIN) {
   sigemptyset64(&wait_set);
   sigaddset64(&wait_set, SIGRTMIN);
 
-  pid_t pid = getpid();
-  std::thread thread([&pid]() {
-    usleep(5000);
-    kill(pid, SIGRTMIN);
+  pid_t tid = gettid();
+  std::thread thread([&tid]() {
+    sleep(1);
+    tgkill(getpid(), tid, SIGRTMIN);
   });
 
   int received_signal;
@@ -276,8 +282,7 @@ static void TestSigAction(int (sigaction_fn)(int, const SigActionT*, SigActionT*
                           int sig) {
   // Both bionic and glibc set SA_RESTORER when talking to the kernel on arm,
   // arm64, x86, and x86-64. The version of glibc we're using also doesn't
-  // define SA_RESTORER, but luckily it's the same value everywhere, and mips
-  // doesn't use the bit for anything.
+  // define SA_RESTORER, but luckily it's the same value everywhere.
   static const unsigned sa_restorer = 0x4000000;
 
   // See what's currently set for this signal.
@@ -592,18 +597,12 @@ TEST(signal, sys_siglist) {
 }
 
 TEST(signal, limits) {
-  // This comes from the kernel.
+  // These come from the kernel.
   ASSERT_EQ(32, __SIGRTMIN);
+  ASSERT_EQ(64, __SIGRTMAX);
 
   // We reserve a non-zero number at the bottom for ourselves.
   ASSERT_GT(SIGRTMIN, __SIGRTMIN);
-
-  // MIPS has more signals than everyone else.
-#if defined(__mips__)
-  ASSERT_EQ(128, __SIGRTMAX);
-#else
-  ASSERT_EQ(64, __SIGRTMAX);
-#endif
 
   // We don't currently reserve any at the top.
   ASSERT_EQ(SIGRTMAX, __SIGRTMAX);
@@ -753,12 +752,6 @@ TEST(signal, sigtimedwait64_SIGRTMIN) {
   ASSERT_EQ(0, errno);
 }
 
-static int64_t NanoTime() {
-  timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return static_cast<int64_t>(t.tv_sec) * 1000000000LL + t.tv_nsec;
-}
-
 TEST(signal, sigtimedwait_timeout) {
   // Block SIGALRM.
   sigset_t just_SIGALRM;
@@ -768,13 +761,14 @@ TEST(signal, sigtimedwait_timeout) {
   ASSERT_EQ(0, sigprocmask(SIG_BLOCK, &just_SIGALRM, &original_set));
 
   // Wait timeout.
-  int64_t start_time = NanoTime();
+  auto t0 = std::chrono::steady_clock::now();
   siginfo_t info;
   timespec timeout = { .tv_sec = 0, .tv_nsec = 1000000 };
   errno = 0;
   ASSERT_EQ(-1, sigtimedwait(&just_SIGALRM, &info, &timeout));
   ASSERT_EQ(EAGAIN, errno);
-  ASSERT_GE(NanoTime() - start_time, 1000000);
+  auto t1 = std::chrono::steady_clock::now();
+  ASSERT_GE(t1-t0, 1000000ns);
 
   ASSERT_EQ(0, sigprocmask(SIG_SETMASK, &original_set, nullptr));
 }

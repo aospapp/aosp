@@ -28,9 +28,6 @@ class ProtocolsTest(AwareBaseTest):
 
     SERVICE_NAME = "GoogleTestServiceXY"
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     def run_ping6(self, dut, peer_ipv6):
         """Run a ping6 over the specified device/link
 

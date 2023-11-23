@@ -41,7 +41,7 @@ Keychords::Keychords() : epoll_(nullptr), inotify_fd_(-1) {}
 
 Keychords::~Keychords() noexcept {
     if (inotify_fd_ >= 0) {
-        epoll_->UnregisterHandler(inotify_fd_).IgnoreError();
+        epoll_->UnregisterHandler(inotify_fd_);
         ::close(inotify_fd_);
     }
     while (!registration_.empty()) GeteventCloseDevice(registration_.begin()->first);
@@ -187,7 +187,7 @@ bool Keychords::GeteventEnable(int fd) {
         LambdaCheck();
     }
     if (auto result = epoll_->RegisterHandler(fd, [this, fd]() { this->LambdaHandler(fd); });
-        !result) {
+        !result.ok()) {
         LOG(WARNING) << "Could not register keychord epoll handler: " << result.error();
         return false;
     }
@@ -212,7 +212,7 @@ void Keychords::GeteventCloseDevice(const std::string& device) {
     auto it = registration_.find(device);
     if (it == registration_.end()) return;
     auto fd = (*it).second;
-    epoll_->UnregisterHandler(fd).IgnoreError();
+    epoll_->UnregisterHandler(fd);
     registration_.erase(it);
     ::close(fd);
 }
@@ -272,7 +272,7 @@ void Keychords::GeteventOpenDevice() {
     if (inotify_fd_ >= 0) {
         if (auto result =
                     epoll_->RegisterHandler(inotify_fd_, [this]() { this->InotifyHandler(); });
-            !result) {
+            !result.ok()) {
             LOG(WARNING) << "Could not register keychord epoll handler: " << result.error();
         }
     }
@@ -285,7 +285,7 @@ void Keychords::Register(const std::vector<int>& keycodes) {
 
 void Keychords::Start(Epoll* epoll, std::function<void(const std::vector<int>&)> handler) {
     epoll_ = epoll;
-    handler_ = handler;
+    handler_ = std::move(handler);
     if (entries_.size()) GeteventOpenDevice();
 }
 

@@ -106,7 +106,12 @@ class PacketCapture(object):
 
         self._create_interface(MON_2G, 'monitor')
         self._create_interface(MON_5G, 'monitor')
-        self._create_interface(SCAN_IFACE, 'managed')
+        self.managed_mode = True
+        result = self.ssh.run('ifconfig -a', ignore_status=True)
+        if result.stderr or SCAN_IFACE not in result.stdout:
+            self.managed_mode = False
+        if self.managed_mode:
+            self._create_interface(SCAN_IFACE, 'managed')
 
         self.pcap_properties = dict()
         self._pcap_stop_lock = threading.Lock()
@@ -116,6 +121,8 @@ class PacketCapture(object):
 
         Create mon0/mon1 for 2G/5G monitor mode and wlan2 for managed mode.
         """
+        if mode == 'monitor':
+            self.ssh.run('ifconfig wlan%s down' % iface[-1], ignore_status=True)
         self.ssh.run('iw dev %s del' % iface, ignore_status=True)
         self.ssh.run('iw phy%s interface add %s type %s'
                      % (iface[-1], iface, mode), ignore_status=True)
@@ -171,6 +178,8 @@ class PacketCapture(object):
         Returns:
             List of dictionaries each representing a found network.
         """
+        if not self.managed_mode:
+            raise PacketCaptureError('Managed mode not setup')
         result = self.ssh.run('iw dev %s scan' % SCAN_IFACE)
         if result.stderr:
             raise PacketCaptureError('Failed to get scan dump')

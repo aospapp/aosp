@@ -24,4 +24,4 @@ bool PowerControlManager::hostIsAwake() {
   return true;
 }
 
-} // namespace chre
+}  // namespace chre

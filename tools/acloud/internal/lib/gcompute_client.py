@@ -26,15 +26,21 @@ and it only keeps states about authentication. ComputeClient should be very
 generic, and only knows how to talk to Compute Engine APIs.
 """
 # pylint: disable=too-many-lines
-import collections
 import copy
 import functools
+import getpass
 import logging
 import os
+import re
+
+import six
 
 from acloud import errors
+from acloud.internal import constants
 from acloud.internal.lib import base_cloud_client
 from acloud.internal.lib import utils
+from acloud.internal.lib.ssh import IP
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +50,7 @@ _METADATA_KEY_VALUE = "value"
 _SSH_KEYS_NAME = "sshKeys"
 _ITEMS = "items"
 _METADATA = "metadata"
+_ZONE_RE = re.compile(r"^zones/(?P<zone>.+)")
 
 BASE_DISK_ARGS = {
     "type": "PERSISTENT",
@@ -52,8 +59,6 @@ BASE_DISK_ARGS = {
     "autoDelete": True,
     "initializeParams": {},
 }
-
-IP = collections.namedtuple("IP", ["external", "internal"])
 
 
 class OperationScope(object):
@@ -105,6 +110,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
     ])
     # Default settings for gce operations
     DEFAULT_INSTANCE_SCOPE = [
+        "https://www.googleapis.com/auth/androidbuild.internal",
         "https://www.googleapis.com/auth/devstorage.read_only",
         "https://www.googleapis.com/auth/logging.write"
     ]
@@ -308,7 +314,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             error_msgs: A list of failure messages.
         """
         if not disk_names:
-            logger.warn("Nothing to delete. Arg disk_names is not provided.")
+            logger.warning("Nothing to delete. Arg disk_names is not provided.")
             return [], [], []
         # Batch send deletion requests.
         logger.info("Deleting disks: %s", disk_names)
@@ -799,11 +805,41 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             "    onHostMaintenance: %s\n",
             str(automatic_restart).lower(), on_host_maintenance)
 
-    def ListInstances(self, zone, instance_filter=None):
-        """List instances.
+    def ListInstances(self, instance_filter=None):
+        """List instances cross all zones.
+
+        Gcompute response instance. For example:
+        {
+            'items':
+            {
+                'zones/europe-west3-b':
+                {
+                    'warning':
+                    {
+                        'message': "There are no results for scope
+                        'zones/europe-west3-b' on this page.",
+                        'code': 'NO_RESULTS_ON_PAGE',
+                        'data': [{'value': u'zones/europe-west3-b',
+                                  'key': u'scope'}]
+                    }
+                },
+                'zones/asia-east1-b':
+                {
+                    'instances': [
+                    {
+                        'name': 'ins-bc212dc8-userbuild-aosp-cf-x86-64-phone'
+                        'status': 'RUNNING',
+                        'cpuPlatform': 'Intel Broadwell',
+                        'startRestricted': False,
+                        'labels': {u'created_by': u'herbertxue'},
+                        'name': 'ins-bc212dc8-userbuild-aosp-cf-x86-64-phone',
+                        ...
+                    }]
+                }
+            }
+        }
 
         Args:
-            zone: A string, representing zone name. e.g. "us-central1-f"
             instance_filter: A string representing a filter in format of
                              FIELD_NAME COMPARISON_STRING LITERAL_STRING
                              e.g. "name ne example-instance"
@@ -812,11 +848,26 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         Returns:
             A list of instances.
         """
-        return self.ListWithMultiPages(
-            api_resource=self.service.instances().list,
-            project=self._project,
-            zone=zone,
-            filter=instance_filter)
+        # aggregatedList will only return 500 results max, so if there are more,
+        # we need to send in the next page token to get the next 500 (and so on
+        # and so forth.
+        get_more_instances = True
+        page_token = None
+        instances_list = []
+        while get_more_instances:
+            api = self.service.instances().aggregatedList(
+                project=self._project,
+                filter=instance_filter,
+                pageToken=page_token)
+            response = self.Execute(api)
+            page_token = response.get("nextPageToken")
+            get_more_instances = page_token is not None
+            for instances_data in response["items"].values():
+                if "instances" in instances_data:
+                    for instance in instances_data.get("instances"):
+                        instances_list.append(instance)
+
+        return instances_list
 
     def SetSchedulingInstances(self,
                                instances,
@@ -916,7 +967,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         done = []
         # Wait for the executing operations to finish.
         logger.info("Waiting for executing operations")
-        for resource_name in requests.iterkeys():
+        for resource_name in six.iterkeys(requests):
             operation, _ = results[resource_name]
             if operation:
                 try:
@@ -1013,14 +1064,18 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         Returns:
             A dictionary representing network args.
         """
-        return {
+        network_args = {
             "network": self.GetNetworkUrl(network),
-            "subnetwork": self.GetSubnetworkUrl(network, zone),
             "accessConfigs": [{
                 "name": "External NAT",
                 "type": "ONE_TO_ONE_NAT"
             }]
         }
+        # default network can be blank or set to default, we don't need to
+        # specify the subnetwork for that.
+        if network and network != "default":
+            network_args["subnetwork"] = self.GetSubnetworkUrl(network, zone)
+        return network_args
 
     def _GetDiskArgs(self,
                      disk_name,
@@ -1083,8 +1138,8 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
                        image_project=None,
                        gpu=None,
                        extra_disk_name=None,
-                       labels=None,
-                       extra_scopes=None):
+                       extra_scopes=None,
+                       tags=None):
         """Create a gce instance with a gce image.
 
         Args:
@@ -1104,8 +1159,9 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
                  None no gpus will be attached. For more details see:
                  https://cloud.google.com/compute/docs/gpus/add-gpus
             extra_disk_name: String,the name of the extra disk to attach.
-            labels: Dict, will be added to the instance's labels.
             extra_scopes: A list of extra scopes to be provided to the instance.
+            tags: A list of tags to associate with the instance. e.g.
+                  ["http-server", "https-server"]
         """
         disk_args = (disk_args
                      or self._GetDiskArgs(instance, image_name, image_project))
@@ -1117,20 +1173,22 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         if extra_scopes:
             scopes.extend(extra_scopes)
 
+        # Add labels for giving the instances ability to be filter for
+        # acloud list/delete cmds.
         body = {
             "machineType": self.GetMachineType(machine_type, zone)["selfLink"],
             "name": instance,
             "networkInterfaces": [self._GetNetworkArgs(network, zone)],
             "disks": disk_args,
+            "labels": {constants.LABEL_CREATE_BY: getpass.getuser()},
             "serviceAccounts": [{
                 "email": "default",
                 "scopes": scopes,
             }],
         }
 
-
-        if labels is not None:
-            body["labels"] = labels
+        if tags:
+            body["tags"] = {"items": tags}
         if gpu:
             body["guestAccelerators"] = [{
                 "acceleratorType": self.GetAcceleratorUrl(gpu, zone),
@@ -1275,7 +1333,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             project=self._project, network=network)
         result = self.Execute(api)
         region = zone.rsplit("-", 1)[0]
-        for subnetwork in result["subnetworks"]:
+        for subnetwork in result.get("subnetworks", []):
             if region in subnetwork:
                 return subnetwork
         raise errors.NoSubnetwork("No subnetwork for network %s in region %s" %
@@ -1309,9 +1367,9 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
                     "Malformed machine size record: Can't find '%s' in %s or %s"
                     % (metric, machine_info_1, machine_info_2))
             cmp_result = machine_info_1[metric] - machine_info_2[metric]
-            if  cmp_result < 0:
+            if cmp_result < 0:
                 return -1
-            elif cmp_result > 0:
+            if cmp_result > 0:
                 result = 1
         return result
 
@@ -1337,7 +1395,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
                 "Malformed response for GetSerialPortOutput: %s" % result)
         return result["contents"]
 
-    def GetInstanceNamesByIPs(self, ips, zone):
+    def GetInstanceNamesByIPs(self, ips):
         """Get Instance names by IPs.
 
         This function will go through all instances, which
@@ -1346,14 +1404,13 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
 
         Args:
             ips: A set of IPs.
-            zone: String, name of the zone.
 
         Returns:
             A dictionary where key is IP and value is instance name or None
             if instance is not found for the given IP.
         """
         ip_name_map = dict.fromkeys(ips)
-        for instance in self.ListInstances(zone):
+        for instance in self.ListInstances():
             try:
                 ip = instance["networkInterfaces"][0]["accessConfigs"][0][
                     "natIP"]
@@ -1371,7 +1428,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             zone: String, name of the zone.
 
         Returns:
-            NamedTuple of (internal, external) IP of the instance.
+            ssh.IP object, that stores internal and external ip of the instance.
         """
         instance = self.GetInstance(instance, zone)
         internal_ip = instance["networkInterfaces"][0]["networkIP"]
@@ -1404,14 +1461,13 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         self.WaitOnOperation(
             operation, operation_scope=OperationScope.ZONE, scope_name=zone)
 
-    def AddSshRsaInstanceMetadata(self, zone, user, ssh_rsa_path, instance):
+    def AddSshRsaInstanceMetadata(self, user, ssh_rsa_path, instance):
         """Add the public rsa key to the instance's metadata.
 
         Confirm that the instance has this public key in the instance's
         metadata, if not we will add this public key.
 
         Args:
-            zone: String, name of zone.
             user: String, name of the user which the key belongs to.
             ssh_rsa_path: String, The absolute path to public rsa key.
             instance: String, representing instance name.
@@ -1421,10 +1477,86 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         entry = "%s:%s" % (user, rsa)
         logger.debug("New RSA entry: %s", entry)
 
+        zone = self.GetZoneByInstance(instance)
         gce_instance = self.GetInstance(instance, zone)
         metadata = gce_instance.get(_METADATA)
         if RsaNotInMetadata(metadata, entry):
             self.UpdateRsaInMetadata(zone, instance, metadata, entry)
+
+    def GetZoneByInstance(self, instance):
+        """Get the zone from instance name.
+
+        Gcompute response instance. For example:
+        {
+            'items':
+            {
+                'zones/europe-west3-b':
+                {
+                    'warning':
+                    {
+                        'message': "There are no results for scope
+                        'zones/europe-west3-b' on this page.",
+                        'code': 'NO_RESULTS_ON_PAGE',
+                        'data': [{'value': u'zones/europe-west3-b',
+                                  'key': u'scope'}]
+                    }
+                },
+                'zones/asia-east1-b':
+                {
+                    'instances': [
+                    {
+                        'name': 'ins-bc212dc8-userbuild-aosp-cf-x86-64-phone'
+                        'status': 'RUNNING',
+                        'cpuPlatform': 'Intel Broadwell',
+                        'startRestricted': False,
+                        'labels': {u'created_by': u'herbertxue'},
+                        'name': 'ins-bc212dc8-userbuild-aosp-cf-x86-64-phone',
+                        ...
+                    }]
+                }
+            }
+        }
+
+        Args:
+            instance: String, representing instance name.
+
+        Raises:
+            errors.GetGceZoneError: Can't get zone from instance name.
+
+        Returns:
+            String of zone name.
+        """
+        api = self.service.instances().aggregatedList(
+            project=self._project,
+            filter="name=%s" % instance)
+        response = self.Execute(api)
+        for zone, instance_data in response["items"].items():
+            if "instances" in instance_data:
+                zone_match = _ZONE_RE.match(zone)
+                if zone_match:
+                    return zone_match.group("zone")
+        raise errors.GetGceZoneError("Can't get zone from the instance name %s"
+                                     % instance)
+
+    def GetZonesByInstances(self, instances):
+        """Get the zone from instance name.
+
+        Args:
+            instances: List of strings, representing instance names.
+
+        Returns:
+            A dictionary that contains the name of all instances in the zone.
+            The key is the name of the zone, and the value is a list contains
+            the name of the instances.
+        """
+        zone_instances = {}
+        for instance in instances:
+            zone = self.GetZoneByInstance(instance)
+            if zone in zone_instances:
+                zone_instances[zone].append(instance)
+            else:
+                zone_instances[zone] = [instance]
+        return zone_instances
 
     def CheckAccess(self):
         """Check if the user has read access to the cloud project.
@@ -1463,7 +1595,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             # in the metadata. There may not be an actual ssh key value so
             # that's why we filter for None to avoid an empty line in front.
             ssh_key_item[_METADATA_KEY_VALUE] = "\n".join(
-                filter(None, [ssh_key_item[_METADATA_KEY_VALUE], entry]))
+                list(filter(None, [ssh_key_item[_METADATA_KEY_VALUE], entry])))
         else:
             # Since there is no ssh key item in the metadata, we need to add it in.
             ssh_key_item = {_METADATA_KEY: _SSH_KEYS_NAME,

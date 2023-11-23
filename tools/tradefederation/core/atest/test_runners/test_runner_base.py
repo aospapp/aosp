@@ -41,7 +41,7 @@ TestResult = namedtuple('TestResult', ['runner_name', 'group_name',
                                        'test_name', 'status', 'details',
                                        'test_count', 'test_time',
                                        'runner_total', 'group_total',
-                                       'perf_info'])
+                                       'additional_info', 'test_run_name'])
 ASSUMPTION_FAILED = 'ASSUMPTION_FAILED'
 FAILED_STATUS = 'FAILED'
 PASSED_STATUS = 'PASSED'

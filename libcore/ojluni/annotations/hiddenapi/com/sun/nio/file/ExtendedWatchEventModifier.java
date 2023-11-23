@@ -27,7 +27,7 @@ package com.sun.nio.file;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public enum ExtendedWatchEventModifier implements java.nio.file.WatchEvent.Modifier {
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     FILE_TREE;
 
     private ExtendedWatchEventModifier() {

@@ -28,7 +28,7 @@ package sun.misc;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CEStreamExhausted extends java.io.IOException {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CEStreamExhausted() {
         throw new RuntimeException("Stub!");
     }

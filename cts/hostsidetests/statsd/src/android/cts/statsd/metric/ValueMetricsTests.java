@@ -37,6 +37,7 @@ import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.android.os.AtomsProto.Atom;
 import com.android.os.AtomsProto.SystemElapsedRealtime;
 import com.android.os.StatsLog.StatsLogReport;
+import com.android.os.StatsLog.StatsLogReport.BucketDropReason;
 import com.android.os.StatsLog.ValueBucketInfo;
 import com.android.os.StatsLog.ValueMetricData;
 
@@ -48,9 +49,6 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
   private static final int APP_BREADCRUMB_REPORTED_B_MATCH_START_ID = 2;
 
   public void testValueMetric() throws Exception {
-    if (statsdDisabled()) {
-      return;
-    }
     // Add AtomMatcher's.
     AtomMatcher startAtomMatcher =
         MetricsUtils.startAtomMatcher(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID);
@@ -94,29 +92,26 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
 
     StatsLogReport metricReport = getStatsLogReport();
     LogUtil.CLog.d("Got the following value metric data: " + metricReport.toString());
-    assertEquals(MetricsUtils.VALUE_METRIC_ID, metricReport.getMetricId());
-    assertTrue(metricReport.hasValueMetrics());
+    assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.VALUE_METRIC_ID);
+    assertThat(metricReport.hasValueMetrics()).isTrue();
     StatsLogReport.ValueMetricDataWrapper valueData = metricReport.getValueMetrics();
-    assertEquals(1, valueData.getDataCount());
+    assertThat(valueData.getDataCount()).isEqualTo(1);
 
     int bucketCount = valueData.getData(0).getBucketInfoCount();
-    assertTrue(bucketCount > 1);
+    assertThat(bucketCount).isGreaterThan(1);
     ValueMetricData data = valueData.getData(0);
     int totalValue = 0;
     for (ValueBucketInfo bucketInfo : data.getBucketInfoList()) {
       MetricsUtils.assertBucketTimePresent(bucketInfo);
-      assertEquals(1, bucketInfo.getValuesCount());
-      assertEquals(0, bucketInfo.getValues(0).getIndex());
+      assertThat(bucketInfo.getValuesCount()).isEqualTo(1);
+      assertThat(bucketInfo.getValues(0).getIndex()).isEqualTo(0);
       totalValue += (int) bucketInfo.getValues(0).getValueLong();
     }
-    assertEquals(8, totalValue);
+    assertThat(totalValue).isEqualTo(8);
   }
 
   // Test value metric with pulled atoms and across multiple buckets
   public void testPullerAcrossBuckets() throws Exception {
-    if (statsdDisabled()) {
-      return;
-    }
     // Add AtomMatcher's.
     final String predicateTrueName = "APP_BREADCRUMB_REPORTED_START";
     final String predicateFalseName = "APP_BREADCRUMB_REPORTED_STOP";
@@ -172,31 +167,28 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
 
     StatsLogReport metricReport = getStatsLogReport();
     LogUtil.CLog.d("Got the following value metric data: " + metricReport.toString());
-    assertEquals(MetricsUtils.VALUE_METRIC_ID, metricReport.getMetricId());
-    assertTrue(metricReport.hasValueMetrics());
+    assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.VALUE_METRIC_ID);
+    assertThat(metricReport.hasValueMetrics()).isTrue();
     StatsLogReport.ValueMetricDataWrapper valueData = metricReport.getValueMetrics();
-    assertEquals(valueData.getDataCount(), 1);
+    assertThat(valueData.getDataCount()).isEqualTo(1);
 
     int bucketCount = valueData.getData(0).getBucketInfoCount();
     // should have at least 2 buckets
-    assertTrue(bucketCount >= 2);
+    assertThat(bucketCount).isAtLeast(2);
     ValueMetricData data = valueData.getData(0);
     int totalValue = 0;
     for (ValueBucketInfo bucketInfo : data.getBucketInfoList()) {
       MetricsUtils.assertBucketTimePresent(bucketInfo);
-      assertEquals(1, bucketInfo.getValuesCount());
-      assertEquals(0, bucketInfo.getValues(0).getIndex());
+      assertThat(bucketInfo.getValuesCount()).isEqualTo(1);
+      assertThat(bucketInfo.getValues(0).getIndex()).isEqualTo(0);
       totalValue += (int) bucketInfo.getValues(0).getValueLong();
     }
     // At most we lose one full min bucket
-    assertTrue(totalValue > (130_000 - 60_000));
+    assertThat(totalValue).isGreaterThan(130_000 - 60_000);
   }
 
   // Test value metric with pulled atoms and across multiple buckets
   public void testMultipleEventsPerBucket() throws Exception {
-    if (statsdDisabled()) {
-      return;
-    }
     // Add AtomMatcher's.
     final String predicateTrueName = "APP_BREADCRUMB_REPORTED_START";
     final String predicateFalseName = "APP_BREADCRUMB_REPORTED_STOP";
@@ -256,32 +248,28 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
 
     StatsLogReport metricReport = getStatsLogReport();
     LogUtil.CLog.d("Got the following value metric data: " + metricReport.toString());
-    assertEquals(MetricsUtils.VALUE_METRIC_ID, metricReport.getMetricId());
-    assertTrue(metricReport.hasValueMetrics());
+    assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.VALUE_METRIC_ID);
+    assertThat(metricReport.hasValueMetrics()).isTrue();
     StatsLogReport.ValueMetricDataWrapper valueData = metricReport.getValueMetrics();
-    assertEquals(valueData.getDataCount(), 1);
+    assertThat(valueData.getDataCount()).isEqualTo(1);
 
     int bucketCount = valueData.getData(0).getBucketInfoCount();
     // should have at least 2 buckets
-    assertTrue(bucketCount >= 2);
+    assertThat(bucketCount).isAtLeast(2);
     ValueMetricData data = valueData.getData(0);
     int totalValue = 0;
     for (ValueBucketInfo bucketInfo : data.getBucketInfoList()) {
       MetricsUtils.assertBucketTimePresent(bucketInfo);
-      assertEquals(1, bucketInfo.getValuesCount());
-      assertEquals(0, bucketInfo.getValues(0).getIndex());
+      assertThat(bucketInfo.getValuesCount()).isEqualTo(1);
+      assertThat(bucketInfo.getValues(0).getIndex()).isEqualTo(0);
       totalValue += (int) bucketInfo.getValues(0).getValueLong();
     }
     // At most we lose one full min bucket
-    assertTrue(totalValue > (GAP_INTERVAL*NUM_EVENTS - 60_000));
+    assertThat((long) totalValue).isGreaterThan(GAP_INTERVAL * NUM_EVENTS - 60_000);
   }
 
   // Test value metric with pulled atoms and across multiple buckets
   public void testPullerAcrossBucketsWithActivation() throws Exception {
-    if (statsdDisabled()) {
-      return;
-    }
-
     StatsdConfig.Builder builder = createConfigBuilder();
 
     // Add AtomMatcher's.
@@ -329,15 +317,16 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
 
     StatsLogReport metricReport = getStatsLogReport();
     LogUtil.CLog.d("Got the following value metric data: " + metricReport.toString());
-    assertEquals(MetricsUtils.VALUE_METRIC_ID, metricReport.getMetricId());
-    assertFalse(metricReport.hasValueMetrics());
+    assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.VALUE_METRIC_ID);
+    assertThat(metricReport.getValueMetrics().getDataList()).isEmpty();
+    // Bucket is skipped because metric is not activated.
+    assertThat(metricReport.getValueMetrics().getSkippedList()).isNotEmpty();
+    assertThat(metricReport.getValueMetrics().getSkipped(0).getDropEventList()).isNotEmpty();
+    assertThat(metricReport.getValueMetrics().getSkipped(0).getDropEvent(0).getDropReason())
+            .isEqualTo(BucketDropReason.NO_DATA);
   }
 
     public void testValueMetricWithConditionAndActivation() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
-
         final int conditionLabel = 2;
         final int activationMatcherId = 5;
         final int activationMatcherLabel = 5;

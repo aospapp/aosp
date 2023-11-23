@@ -21,6 +21,8 @@ import static org.junit.Assert.fail;
 import android.os.Environment;
 import android.os.storage.StorageManager;
 
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,8 +30,6 @@ import org.junit.runner.RunWith;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-
-import androidx.test.runner.AndroidJUnit4;
 
 /**
  * Test writing to SD card requires permissions

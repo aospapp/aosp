@@ -20,6 +20,8 @@ import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.util.Log;
 
+import org.junit.Test;
+
 /**
  * Test we receive proper assist data (root assistStructure with no children) when the assistant is
  * invoked on an app with FLAG_SECURE set.
@@ -30,11 +32,11 @@ public class FlagSecureTest extends AssistTestBase {
     private static final String TEST_CASE_TYPE = Utils.FLAG_SECURE;
 
     @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         startTestActivity(TEST_CASE_TYPE);
     }
 
+    @Test
     public void testSecureActivity() throws Exception {
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");

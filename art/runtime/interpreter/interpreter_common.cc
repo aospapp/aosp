@@ -24,6 +24,7 @@
 #include "debugger.h"
 #include "dex/dex_file_types.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
+#include "handle.h"
 #include "intrinsics_enum.h"
 #include "jit/jit.h"
 #include "jvalue-inl.h"
@@ -81,7 +82,7 @@ bool UseFastInterpreterToInterpreterInvoke(ArtMethod* method) {
   if (method->GetDeclaringClass()->IsStringClass() && method->IsConstructor()) {
     return false;
   }
-  if (method->IsStatic() && !method->GetDeclaringClass()->IsInitialized()) {
+  if (method->IsStatic() && !method->GetDeclaringClass()->IsVisiblyInitialized()) {
     return false;
   }
   ProfilingInfo* profiling_info = method->GetProfilingInfo(kRuntimePointerSize);
@@ -91,384 +92,56 @@ bool UseFastInterpreterToInterpreterInvoke(ArtMethod* method) {
   return true;
 }
 
-template<FindFieldType find_type, Primitive::Type field_type, bool do_access_check,
-         bool transaction_active>
-bool DoFieldGet(Thread* self, ShadowFrame& shadow_frame, const Instruction* inst,
-                uint16_t inst_data) {
-  const bool is_static = (find_type == StaticObjectRead) || (find_type == StaticPrimitiveRead);
-  const uint32_t field_idx = is_static ? inst->VRegB_21c() : inst->VRegC_22c();
-  ArtField* f =
-      FindFieldFromCode<find_type, do_access_check>(field_idx, shadow_frame.GetMethod(), self,
-                                                    Primitive::ComponentSize(field_type));
-  if (UNLIKELY(f == nullptr)) {
-    CHECK(self->IsExceptionPending());
-    return false;
-  }
-  ObjPtr<mirror::Object> obj;
-  if (is_static) {
-    obj = f->GetDeclaringClass();
-    if (transaction_active) {
-      if (Runtime::Current()->GetTransaction()->ReadConstraint(obj.Ptr(), f)) {
-        Runtime::Current()->AbortTransactionAndThrowAbortError(self, "Can't read static fields of "
-            + obj->PrettyTypeOf() + " since it does not belong to clinit's class.");
-        return false;
-      }
+template <typename T>
+bool SendMethodExitEvents(Thread* self,
+                          const instrumentation::Instrumentation* instrumentation,
+                          ShadowFrame& frame,
+                          ObjPtr<mirror::Object> thiz,
+                          ArtMethod* method,
+                          uint32_t dex_pc,
+                          T& result) {
+  bool had_event = false;
+  // We can get additional ForcePopFrame requests during handling of these events. We should
+  // respect these and send additional instrumentation events.
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Object> h_thiz(hs.NewHandle(thiz));
+  do {
+    frame.SetForcePopFrame(false);
+    if (UNLIKELY(instrumentation->HasMethodExitListeners() && !frame.GetSkipMethodExitEvents())) {
+      had_event = true;
+      instrumentation->MethodExitEvent(
+          self, h_thiz.Get(), method, dex_pc, instrumentation::OptionalFrame{ frame }, result);
     }
+    // We don't send method-exit if it's a pop-frame. We still send frame_popped though.
+    if (UNLIKELY(frame.NeedsNotifyPop() && instrumentation->HasWatchedFramePopListeners())) {
+      had_event = true;
+      instrumentation->WatchedFramePopped(self, frame);
+    }
+  } while (UNLIKELY(frame.GetForcePopFrame()));
+  if (UNLIKELY(had_event)) {
+    return !self->IsExceptionPending();
   } else {
-    obj = shadow_frame.GetVRegReference(inst->VRegB_22c(inst_data));
-    if (UNLIKELY(obj == nullptr)) {
-      ThrowNullPointerExceptionForFieldAccess(f, true);
-      return false;
-    }
+    return true;
   }
-
-  JValue result;
-  if (UNLIKELY(!DoFieldGetCommon<field_type>(self, shadow_frame, obj, f, &result))) {
-    // Instrumentation threw an error!
-    CHECK(self->IsExceptionPending());
-    return false;
-  }
-  uint32_t vregA = is_static ? inst->VRegA_21c(inst_data) : inst->VRegA_22c(inst_data);
-  switch (field_type) {
-    case Primitive::kPrimBoolean:
-      shadow_frame.SetVReg(vregA, result.GetZ());
-      break;
-    case Primitive::kPrimByte:
-      shadow_frame.SetVReg(vregA, result.GetB());
-      break;
-    case Primitive::kPrimChar:
-      shadow_frame.SetVReg(vregA, result.GetC());
-      break;
-    case Primitive::kPrimShort:
-      shadow_frame.SetVReg(vregA, result.GetS());
-      break;
-    case Primitive::kPrimInt:
-      shadow_frame.SetVReg(vregA, result.GetI());
-      break;
-    case Primitive::kPrimLong:
-      shadow_frame.SetVRegLong(vregA, result.GetJ());
-      break;
-    case Primitive::kPrimNot:
-      shadow_frame.SetVRegReference(vregA, result.GetL());
-      break;
-    default:
-      LOG(FATAL) << "Unreachable: " << field_type;
-      UNREACHABLE();
-  }
-  return true;
 }
 
-// Explicitly instantiate all DoFieldGet functions.
-#define EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, _do_check, _transaction_active) \
-  template bool DoFieldGet<_find_type, _field_type, _do_check, _transaction_active>(Thread* self, \
-                                                               ShadowFrame& shadow_frame, \
-                                                               const Instruction* inst, \
-                                                               uint16_t inst_data)
+template
+bool SendMethodExitEvents(Thread* self,
+                          const instrumentation::Instrumentation* instrumentation,
+                          ShadowFrame& frame,
+                          ObjPtr<mirror::Object> thiz,
+                          ArtMethod* method,
+                          uint32_t dex_pc,
+                          MutableHandle<mirror::Object>& result);
 
-#define EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(_find_type, _field_type)  \
-    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, false, true);  \
-    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, false, false);  \
-    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, true, true);  \
-    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, true, false);
-
-// iget-XXX
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(InstancePrimitiveRead, Primitive::kPrimBoolean)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(InstancePrimitiveRead, Primitive::kPrimByte)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(InstancePrimitiveRead, Primitive::kPrimChar)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(InstancePrimitiveRead, Primitive::kPrimShort)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(InstancePrimitiveRead, Primitive::kPrimInt)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(InstancePrimitiveRead, Primitive::kPrimLong)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(InstanceObjectRead, Primitive::kPrimNot)
-
-// sget-XXX
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(StaticPrimitiveRead, Primitive::kPrimBoolean)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(StaticPrimitiveRead, Primitive::kPrimByte)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(StaticPrimitiveRead, Primitive::kPrimChar)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(StaticPrimitiveRead, Primitive::kPrimShort)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(StaticPrimitiveRead, Primitive::kPrimInt)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(StaticPrimitiveRead, Primitive::kPrimLong)
-EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(StaticObjectRead, Primitive::kPrimNot)
-
-#undef EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL
-#undef EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL
-
-// Handles iget-quick, iget-wide-quick and iget-object-quick instructions.
-// Returns true on success, otherwise throws an exception and returns false.
-template<Primitive::Type field_type>
-bool DoIGetQuick(ShadowFrame& shadow_frame, const Instruction* inst, uint16_t inst_data) {
-  ObjPtr<mirror::Object> obj = shadow_frame.GetVRegReference(inst->VRegB_22c(inst_data));
-  if (UNLIKELY(obj == nullptr)) {
-    // We lost the reference to the field index so we cannot get a more
-    // precised exception message.
-    ThrowNullPointerExceptionFromDexPC();
-    return false;
-  }
-  MemberOffset field_offset(inst->VRegC_22c());
-  // Report this field access to instrumentation if needed. Since we only have the offset of
-  // the field from the base of the object, we need to look for it first.
-  instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
-  if (UNLIKELY(instrumentation->HasFieldReadListeners())) {
-    ArtField* f = ArtField::FindInstanceFieldWithOffset(obj->GetClass(),
-                                                        field_offset.Uint32Value());
-    DCHECK(f != nullptr);
-    DCHECK(!f->IsStatic());
-    Thread* self = Thread::Current();
-    StackHandleScope<1> hs(self);
-    // Save obj in case the instrumentation event has thread suspension.
-    HandleWrapperObjPtr<mirror::Object> h = hs.NewHandleWrapper(&obj);
-    instrumentation->FieldReadEvent(self,
-                                    obj.Ptr(),
-                                    shadow_frame.GetMethod(),
-                                    shadow_frame.GetDexPC(),
-                                    f);
-    if (UNLIKELY(self->IsExceptionPending())) {
-      return false;
-    }
-  }
-  // Note: iget-x-quick instructions are only for non-volatile fields.
-  const uint32_t vregA = inst->VRegA_22c(inst_data);
-  switch (field_type) {
-    case Primitive::kPrimInt:
-      shadow_frame.SetVReg(vregA, static_cast<int32_t>(obj->GetField32(field_offset)));
-      break;
-    case Primitive::kPrimBoolean:
-      shadow_frame.SetVReg(vregA, static_cast<int32_t>(obj->GetFieldBoolean(field_offset)));
-      break;
-    case Primitive::kPrimByte:
-      shadow_frame.SetVReg(vregA, static_cast<int32_t>(obj->GetFieldByte(field_offset)));
-      break;
-    case Primitive::kPrimChar:
-      shadow_frame.SetVReg(vregA, static_cast<int32_t>(obj->GetFieldChar(field_offset)));
-      break;
-    case Primitive::kPrimShort:
-      shadow_frame.SetVReg(vregA, static_cast<int32_t>(obj->GetFieldShort(field_offset)));
-      break;
-    case Primitive::kPrimLong:
-      shadow_frame.SetVRegLong(vregA, static_cast<int64_t>(obj->GetField64(field_offset)));
-      break;
-    case Primitive::kPrimNot:
-      shadow_frame.SetVRegReference(vregA, obj->GetFieldObject<mirror::Object>(field_offset));
-      break;
-    default:
-      LOG(FATAL) << "Unreachable: " << field_type;
-      UNREACHABLE();
-  }
-  return true;
-}
-
-// Explicitly instantiate all DoIGetQuick functions.
-#define EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL(_field_type) \
-  template bool DoIGetQuick<_field_type>(ShadowFrame& shadow_frame, const Instruction* inst, \
-                                         uint16_t inst_data)
-
-EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL(Primitive::kPrimInt);      // iget-quick.
-EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL(Primitive::kPrimBoolean);  // iget-boolean-quick.
-EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL(Primitive::kPrimByte);     // iget-byte-quick.
-EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL(Primitive::kPrimChar);     // iget-char-quick.
-EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL(Primitive::kPrimShort);    // iget-short-quick.
-EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL(Primitive::kPrimLong);     // iget-wide-quick.
-EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL(Primitive::kPrimNot);      // iget-object-quick.
-#undef EXPLICIT_DO_IGET_QUICK_TEMPLATE_DECL
-
-template<Primitive::Type field_type>
-static JValue GetFieldValue(const ShadowFrame& shadow_frame, uint32_t vreg)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  JValue field_value;
-  switch (field_type) {
-    case Primitive::kPrimBoolean:
-      field_value.SetZ(static_cast<uint8_t>(shadow_frame.GetVReg(vreg)));
-      break;
-    case Primitive::kPrimByte:
-      field_value.SetB(static_cast<int8_t>(shadow_frame.GetVReg(vreg)));
-      break;
-    case Primitive::kPrimChar:
-      field_value.SetC(static_cast<uint16_t>(shadow_frame.GetVReg(vreg)));
-      break;
-    case Primitive::kPrimShort:
-      field_value.SetS(static_cast<int16_t>(shadow_frame.GetVReg(vreg)));
-      break;
-    case Primitive::kPrimInt:
-      field_value.SetI(shadow_frame.GetVReg(vreg));
-      break;
-    case Primitive::kPrimLong:
-      field_value.SetJ(shadow_frame.GetVRegLong(vreg));
-      break;
-    case Primitive::kPrimNot:
-      field_value.SetL(shadow_frame.GetVRegReference(vreg));
-      break;
-    default:
-      LOG(FATAL) << "Unreachable: " << field_type;
-      UNREACHABLE();
-  }
-  return field_value;
-}
-
-template<FindFieldType find_type, Primitive::Type field_type, bool do_access_check,
-         bool transaction_active>
-bool DoFieldPut(Thread* self, const ShadowFrame& shadow_frame, const Instruction* inst,
-                uint16_t inst_data) {
-  const bool do_assignability_check = do_access_check;
-  bool is_static = (find_type == StaticObjectWrite) || (find_type == StaticPrimitiveWrite);
-  uint32_t field_idx = is_static ? inst->VRegB_21c() : inst->VRegC_22c();
-  ArtField* f =
-      FindFieldFromCode<find_type, do_access_check>(field_idx, shadow_frame.GetMethod(), self,
-                                                    Primitive::ComponentSize(field_type));
-  if (UNLIKELY(f == nullptr)) {
-    CHECK(self->IsExceptionPending());
-    return false;
-  }
-  ObjPtr<mirror::Object> obj;
-  if (is_static) {
-    obj = f->GetDeclaringClass();
-    if (transaction_active) {
-      if (Runtime::Current()->GetTransaction()->WriteConstraint(obj.Ptr(), f)) {
-        Runtime::Current()->AbortTransactionAndThrowAbortError(
-            self, "Can't set fields of " + obj->PrettyTypeOf());
-        return false;
-      }
-    }
-
-  } else {
-    obj = shadow_frame.GetVRegReference(inst->VRegB_22c(inst_data));
-    if (UNLIKELY(obj == nullptr)) {
-      ThrowNullPointerExceptionForFieldAccess(f, false);
-      return false;
-    }
-  }
-
-  uint32_t vregA = is_static ? inst->VRegA_21c(inst_data) : inst->VRegA_22c(inst_data);
-  JValue value = GetFieldValue<field_type>(shadow_frame, vregA);
-  return DoFieldPutCommon<field_type, do_assignability_check, transaction_active>(self,
-                                                                                  shadow_frame,
-                                                                                  obj,
-                                                                                  f,
-                                                                                  value);
-}
-
-// Explicitly instantiate all DoFieldPut functions.
-#define EXPLICIT_DO_FIELD_PUT_TEMPLATE_DECL(_find_type, _field_type, _do_check, _transaction_active) \
-  template bool DoFieldPut<_find_type, _field_type, _do_check, _transaction_active>(Thread* self, \
-      const ShadowFrame& shadow_frame, const Instruction* inst, uint16_t inst_data)
-
-#define EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(_find_type, _field_type)  \
-    EXPLICIT_DO_FIELD_PUT_TEMPLATE_DECL(_find_type, _field_type, false, false);  \
-    EXPLICIT_DO_FIELD_PUT_TEMPLATE_DECL(_find_type, _field_type, true, false);  \
-    EXPLICIT_DO_FIELD_PUT_TEMPLATE_DECL(_find_type, _field_type, false, true);  \
-    EXPLICIT_DO_FIELD_PUT_TEMPLATE_DECL(_find_type, _field_type, true, true);
-
-// iput-XXX
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(InstancePrimitiveWrite, Primitive::kPrimBoolean)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(InstancePrimitiveWrite, Primitive::kPrimByte)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(InstancePrimitiveWrite, Primitive::kPrimChar)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(InstancePrimitiveWrite, Primitive::kPrimShort)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(InstancePrimitiveWrite, Primitive::kPrimInt)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(InstancePrimitiveWrite, Primitive::kPrimLong)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(InstanceObjectWrite, Primitive::kPrimNot)
-
-// sput-XXX
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(StaticPrimitiveWrite, Primitive::kPrimBoolean)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(StaticPrimitiveWrite, Primitive::kPrimByte)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(StaticPrimitiveWrite, Primitive::kPrimChar)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(StaticPrimitiveWrite, Primitive::kPrimShort)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(StaticPrimitiveWrite, Primitive::kPrimInt)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(StaticPrimitiveWrite, Primitive::kPrimLong)
-EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL(StaticObjectWrite, Primitive::kPrimNot)
-
-#undef EXPLICIT_DO_FIELD_PUT_ALL_TEMPLATE_DECL
-#undef EXPLICIT_DO_FIELD_PUT_TEMPLATE_DECL
-
-template<Primitive::Type field_type, bool transaction_active>
-bool DoIPutQuick(const ShadowFrame& shadow_frame, const Instruction* inst, uint16_t inst_data) {
-  ObjPtr<mirror::Object> obj = shadow_frame.GetVRegReference(inst->VRegB_22c(inst_data));
-  if (UNLIKELY(obj == nullptr)) {
-    // We lost the reference to the field index so we cannot get a more
-    // precised exception message.
-    ThrowNullPointerExceptionFromDexPC();
-    return false;
-  }
-  MemberOffset field_offset(inst->VRegC_22c());
-  const uint32_t vregA = inst->VRegA_22c(inst_data);
-  // Report this field modification to instrumentation if needed. Since we only have the offset of
-  // the field from the base of the object, we need to look for it first.
-  instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
-  if (UNLIKELY(instrumentation->HasFieldWriteListeners())) {
-    ArtField* f = ArtField::FindInstanceFieldWithOffset(obj->GetClass(),
-                                                        field_offset.Uint32Value());
-    DCHECK(f != nullptr);
-    DCHECK(!f->IsStatic());
-    JValue field_value = GetFieldValue<field_type>(shadow_frame, vregA);
-    Thread* self = Thread::Current();
-    StackHandleScope<2> hs(self);
-    // Save obj in case the instrumentation event has thread suspension.
-    HandleWrapperObjPtr<mirror::Object> h = hs.NewHandleWrapper(&obj);
-    mirror::Object* fake_root = nullptr;
-    HandleWrapper<mirror::Object> ret(hs.NewHandleWrapper<mirror::Object>(
-        field_type == Primitive::kPrimNot ? field_value.GetGCRoot() : &fake_root));
-    instrumentation->FieldWriteEvent(self,
-                                     obj.Ptr(),
-                                     shadow_frame.GetMethod(),
-                                     shadow_frame.GetDexPC(),
-                                     f,
-                                     field_value);
-    if (UNLIKELY(self->IsExceptionPending())) {
-      return false;
-    }
-    if (UNLIKELY(shadow_frame.GetForcePopFrame())) {
-      // Don't actually set the field. The next instruction will force us to pop.
-      DCHECK(Runtime::Current()->AreNonStandardExitsEnabled());
-      DCHECK(PrevFrameWillRetry(self, shadow_frame));
-      return true;
-    }
-  }
-  // Note: iput-x-quick instructions are only for non-volatile fields.
-  switch (field_type) {
-    case Primitive::kPrimBoolean:
-      obj->SetFieldBoolean<transaction_active>(field_offset, shadow_frame.GetVReg(vregA));
-      break;
-    case Primitive::kPrimByte:
-      obj->SetFieldByte<transaction_active>(field_offset, shadow_frame.GetVReg(vregA));
-      break;
-    case Primitive::kPrimChar:
-      obj->SetFieldChar<transaction_active>(field_offset, shadow_frame.GetVReg(vregA));
-      break;
-    case Primitive::kPrimShort:
-      obj->SetFieldShort<transaction_active>(field_offset, shadow_frame.GetVReg(vregA));
-      break;
-    case Primitive::kPrimInt:
-      obj->SetField32<transaction_active>(field_offset, shadow_frame.GetVReg(vregA));
-      break;
-    case Primitive::kPrimLong:
-      obj->SetField64<transaction_active>(field_offset, shadow_frame.GetVRegLong(vregA));
-      break;
-    case Primitive::kPrimNot:
-      obj->SetFieldObject<transaction_active>(field_offset, shadow_frame.GetVRegReference(vregA));
-      break;
-    default:
-      LOG(FATAL) << "Unreachable: " << field_type;
-      UNREACHABLE();
-  }
-  return true;
-}
-
-// Explicitly instantiate all DoIPutQuick functions.
-#define EXPLICIT_DO_IPUT_QUICK_TEMPLATE_DECL(_field_type, _transaction_active) \
-  template bool DoIPutQuick<_field_type, _transaction_active>(const ShadowFrame& shadow_frame, \
-                                                              const Instruction* inst, \
-                                                              uint16_t inst_data)
-
-#define EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(_field_type)   \
-  EXPLICIT_DO_IPUT_QUICK_TEMPLATE_DECL(_field_type, false);     \
-  EXPLICIT_DO_IPUT_QUICK_TEMPLATE_DECL(_field_type, true);
-
-EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(Primitive::kPrimInt)      // iput-quick.
-EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(Primitive::kPrimBoolean)  // iput-boolean-quick.
-EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(Primitive::kPrimByte)     // iput-byte-quick.
-EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(Primitive::kPrimChar)     // iput-char-quick.
-EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(Primitive::kPrimShort)    // iput-short-quick.
-EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(Primitive::kPrimLong)     // iput-wide-quick.
-EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(Primitive::kPrimNot)      // iput-object-quick.
-#undef EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL
-#undef EXPLICIT_DO_IPUT_QUICK_TEMPLATE_DECL
+template
+bool SendMethodExitEvents(Thread* self,
+                          const instrumentation::Instrumentation* instrumentation,
+                          ShadowFrame& frame,
+                          ObjPtr<mirror::Object> thiz,
+                          ArtMethod* method,
+                          uint32_t dex_pc,
+                          JValue& result);
 
 // We execute any instrumentation events that are triggered by this exception and change the
 // shadow_frame's dex_pc to that of the exception handler if there is one in the current method.
@@ -501,6 +174,12 @@ bool MoveToExceptionHandler(Thread* self,
     if (instrumentation != nullptr) {
       if (shadow_frame.NeedsNotifyPop()) {
         instrumentation->WatchedFramePopped(self, shadow_frame);
+        if (shadow_frame.GetForcePopFrame()) {
+          // We will check in the caller for GetForcePopFrame again. We need to bail out early to
+          // prevent an ExceptionHandledEvent from also being sent before popping and to ensure we
+          // handle other types of non-standard-exits.
+          return true;
+        }
       }
       // Exception is not caught by the current method. We will unwind to the
       // caller. Notify any instrumentation listener.
@@ -509,7 +188,7 @@ bool MoveToExceptionHandler(Thread* self,
                                          shadow_frame.GetMethod(),
                                          shadow_frame.GetDexPC());
     }
-    return false;
+    return shadow_frame.GetForcePopFrame();
   } else {
     shadow_frame.SetDexPC(found_dex_pc);
     if (instrumentation != nullptr && instrumentation->HasExceptionHandledListeners()) {
@@ -585,18 +264,18 @@ void ArtInterpreterToCompiledCodeBridge(Thread* self,
   // Ensure static methods are initialized.
   if (method->IsStatic()) {
     ObjPtr<mirror::Class> declaringClass = method->GetDeclaringClass();
-    if (UNLIKELY(!declaringClass->IsInitialized())) {
+    if (UNLIKELY(!declaringClass->IsVisiblyInitialized())) {
       self->PushShadowFrame(shadow_frame);
       StackHandleScope<1> hs(self);
       Handle<mirror::Class> h_class(hs.NewHandle(declaringClass));
-      if (UNLIKELY(!Runtime::Current()->GetClassLinker()->EnsureInitialized(self, h_class, true,
-                                                                            true))) {
+      if (UNLIKELY(!Runtime::Current()->GetClassLinker()->EnsureInitialized(
+                        self, h_class, /*can_init_fields=*/ true, /*can_init_parents=*/ true))) {
         self->PopShadowFrame();
         DCHECK(self->IsExceptionPending());
         return;
       }
       self->PopShadowFrame();
-      CHECK(h_class->IsInitializing());
+      DCHECK(h_class->IsInitializing());
       // Reload from shadow frame in case the method moved, this is faster than adding a handle.
       method = shadow_frame->GetMethod();
     }
@@ -1799,7 +1478,7 @@ bool DoFilledNewArray(const Instruction* inst,
     }
     return false;
   }
-  ObjPtr<mirror::Object> new_array = mirror::Array::Alloc<true>(
+  ObjPtr<mirror::Object> new_array = mirror::Array::Alloc(
       self,
       array_class,
       length,

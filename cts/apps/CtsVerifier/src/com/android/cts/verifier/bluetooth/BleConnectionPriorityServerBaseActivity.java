@@ -37,12 +37,6 @@ import java.util.List;
 public class BleConnectionPriorityServerBaseActivity extends PassFailButtons.Activity {
 
     public static final int CONNECTION_PRIORITY_HIGH = 0;
-    public static final int CONNECTION_PRIORITY_BALANCED = 1;
-    public static final int CONNECTION_PRIORITY_LOW_POWER = 2;
-
-    private long mAverageBalanced = -1;
-    private long mAverageHigh = -1;
-    private long mAverageLow = -1;
 
     private TestAdapter mTestAdapter;
 
@@ -71,10 +65,7 @@ public class BleConnectionPriorityServerBaseActivity extends PassFailButtons.Act
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(BleConnectionPriorityServerService.ACTION_BLUETOOTH_DISABLED);
-        filter.addAction(BleConnectionPriorityServerService.ACTION_CONNECTION_WRITE_REQUEST);
-        filter.addAction(BleConnectionPriorityServerService.ACTION_FINICH_CONNECTION_PRIORITY_HIGHT);
-        filter.addAction(BleConnectionPriorityServerService.ACTION_FINICH_CONNECTION_PRIORITY_BALANCED);
-        filter.addAction(BleConnectionPriorityServerService.ACTION_FINICH_CONNECTION_PRIORITY_LOW);
+        filter.addAction(BleConnectionPriorityServerService.ACTION_CONNECTION_PRIORITY_FINISH);
         filter.addAction(BleServerService.BLE_ADVERTISE_UNSUPPORTED);
         filter.addAction(BleServerService.BLE_OPEN_FAIL);
         filter.addAction(BleConnectionPriorityServerService.ACTION_START_CONNECTION_PRIORITY_TEST);
@@ -90,9 +81,7 @@ public class BleConnectionPriorityServerBaseActivity extends PassFailButtons.Act
 
     private List<Integer> setupTestList() {
         ArrayList<Integer> testList = new ArrayList<Integer>();
-        testList.add(R.string.ble_connection_priority_client_high);
-        testList.add(R.string.ble_connection_priority_client_balanced);
-        testList.add(R.string.ble_connection_priority_client_low);
+        testList.add(R.string.ble_connection_priority_client_description);
         return testList;
     }
 
@@ -130,8 +119,8 @@ public class BleConnectionPriorityServerBaseActivity extends PassFailButtons.Act
     private BroadcastReceiver mBroadcast = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            boolean passedAll = false;
             String action = intent.getAction();
-            long average = intent.getLongExtra(BleConnectionPriorityServerService.EXTRA_AVERAGE, -1);
             switch (action) {
             case BleConnectionPriorityServerService.ACTION_BLUETOOTH_DISABLED:
                 new AlertDialog.Builder(context)
@@ -148,64 +137,12 @@ public class BleConnectionPriorityServerBaseActivity extends PassFailButtons.Act
             case BleConnectionPriorityServerService.ACTION_START_CONNECTION_PRIORITY_TEST:
                 showProgressDialog();
                 break;
-            case BleConnectionPriorityServerService.ACTION_FINICH_CONNECTION_PRIORITY_HIGHT:
-                mAverageHigh = average;
-                mAverageBalanced = -1;
-                mAverageLow = -1;
-                break;
-            case BleConnectionPriorityServerService.ACTION_FINICH_CONNECTION_PRIORITY_BALANCED:
-                mAverageBalanced = average;
-                break;
-            case BleConnectionPriorityServerService.ACTION_FINICH_CONNECTION_PRIORITY_LOW:
-                mAverageLow = average;
-                break;
-            case BleServerService.BLE_OPEN_FAIL:
-                setTestResultAndFinish(false);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(BleConnectionPriorityServerBaseActivity.this, R.string.bt_open_failed_message, Toast.LENGTH_SHORT).show();
-                    }
-                });
-                break;
-            case BleServerService.BLE_ADVERTISE_UNSUPPORTED:
-                showErrorDialog(R.string.bt_advertise_unsupported_title, R.string.bt_advertise_unsupported_message, true);
-                break;
-            }
-
-            boolean passedHigh = (mAverageHigh >= 0);
-            boolean passedAll = false;
-
-            if (passedHigh) {
-                mTestAdapter.setTestPass(CONNECTION_PRIORITY_HIGH);
-            }
-
-            if (passedHigh && (mAverageLow >= 0) && (mAverageBalanced >= 0)) {
-                boolean passedBalanced = (mAverageHigh <= mAverageBalanced);
-                boolean passedLow = (mAverageBalanced <= mAverageLow);
-
-                if (passedBalanced) {
-                    mTestAdapter.setTestPass(CONNECTION_PRIORITY_BALANCED);
-                }
-                if (passedLow) {
-                    mTestAdapter.setTestPass(CONNECTION_PRIORITY_LOW_POWER);
-                }
-
-                String resultMsg;
-                if (passedBalanced && passedLow) {
-                    resultMsg = getString(R.string.ble_server_connection_priority_result_passed);
-                    passedAll = true;
-                } else {
-                    String detailsMsg = String.format(getString(R.string.ble_server_connection_priority_result_intervals),
-                            mAverageHigh,
-                            mAverageBalanced,
-                            mAverageLow);
-                    resultMsg = getString(R.string.ble_server_connection_priority_result_failed)
-                            + "\n\n"
-                            + detailsMsg;
-                }
+            case BleConnectionPriorityServerService.ACTION_CONNECTION_PRIORITY_FINISH:
+                String resultMsg = getString(R.string.ble_server_connection_priority_result_passed);
 
                 closeDialog();
+
+                mTestAdapter.setTestPass(CONNECTION_PRIORITY_HIGH);
                 mDialog = new AlertDialog.Builder(BleConnectionPriorityServerBaseActivity.this)
                         .setMessage(resultMsg)
                         .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
@@ -222,10 +159,25 @@ public class BleConnectionPriorityServerBaseActivity extends PassFailButtons.Act
                         })
                         .create();
                 mDialog.show();
+
+                getPassButton().setEnabled(true);
+                mTestAdapter.notifyDataSetChanged();
+                break;
+
+            case BleServerService.BLE_OPEN_FAIL:
+                setTestResultAndFinish(false);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(BleConnectionPriorityServerBaseActivity.this, R.string.bt_open_failed_message, Toast.LENGTH_SHORT).show();
+                    }
+                });
+                break;
+            case BleServerService.BLE_ADVERTISE_UNSUPPORTED:
+                showErrorDialog(R.string.bt_advertise_unsupported_title, R.string.bt_advertise_unsupported_message, true);
+                break;
             }
 
-            getPassButton().setEnabled(passedAll);
-            mTestAdapter.notifyDataSetChanged();
         }
     };
 

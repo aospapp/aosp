@@ -37,7 +37,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 6047274297262753887 (0x53ec3beefbb2485f)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=ES, CN=Autoridad de Certificacion Firmaprofesional CIF A62634068
         Validity
             Not Before: May 20 08:38:15 2009 GMT
@@ -45,7 +45,7 @@ Certificate:
         Subject: C=ES, CN=Autoridad de Certificacion Firmaprofesional CIF A62634068
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:ca:96:6b:8e:ea:f8:fb:f1:a2:35:e0:7f:4c:da:
                     e0:c3:52:d7:7d:b6:10:c8:02:5e:b3:43:2a:c4:4f:

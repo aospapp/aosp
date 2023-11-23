@@ -102,6 +102,8 @@ public class GCSFileDownloaderFuncTest {
         createFile(mStorage, FILE_CONTENT, BUCKET_NAME, mRemoteRoot, FILE_NAME1);
         createFile(mStorage, FILE_NAME2, BUCKET_NAME, mRemoteRoot, FOLDER_NAME1, FILE_NAME2);
         createFile(mStorage, FILE_NAME3, BUCKET_NAME, mRemoteRoot, FOLDER_NAME1, FILE_NAME3);
+        // Create a special case condition where folder name is also a file name.
+        createFile(mStorage, FILE_NAME3, BUCKET_NAME, mRemoteRoot, FOLDER_NAME1, FOLDER_NAME2);
         createFile(
                 mStorage,
                 FILE_NAME4,
@@ -230,7 +232,7 @@ public class GCSFileDownloaderFuncTest {
 
     private void checkDownloadedFolder(File localFile) throws Exception {
         Assert.assertTrue(localFile.isDirectory());
-        Assert.assertEquals(3, localFile.list().length);
+        Assert.assertEquals(4, localFile.list().length);
         for (String filename : localFile.list()) {
             if (filename.equals(FILE_NAME2)) {
                 Assert.assertEquals(
@@ -242,7 +244,7 @@ public class GCSFileDownloaderFuncTest {
                         FILE_NAME3,
                         FileUtil.readStringFromFile(
                                 new File(localFile.getAbsolutePath(), filename)));
-            } else if (filename.equals(FOLDER_NAME2)) {
+            } else if (filename.equals(FOLDER_NAME2 + "_folder")) {
                 File subFolder = new File(localFile.getAbsolutePath(), filename);
                 Assert.assertTrue(subFolder.isDirectory());
                 Assert.assertEquals(1, subFolder.list().length);
@@ -250,6 +252,9 @@ public class GCSFileDownloaderFuncTest {
                         FILE_NAME4,
                         FileUtil.readStringFromFile(
                                 new File(subFolder.getAbsolutePath(), subFolder.list()[0])));
+            } else if (filename.equals(FOLDER_NAME2)) {
+                File fileWithFolderName = new File(localFile.getAbsolutePath(), filename);
+                Assert.assertTrue(fileWithFolderName.isFile());
             } else {
                 Assert.assertTrue(String.format("Unknonwn file %s", filename), false);
             }

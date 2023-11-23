@@ -19,7 +19,8 @@ java_library_static {
         "src/**/*.java",
     ],
     static_libs: [
+        "android.car",
         "androidx.test.runner",
-        "android.car.userlib",
+        "ub-uiautomator",
     ],
 }

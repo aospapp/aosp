@@ -63,15 +63,13 @@ BLOCK_DURATION = 300
 
 
 class TelLiveEmergencyBase(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        TelephonyBaseTest.setup_class(self)
         self.number_of_devices = 1
         fake_number = self.user_params.get("fake_emergency_number", "411")
         self.fake_emergency_number = fake_number.strip("+").replace("-", "")
         self.my_devices = self.android_devices[:]
 
-    def setup_class(self):
-        TelephonyBaseTest.setup_class(self)
         for ad in self.android_devices:
             if not is_sim_lock_enabled(ad):
                 self.setup_dut(ad)

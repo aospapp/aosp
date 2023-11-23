@@ -22,8 +22,17 @@ import com.android.tradefed.device.helper.TelephonyHelper;
 import com.android.tradefed.device.helper.TelephonyHelper.SimCardInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
+
+import java.util.ArrayList;
+import java.util.List;
+
 /** Token provider for telephony related tokens. */
 public class TelephonyTokenProvider implements ITokenProvider {
+
+    public static final String ORANGE_SIM_ID = "20801";
+    public static final String GSM_OPERATOR_PROP = "gsm.sim.operator.numeric";
 
     @Override
     public boolean hasToken(ITestDevice device, TokenProperty token) {
@@ -31,7 +40,7 @@ public class TelephonyTokenProvider implements ITokenProvider {
             return false;
         }
         try {
-            SimCardInformation info = TelephonyHelper.getSimInfo(device);
+            SimCardInformation info = getSimInfo(device);
             if (info == null || !info.mHasTelephonySupport) {
                 CLog.e("SimcardInfo: %s", info);
                 return false;
@@ -56,8 +65,21 @@ public class TelephonyTokenProvider implements ITokenProvider {
                     return false;
                 case SECURE_ELEMENT_SIM_CARD:
                     if (info.mHasSecuredElement && info.mHasSeService) {
-                        return true;
+                        List<String> simProp =
+                                getOptionalDualSimProperty(device, GSM_OPERATOR_PROP);
+                        if (simProp.contains(ORANGE_SIM_ID)) {
+                            return true;
+                        } else {
+                            CLog.w(
+                                    "%s doesn't have a Orange Sim card (%s) for secured elements."
+                                            + " %s returned: '%s'",
+                                    device.getSerialNumber(),
+                                    ORANGE_SIM_ID,
+                                    GSM_OPERATOR_PROP,
+                                    simProp);
+                        }
                     }
+
                     CLog.w(
                             "%s cannot run with token '%s' - Sim info: %s",
                             device.getSerialNumber(), token, info);
@@ -70,5 +92,25 @@ public class TelephonyTokenProvider implements ITokenProvider {
             CLog.e("Ignoring DNAE: %s", e);
         }
         return false;
+    }
+
+    @VisibleForTesting
+    SimCardInformation getSimInfo(ITestDevice device) throws DeviceNotAvailableException {
+        return TelephonyHelper.getSimInfo(device);
+    }
+
+    private List<String> getOptionalDualSimProperty(ITestDevice device, String property)
+            throws DeviceNotAvailableException {
+        String propRes = device.getProperty(property);
+        CLog.d("queried sim property: '%s'. result: '%s'", property, propRes);
+        if (Strings.isNullOrEmpty(propRes)) {
+            return new ArrayList<>();
+        }
+        String[] splitProp = propRes.split(",");
+        List<String> results = new ArrayList<>();
+        for (String p : splitProp) {
+            results.add(p);
+        }
+        return results;
     }
 }

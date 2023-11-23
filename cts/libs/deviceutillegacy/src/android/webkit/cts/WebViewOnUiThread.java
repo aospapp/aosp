@@ -490,9 +490,7 @@ public class WebViewOnUiThread extends WebViewSyncLoader {
     }
 
     public void evaluateJavascript(final String script, final ValueCallback<String> result) {
-        WebkitUtils.onMainThreadSync(() -> {
-            mWebView.evaluateJavascript(script, result);
-        });
+        WebkitUtils.onMainThread(() -> mWebView.evaluateJavascript(script, result));
     }
 
     public void saveWebArchive(final String basename, final boolean autoname,

@@ -18,6 +18,8 @@
 
 #include <sys/mman.h>
 
+#include <unordered_map>
+
 #include <android-base/logging.h>
 #include <unwindstack/MachineArm.h>
 #include <unwindstack/MachineArm64.h>
@@ -36,6 +38,7 @@
 #include <unwindstack/UserX86_64.h>
 
 #include "environment.h"
+#include "OfflineUnwinder_impl.h"
 #include "perf_regs.h"
 #include "read_apk.h"
 #include "thread_tree.h"
@@ -119,20 +122,18 @@ static unwindstack::Regs* GetBacktraceRegs(const RegSet& regs) {
 static unwindstack::MapInfo* CreateMapInfo(const MapEntry* entry) {
   const char* name = entry->dso->GetDebugFilePath().c_str();
   uint64_t pgoff = entry->pgoff;
-  if (entry->pgoff == 0) {
-    auto tuple = SplitUrlInApk(entry->dso->GetDebugFilePath());
-    if (std::get<0>(tuple)) {
-      // The unwinder does not understand the ! format, so change back to
-      // the previous format (apk, offset).
-      EmbeddedElf* elf = ApkInspector::FindElfInApkByName(std::get<1>(tuple), std::get<2>(tuple));
-      if (elf != nullptr) {
-        name = elf->filepath().c_str();
-        pgoff = elf->entry_offset();
-      }
+  auto tuple = SplitUrlInApk(entry->dso->GetDebugFilePath());
+  if (std::get<0>(tuple)) {
+    // The unwinder does not understand the ! format, so change back to
+    // the previous format (apk, offset).
+    EmbeddedElf* elf = ApkInspector::FindElfInApkByName(std::get<1>(tuple), std::get<2>(tuple));
+    if (elf != nullptr) {
+      name = elf->filepath().c_str();
+      pgoff += elf->entry_offset();
     }
   }
-  return new unwindstack::MapInfo(nullptr, entry->start_addr, entry->get_end_addr(), pgoff,
-                                  PROT_READ | PROT_EXEC | entry->flags, name);
+  return new unwindstack::MapInfo(nullptr, nullptr, entry->start_addr, entry->get_end_addr(), pgoff,
+                                  PROT_READ | entry->flags, name);
 }
 
 void UnwindMaps::UpdateMaps(const MapSet& map_set) {
@@ -142,6 +143,7 @@ void UnwindMaps::UpdateMaps(const MapSet& map_set) {
   version_ = map_set.version;
   size_t i = 0;
   size_t old_size = entries_.size();
+  bool has_removed_entry = false;
   for (auto it = map_set.maps.begin(); it != map_set.maps.end();) {
     const MapEntry* entry = it->second;
     if (i < old_size && entry == entries_[i]) {
@@ -154,38 +156,50 @@ void UnwindMaps::UpdateMaps(const MapSet& map_set) {
       ++it;
     } else {
       // Remove an entry.
+      has_removed_entry = true;
       entries_[i] = nullptr;
       maps_[i++] = nullptr;
     }
   }
   while (i < old_size) {
+    has_removed_entry = true;
     entries_[i] = nullptr;
     maps_[i++] = nullptr;
   }
+
+  if (has_removed_entry) {
+    entries_.resize(std::remove(entries_.begin(), entries_.end(), nullptr) - entries_.begin());
+    maps_.resize(std::remove(maps_.begin(), maps_.end(), std::unique_ptr<unwindstack::MapInfo>()) -
+                 maps_.begin());
+  }
+
   std::sort(entries_.begin(), entries_.end(), [](const auto& e1, const auto& e2) {
-    if (e1 == nullptr || e2 == nullptr) {
-      return e1 != nullptr;
-    }
     return e1->start_addr < e2->start_addr;
   });
-  std::sort(maps_.begin(), maps_.end(),
-            [](const auto& m1, const auto& m2) {
-    if (m1 == nullptr || m2 == nullptr) {
-      return m1 != nullptr;
-    }
-    return m1->start < m2->start;
-  });
-  entries_.resize(map_set.maps.size());
-  maps_.resize(map_set.maps.size());
+  // Use Sort() to sort maps_ and create prev_real_map links.
+  // prev_real_map is needed by libunwindstack to find the start of an embedded lib in an apk.
+  // See http://b/120981155.
+  Sort();
 }
 
-OfflineUnwinder::OfflineUnwinder(bool collect_stat) : collect_stat_(collect_stat) {
-  unwindstack::Elf::SetCachingEnabled(true);
-}
+class OfflineUnwinderImpl : public OfflineUnwinder {
+ public:
+  OfflineUnwinderImpl(bool collect_stat) : collect_stat_(collect_stat) {
+    unwindstack::Elf::SetCachingEnabled(true);
+  }
 
-bool OfflineUnwinder::UnwindCallChain(const ThreadEntry& thread, const RegSet& regs,
-                                      const char* stack, size_t stack_size,
-                                      std::vector<uint64_t>* ips, std::vector<uint64_t>* sps) {
+  bool UnwindCallChain(const ThreadEntry& thread, const RegSet& regs, const char* stack,
+                       size_t stack_size, std::vector<uint64_t>* ips,
+                       std::vector<uint64_t>* sps) override;
+
+ private:
+  bool collect_stat_;
+  std::unordered_map<pid_t, UnwindMaps> cached_maps_;
+};
+
+bool OfflineUnwinderImpl::UnwindCallChain(const ThreadEntry& thread, const RegSet& regs,
+                                          const char* stack, size_t stack_size,
+                                          std::vector<uint64_t>* ips, std::vector<uint64_t>* sps) {
   uint64_t start_time;
   if (collect_stat_) {
     start_time = GetSystemClock();
@@ -203,15 +217,14 @@ bool OfflineUnwinder::UnwindCallChain(const ThreadEntry& thread, const RegSet& r
 
   UnwindMaps& cached_map = cached_maps_[thread.pid];
   cached_map.UpdateMaps(*thread.maps);
-  std::shared_ptr<unwindstack::MemoryOfflineBuffer> stack_memory(
-      new unwindstack::MemoryOfflineBuffer(reinterpret_cast<const uint8_t*>(stack),
-                                           stack_addr, stack_addr + stack_size));
   std::unique_ptr<unwindstack::Regs> unwind_regs(GetBacktraceRegs(regs));
   if (!unwind_regs) {
     return false;
   }
-  unwindstack::Unwinder unwinder(MAX_UNWINDING_FRAMES, &cached_map, unwind_regs.get(),
-                                 stack_memory);
+  unwindstack::Unwinder unwinder(
+      MAX_UNWINDING_FRAMES, &cached_map, unwind_regs.get(),
+      unwindstack::Memory::CreateOfflineMemory(reinterpret_cast<const uint8_t*>(stack), stack_addr,
+                                               stack_addr + stack_size));
   unwinder.SetResolveNames(false);
   unwinder.Unwind();
   size_t last_jit_method_frame = UINT_MAX;
@@ -281,6 +294,10 @@ bool OfflineUnwinder::UnwindCallChain(const ThreadEntry& thread, const RegSet& r
     unwinding_result_.stack_end = stack_addr + stack_size;
   }
   return true;
+}
+
+std::unique_ptr<OfflineUnwinder> OfflineUnwinder::Create(bool collect_stat) {
+  return std::unique_ptr<OfflineUnwinder>(new OfflineUnwinderImpl(collect_stat));
 }
 
 }  // namespace simpleperf

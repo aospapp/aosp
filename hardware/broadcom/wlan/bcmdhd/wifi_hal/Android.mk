@@ -27,11 +27,17 @@ LOCAL_CFLAGS := \
     -Wno-unused-parameter \
     -Wno-unused-private-field \
     -Wno-unused-variable \
+    -Wno-unused-parameter
 
 LOCAL_C_INCLUDES += \
 	external/libnl/include \
 	$(call include-path-for, libhardware_legacy)/hardware_legacy \
 	external/wpa_supplicant_8/src/drivers
+
+LOCAL_C_INCLUDES += \
+        external/boringssl/include \
+        external/boringssl/src/crypto/digest \
+        external/boringssl/src/crypto/evp/
 
 LOCAL_HEADER_LIBRARIES := libutils_headers liblog_headers
 
@@ -41,6 +47,7 @@ LOCAL_SRC_FILES := \
 	common.cpp \
 	cpp_bindings.cpp \
 	gscan.cpp \
+	nan.cpp \
 	link_layer_stats.cpp \
 	wifi_logger.cpp \
 	wifi_offload.cpp

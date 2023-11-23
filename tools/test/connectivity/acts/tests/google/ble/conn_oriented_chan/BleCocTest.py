@@ -46,18 +46,17 @@ class BleCocTest(BluetoothBaseTest):
         "strange new worlds, to seek out new life and new civilizations,"
         " to boldly go where no man has gone before.")
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.client_ad = self.android_devices[0]
-        # The client which is scanning will need location to be enabled in order to
-        # start scan and get scan results.
-        utils.set_location_service(self.client_ad, True)
         self.server_ad = self.android_devices[1]
         # Note that some tests required a third device.
         if len(self.android_devices) > 2:
             self.server2_ad = self.android_devices[2]
 
-    def setup_class(self):
+        # The client which is scanning will need location to be enabled in order to
+        # start scan and get scan results.
+        utils.set_location_service(self.client_ad, True)
         return setup_multiple_devices_for_bt_test(self.android_devices)
 
     def teardown_test(self):

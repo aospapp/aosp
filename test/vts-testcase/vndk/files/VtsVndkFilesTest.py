@@ -68,6 +68,22 @@ class VtsVndkFilesTest(base_test.BaseTestClass):
         return target_file_utils.FindFiles(self._shell, dir_path, "*",
                                            "! -type d")
 
+    @staticmethod
+    def _Fail(unexpected_paths):
+        """Logs error and fails current test.
+
+        Args:
+            unexpected_paths: A list of strings, the paths to be shown in the
+                              log message.
+        """
+        logging.error("Unexpected files:\n%s", "\n".join(unexpected_paths))
+        assert_lines = unexpected_paths[:20]
+        if len(unexpected_paths) > 20:
+            assert_lines.append("...")
+        assert_lines.append(
+            "Total number of errors: %d" % len(unexpected_paths))
+        asserts.fail("\n".join(assert_lines))
+
     def _TestVndkDirectory(self, vndk_dir, vndk_list_names):
         """Verifies that the VNDK directory doesn't contain extra files.
 
@@ -84,8 +100,7 @@ class VtsVndkFilesTest(base_test.BaseTestClass):
         unexpected = [x for x in self._ListFiles(vndk_dir) if
                       path_utils.TargetBaseName(x) not in vndk_set]
         if unexpected:
-            logging.error("Unexpected files:\n%s", "\n".join(unexpected))
-            asserts.fail("Total number of errors: %d" % len(unexpected))
+            self._Fail(unexpected)
 
     def _TestNotInVndkDirecotory(self, vndk_dir, vndk_list_names, except_libs):
         """Verifies that VNDK directory doesn't contain specific files.
@@ -106,24 +121,16 @@ class VtsVndkFilesTest(base_test.BaseTestClass):
         unexpected = [x for x in self._ListFiles(vndk_dir) if
                       path_utils.TargetBaseName(x) in vndk_set]
         if unexpected:
-            logging.error("Unexpected files:\n%s", "\n".join(unexpected))
-            asserts.fail("Total number of errors: %d" % len(unexpected))
+            self._Fail(unexpected)
 
     def testVndkCoreDirectory(self):
-        """Verifies that VNDK-core directory doesn't contain extra files."""
+        """Verifies that VNDK directory doesn't contain extra files."""
         asserts.skipIf(not vndk_utils.IsVndkRuntimeEnforced(self._dut),
                        "VNDK runtime is not enforced on the device.")
         self._TestVndkDirectory(
-            vndk_utils.GetVndkCoreDirectory(
-                self.abi_bitness, self._vndk_version),
-            (vndk_data.VNDK, vndk_data.VNDK_PRIVATE,))
-
-    def testVndkSpDirectory(self):
-        """Verifies that VNDK-SP directory doesn't contain extra files."""
-        self._TestVndkDirectory(
-            vndk_utils.GetVndkSpDirectory(
-                self.abi_bitness, self._vndk_version),
-            (vndk_data.VNDK_SP, vndk_data.VNDK_SP_PRIVATE,))
+            vndk_utils.GetVndkDirectory(self.abi_bitness, self._vndk_version),
+            (vndk_data.VNDK, vndk_data.VNDK_PRIVATE, vndk_data.VNDK_SP,
+             vndk_data.VNDK_SP_PRIVATE,))
 
     def testNoLlndkInVendor(self):
         """Verifies that vendor partition has no LL-NDK libraries."""

@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -36,6 +37,7 @@ import java.util.List;
  * the CtsConnectionService.
  */
 public class OutgoingCallTestActivity extends PassFailButtons.Activity {
+    private final static String TAG = "TelecomOutgoingCall";
 
     private Button mRegisterAndEnablePhoneAccount;
     private Button mConfirmPhoneAccountEnabled;
@@ -71,9 +73,10 @@ public class OutgoingCallTestActivity extends PassFailButtons.Activity {
                 // the default.
                 Intent intent = new Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS);
                 startActivity(intent);
-
+                Log.i(TAG, "Step 1 - phone account registered");
                 mConfirmPhoneAccountEnabled.setEnabled(true);
             } else {
+                Log.w(TAG, "Step 1 fail - phone account registration failed");
                 mStep1Status.setImageResource(R.drawable.fs_error);
             }
         });
@@ -90,9 +93,11 @@ public class OutgoingCallTestActivity extends PassFailButtons.Activity {
             if (account != null && account.isEnabled() &&
                     PhoneAccountUtils.TEST_PHONE_ACCOUNT_HANDLE.equals(defaultOutgoingAccount)) {
                 getPassButton().setEnabled(true);
+                Log.i(TAG, "Step 1 pass - phone account registration confirmed");
                 mStep1Status.setImageResource(R.drawable.fs_good);
                 mConfirmPhoneAccountEnabled.setEnabled(false);
             } else {
+                Log.w(TAG, "Step 1 fail - phone account registration failed");
                 mStep1Status.setImageResource(R.drawable.fs_error);
             }
         });
@@ -106,6 +111,7 @@ public class OutgoingCallTestActivity extends PassFailButtons.Activity {
             Intent intent = new Intent(Intent.ACTION_DIAL);
             intent.setData(TEST_DIAL_NUMBER);
             startActivity(intent);
+            Log.i(TAG, "Step 1 pass - dial intent sent");
             mStep2Status.setImageResource(R.drawable.fs_good);
         });
 
@@ -115,8 +121,10 @@ public class OutgoingCallTestActivity extends PassFailButtons.Activity {
         }
         mConfirmOutgoingCall.setOnClickListener(v -> {
             if (confirmOutgoingCall()) {
+                Log.i(TAG, "Step 3 pass - call confirmed");
                 mStep3Status.setImageResource(R.drawable.fs_good);
             } else {
+                Log.w(TAG, "Step 3 fail - failed to confirm call");
                 mStep3Status.setImageResource(R.drawable.fs_error);
             }
             PhoneAccountUtils.unRegisterTestPhoneAccount(this);
@@ -137,10 +145,12 @@ public class OutgoingCallTestActivity extends PassFailButtons.Activity {
         List<CtsConnection> ongoingConnections =
                 CtsConnectionService.getConnectionService().getConnections();
         if (ongoingConnections == null || ongoingConnections.size() != 1) {
+            Log.w(TAG, "Step 3 fail - no ongoing connections");
             return false;
         }
         CtsConnection outgoingConnection = ongoingConnections.get(0);
         if (outgoingConnection.isIncomingCall()) {
+            Log.w(TAG, "Step 3 fail - call is not outgoing");
             return false;
         }
         outgoingConnection.onDisconnect();

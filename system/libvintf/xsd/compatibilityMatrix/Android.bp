@@ -14,8 +14,13 @@
 // limitations under the License.
 //
 
+filegroup {
+    name: "compatibility_matrix_schema",
+    srcs: ["compatibility_matrix.xsd"],
+}
+
 xsd_config {
     name: "compatibility_matrix",
-    srcs: ["compatibility_matrix.xsd"],
+    srcs: [":compatibility_matrix_schema"],
     package_name: "compatibility.matrix",
 }

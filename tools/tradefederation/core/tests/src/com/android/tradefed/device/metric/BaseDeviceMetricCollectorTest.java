@@ -17,11 +17,15 @@ package com.android.tradefed.device.metric;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.times;
 
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
+import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Measurements;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
@@ -29,7 +33,10 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.HostTest;
+import com.android.tradefed.testtype.suite.ModuleDefinition;
+import com.android.tradefed.util.FileUtil;
 
+import org.easymock.EasyMock;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,6 +47,7 @@ import org.mockito.Captor;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import java.io.File;
 import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.List;
@@ -52,11 +60,13 @@ public class BaseDeviceMetricCollectorTest {
     private BaseDeviceMetricCollector mBase;
     private IInvocationContext mContext;
     private ITestInvocationListener mMockListener;
+    private TestInformation mTestInfo;
     @Captor private ArgumentCaptor<HashMap<String, Metric>> mCapturedMetrics;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+        mTestInfo = TestInformation.newBuilder().build();
         mBase = new BaseDeviceMetricCollector();
         mContext = new InvocationContext();
         mMockListener = Mockito.mock(ITestInvocationListener.class);
@@ -66,6 +76,7 @@ public class BaseDeviceMetricCollectorTest {
     public void testInitAndForwarding() {
         mBase.init(mContext, mMockListener);
         mBase.invocationStarted(mContext);
+        mBase.testModuleStarted(mContext);
         mBase.testRunStarted("testRun", 1);
         TestDescription test = new TestDescription("class", "method");
         mBase.testStarted(test);
@@ -77,11 +88,15 @@ public class BaseDeviceMetricCollectorTest {
         mBase.testRunFailed("test run failed");
         mBase.testRunStopped(0L);
         mBase.testRunEnded(0L, new HashMap<String, Metric>());
+        mBase.testModuleEnded();
         mBase.invocationFailed(new Throwable());
         mBase.invocationEnded(0L);
 
         Mockito.verify(mMockListener, times(1)).invocationStarted(Mockito.any());
-        Mockito.verify(mMockListener, times(1)).testRunStarted("testRun", 1);
+        Mockito.verify(mMockListener, times(1)).testModuleStarted(Mockito.any());
+        Mockito.verify(mMockListener, times(1))
+                .testRunStarted(
+                        Mockito.eq("testRun"), Mockito.eq(1), Mockito.eq(0), Mockito.anyLong());
         Mockito.verify(mMockListener, times(1)).testStarted(Mockito.eq(test), Mockito.anyLong());
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.eq("dataname"), Mockito.eq(LogDataType.TEXT), Mockito.any());
@@ -96,12 +111,25 @@ public class BaseDeviceMetricCollectorTest {
         Mockito.verify(mMockListener, times(1)).testRunFailed("test run failed");
         Mockito.verify(mMockListener, times(1)).testRunStopped(0L);
         Mockito.verify(mMockListener, times(1)).testRunEnded(0L, new HashMap<String, Metric>());
-        Mockito.verify(mMockListener, times(1)).invocationFailed(Mockito.any());
+        Mockito.verify(mMockListener, times(1)).testModuleEnded();
+        Mockito.verify(mMockListener, times(1)).invocationFailed(Mockito.<Throwable>any());
         Mockito.verify(mMockListener, times(1)).invocationEnded(0L);
 
         Assert.assertSame(mMockListener, mBase.getInvocationListener());
         Assert.assertEquals(0, mBase.getDevices().size());
         Assert.assertEquals(0, mBase.getBuildInfos().size());
+    }
+
+    /** Test that multiple call to init are rejected. */
+    @Test
+    public void testMultiInit() {
+        mBase.init(mContext, mMockListener);
+        try {
+            mBase.init(mContext, mMockListener);
+            fail("Should have thrown an exception.");
+        } catch (IllegalStateException expected) {
+            // Expected
+        }
     }
 
     /**
@@ -153,7 +181,9 @@ public class BaseDeviceMetricCollectorTest {
         mBase.invocationEnded(0L);
 
         Mockito.verify(mMockListener, times(1)).invocationStarted(Mockito.any());
-        Mockito.verify(mMockListener, times(1)).testRunStarted("testRun", 1);
+        Mockito.verify(mMockListener, times(1))
+                .testRunStarted(
+                        Mockito.eq("testRun"), Mockito.eq(1), Mockito.eq(0), Mockito.anyLong());
         Mockito.verify(mMockListener, times(1)).testStarted(Mockito.eq(test), Mockito.anyLong());
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.eq("dataname"), Mockito.eq(LogDataType.TEXT), Mockito.any());
@@ -168,7 +198,7 @@ public class BaseDeviceMetricCollectorTest {
         Mockito.verify(mMockListener, times(1)).testRunFailed("test run failed");
         Mockito.verify(mMockListener, times(1)).testRunStopped(0L);
         Mockito.verify(mMockListener, times(1)).testRunEnded(0L, new HashMap<String, Metric>());
-        Mockito.verify(mMockListener, times(1)).invocationFailed(Mockito.any());
+        Mockito.verify(mMockListener, times(1)).invocationFailed(Mockito.<Throwable>any());
         Mockito.verify(mMockListener, times(1)).invocationEnded(0L);
 
         Assert.assertSame(mMockListener, mBase.getInvocationListener());
@@ -310,7 +340,9 @@ public class BaseDeviceMetricCollectorTest {
         base.invocationEnded(0L);
 
         Mockito.verify(mMockListener, times(1)).invocationStarted(Mockito.any());
-        Mockito.verify(mMockListener, times(1)).testRunStarted("testRun", 1);
+        Mockito.verify(mMockListener, times(1))
+                .testRunStarted(
+                        Mockito.eq("testRun"), Mockito.eq(1), Mockito.eq(0), Mockito.anyLong());
         Mockito.verify(mMockListener, times(1)).testStarted(Mockito.eq(test), Mockito.anyLong());
         // Metrics should have been skipped, so the map should be empty.
         Mockito.verify(mMockListener, times(1))
@@ -404,9 +436,14 @@ public class BaseDeviceMetricCollectorTest {
         setterHost.setOptionValue("class", TestRunAnnotated.class.getName());
         setterHost.setOptionValue("enable-pretty-logs", "false");
 
-        host.run(mBase);
+        host.run(mTestInfo, mBase);
 
-        Mockito.verify(mMockListener, times(1)).testRunStarted(TestRunAnnotated.class.getName(), 3);
+        Mockito.verify(mMockListener, times(1))
+                .testRunStarted(
+                        Mockito.eq(TestRunAnnotated.class.getName()),
+                        Mockito.eq(3),
+                        Mockito.eq(0),
+                        Mockito.anyLong());
         TestDescription test1 = new TestDescription(TestRunAnnotated.class.getName(), "testOne");
         TestDescription test2 = new TestDescription(TestRunAnnotated.class.getName(), "testTwo");
         TestDescription test3 = new TestDescription(TestRunAnnotated.class.getName(), "testThree");
@@ -424,7 +461,7 @@ public class BaseDeviceMetricCollectorTest {
         Mockito.verify(mMockListener, times(1))
                 .testEnded(Mockito.eq(test3), Mockito.anyLong(), mCapturedMetrics.capture());
         Mockito.verify(mMockListener, times(1))
-                .testRunEnded(Mockito.anyLong(), (HashMap<String, Metric>) Mockito.any());
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
 
         List<HashMap<String, Metric>> allValues = mCapturedMetrics.getAllValues();
         // For test1
@@ -452,9 +489,14 @@ public class BaseDeviceMetricCollectorTest {
         setterHost.setOptionValue("class", TestRunAnnotated.class.getName());
         setterHost.setOptionValue("enable-pretty-logs", "false");
 
-        host.run(mBase);
+        host.run(mTestInfo, mBase);
 
-        Mockito.verify(mMockListener, times(1)).testRunStarted(TestRunAnnotated.class.getName(), 3);
+        Mockito.verify(mMockListener, times(1))
+                .testRunStarted(
+                        Mockito.eq(TestRunAnnotated.class.getName()),
+                        Mockito.eq(3),
+                        Mockito.eq(0),
+                        Mockito.anyLong());
         TestDescription test1 = new TestDescription(TestRunAnnotated.class.getName(), "testOne");
         TestDescription test2 = new TestDescription(TestRunAnnotated.class.getName(), "testTwo");
         TestDescription test3 = new TestDescription(TestRunAnnotated.class.getName(), "testThree");
@@ -472,7 +514,7 @@ public class BaseDeviceMetricCollectorTest {
         Mockito.verify(mMockListener, times(1))
                 .testEnded(Mockito.eq(test3), Mockito.anyLong(), mCapturedMetrics.capture());
         Mockito.verify(mMockListener, times(1))
-                .testRunEnded(Mockito.anyLong(), (HashMap<String, Metric>) Mockito.any());
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
 
         List<HashMap<String, Metric>> allValues = mCapturedMetrics.getAllValues();
         // For test1
@@ -484,5 +526,152 @@ public class BaseDeviceMetricCollectorTest {
         // For test3: Should be the only WITH metrics since the other two were excluded.
         assertTrue(allValues.get(2).containsKey("onteststart"));
         assertTrue(allValues.get(2).containsKey("ontestend"));
+    }
+
+    /**
+     * Test that onTestEnd with TestDescription formal supercedes the method signature without a
+     * TestDescription.
+     */
+    @Test
+    public void testOnTestEndWithTestDescription() throws Exception {
+        mBase =
+                new TwoMetricsBaseCollector() {
+                    @Override
+                    public void onTestEnd(
+                            DeviceMetricData testData,
+                            final Map<String, Metric> currentTestCaseMetrics,
+                            TestDescription test) {
+                        testData.addMetric(
+                                test.getTestName(),
+                                Metric.newBuilder()
+                                        .setMeasurements(
+                                                Measurements.newBuilder()
+                                                        .setSingleString("value1")));
+                    }
+                };
+        mBase.init(mContext, mMockListener);
+        mBase.invocationStarted(mContext);
+        mBase.testRunStarted("testRun", 1);
+        TestDescription test = new TestDescription("class", "method");
+        mBase.testStarted(test);
+        mBase.testEnded(test, new HashMap<String, Metric>());
+        mBase.testRunEnded(0L, new HashMap<String, Metric>());
+        mBase.invocationEnded(0L);
+
+        Mockito.verify(mMockListener, times(1)).invocationStarted(Mockito.any());
+        Mockito.verify(mMockListener, times(1))
+                .testRunStarted(
+                        Mockito.eq("testRun"), Mockito.eq(1), Mockito.eq(0), Mockito.anyLong());
+        Mockito.verify(mMockListener, times(1)).testStarted(Mockito.eq(test), Mockito.anyLong());
+        Mockito.verify(mMockListener, times(1))
+                .testEnded(Mockito.eq(test), Mockito.anyLong(), mCapturedMetrics.capture());
+
+        Mockito.verify(mMockListener, times(1))
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
+
+        List<HashMap<String, Metric>> allValues = mCapturedMetrics.getAllValues();
+        assertTrue(allValues.get(0).containsKey("onteststart"));
+        assertTrue(allValues.get(0).containsKey("method"));
+        assertTrue(!allValues.get(0).containsKey("ontestend"));
+    }
+
+    /**
+     * Test can locate a source file existed in tests directory of a device build.
+     */
+    @Test
+    public void testResolveRelativeFilePath_withDeviceBuildInfo() throws Exception {
+        IDeviceBuildInfo buildInfo = EasyMock.createStrictMock(IDeviceBuildInfo.class);
+        String fileName = "source_file";
+        File testsDir = null;
+        try {
+            testsDir = FileUtil.createTempDir("tests_dir");
+            File hostTestCasesDir = FileUtil.getFileForPath(testsDir, "host/testcases");
+            FileUtil.mkdirsRWX(hostTestCasesDir);
+            File sourceFile = FileUtil.createTempFile(fileName, null, hostTestCasesDir);
+
+            fileName = sourceFile.getName();
+            EasyMock.expect(buildInfo.getFile(fileName)).andReturn(null);
+            EasyMock.expect(buildInfo.getTestsDir()).andReturn(testsDir);
+            EasyMock.expect(buildInfo.getFile(BuildInfoFileKey.TARGET_LINKED_DIR)).andReturn(null);
+            EasyMock.replay(buildInfo);
+
+            mContext.addDeviceBuildInfo("abc", buildInfo);
+            mBase.init(mContext, mMockListener);
+
+            Assert.assertEquals(
+                    sourceFile.getAbsolutePath(),
+                    mBase.getFileFromTestArtifacts(fileName)
+                            .getAbsolutePath());
+            EasyMock.verify(buildInfo);
+        } finally {
+            FileUtil.recursiveDelete(testsDir);
+        }
+    }
+
+    /**
+     * Test file not available in the tests directory of a device build.
+     */
+    @Test
+    public void testUnableResolveRelativeFilePath_withDeviceBuildInfo() throws Exception {
+        IDeviceBuildInfo buildInfo = EasyMock.createStrictMock(IDeviceBuildInfo.class);
+        String fileName = "source_file";
+        File testsDir = null;
+        try {
+            testsDir = FileUtil.createTempDir("tests_dir");
+            File hostTestCasesDir = FileUtil.getFileForPath(testsDir, "host/testcases");
+            FileUtil.mkdirsRWX(hostTestCasesDir);
+            File sourceFile = FileUtil.createTempFile(fileName, null, hostTestCasesDir);
+
+            fileName = sourceFile.getName();
+            String differentFileName = "abc";
+            EasyMock.expect(buildInfo.getFile(differentFileName)).andReturn(null);
+            EasyMock.expect(buildInfo.getTestsDir()).andReturn(testsDir);
+            EasyMock.expect(buildInfo.getFile(BuildInfoFileKey.TARGET_LINKED_DIR)).andReturn(null);
+            EasyMock.replay(buildInfo);
+
+            mContext.addDeviceBuildInfo("abc", buildInfo);
+            mBase.init(mContext, mMockListener);
+
+            Assert.assertNull(
+                    sourceFile.getAbsolutePath(),
+                    mBase.getFileFromTestArtifacts(differentFileName));
+            EasyMock.verify(buildInfo);
+        } finally {
+            FileUtil.recursiveDelete(testsDir);
+        }
+    }
+
+    /**
+     * Test can locate a source file from the module directory if the directory named after the
+     * module name has the file looked up for.
+     */
+    @Test
+    public void testResolveRelativeFilePath_fromModule() throws Exception {
+        IDeviceBuildInfo buildInfo = EasyMock.createStrictMock(IDeviceBuildInfo.class);
+        String fileName = "source_file";
+        File testsDir = null;
+        try {
+            testsDir = FileUtil.createTempDir("module_name");
+            File hostTestCasesDir = FileUtil.getFileForPath(testsDir, "host/testcases");
+            FileUtil.mkdirsRWX(hostTestCasesDir);
+            File sourceFile = FileUtil.createTempFile(fileName, null, hostTestCasesDir);
+
+            fileName = sourceFile.getName();
+            EasyMock.expect(buildInfo.getFile(fileName)).andReturn(null);
+            EasyMock.expect(buildInfo.getTestsDir()).andReturn(testsDir);
+            EasyMock.expect(buildInfo.getFile(BuildInfoFileKey.TARGET_LINKED_DIR)).andReturn(null);
+            EasyMock.replay(buildInfo);
+
+            mContext.addDeviceBuildInfo("abc", buildInfo);
+            mContext.addInvocationAttribute(ModuleDefinition.MODULE_NAME, testsDir.getName());
+            mBase.init(mContext, mMockListener);
+
+            Assert.assertEquals(
+                    sourceFile.getAbsolutePath(),
+                    mBase.getFileFromTestArtifacts(fileName).getAbsolutePath());
+            EasyMock.verify(buildInfo);
+        } finally {
+            FileUtil.recursiveDelete(testsDir);
+        }
     }
 }

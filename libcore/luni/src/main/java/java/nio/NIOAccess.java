@@ -16,13 +16,15 @@
 
 package java.nio;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 /**
- * This class is used via JNI by code in frameworks/base/.
+ * This class is used via JNI by code in frameworks/base/ and
+ * by the JniConstants cache in libnativehelper/.
  * @hide
  */
 // @VisibleForTesting : was default
+@libcore.api.CorePlatformApi
 public final class NIOAccess {
 
     /**
@@ -46,7 +48,8 @@ public final class NIOAccess {
      * given Buffer, or null if the Buffer is not backed by a Java array.
      */
     @UnsupportedAppUsage
-    static Object getBaseArray(Buffer b) {
+    @libcore.api.CorePlatformApi
+    public static Object getBaseArray(Buffer b) {
         return b.hasArray() ? b.array() : null;
     }
 
@@ -58,7 +61,8 @@ public final class NIOAccess {
      * meaningful if getBaseArray() returns non-null.
      */
     @UnsupportedAppUsage
-    static int getBaseArrayOffset(Buffer b) {
+    @libcore.api.CorePlatformApi
+    public static int getBaseArrayOffset(Buffer b) {
         return b.hasArray() ? ((b.arrayOffset() + b.position) << b._elementSizeShift) : 0;
     }
 }

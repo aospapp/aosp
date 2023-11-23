@@ -16,7 +16,6 @@
 
 #include <cinttypes>
 
-#include "chre_api/chre.h"
 #include "chre/core/event_loop.h"
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/assert.h"
@@ -24,6 +23,7 @@
 #include "chre/platform/static_nanoapp_init.h"
 #include "chre/util/nanoapp/app_id.h"
 #include "chre/util/time.h"
+#include "chre_api/chre.h"
 
 /**
  * @file
@@ -37,7 +37,7 @@ namespace {
 constexpr uint32_t kAppVersion = 99;
 
 void handleUnload(uint16_t /* eventType */, void * /* data */) {
-  EventLoop& eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
+  EventLoop &eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
   uint32_t instanceId;
 
   LOGD("About to unload spammer nanoapp");
@@ -52,8 +52,8 @@ bool nanoappStart() {
   LOGI("Unload tester started as instance %" PRIu32, chreGetInstanceId());
 
   constexpr uint64_t kTimerDuration = Seconds(2).toRawNanoseconds();
-  uint32_t timerHandle = chreTimerSet(kTimerDuration,
-      nullptr, true /* oneShot */);
+  uint32_t timerHandle =
+      chreTimerSet(kTimerDuration, nullptr, true /* oneShot */);
   CHRE_ASSERT_LOG(timerHandle != CHRE_TIMER_INVALID, "Couldn't start timer!");
 
   bool eventSent = chreSendEvent(CHRE_EVENT_FIRST_USER_VALUE, nullptr, nullptr,
@@ -72,11 +72,10 @@ bool nanoappStart() {
   return true;
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
-  if (eventType == CHRE_EVENT_FIRST_USER_VALUE
-      && senderInstanceId == chreGetInstanceId()) {
+  if (eventType == CHRE_EVENT_FIRST_USER_VALUE &&
+      senderInstanceId == chreGetInstanceId()) {
     struct chreNanoappInfo info;
     if (!chreGetNanoappInfoByAppId(kSpammerAppId, &info)) {
       LOGW("Couldn't get spammer's app info - not running?");
@@ -86,8 +85,8 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
     // event callback, so get into the system context
     EventLoopManagerSingleton::get()->deferCallback(
         SystemCallbackType::HandleUnloadNanoapp, nullptr, handleUnload);
-  } else if (eventType == CHRE_EVENT_NANOAPP_STARTED
-      || eventType == CHRE_EVENT_NANOAPP_STOPPED) {
+  } else if (eventType == CHRE_EVENT_NANOAPP_STARTED ||
+             eventType == CHRE_EVENT_NANOAPP_STOPPED) {
     const auto *info = static_cast<const chreNanoappInfo *>(eventData);
     if (info->appId == kSpammerAppId) {
       LOGD("Received %s event for spammer instance %" PRIu32,

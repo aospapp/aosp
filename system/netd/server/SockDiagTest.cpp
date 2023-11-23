@@ -199,14 +199,15 @@ bool fillDiagAddr(__be32 addr[4], const sockaddr *sa) {
 
 inet_diag_msg makeDiagMessage(__u8 family,  const sockaddr *src, const sockaddr *dst) {
     inet_diag_msg msg = {
-        .idiag_family = family,
-        .idiag_state = TCP_ESTABLISHED,
-        .idiag_uid = AID_APP + 123,
-        .idiag_inode = 123456789,
-        .id = {
-            .idiag_sport = 1234,
-            .idiag_dport = 4321,
-        }
+            .idiag_family = family,
+            .idiag_state = TCP_ESTABLISHED,
+            .id =
+                    {
+                            .idiag_sport = 1234,
+                            .idiag_dport = 4321,
+                    },
+            .idiag_uid = AID_APP + 123,
+            .idiag_inode = 123456789,
     };
     EXPECT_TRUE(fillDiagAddr(msg.id.idiag_src, src));
     EXPECT_TRUE(fillDiagAddr(msg.id.idiag_dst, dst));

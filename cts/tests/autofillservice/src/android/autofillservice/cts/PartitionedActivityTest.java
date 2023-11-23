@@ -211,8 +211,6 @@ public class PartitionedActivityTest extends AbstractGridActivityTestCase {
     }
 
     private void autofill4PartitionsTest(boolean manually) throws Exception {
-        final int expectedFlag = manually ? FLAG_MANUAL_REQUEST : 0;
-
         // Set service.
         enableService();
 
@@ -233,11 +231,12 @@ public class PartitionedActivityTest extends AbstractGridActivityTestCase {
         // Trigger auto-fill.
         mActivity.triggerAutofill(manually, 1, 1);
         final FillRequest fillRequest1 = sReplier.getNextFillRequest();
-        assertThat(fillRequest1.flags).isEqualTo(expectedFlag);
 
         if (manually) {
+            assertHasFlags(fillRequest1.flags, FLAG_MANUAL_REQUEST);
             assertValue(fillRequest1.structure, ID_L1C1, "");
         } else {
+            assertThat(fillRequest1.flags).isEqualTo(0);
             assertTextIsSanitized(fillRequest1.structure, ID_L1C1);
         }
         assertTextIsSanitized(fillRequest1.structure, ID_L1C2);
@@ -265,13 +264,14 @@ public class PartitionedActivityTest extends AbstractGridActivityTestCase {
         // Trigger auto-fill.
         mActivity.triggerAutofill(manually, 2, 1);
         final FillRequest fillRequest2 = sReplier.getNextFillRequest();
-        assertThat(fillRequest2.flags).isEqualTo(expectedFlag);
 
         assertValue(fillRequest2.structure, ID_L1C1, "l1c1");
         assertValue(fillRequest2.structure, ID_L1C2, "l1c2");
         if (manually) {
+            assertHasFlags(fillRequest2.flags, FLAG_MANUAL_REQUEST);
             assertValue(fillRequest2.structure, ID_L2C1, "");
         } else {
+            assertThat(fillRequest2.flags).isEqualTo(0);
             assertTextIsSanitized(fillRequest2.structure, ID_L2C1);
         }
         assertTextIsSanitized(fillRequest2.structure, ID_L2C2);
@@ -299,15 +299,16 @@ public class PartitionedActivityTest extends AbstractGridActivityTestCase {
         // Trigger auto-fill.
         mActivity.triggerAutofill(manually, 3, 1);
         final FillRequest fillRequest3 = sReplier.getNextFillRequest();
-        assertThat(fillRequest3.flags).isEqualTo(expectedFlag);
 
         assertValue(fillRequest3.structure, ID_L1C1, "l1c1");
         assertValue(fillRequest3.structure, ID_L1C2, "l1c2");
         assertValue(fillRequest3.structure, ID_L2C1, "l2c1");
         assertValue(fillRequest3.structure, ID_L2C2, "l2c2");
         if (manually) {
+            assertHasFlags(fillRequest3.flags, FLAG_MANUAL_REQUEST);
             assertValue(fillRequest3.structure, ID_L3C1, "");
         } else {
+            assertThat(fillRequest3.flags).isEqualTo(0);
             assertTextIsSanitized(fillRequest3.structure, ID_L3C1);
         }
         assertTextIsSanitized(fillRequest3.structure, ID_L3C2);
@@ -335,7 +336,6 @@ public class PartitionedActivityTest extends AbstractGridActivityTestCase {
         // Trigger auto-fill.
         mActivity.triggerAutofill(manually, 4, 1);
         final FillRequest fillRequest4 = sReplier.getNextFillRequest();
-        assertThat(fillRequest4.flags).isEqualTo(expectedFlag);
 
         assertValue(fillRequest4.structure, ID_L1C1, "l1c1");
         assertValue(fillRequest4.structure, ID_L1C2, "l1c2");
@@ -344,8 +344,10 @@ public class PartitionedActivityTest extends AbstractGridActivityTestCase {
         assertValue(fillRequest4.structure, ID_L3C1, "l3c1");
         assertValue(fillRequest4.structure, ID_L3C2, "l3c2");
         if (manually) {
+            assertHasFlags(fillRequest4.flags, FLAG_MANUAL_REQUEST);
             assertValue(fillRequest4.structure, ID_L4C1, "");
         } else {
+            assertThat(fillRequest4.flags).isEqualTo(0);
             assertTextIsSanitized(fillRequest4.structure, ID_L4C1);
         }
         assertTextIsSanitized(fillRequest4.structure, ID_L4C2);

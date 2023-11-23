@@ -41,6 +41,8 @@ import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
@@ -69,6 +71,23 @@ public final class CameraDeviceInfo extends DeviceInfo {
                 CameraCharacteristics chars = mCameraManager.getCameraCharacteristics(cameraId);
                 mStore.startGroup(); // per camera chars
                 mStore.addResult("cameraId", cameraId);
+                storeCameraChars(chars);
+                mStore.endGroup(); // per camera chars
+            } catch (CameraAccessException e) {
+                Log.e(TAG,
+                        "Unable to get camera camera static info, skip this camera, error: "
+                                + e.getMessage());
+            }
+            return;
+        }
+
+        public void storePhysicalCameraInfo(String cameraId, List<String> logicalCameras)
+                throws Exception {
+            try {
+                CameraCharacteristics chars = mCameraManager.getCameraCharacteristics(cameraId);
+                mStore.startGroup(); // per camera chars
+                mStore.addResult("cameraId", cameraId);
+                mStore.addListResult("parentLogicalCameraIds", logicalCameras);
                 storeCameraChars(chars);
                 mStore.endGroup(); // per camera chars
             } catch (CameraAccessException e) {
@@ -420,6 +439,8 @@ public final class CameraDeviceInfo extends DeviceInfo {
                 getContext().getSystemService(Context.CAMERA_SERVICE);
         try {
             String[] cameraIdList = cameraManager.getCameraIdList();
+            HashMap<String, ArrayList<String>> physicalLogicalIdMap =
+                    new HashMap<String, ArrayList<String>>();
             store.addResult("num_of_camera", cameraIdList.length);
             if (cameraIdList.length > 0) {
                 CameraCharacteristicsStorer charsStorer =
@@ -427,8 +448,32 @@ public final class CameraDeviceInfo extends DeviceInfo {
                 store.startArray("per_camera_info");
                 for (int i = 0; i < cameraIdList.length; i++) {
                     charsStorer.storeCameraInfo(cameraIdList[i]);
+
+                    // Get the physical camera ids
+                    CameraCharacteristics ch = cameraManager.getCameraCharacteristics(
+                            cameraIdList[i]);
+                    for (String physicalId : ch.getPhysicalCameraIds()) {
+                        if (physicalLogicalIdMap.get(physicalId) == null) {
+                            physicalLogicalIdMap.put(physicalId, new ArrayList<String>());
+                        }
+                        physicalLogicalIdMap.get(physicalId).add(cameraIdList[i]);
+                    }
                 }
                 store.endArray(); // per_camera_info
+
+                // Store characteristics for hidden physical camera ids
+                for (int i = 0; i < cameraIdList.length; ++i) {
+                    physicalLogicalIdMap.remove(cameraIdList[i]);
+                }
+                if (physicalLogicalIdMap.size() > 0) {
+                    store.addResult("num_of_hidden_physical_camera", physicalLogicalIdMap.size());
+                    store.startArray("per_hidden_physical_camera_info");
+                    for (String physicalId : physicalLogicalIdMap.keySet()) {
+                        charsStorer.storePhysicalCameraInfo(physicalId,
+                                physicalLogicalIdMap.get(physicalId));
+                    }
+                    store.endArray(); // per_hidden_physical_camera_info
+                }
             }
         } catch (CameraAccessException e) {
             Log.e(TAG,
@@ -463,6 +508,8 @@ public final class CameraDeviceInfo extends DeviceInfo {
         charsKeyNames.add(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE.getName());
         charsKeyNames.add(CameraCharacteristics.CONTROL_AVAILABLE_MODES.getName());
         charsKeyNames.add(CameraCharacteristics.CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE.getName());
+        charsKeyNames.add(CameraCharacteristics.CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES.getName());
+        charsKeyNames.add(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE.getName());
         charsKeyNames.add(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES.getName());
         charsKeyNames.add(CameraCharacteristics.FLASH_INFO_AVAILABLE.getName());
         charsKeyNames.add(CameraCharacteristics.HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES.getName());
@@ -488,6 +535,7 @@ public final class CameraDeviceInfo extends DeviceInfo {
         charsKeyNames.add(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP.getName());
         charsKeyNames.add(CameraCharacteristics.SCALER_CROPPING_TYPE.getName());
         charsKeyNames.add(CameraCharacteristics.SCALER_MANDATORY_STREAM_COMBINATIONS.getName());
+        charsKeyNames.add(CameraCharacteristics.SCALER_MANDATORY_CONCURRENT_STREAM_COMBINATIONS.getName());
         charsKeyNames.add(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1.getName());
         charsKeyNames.add(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2.getName());
         charsKeyNames.add(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1.getName());

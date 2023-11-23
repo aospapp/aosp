@@ -119,11 +119,11 @@ public int length() { throw new RuntimeException("Stub!"); }
 
 public void setCharAt(int index, char ch) { throw new RuntimeException("Stub!"); }
 
-public java.lang.CharSequence subSequence(int start, int end) { throw new RuntimeException("Stub!"); }
+@libcore.util.NonNull public java.lang.CharSequence subSequence(int start, int end) { throw new RuntimeException("Stub!"); }
 
-public java.lang.String substring(int start) { throw new RuntimeException("Stub!"); }
+@libcore.util.NonNull public java.lang.String substring(int start) { throw new RuntimeException("Stub!"); }
 
-public java.lang.String substring(int start, int end) { throw new RuntimeException("Stub!"); }
+@libcore.util.NonNull public java.lang.String substring(int start, int end) { throw new RuntimeException("Stub!"); }
 
 public int capacity() { throw new RuntimeException("Stub!"); }
 

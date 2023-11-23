@@ -44,7 +44,7 @@ ssize_t getHWBinderKernelReferences(size_t count, uintptr_t* buf);
 __END_DECLS
 
 // ---------------------------------------------------------------------------
-}; // namespace hardware
-}; // namespace android
+} // namespace hardware
+} // namespace android
 
 #endif // ANDROID_HARDWARE_BINDER_DEBUG_H

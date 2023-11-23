@@ -3,9 +3,25 @@
 # Build benchmark app and run it, mimicking a user-initiated run
 #
 # Output is logged to a temporary folder and summarized in txt and JSON formats.
-#
-# Parameters
-# - number of runs
+
+MODE="${1:-scoring}"
+
+case "$MODE" in
+  scoring)
+    CLASS=com.android.nn.benchmark.app.NNScoringTest
+    ;;
+  inference-stress)
+    CLASS=com.android.nn.benchmark.app.NNInferenceStressTest
+    ;;
+  model-loading-stress)
+    CLASS=com.android.nn.benchmark.app.NNModelLoadingStressTest
+    ;;
+  *)
+    echo "Unknown execution mode: $1"
+    echo "Known modes: scoring (default), inference-stress, model-loading-stress"
+    exit 1
+    ;;
+esac
 
 if [[ -z "$ANDROID_BUILD_TOP" ]]; then
   echo ANDROID_BUILD_TOP not set, bailing out
@@ -16,13 +32,8 @@ fi
 set -e
 cd $ANDROID_BUILD_TOP
 
-LOGDIR=$(mktemp -d)/mlts-logs
-
-mkdir -p $LOGDIR
-echo Creating logs in $LOGDIR
-
 # Build and install benchmark app
-make NeuralNetworksApiBenchmark
+build/soong/soong_ui.bash --make-mode NeuralNetworksApiBenchmark
 if ! adb install -r $OUT/testcases/NeuralNetworksApiBenchmark/arm64/NeuralNetworksApiBenchmark.apk; then
   adb uninstall com.android.nn.benchmark.app
   adb install -r $OUT/testcases/NeuralNetworksApiBenchmark/arm64/NeuralNetworksApiBenchmark.apk
@@ -68,6 +79,7 @@ else
     adb disable-verity
     adb reboot
     sleep 5
+    adb wait-for-usb-device root
     adb wait-for-usb-device remount
     sleep 5
   fi
@@ -85,21 +97,32 @@ fi
 adb shell setprop debug.nn.cpuonly 0
 adb shell setprop debug.nn.vlog 0
 
-HOST_CSV=$LOGDIR/benchmark.csv
-RESULT_HTML=$LOGDIR/result.html
-DEVICE_CSV=/sdcard/mlts_benchmark.csv
-
 # Menukey - make sure screen is on
 adb shell "input keyevent 82"
 # Show homescreen
 adb shell wm dismiss-keyguard
-# Remove old benchmark csv data
-adb shell rm -f ${DEVICE_CSV}
-# Set the shell pid as a top-app and run tests
-adb shell "echo $$ > /dev/stune/top-app/tasks; am instrument ${AM_INSTRUMENT_FLAGS} -w -e size large -e class com.android.nn.benchmark.app.NNScoringTest com.android.nn.benchmark.app/androidx.test.runner.AndroidJUnitRunner"
-adb pull $DEVICE_CSV $HOST_CSV
-echo Benchmark data saved in $HOST_CSV
 
-$ANDROID_BUILD_TOP/test/mlts/benchmark/results/generate_result.py $HOST_CSV $RESULT_HTML
-echo Results stored  in $RESULT_HTML
-xdg-open $RESULT_HTML
+if [[ "$MODE" == "scoring" ]]; then
+  LOGDIR=$(mktemp -d)/mlts-logs
+  HOST_CSV=$LOGDIR/benchmark.csv
+  RESULT_HTML=$LOGDIR/result.html
+  DEVICE_CSV=/sdcard/mlts_benchmark.csv
+
+  mkdir -p $LOGDIR
+  echo Creating logs in $LOGDIR
+
+  # Remove old benchmark csv data
+  adb shell rm -f ${DEVICE_CSV}
+fi
+
+# Set the shell pid as a top-app and run tests
+time adb shell "echo $$ > /dev/stune/top-app/tasks; am instrument ${AM_INSTRUMENT_FLAGS} -w -e class $CLASS com.android.nn.benchmark.app/androidx.test.runner.AndroidJUnitRunner"
+
+if [[ "$MODE" == "scoring" ]]; then
+  adb pull $DEVICE_CSV $HOST_CSV
+  echo Benchmark data saved in $HOST_CSV
+
+  $ANDROID_BUILD_TOP/test/mlts/benchmark/results/generate_result.py $HOST_CSV $RESULT_HTML
+  echo Results stored  in $RESULT_HTML
+  xdg-open $RESULT_HTML
+fi

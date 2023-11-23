@@ -22,6 +22,7 @@ import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.targetprep.ITargetPreparer;
@@ -123,16 +124,21 @@ public class ModuleDefinitionMultiTest {
         mModule.getModuleInvocationContext().addAllocatedDevice(DEVICE_NAME_2, mDevice2);
         mModule.getModuleInvocationContext().addDeviceBuildInfo(DEVICE_NAME_2, mBuildInfo2);
 
+        TestInformation moduleInfo =
+                TestInformation.newBuilder()
+                        .setInvocationContext(mModule.getModuleInvocationContext())
+                        .build();
         mListener.testRunStarted(
                 EasyMock.eq(MODULE_NAME), EasyMock.eq(0), EasyMock.eq(0), EasyMock.anyLong());
         mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
 
         // Target preparation is triggered against the preparer in the second device.
-        EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false);
-        mMockTargetPrep.setUp(mDevice2, mBuildInfo2);
+        EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false).times(2);
+        mMockTargetPrep.setUp(moduleInfo);
+        EasyMock.expect(mMockTargetPrep.isTearDownDisabled()).andReturn(true);
 
         replayMocks();
-        mModule.run(mListener);
+        mModule.run(moduleInfo, mListener, null, null, 1);
         verifyMocks();
     }
 
@@ -158,17 +164,22 @@ public class ModuleDefinitionMultiTest {
         mModule.getModuleInvocationContext().addAllocatedDevice(DEVICE_NAME_2, mDevice2);
         mModule.getModuleInvocationContext().addDeviceBuildInfo(DEVICE_NAME_2, mBuildInfo2);
 
+        TestInformation moduleInfo =
+                TestInformation.newBuilder()
+                        .setInvocationContext(mModule.getModuleInvocationContext())
+                        .build();
         mListener.testRunStarted(
                 EasyMock.eq(MODULE_NAME), EasyMock.eq(0), EasyMock.eq(0), EasyMock.anyLong());
         mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
 
         // Target preparation is of first device in module configuration is triggered against the
         // first device from main configuration
-        EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false);
-        mMockTargetPrep.setUp(mDevice1, mBuildInfo1);
+        EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false).times(2);
+        mMockTargetPrep.setUp(moduleInfo);
+        EasyMock.expect(mMockTargetPrep.isTearDownDisabled()).andReturn(true);
 
         replayMocks();
-        mModule.run(mListener);
+        mModule.run(moduleInfo, mListener, null, null, 1);
         verifyMocks();
     }
 }

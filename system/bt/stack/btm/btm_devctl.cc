@@ -43,6 +43,9 @@
 #include "stack/gatt/connection_manager.h"
 
 #include "gatt_int.h"
+#include "main/shim/btm_api.h"
+#include "main/shim/controller.h"
+#include "main/shim/shim.h"
 
 extern bluetooth::common::MessageLoopThread bt_startup_thread;
 
@@ -196,14 +199,17 @@ static void reset_complete(void* result) {
 
   l2c_link_processs_num_bufs(controller->get_acl_buffer_count_classic());
 
+  // setup the random number generator
+  std::srand(std::time(nullptr));
+
 #if (BLE_PRIVACY_SPT == TRUE)
   /* Set up the BLE privacy settings */
   if (controller->supports_ble() && controller->supports_ble_privacy() &&
       controller->get_ble_resolving_list_max_size() > 0) {
     btm_ble_resolving_list_init(controller->get_ble_resolving_list_max_size());
     /* set the default random private address timeout */
-    btsnd_hcic_ble_set_rand_priv_addr_timeout(BTM_BLE_PRIVATE_ADDR_INT_MS /
-                                              1000);
+    btsnd_hcic_ble_set_rand_priv_addr_timeout(
+        btm_get_next_private_addrress_interval_ms() / 1000);
   }
 #endif
 
@@ -231,8 +237,13 @@ void BTM_DeviceReset(UNUSED_ATTR tBTM_CMPL_CB* p_cb) {
   /* Clear the callback, so application would not hang on reset */
   btm_db_reset();
 
-  module_start_up_callbacked_wrapper(get_module(CONTROLLER_MODULE),
-                                     &bt_startup_thread, reset_complete);
+  if (bluetooth::shim::is_gd_shim_enabled()) {
+    module_start_up_callbacked_wrapper(get_module(GD_CONTROLLER_MODULE),
+                                       &bt_startup_thread, reset_complete);
+  } else {
+    module_start_up_callbacked_wrapper(get_module(CONTROLLER_MODULE),
+                                       &bt_startup_thread, reset_complete);
+  }
 }
 
 /*******************************************************************************
@@ -272,6 +283,7 @@ void btm_read_local_name_timeout(UNUSED_ATTR void* data) {
  ******************************************************************************/
 static void btm_decode_ext_features_page(uint8_t page_number,
                                          const uint8_t* p_features) {
+  CHECK(p_features != nullptr);
   BTM_TRACE_DEBUG("btm_decode_ext_features_page page: %d", page_number);
   switch (page_number) {
     /* Extended (Legacy) Page 0 */
@@ -892,9 +904,6 @@ static void BTM_BT_Quality_Report_VSE_CBack(uint8_t length, uint8_t* p_stream) {
   length--;
 
   if (sub_event == HCI_VSE_SUBCODE_BQR_SUB_EVT) {
-    LOG(INFO) << __func__
-              << ": BQR sub event, report length: " << std::to_string(length);
-
     if (btm_cb.p_bqr_report_receiver == nullptr) {
       LOG(WARNING) << __func__ << ": No registered report receiver.";
       return;

@@ -24,23 +24,6 @@ import android.test.AndroidTestCase;
 import com.android.cts.comp.AdminReceiver;
 
 public class UserRestrictionTest extends AndroidTestCase {
-
-    public void testAddDisallowAddManagedProfileRestriction() {
-        setUserRestriction(UserManager.DISALLOW_ADD_MANAGED_PROFILE, true);
-    }
-
-    public void testClearDisallowAddManagedProfileRestriction() {
-        setUserRestriction(UserManager.DISALLOW_ADD_MANAGED_PROFILE, false);
-    }
-
-    public void testAddDisallowRemoveManagedProfileRestriction() {
-        setUserRestriction(UserManager.DISALLOW_REMOVE_MANAGED_PROFILE, true);
-    }
-
-    public void testClearDisallowRemoveManagedProfileRestriction() {
-        setUserRestriction(UserManager.DISALLOW_REMOVE_MANAGED_PROFILE, false);
-    }
-
     public void testAddDisallowRemoveUserRestriction() {
         setUserRestriction(UserManager.DISALLOW_REMOVE_USER, true);
     }

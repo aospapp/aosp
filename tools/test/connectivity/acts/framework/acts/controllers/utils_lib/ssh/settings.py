@@ -30,12 +30,13 @@ def from_config(config):
     port = config.get('port', 22)
     identity_file = config.get('identity_file', None)
     ssh_config = config.get('ssh_config', None)
+    connect_timeout = config.get('connect_timeout', 30)
     if user is None or host is None:
         raise ValueError('Malformed SSH config did not include user and '
                          'host keys: %s' % config)
 
     return SshSettings(host, user, port=port, identity_file=identity_file,
-                       ssh_config=ssh_config)
+                       ssh_config=ssh_config, connect_timeout=connect_timeout)
 
 
 class SshSettings(object):

@@ -43,7 +43,7 @@ public class JankCollectionHelper implements ICollectorHelper<Double> {
     @VisibleForTesting static final String GFXINFO_METRICS_PREFIX = "gfxinfo";
     // Shell dump commands to get and reset the tracked gfxinfo metrics.
     @VisibleForTesting static final String GFXINFO_COMMAND_GET = "dumpsys gfxinfo %s";
-    @VisibleForTesting static final String GFXINFO_COMMAND_RESET = GFXINFO_COMMAND_GET + " --reset";
+    @VisibleForTesting static final String GFXINFO_COMMAND_RESET = GFXINFO_COMMAND_GET + " reset";
     // Pattern matchers and enumerators to verify and pull gfxinfo metrics.
     // Example: "** Graphics info for pid 853 [com.google.android.leanbacklauncher] **"
     private static final String GFXINFO_OUTPUT_HEADER = "Graphics info for pid (\\d+) \\[(%s)\\]";
@@ -116,7 +116,27 @@ public class JankCollectionHelper implements ICollectorHelper<Double> {
         NUM_FRAME_DEADLINE_MISSED(
                 Pattern.compile(".*Number Frame deadline missed: (\\d+).*", Pattern.DOTALL),
                 1,
-                "deadline_missed");
+                "deadline_missed"),
+        // Example: "50th gpu percentile: 9ms"
+        GPU_FRAME_TIME_50TH(
+                Pattern.compile(".*50th gpu percentile: (\\d+)ms.*", Pattern.DOTALL),
+                1,
+                "gpu_jank_percentile_50"),
+        // Example: "90th gpu percentile: 9ms"
+        GPU_FRAME_TIME_90TH(
+                Pattern.compile(".*90th gpu percentile: (\\d+)ms.*", Pattern.DOTALL),
+                1,
+                "gpu_jank_percentile_90"),
+        // Example: "95th gpu percentile: 9ms"
+        GPU_FRAME_TIME_95TH(
+                Pattern.compile(".*95th gpu percentile: (\\d+)ms.*", Pattern.DOTALL),
+                1,
+                "gpu_jank_percentile_95"),
+        // Example: "99th gpu percentile: 9ms"
+        GPU_FRAME_TIME_99TH(
+                Pattern.compile(".*99th gpu percentile: (\\d+)ms.*", Pattern.DOTALL),
+                1,
+                "gpu_jank_percentile_99");
 
         private Pattern mPattern;
         private int mGroupIndex;
@@ -231,11 +251,19 @@ public class JankCollectionHelper implements ICollectorHelper<Double> {
     @VisibleForTesting
     void clearGfxInfo(String pkg) {
         try {
-            String command = String.format(GFXINFO_COMMAND_RESET, pkg);
-            String output = getDevice().executeShellCommand(command);
-            // Success if the (specified package or any if unspecified) header exists in the output.
-            verifyMatches(output, getHeaderMatcher(pkg), "Did not find package header in output.");
-            Log.v(LOG_TAG, String.format("Cleared %s gfxinfo.", pkg.isEmpty() ? "all" : pkg));
+            if (pkg.isEmpty()) {
+                String command = String.format(GFXINFO_COMMAND_RESET, "--");
+                String output = getDevice().executeShellCommand(command);
+                // Success if any header (set by passing an empty-string) exists in the output.
+                verifyMatches(output, getHeaderMatcher(""), "No package headers in output.");
+                Log.v(LOG_TAG, "Cleared all gfxinfo.");
+            } else {
+                String command = String.format(GFXINFO_COMMAND_RESET, pkg);
+                String output = getDevice().executeShellCommand(command);
+                // Success if the specified package header exists in the output.
+                verifyMatches(output, getHeaderMatcher(pkg), "No package header in output.");
+                Log.v(LOG_TAG, String.format("Cleared %s gfxinfo.", pkg));
+            }
         } catch (IOException e) {
             throw new RuntimeException("Failed to clear gfxinfo.", e);
         }

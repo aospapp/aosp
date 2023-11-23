@@ -28,7 +28,7 @@ package sun.misc;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CEFormatException extends java.io.IOException {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CEFormatException(java.lang.String s) {
         throw new RuntimeException("Stub!");
     }

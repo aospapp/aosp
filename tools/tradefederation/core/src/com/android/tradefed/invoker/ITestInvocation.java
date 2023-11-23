@@ -41,6 +41,10 @@ public interface ITestInvocation {
             IRescheduler rescheduler, ITestInvocationListener... extraListeners)
             throws DeviceNotAvailableException, Throwable;
 
-    /** Notify the {@link TestInvocation} that TradeFed has been requested to stop. */
-    public default void notifyInvocationStopped() {}
+    /**
+     * Notify the {@link TestInvocation} that TradeFed has been requested to stop.
+     *
+     * @param message The message associated with stopping the invocation
+     */
+    public default void notifyInvocationStopped(String message) {}
 }

@@ -47,16 +47,18 @@ class MockFileSystem : public FileSystem {
 
 class MockRuntimeInfo : public RuntimeInfo {
    public:
-    MockRuntimeInfo() {
-        ON_CALL(*this, fetchAllInformation(_))
-            .WillByDefault(Invoke(this, &MockRuntimeInfo::doFetch));
-    }
+    MockRuntimeInfo();
     MOCK_METHOD1(fetchAllInformation, status_t(RuntimeInfo::FetchFlags));
     status_t doFetch(RuntimeInfo::FetchFlags flags);
     void failNextFetch() { failNextFetch_ = true; }
+    void setNextFetchKernelInfo(KernelVersion&& v, std::map<std::string, std::string>&& configs);
+    void setNextFetchKernelInfo(const KernelVersion& v,
+                                const std::map<std::string, std::string>& configs);
 
    private:
     bool failNextFetch_ = false;
+    // KernelInfo returned in next fetch.
+    KernelInfo kernel_info_;
 };
 class MockRuntimeInfoFactory : public ObjectFactory<RuntimeInfo> {
    public:

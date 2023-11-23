@@ -26,6 +26,7 @@
 #include <tinyxml2.h>
 
 #include "Regex.h"
+#include "constants-private.h"
 #include "constants.h"
 #include "parse_string.h"
 
@@ -550,7 +551,10 @@ struct MatrixHalConverter : public XmlNodeConverter<MatrixHal> {
         appendAttr(root, "format", hal.format);
         appendAttr(root, "optional", hal.optional);
         appendTextElement(root, "name", hal.name, d);
-        appendChildren(root, versionRangeConverter, hal.versionRanges, d);
+        // Don't write <version> for format="aidl"
+        if (hal.format != HalFormat::AIDL) {
+            appendChildren(root, versionRangeConverter, hal.versionRanges, d);
+        }
         appendChildren(root, halInterfaceConverter, iterateValues(hal.interfaces), d);
     }
     bool buildObject(MatrixHal* object, NodeType* root, std::string* error) const override {
@@ -562,6 +566,16 @@ struct MatrixHalConverter : public XmlNodeConverter<MatrixHal> {
             !parseChildren(root, versionRangeConverter, &object->versionRanges, error) ||
             !parseChildren(root, halInterfaceConverter, &interfaces, error)) {
             return false;
+        }
+        if (object->format == HalFormat::AIDL) {
+            if (!object->versionRanges.empty()) {
+                LOG(WARNING) << "Ignoring <version> on matrix <hal format=\"aidl\"> "
+                             << object->name;
+                object->versionRanges.clear();
+            }
+            // Insert fake version for AIDL HALs so that compatibility check for AIDL and other
+            // HAL formats can be unified.
+            object->versionRanges.push_back(details::kFakeAidlVersionRange);
         }
         for (auto&& interface : interfaces) {
             std::string name{interface.name()};
@@ -642,6 +656,10 @@ struct MatrixKernelConverter : public XmlNodeConverter<MatrixKernel> {
         }
         appendAttr(root, "version", kv);
 
+        if (kernel.getSourceMatrixLevel() != Level::UNSPECIFIED) {
+            appendAttr(root, "level", kernel.getSourceMatrixLevel());
+        }
+
         if (!kernel.mConditions.empty()) {
             appendChild(root, matrixKernelConditionsConverter(kernel.mConditions, d));
         }
@@ -650,12 +668,15 @@ struct MatrixKernelConverter : public XmlNodeConverter<MatrixKernel> {
         }
     }
     bool buildObject(MatrixKernel* object, NodeType* root, std::string* error) const override {
+        Level sourceMatrixLevel = Level::UNSPECIFIED;
         if (!parseAttr(root, "version", &object->mMinLts, error) ||
+            !parseOptionalAttr(root, "level", Level::UNSPECIFIED, &sourceMatrixLevel, error) ||
             !parseOptionalChild(root, matrixKernelConditionsConverter, {}, &object->mConditions,
                                 error) ||
             !parseChildren(root, matrixKernelConfigConverter, &object->mConfigs, error)) {
             return false;
         }
+        object->setSourceMatrixLevel(sourceMatrixLevel);
         return true;
     }
 };
@@ -673,20 +694,25 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
                     SerializeFlags::Type flags) const override {
         appendAttr(root, "format", hal.format);
         appendTextElement(root, "name", hal.name, d);
-        appendChild(root, transportArchConverter(hal.transportArch, d));
-        appendChildren(root, versionConverter, hal.versions, d);
+        if (!hal.transportArch.empty()) {
+            appendChild(root, transportArchConverter(hal.transportArch, d));
+        }
+        // Don't output <version> for format="aidl"
+        if (hal.format != HalFormat::AIDL) {
+            appendChildren(root, versionConverter, hal.versions, d);
+        }
         appendChildren(root, halInterfaceConverter, iterateValues(hal.interfaces), d);
         if (hal.isOverride()) {
             appendAttr(root, "override", hal.isOverride());
         }
 
         if (flags.isFqnameEnabled()) {
-            std::set<FqInstance> fqInstances;
-            hal.forEachInstance([&fqInstances](const auto& manifestInstance) {
-                fqInstances.emplace(manifestInstance.getFqInstanceNoPackage());
+            std::set<std::string> simpleFqInstances;
+            hal.forEachInstance([&simpleFqInstances](const auto& manifestInstance) {
+                simpleFqInstances.emplace(manifestInstance.getSimpleFqInstance());
                 return true;
             });
-            appendChildren(root, fqInstanceConverter, fqInstances, d);
+            appendTextElements(root, fqInstanceConverter.elementName(), simpleFqInstances, d);
         }
     }
     bool buildObject(ManifestHal* object, NodeType* root, std::string* error) const override {
@@ -713,6 +739,20 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
                         "Native HAL '" + object->name + "' should not have <transport> defined.";
                     return false;
                 }
+            } break;
+            case HalFormat::AIDL: {
+                if (!object->transportArch.empty()) {
+                    LOG(WARNING) << "Ignoring <transport> on manifest <hal format=\"aidl\"> "
+                                 << object->name;
+                    object->transportArch = {};
+                }
+                if (!object->versions.empty()) {
+                    LOG(WARNING) << "Ignoring <version> on manifest <hal format=\"aidl\"> "
+                                 << object->name;
+                    object->versions.clear();
+                }
+                // Insert fake version for AIDL HALs so that forEachInstance works.
+                object->versions.push_back(details::kFakeAidlVersion);
             } break;
             default: {
                 LOG(FATAL) << "Unhandled HalFormat "
@@ -747,13 +787,27 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
         if (!parseChildren(root, fqInstanceConverter, &fqInstances, error)) {
             return false;
         }
-        for (const auto& e : fqInstances) {
+        std::set<FqInstance> fqInstancesToInsert;
+        for (auto& e : fqInstances) {
             if (e.hasPackage()) {
                 *error = "Should not specify package: \"" + e.string() + "\"";
                 return false;
             }
+            if (object->format == HalFormat::AIDL) {
+                // <fqname> in AIDL HALs should not contain version. Put in the fake
+                // kFakeAidlVersion so that compatibility check works.
+                FqInstance withFakeVersion;
+                if (!withFakeVersion.setTo(details::kFakeAidlVersion.majorVer,
+                                           details::kFakeAidlVersion.minorVer, e.getInterface(),
+                                           e.getInstance())) {
+                    return false;
+                }
+                fqInstancesToInsert.emplace(std::move(withFakeVersion));
+            } else {
+                fqInstancesToInsert.emplace(std::move(e));
+            }
         }
-        if (!object->insertInstances(fqInstances, error)) {
+        if (!object->insertInstances(fqInstancesToInsert, error)) {
             return false;
         }
 
@@ -902,12 +956,16 @@ struct KernelInfoConverter : public XmlNodeConverter<KernelInfo> {
         if (o.version() != KernelVersion{}) {
             appendAttr(root, "version", o.version());
         }
+        if (o.level() != Level::UNSPECIFIED) {
+            appendAttr(root, "target-level", o.level());
+        }
         if (flags.isKernelConfigsEnabled()) {
             appendChildren(root, kernelConfigConverter, o.configs(), d);
         }
     }
     bool buildObject(KernelInfo* o, NodeType* root, std::string* error) const override {
         return parseOptionalAttr(root, "version", {}, &o->mVersion, error) &&
+               parseOptionalAttr(root, "target-level", Level::UNSPECIFIED, &o->mLevel, error) &&
                parseChildren(root, kernelConfigConverter, &o->mConfigs, error);
     }
 };
@@ -967,15 +1025,17 @@ struct HalManifestConverter : public XmlNodeConverter<HalManifest> {
         }
     }
     bool buildObject(HalManifest* object, NodeType* root, std::string* error) const override {
-        std::vector<ManifestHal> hals;
-        if (!parseAttr(root, "version", &object->mMetaVersion, error) ||
-            !parseAttr(root, "type", &object->mType, error) ||
-            !parseChildren(root, manifestHalConverter, &hals, error)) {
+        Version metaVersion;
+        if (!parseAttr(root, "version", &metaVersion, error)) return false;
+        if (metaVersion > kMetaVersion) {
+            *error = "Unrecognized manifest.version " + to_string(metaVersion) + " (libvintf@" +
+                     to_string(kMetaVersion) + ")";
             return false;
         }
-        if (!kMetaVersion.minorAtLeast(object->mMetaVersion)) {
-            *error = "Unrecognized manifest.version " + to_string(object->mMetaVersion) +
-                     " (libvintf@" + to_string(kMetaVersion) + ")";
+
+        std::vector<ManifestHal> hals;
+        if (!parseAttr(root, "type", &object->mType, error) ||
+            !parseChildren(root, manifestHalConverter, &hals, error)) {
             return false;
         }
         if (object->mType == SchemaType::DEVICE) {
@@ -1099,7 +1159,7 @@ struct CompatibilityMatrixConverter : public XmlNodeConverter<CompatibilityMatri
     void mutateNode(const CompatibilityMatrix& m, NodeType* root, DocType* d,
                     SerializeFlags::Type flags) const override {
         if (flags.isMetaVersionEnabled()) {
-            appendAttr(root, "version", m.getMinimumMetaVersion());
+            appendAttr(root, "version", kMetaVersion);
         }
         if (flags.isSchemaTypeEnabled()) {
             appendAttr(root, "type", m.mType);
@@ -1152,10 +1212,16 @@ struct CompatibilityMatrixConverter : public XmlNodeConverter<CompatibilityMatri
     }
     bool buildObject(CompatibilityMatrix* object, NodeType* root,
                      std::string* error) const override {
-        Version version;
+        Version metaVersion;
+        if (!parseAttr(root, "version", &metaVersion, error)) return false;
+        if (metaVersion > kMetaVersion) {
+            *error = "Unrecognized compatibility-matrix.version " + to_string(metaVersion) +
+                     " (libvintf@" + to_string(kMetaVersion) + ")";
+            return false;
+        }
+
         std::vector<MatrixHal> hals;
-        if (!parseAttr(root, "version", &version, error) ||
-            !parseAttr(root, "type", &object->mType, error) ||
+        if (!parseAttr(root, "type", &object->mType, error) ||
             !parseChildren(root, matrixHalConverter, &hals, error)) {
             return false;
         }
@@ -1210,11 +1276,6 @@ struct CompatibilityMatrixConverter : public XmlNodeConverter<CompatibilityMatri
             }
         }
 
-        if (!kMetaVersion.minorAtLeast(version)) {
-            *error = "Unrecognized compatibility-matrix.version " + to_string(version) +
-                     " (libvintf@" + to_string(kMetaVersion) + ")";
-            return false;
-        }
         for (auto &&hal : hals) {
             if (!object->add(std::move(hal))) {
                 *error = "Duplicated compatibility-matrix.hal entry";

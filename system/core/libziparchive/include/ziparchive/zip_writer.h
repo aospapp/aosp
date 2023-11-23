@@ -19,8 +19,10 @@
 #include <cstdio>
 #include <ctime>
 
+#include <gtest/gtest_prod.h>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "android-base/macros.h"
@@ -76,7 +78,7 @@ class ZipWriter {
     uint32_t uncompressed_size;
     uint16_t last_mod_time;
     uint16_t last_mod_date;
-    uint32_t padding_length;
+    uint16_t padding_length;
     off64_t local_file_header_offset;
   };
 
@@ -101,7 +103,7 @@ class ZipWriter {
    * Subsequent calls to WriteBytes(const void*, size_t) will add data to this entry.
    * Returns 0 on success, and an error value < 0 on failure.
    */
-  int32_t StartEntry(const char* path, size_t flags);
+  int32_t StartEntry(std::string_view path, size_t flags);
 
   /**
    * Starts a new zip entry with the given path and flags, where the
@@ -111,17 +113,17 @@ class ZipWriter {
    * Subsequent calls to WriteBytes(const void*, size_t) will add data to this entry.
    * Returns 0 on success, and an error value < 0 on failure.
    */
-  int32_t StartAlignedEntry(const char* path, size_t flags, uint32_t alignment);
+  int32_t StartAlignedEntry(std::string_view path, size_t flags, uint32_t alignment);
 
   /**
    * Same as StartEntry(const char*, size_t), but sets a last modified time for the entry.
    */
-  int32_t StartEntryWithTime(const char* path, size_t flags, time_t time);
+  int32_t StartEntryWithTime(std::string_view path, size_t flags, time_t time);
 
   /**
    * Same as StartAlignedEntry(const char*, size_t), but sets a last modified time for the entry.
    */
-  int32_t StartAlignedEntryWithTime(const char* path, size_t flags, time_t time, uint32_t alignment);
+  int32_t StartAlignedEntryWithTime(std::string_view path, size_t flags, time_t time, uint32_t alignment);
 
   /**
    * Writes bytes to the zip file for the previously started zip entry.
@@ -161,9 +163,10 @@ class ZipWriter {
 
   int32_t HandleError(int32_t error_code);
   int32_t PrepareDeflate();
-  int32_t StoreBytes(FileEntry* file, const void* data, size_t len);
-  int32_t CompressBytes(FileEntry* file, const void* data, size_t len);
+  int32_t StoreBytes(FileEntry* file, const void* data, uint32_t len);
+  int32_t CompressBytes(FileEntry* file, const void* data, uint32_t len);
   int32_t FlushCompressedBytes(FileEntry* file);
+  bool ShouldUseDataDescriptor() const;
 
   enum class State {
     kWritingZip,
@@ -181,4 +184,6 @@ class ZipWriter {
 
   std::unique_ptr<z_stream, void (*)(z_stream*)> z_stream_;
   std::vector<uint8_t> buffer_;
+
+  FRIEND_TEST(zipwriter, WriteToUnseekableFile);
 };

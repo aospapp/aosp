@@ -37,5 +37,6 @@ done
 
 
 ${TF_DIR}/tradefed.sh run singleCommand host -n \
+  --test-tag TFUnitTests \
   --console-result-reporter:suppress-passed-tests \
   --class ${TEST_CLASS} ${FORWARDED_ARGS[*]}

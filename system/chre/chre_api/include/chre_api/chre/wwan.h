@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2016 The Android Open Source Project
  *
@@ -25,8 +24,10 @@
  * useful in determining location.
  *
  * Based on Android N RIL definitions (located at this path as of the time of
- * this comment: hardware/ril/include/telephony/ril.h), version 12. Refer to
- * that file and associated documentation for futher details.
+ * this comment: hardware/ril/include/telephony/ril.h), version 12. Updated
+ * based on Android radio HAL definition (hardware/interfaces/radio) for more
+ * recent Android builds. Refer to those files and associated documentation for
+ * further details.
  *
  * In general, the parts of this API that are taken from the RIL follow the
  * field naming conventions established in that interface rather than the CHRE
@@ -197,25 +198,73 @@ struct chreWwanCellIdentityTdscdma {
     int32_t cpid;
 };
 
+//! Reference: android.hardware.radio@1.4 CellIdentityNr
+//! @since v1.4
+struct chreWwanCellIdentityNr {
+    //! 3-digit Mobile Country Code, in range [0, 999]. This value must be valid
+    //! for registered or camped cells. INT32_MAX means invalid/unreported.
+    int32_t mcc;
+
+    //! 2 or 3-digit Mobile Network Code, in range [0, 999]. This value must be
+    //! valid for registered or camped cells. INT32_MAX means
+    //! invalid/unreported.
+    int32_t mnc;
+
+    //! NR Cell Identity in range [0, 68719476735] (36 bits), which
+    //! unambiguously identifies a cell within a public land mobile network
+    //! (PLMN). This value must be valid for registered or camped cells.
+    //! Reference: TS 38.413 section 9.3.1.7.
+    //!
+    //! Note: for backward compatibility reasons, the nominally int64_t nci is
+    //! split into two uint32_t values, with nci0 being the least significant 4
+    //! bytes. If chreWwanUnpackNrNci returns INT64_MAX, it means nci is
+    //! invalid/unreported.
+    //!
+    //! Users are recommended to use the helper accessor chreWwanUnpackNrNci to
+    //! access the nci field.
+    //!
+    //! @see chreWwanUnpackNrNci
+    uint32_t nci0;
+    uint32_t nci1;
+
+    //! Physical cell id in range [0, 1007]. This value must be valid.
+    //! Reference: TS 38.331 section 6.3.2.
+    int32_t pci;
+
+    //! 24-bit tracking area code in range [0, 16777215]. INT32_MAX means
+    //! invalid/unreported.
+    //! Reference: TS 38.413 section 9.3.3.10 and TS 29.571 section 5.4.2.
+    int32_t tac;
+
+    //! NR Absolute Radio Frequency Channel Number, in range [0, 3279165]. This
+    //! value must be valid.
+    //! Reference: TS 38.101-1 section 5.4.2.1 and TS 38.101-2 section 5.4.2.1.
+    int32_t nrarfcn;
+};
+
 //! Reference: RIL_GSM_SignalStrength_v12
 struct chreWwanSignalStrengthGsm {
     //! Valid values are (0-31, 99) as defined in TS 27.007 8.5
+    //! INT32_MAX means invalid/unreported.
     int32_t signalStrength;
 
     //! bit error rate (0-7, 99) as defined in TS 27.007 8.5
+    //! INT32_MAX means invalid/unreported.
     int32_t bitErrorRate;
 
-    //! Timing Advance in bit periods. 1 bit period = 48.13 us. INT32_MAX
-    //! denotes invalid value
+    //! Timing Advance in bit periods. 1 bit period = 48.13 us.
+    //! INT32_MAX means invalid/unreported.
     int32_t timingAdvance;
 };
 
 //! Reference: RIL_SignalStrengthWcdma
 struct chreWwanSignalStrengthWcdma {
     //! Valid values are (0-31, 99) as defined in TS 27.007 8.5
+    //! INT32_MAX means invalid/unreported.
     int32_t signalStrength;
 
     //! bit error rate (0-7, 99) as defined in TS 27.007 8.5
+    //! INT32_MAX means invalid/unreported.
     int32_t bitErrorRate;
 };
 
@@ -224,11 +273,13 @@ struct chreWwanSignalStrengthCdma {
     //! Valid values are positive integers.  This value is the actual RSSI value
     //! multiplied by -1.  Example: If the actual RSSI is -75, then this
     //! response value will be 75.
+    //! INT32_MAX means invalid/unreported.
     int32_t dbm;
 
     //! Valid values are positive integers.  This value is the actual Ec/Io
     //! multiplied by -10.  Example: If the actual Ec/Io is -12.5 dB, then this
     //! response value will be 125.
+    //! INT32_MAX means invalid/unreported.
     int32_t ecio;
 };
 
@@ -237,14 +288,17 @@ struct chreWwanSignalStrengthEvdo {
     //! Valid values are positive integers.  This value is the actual RSSI value
     //! multiplied by -1.  Example: If the actual RSSI is -75, then this
     //! response value will be 75.
+    //! INT32_MAX means invalid/unreported.
     int32_t dbm;
 
     //! Valid values are positive integers.  This value is the actual Ec/Io
     //! multiplied by -10.  Example: If the actual Ec/Io is -12.5 dB, then this
     //! response value will be 125.
+    //! INT32_MAX means invalid/unreported.
     int32_t ecio;
 
     //! Valid values are 0-8.  8 is the highest signal to noise ratio.
+    //! INT32_MAX means invalid/unreported.
     int32_t signalNoiseRatio;
 };
 
@@ -255,32 +309,32 @@ struct chreWwanSignalStrengthLte {
 
     //! The current Reference Signal Receive Power in dBm multipled by -1.
     //! Range: 44 to 140 dBm
-    //! INT32_MAX: 0x7FFFFFFF denotes invalid value.
+    //! INT32_MAX means invalid/unreported.
     //! Reference: 3GPP TS 36.133 9.1.4
     int32_t rsrp;
 
     //! The current Reference Signal Receive Quality in dB multiplied by -1.
-    //! Range: 20 to 3 dB.
-    //! INT32_MAX: 0x7FFFFFFF denotes invalid value.
+    //! Range: 3 to 20 dB.
+    //! INT32_MAX means invalid/unreported.
     //! Reference: 3GPP TS 36.133 9.1.7
     int32_t rsrq;
 
     //! The current reference signal signal-to-noise ratio in 0.1 dB units.
     //! Range: -200 to +300 (-200 = -20.0 dB, +300 = 30dB).
-    //! INT32_MAX : 0x7FFFFFFF denotes invalid value.
+    //! INT32_MAX means invalid/unreported.
     //! Reference: 3GPP TS 36.101 8.1.1
     int32_t rssnr;
 
     //! The current Channel Quality Indicator.
     //! Range: 0 to 15.
-    //! INT32_MAX : 0x7FFFFFFF denotes invalid value.
+    //! INT32_MAX means invalid/unreported.
     //! Reference: 3GPP TS 36.101 9.2, 9.3, A.4
     int32_t cqi;
 
     //! timing advance in micro seconds for a one way trip from cell to device.
     //! Approximate distance can be calculated using 300m/us * timingAdvance.
     //! Range: 0 to 0x7FFFFFFE
-    //! INT32_MAX : 0x7FFFFFFF denotes invalid value.
+    //! INT32_MAX means invalid/unreported.
     //! Reference: 3GPP 36.321 section 6.1.3.5
     //! also: http://www.cellular-planningoptimization.com/2010/02/timing-advance-with-calculation.html
     int32_t timingAdvance;
@@ -290,9 +344,48 @@ struct chreWwanSignalStrengthLte {
 struct chreWwanSignalStrengthTdscdma {
     //! The Received Signal Code Power in dBm multipled by -1.
     //! Range : 25 to 120
-    //! INT32_MAX: 0x7FFFFFFF denotes invalid value.
+    //! INT32_MAX means invalid/unreported.
     //! Reference: 3GPP TS 25.123, section 9.1.1.1
     int32_t rscp;
+};
+
+//! Reference: android.hardware.radio@1.4 NrSignalStrength
+//! @since v1.4
+struct chreWwanSignalStrengthNr {
+    //! SS (second synchronization) reference signal received power in dBm
+    //! multiplied by -1.
+    //! Range [44, 140], INT32_MAX means invalid/unreported.
+    //! Reference: TS 38.215 section 5.1.1 and TS 38.133 section 10.1.6.
+    int32_t ssRsrp;
+
+    //! SS reference signal received quality in 0.5 dB units.
+    //! Range [-86, 41] with -86 = -43.0 dB and 41 = 20.5 dB.
+    //! INT32_MAX means invalid/unreported.
+    //! Reference: TS 38.215 section 5.1.3 and TS 38.133 section 10.1.11.1.
+    int32_t ssRsrq;
+
+    //! SS signal-to-noise and interference ratio in 0.5 dB units.
+    //! Range [-46, 81] with -46 = -23.0 dB and 81 = 40.5 dB.
+    //! INT32_MAX means invalid/unreported.
+    //! Reference: TS 38.215 section 5.1.5 and TS 38.133 section 10.1.16.1.
+    int32_t ssSinr;
+
+    //! CSI reference signal received power in dBm multiplied by -1.
+    //! Range [44, 140], INT32_MAX means invalid/unreported.
+    //! Reference: TS 38.215 section 5.1.2 and TS 38.133 section 10.1.6.
+    int32_t csiRsrp;
+
+    //! CSI reference signal received quality in 0.5 dB units.
+    //! Range [-86, 41] with -86 = -43.0 dB and 41 = 20.5 dB.
+    //! INT32_MAX means invalid/unreported.
+    //! Reference: TS 38.215 section 5.1.4 and TS 38.133 section 10.1.11.1.
+    int32_t csiRsrq;
+
+    //! CSI signal-to-noise and interference ratio in 0.5 dB units.
+    //! Range [-46, 81] with -46 = -23.0 dB and 81 = 40.5 dB.
+    //! INT32_MAX means invalid/unreported.
+    //! Reference: TS 38.215 section 5.1.6 and TS 38.133 section 10.1.16.1.
+    int32_t csiSinr;
 };
 
 //! Reference: RIL_CellInfoGsm_v12
@@ -326,13 +419,22 @@ struct chreWwanCellInfoTdscdma {
     struct chreWwanSignalStrengthTdscdma  signalStrengthTdscdma;
 };
 
+//! Reference: android.hardware.radio@1.4 CellInfoNr
+//! @since v1.4
+struct chreWwanCellInfoNr {
+    struct chreWwanCellIdentityNr    cellIdentityNr;
+    struct chreWwanSignalStrengthNr  signalStrengthNr;
+};
+
 //! Reference: RIL_CellInfoType
+//! All other values are reserved and should be ignored by nanoapps.
 enum chreWwanCellInfoType {
     CHRE_WWAN_CELL_INFO_TYPE_GSM      = 1,
     CHRE_WWAN_CELL_INFO_TYPE_CDMA     = 2,
     CHRE_WWAN_CELL_INFO_TYPE_LTE      = 3,
     CHRE_WWAN_CELL_INFO_TYPE_WCDMA    = 4,
     CHRE_WWAN_CELL_INFO_TYPE_TD_SCDMA = 5,
+    CHRE_WWAN_CELL_INFO_TYPE_NR       = 6,  //! @since v1.4
 };
 
 //! Reference: RIL_TimeStampType
@@ -354,8 +456,8 @@ struct chreWwanCellInfo {
     //! to retrieve additional information
     uint8_t cellInfoType;
 
-    //! A value from value from enum {@link #CellTimeStampType} that identifies
-    //! the source of the value in timeStamp. This is typically set to
+    //! A value from enum {@link #CellTimeStampType} that identifies the source
+    //! of the value in timeStamp. This is typically set to
     //! CHRE_WWAN_CELL_TIMESTAMP_TYPE_OEM_RIL, and indicates the time given by
     //! chreGetTime() that an intermediate module received the data from the
     //! modem and forwarded it to the requesting CHRE client.
@@ -368,16 +470,14 @@ struct chreWwanCellInfo {
     uint8_t reserved;
 
     //! The value in cellInfoType indicates which field in this union is valid
-    union {
+    union chreWwanCellInfoPerRat {
         struct chreWwanCellInfoGsm     gsm;
         struct chreWwanCellInfoCdma    cdma;
         struct chreWwanCellInfoLte     lte;
         struct chreWwanCellInfoWcdma   wcdma;
         struct chreWwanCellInfoTdscdma tdscdma;
+        struct chreWwanCellInfoNr      nr;  //! @since v1.4
     } CellInfo;
-
-    //! Additional bytes reserved for future use; must be set to 0
-    uint8_t reserved2[4];
 };
 
 /**
@@ -435,6 +535,10 @@ uint32_t chreWwanGetCapabilities(void);
  * either with successful data or an error status, within
  * CHRE_ASYNC_RESULT_TIMEOUT_NS.
  *
+ * If the airplane mode setting is enabled at the Android level, the CHRE
+ * implementation is expected to return a successful asynchronous result with an
+ * empty cell info list.
+ *
  * @param cookie An opaque value that will be included in the chreAsyncResult
  *        sent in relation to this request.
  *
@@ -444,6 +548,19 @@ uint32_t chreWwanGetCapabilities(void);
  */
 bool chreWwanGetCellInfoAsync(const void *cookie);
 
+/**
+ * Helper accessor for nci in the chreWwanCellIdentityNr struct.
+ *
+ * @return nci or INT64_MAX if invalid/unreported.
+ *
+ * @see chreWwanCellIdentityNr
+ *
+ * @since v1.4
+ */
+static inline int64_t chreWwanUnpackNrNci(
+    const struct chreWwanCellIdentityNr *nrCellId) {
+  return (int64_t) (((uint64_t) nrCellId->nci1 << 32) | nrCellId->nci0);
+}
 
 #ifdef __cplusplus
 }

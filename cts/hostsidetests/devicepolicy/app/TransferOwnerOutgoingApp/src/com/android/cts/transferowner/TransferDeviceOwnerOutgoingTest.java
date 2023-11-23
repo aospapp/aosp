@@ -43,12 +43,13 @@ public class TransferDeviceOwnerOutgoingTest extends DeviceAndProfileOwnerTransf
     public void testTransferWithPoliciesOutgoing() throws Throwable {
         int passwordLength = 123;
         mDevicePolicyManager.setCameraDisabled(mOutgoingComponentName, true);
+        mDevicePolicyManager.setPasswordQuality(
+                mOutgoingComponentName, DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
         mDevicePolicyManager.setPasswordMinimumLength(mOutgoingComponentName, passwordLength);
         mDevicePolicyManager.setKeepUninstalledPackages(mOutgoingComponentName,
                 Collections.singletonList("test.package"));
         mDevicePolicyManager.setSystemUpdatePolicy(mOutgoingComponentName,
-                SystemUpdatePolicy.createWindowedInstallPolicy(123, 456));
-
+                SystemUpdatePolicy.createPostponeInstallPolicy());
         PersistableBundle b = new PersistableBundle();
         mDevicePolicyManager.transferOwnership(mOutgoingComponentName, INCOMING_COMPONENT_NAME, b);
     }

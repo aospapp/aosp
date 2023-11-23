@@ -23,6 +23,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
 import android.os.Process;
 import android.util.Log;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -59,14 +60,6 @@ public class SetPolicyActivity extends Activity {
     public void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         handleIntent(intent);
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        // Calling finish() here because doing it in onCreate(), onStart() or onResume() makes
-        // "adb shell am start" timeout if using the -W option.
-        finish();
     }
 
     private void handleIntent(Intent intent) {

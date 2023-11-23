@@ -15,25 +15,28 @@
  */
 package com.android.compatibility.common.tradefed.result.suite;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.util.DeviceInfo;
 import com.android.compatibility.common.util.ResultHandler;
 import com.android.compatibility.common.util.ResultUploader;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.cluster.SubprocessConfigBuilder;
 import com.android.tradefed.config.IConfiguration;
-import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ILogSaver;
+import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ITestSummaryListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
 import com.android.tradefed.result.LogFileSaver;
+import com.android.tradefed.result.SnapshotInputStreamSource;
 import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.result.TestSummary;
 import com.android.tradefed.result.suite.IFormatterGenerator;
@@ -53,6 +56,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -71,10 +75,34 @@ import javax.xml.transform.stream.StreamSource;
  */
 @OptionClass(alias = "result-reporter")
 public class CertificationSuiteResultReporter extends XmlFormattedGeneratorReporter
-        implements IConfigurationReceiver, ITestSummaryListener {
+        implements ITestSummaryListener {
+
+    // The known existing variant of suites.
+    // Adding a new variant requires approval from Android Partner team and Test Harness team.
+    private enum SuiteVariant {
+        CTS_ON_GSI("CTS_ON_GSI", "cts-on-gsi");
+
+        private final String mReportDisplayName;
+        private final String mConfigName;
+
+        private SuiteVariant(String reportName, String configName) {
+            mReportDisplayName = reportName;
+            mConfigName = configName;
+        }
+
+        public String getReportDisplayName() {
+            return mReportDisplayName;
+        }
+
+        public String getConfigName() {
+            return mConfigName;
+        }
+    }
 
     public static final String LATEST_LINK_NAME = "latest";
     public static final String SUMMARY_FILE = "invocation_summary.txt";
+    public static final String HTLM_REPORT_NAME = "test_result.html";
+    public static final String REPORT_XSL_FILE_NAME = "compatibility_result.xsl";
     public static final String FAILURE_REPORT_NAME = "test_result_failures_suite.html";
     public static final String FAILURE_XSL_FILE_NAME = "compatibility_failures.xsl";
 
@@ -103,6 +131,21 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
             description = "Whether failure summary report is included in the zip fie.")
     private boolean mIncludeHtml = false;
 
+    @Option(
+            name = "result-attribute",
+            description =
+                    "Extra key-value pairs to be added as attributes and corresponding values "
+                            + "of the \"Result\" tag in the result XML.")
+    private Map<String, String> mResultAttributes = new HashMap<String, String>();
+
+    // Should be removed for the S release.
+    @Option(
+            name = "cts-on-gsi-variant",
+            description =
+                    "Workaround for the R release to ensure the CTS-on-GSI report can be parsed "
+                            + "by the APFE.")
+    private boolean mCtsOnGsiVariant = false;
+
     private CompatibilityBuildHelper mBuildHelper;
 
     /** The directory containing the results */
@@ -112,11 +155,12 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
 
     private ResultUploader mUploader;
 
+    /** LogFileSaver to copy the file to the CTS results folder */
     private LogFileSaver mTestLogSaver;
+
+    private Map<LogFile, InputStreamSource> mPreInvocationLogs = new HashMap<>();
     /** Invocation level Log saver to receive when files are logged */
     private ILogSaver mLogSaver;
-    /** Invocation level configuration */
-    private IConfiguration mConfiguration = null;
 
     private String mReferenceUrl;
 
@@ -124,7 +168,6 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
 
     private static final String[] RESULT_RESOURCES = {
         "compatibility_result.css",
-        "compatibility_result.xsd",
         "compatibility_result.xsl",
         "logo.png"
     };
@@ -142,11 +185,16 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
         super.invocationStarted(context);
 
         if (mBuildHelper == null) {
-            mBuildHelper = new CompatibilityBuildHelper(getPrimaryBuildInfo());
+            mBuildHelper = createBuildHelper();
         }
         if (mResultDir == null) {
             initializeResultDirectories();
         }
+    }
+
+    @VisibleForTesting
+    CompatibilityBuildHelper createBuildHelper() {
+        return new CompatibilityBuildHelper(getPrimaryBuildInfo());
     }
 
     /**
@@ -157,6 +205,12 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
         if (name.endsWith(DeviceInfo.FILE_SUFFIX)) {
             // Handle device info file case
             testLogDeviceInfo(name, stream);
+            return;
+        }
+        if (mTestLogSaver == null) {
+            LogFile info = new LogFile(name, null, type);
+            mPreInvocationLogs.put(
+                    info, new SnapshotInputStreamSource(name, stream.createInputStream()));
             return;
         }
         try {
@@ -233,20 +287,11 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
         mLogSaver = saver;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void setConfiguration(IConfiguration configuration) {
-        mConfiguration = configuration;
-    }
-
     /**
      * Create directory structure where results and logs will be written.
      */
     private void initializeResultDirectories() {
         CLog.d("Initializing result directory");
-        // TODO: Clean up start time handling to avoid relying on buildinfo
-        getPrimaryBuildInfo().addBuildAttribute(CompatibilityBuildHelper.START_TIME_MS,
-                Long.toString(getStartTime()));
         try {
             mResultDir = mBuildHelper.getResultDir();
             if (mResultDir != null) {
@@ -268,8 +313,7 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
 
         mUploader = new ResultUploader(mResultServer, mBuildHelper.getSuiteName());
         try {
-            mLogDir = new File(mBuildHelper.getLogsDir(),
-                    CompatibilityBuildHelper.getDirSuffix(getStartTime()));
+            mLogDir = mBuildHelper.getInvocationLogDir();
         } catch (FileNotFoundException e) {
             CLog.e(e);
         }
@@ -280,19 +324,31 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
             throw new IllegalArgumentException(String.format("Could not create log dir %s",
                     mLogDir.getAbsolutePath()));
         }
+        // During sharding, we reach here before invocationStarted is called so the log_saver will
+        // be null at that point.
         if (mTestLogSaver == null) {
             mTestLogSaver = new LogFileSaver(mLogDir);
+            // Log all the early logs from before init.
+            for (LogFile earlyLog : mPreInvocationLogs.keySet()) {
+                try (InputStreamSource source = mPreInvocationLogs.get(earlyLog)) {
+                    testLog(earlyLog.getPath(), earlyLog.getType(), source);
+                }
+            }
+            mPreInvocationLogs.clear();
         }
     }
 
     @Override
     public IFormatterGenerator createFormatter() {
-        return new CertificationResultXml(mBuildHelper.getSuiteName(),
+        return new CertificationResultXml(
+                createSuiteName(mBuildHelper.getSuiteName()),
                 mBuildHelper.getSuiteVersion(),
+                createSuiteVariant(),
                 mBuildHelper.getSuitePlan(),
                 mBuildHelper.getSuiteBuild(),
                 mReferenceUrl,
-                getLogUrl());
+                getLogUrl(),
+                mResultAttributes);
     }
 
     @Override
@@ -321,16 +377,21 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
     public void postFormattingStep(File resultDir, File reportFile) {
         super.postFormattingStep(resultDir,reportFile);
 
-        createChecksum(resultDir, getRunResults(),
+        createChecksum(
+                resultDir,
+                getMergedTestRunResults(),
                 getPrimaryBuildInfo().getBuildAttributes().get(BUILD_FINGERPRINT));
 
+        File report = createReport(reportFile);
+        if (report != null) {
+            CLog.i("Viewable report: %s", report.getAbsolutePath());
+        }
         File failureReport = null;
         if (mIncludeHtml) {
             // Create the html report before the zip file.
             failureReport = createFailureReport(reportFile);
         }
         File zippedResults = zipResults(mResultDir);
-        // TODO: calculate results checksum file
         if (!mIncludeHtml) {
             // Create failure report after zip file so extra data is not uploaded
             failureReport = createFailureReport(reportFile);
@@ -404,8 +465,9 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
      */
     private void copyDynamicConfigFiles() {
         File configDir = new File(mResultDir, "config");
-        if (!configDir.mkdir()) {
-            CLog.w("Failed to make dynamic config directory \"%s\" in the result",
+        if (!configDir.exists() && !configDir.mkdir()) {
+            CLog.w(
+                    "Failed to make dynamic config directory \"%s\" in the result.",
                     configDir.getAbsolutePath());
         }
 
@@ -419,6 +481,9 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
                 if (!uniqueModules.contains(moduleName)) {
                     // have not seen config for this module yet, copy into result
                     File destFile = new File(configDir, moduleName + ".dynamic");
+                    if (destFile.exists()) {
+                        continue;
+                    }
                     try {
                         FileUtil.copyFile(srcFile, destFile);
                         uniqueModules.add(moduleName); // Add to uniqueModules if copy succeeds
@@ -474,7 +539,7 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
             fis = new FileInputStream(resultFile);
             logFile = mLogSaver.saveLogData("log-result", LogDataType.XML, fis);
             CLog.d("Result XML URL: %s", logFile.getUrl());
-            logReportFiles(mConfiguration, resultFile, resultFile.getName(), LogDataType.XML);
+            logReportFiles(getConfiguration(), resultFile, resultFile.getName(), LogDataType.XML);
         } catch (IOException ioe) {
             CLog.e("error saving XML with log saver");
             CLog.e(ioe);
@@ -488,7 +553,7 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
                 zipResultStream = new FileInputStream(zippedResults);
                 logFile = mLogSaver.saveLogData("results", LogDataType.ZIP, zipResultStream);
                 CLog.d("Result zip URL: %s", logFile.getUrl());
-                logReportFiles(mConfiguration, zippedResults, "results", LogDataType.ZIP);
+                logReportFiles(getConfiguration(), zippedResults, "results", LogDataType.ZIP);
             } finally {
                 StreamUtil.close(zipResultStream);
             }
@@ -527,6 +592,24 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
         }
     }
 
+    /** Generate html report. */
+    private File createReport(File inputXml) {
+        File report = new File(inputXml.getParentFile(), HTLM_REPORT_NAME);
+        try (InputStream xslStream =
+                        new FileInputStream(
+                                new File(inputXml.getParentFile(), REPORT_XSL_FILE_NAME));
+                OutputStream outputStream = new FileOutputStream(report)) {
+            Transformer transformer =
+                    TransformerFactory.newInstance().newTransformer(new StreamSource(xslStream));
+            transformer.transform(new StreamSource(inputXml), new StreamResult(outputStream));
+        } catch (IOException | TransformerException ignored) {
+            CLog.e(ignored);
+            FileUtil.deleteFile(report);
+            return null;
+        }
+        return report;
+    }
+
     /**
      * Generate html report listing an failed tests. CTS specific.
      */
@@ -559,15 +642,53 @@ public class CertificationSuiteResultReporter extends XmlFormattedGeneratorRepor
         if (configuration == null) {
             return;
         }
+        ILogSaver saver = configuration.getLogSaver();
         List<ITestInvocationListener> listeners = configuration.getTestInvocationListeners();
         try (FileInputStreamSource source = new FileInputStreamSource(resultFile)) {
+            LogFile loggedFile = null;
+            try (InputStream stream = source.createInputStream()) {
+                loggedFile = saver.saveLogData(dataName, type, stream);
+            } catch (IOException e) {
+                CLog.e(e);
+            }
             for (ITestInvocationListener listener : listeners) {
                 if (listener.equals(this)) {
                     // Avoid logging agaisnt itself
                     continue;
                 }
                 listener.testLog(dataName, type, source);
+                if (loggedFile != null) {
+                    if (listener instanceof ILogSaverListener) {
+                        ((ILogSaverListener) listener).logAssociation(dataName, loggedFile);
+                    }
+                }
             }
         }
+    }
+
+    private String createSuiteName(String originalSuiteName) {
+        if (mCtsOnGsiVariant) {
+            String commandLine = getConfiguration().getCommandLine();
+            // SubprocessConfigBuilder is added to support ATS current way of running things.
+            // It won't be needed after the R release.
+            if (commandLine.startsWith("cts-on-gsi")
+                    || commandLine.startsWith(
+                            SubprocessConfigBuilder.createConfigName("cts-on-gsi"))) {
+                return "VTS";
+            }
+        }
+        return originalSuiteName;
+    }
+
+    private String createSuiteVariant() {
+        IConfiguration currentConfig = getConfiguration();
+        String commandLine = currentConfig.getCommandLine();
+        for (SuiteVariant var : SuiteVariant.values()) {
+            if (commandLine.startsWith(var.getConfigName() + " ")
+                    || commandLine.equals(var.getConfigName())) {
+                return var.getReportDisplayName();
+            }
+        }
+        return null;
     }
 }

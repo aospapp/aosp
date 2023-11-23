@@ -145,6 +145,19 @@ TEST(semaphore, sem_timedwait_monotonic_np) {
 #endif  // __BIONIC__
 }
 
+TEST(semaphore, sem_clockwait) {
+#if defined(__BIONIC__)
+  sem_timedwait_helper(CLOCK_MONOTONIC, [](sem_t* __sem, const timespec* __ts) {
+    return sem_clockwait(__sem, CLOCK_MONOTONIC, __ts);
+  });
+  sem_timedwait_helper(CLOCK_REALTIME, [](sem_t* __sem, const timespec* __ts) {
+    return sem_clockwait(__sem, CLOCK_REALTIME, __ts);
+  });
+#else   // __BIONIC__
+  GTEST_SKIP() << "sem_clockwait is only supported on bionic";
+#endif  // __BIONIC__
+}
+
 TEST(semaphore_DeathTest, sem_timedwait_null_timeout) {
   sem_t s;
   ASSERT_EQ(0, sem_init(&s, 0, 0));
@@ -201,7 +214,7 @@ static void* SemWaitEINTRThreadFn(void* arg) {
 
 TEST(semaphore, sem_wait_no_EINTR_in_sdk_less_equal_than_23) {
 #if defined(__BIONIC__)
-  android_set_application_target_sdk_version(__ANDROID_API_M__);
+  android_set_application_target_sdk_version(23);
   sem_t s;
   ASSERT_EQ(0, sem_init(&s, 0, 0));
   ScopedSignalHandler handler(SIGUSR1, sem_wait_test_signal_handler);

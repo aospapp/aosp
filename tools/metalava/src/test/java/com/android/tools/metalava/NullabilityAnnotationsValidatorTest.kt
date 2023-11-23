@@ -23,7 +23,7 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
     @Test
     fun `Empty report when all expected annotations present`() {
         check(
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                         package test.pkg;
@@ -69,7 +69,7 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
     @Test
     fun `Missing parameter annotation`() {
         check(
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                         package test.pkg;
@@ -111,7 +111,7 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
     @Test
     fun `Missing return type annotations`() {
         check(
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                         package test.pkg;
@@ -152,7 +152,7 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
     @Test
     fun `Error from annotation on primitive`() {
         check(
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                         package test.pkg;
@@ -195,7 +195,7 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
     @Test
     fun `Error from NullFromTypeParam not on type param`() {
         check(
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                         package test.pkg;
@@ -237,7 +237,7 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
     @Test
     fun `Using class list`() {
         check(
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                         package test.pkg;

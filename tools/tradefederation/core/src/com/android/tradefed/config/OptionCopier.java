@@ -64,6 +64,43 @@ public class OptionCopier {
     }
 
     /**
+     * Copy the given option from {@link Option} fields in <var>origObject</var> to
+     * <var>destObject</var>
+     *
+     * @param origObject the {@link Object} to copy from
+     * @param destObject the {@link Object} tp copy to
+     * @param optionName the name of the option to copy.
+     * @throws ConfigurationException if options failed to copy
+     */
+    public static void copyOptions(Object origObject, Object destObject, String optionName)
+            throws ConfigurationException {
+        Collection<Field> origFields = OptionSetter.getOptionFieldsForClass(origObject.getClass());
+        Map<String, Field> destFieldMap = getFieldOptionMap(destObject);
+        for (Field origField : origFields) {
+            final Option option = origField.getAnnotation(Option.class);
+            if (option.name().equals(optionName)) {
+                Field destField = destFieldMap.remove(option.name());
+                if (destField != null) {
+                    Object origValue = OptionSetter.getFieldValue(origField, origObject);
+                    OptionSetter.setFieldValue(option.name(), destObject, destField, origValue);
+                }
+            }
+        }
+    }
+
+    /**
+     * Identical to {@link #copyOptions(Object, Object, String)} but will log instead of throw if
+     * exception occurs.
+     */
+    public static void copyOptionsNoThrow(Object source, Object dest, String optionName) {
+        try {
+            copyOptions(source, dest, optionName);
+        } catch (ConfigurationException e) {
+            CLog.e(e);
+        }
+    }
+
+    /**
      * Build a map of {@link Option#name()} to {@link Field} for given {@link Object}.
      *
      * @param destObject

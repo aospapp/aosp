@@ -15,6 +15,8 @@
  */
 package com.android.cts.deviceandprofileowner.userrestrictions;
 
+import android.os.Process;
+import android.os.UserHandle;
 import android.os.UserManager;
 
 public class DeviceOwnerUserRestrictionsTest extends BaseUserRestrictionsTest {
@@ -30,14 +32,12 @@ public class DeviceOwnerUserRestrictionsTest extends BaseUserRestrictionsTest {
             UserManager.DISALLOW_USB_FILE_TRANSFER,
             UserManager.DISALLOW_CONFIG_CREDENTIALS,
             UserManager.DISALLOW_REMOVE_USER,
-            UserManager.DISALLOW_REMOVE_MANAGED_PROFILE,
             // UserManager.DISALLOW_DEBUGGING_FEATURES, // Need for CTS
             UserManager.DISALLOW_CONFIG_VPN,
             UserManager.DISALLOW_CONFIG_TETHERING,
             UserManager.DISALLOW_NETWORK_RESET,
             UserManager.DISALLOW_FACTORY_RESET,
             UserManager.DISALLOW_ADD_USER,
-            UserManager.DISALLOW_ADD_MANAGED_PROFILE,
             // UserManager.ENSURE_VERIFY_APPS, // Has unrecoverable side effects.
             UserManager.DISALLOW_CONFIG_CELL_BROADCASTS,
             UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS,
@@ -68,7 +68,7 @@ public class DeviceOwnerUserRestrictionsTest extends BaseUserRestrictionsTest {
     };
 
     public static final String[] DEFAULT_ENABLED = new String[] {
-            UserManager.DISALLOW_ADD_MANAGED_PROFILE
+            // No restrictions set for DO by default.
     };
 
     @Override
@@ -83,5 +83,29 @@ public class DeviceOwnerUserRestrictionsTest extends BaseUserRestrictionsTest {
 
     @Override
     protected String[] getDefaultEnabledRestrictions() { return DEFAULT_ENABLED; }
+
+    /**
+     * Picks a restriction that isn't applied by {@link UserManager} itself, applies it, and makes
+     * sure that {@link UserManager} understands that it is applied but not as a base restriction.
+     */
+    public void testHasBaseUserRestrictions() {
+        final UserHandle userHandle = Process.myUserHandle();
+        for (String r : ALL_USER_RESTRICTIONS) {
+            if(!hasBaseUserRestriction(r, userHandle)) {
+                mDevicePolicyManager.addUserRestriction(ADMIN_RECEIVER_COMPONENT, r);
+                assertTrue("Restriction " + r + " expected",
+                        mUserManager.hasUserRestriction(r, userHandle));
+                assertFalse("Restriction " + r + " not expected as a baseRestriction",
+                        hasBaseUserRestriction(r, userHandle));
+
+                mDevicePolicyManager.clearUserRestriction(ADMIN_RECEIVER_COMPONENT, r);
+                assertFalse("Restriction " + r + " not expected",
+                        mUserManager.hasUserRestriction(r, userHandle));
+                assertFalse("Restriction " + r + " not expected as a baseRestriction",
+                        hasBaseUserRestriction(r, userHandle));
+                return;
+            }
+        }
+    }
 }
 

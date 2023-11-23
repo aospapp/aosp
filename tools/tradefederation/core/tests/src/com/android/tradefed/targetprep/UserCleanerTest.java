@@ -25,6 +25,9 @@ import static org.mockito.Mockito.when;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 
 import com.google.common.collect.Lists;
 
@@ -39,11 +42,15 @@ public class UserCleanerTest {
 
     private ITestDevice mMockDevice;
     private UserCleaner mCleaner;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
         mMockDevice = mock(ITestDevice.class);
         mCleaner = new UserCleaner();
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mMockDevice);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     @Test
@@ -51,7 +58,7 @@ public class UserCleanerTest {
         when(mMockDevice.getPrimaryUserId()).thenReturn(0);
         when(mMockDevice.listUsers()).thenReturn(Lists.newArrayList(0, 1, 2, 3));
 
-        mCleaner.tearDown(mMockDevice, null, null);
+        mCleaner.tearDown(mTestInfo, null);
 
         // switch to primary user
         verify(mMockDevice, times(1)).switchUser(0);

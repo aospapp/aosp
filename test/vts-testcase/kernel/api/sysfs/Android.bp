@@ -17,3 +17,17 @@
 vts_config {
     name: "VtsKernelApiSysfsTest",
 }
+
+java_test_host {
+    name: "KernelApiSysfsTest",
+    libs: [
+        "tradefed",
+        "tradefed-common-util",
+        "vts-core-tradefed-harness",
+    ],
+    srcs: ["src/**/*.java"],
+    test_suites: [
+        "vts",
+    ],
+    test_config: "KernelApiSysfsTest.xml",
+}

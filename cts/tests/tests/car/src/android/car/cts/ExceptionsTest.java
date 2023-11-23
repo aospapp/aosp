@@ -20,28 +20,28 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assume.assumeTrue;
 
 import android.car.CarNotConnectedException;
+import android.content.pm.PackageManager;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.FeatureUtil;
+import com.android.compatibility.common.util.RequiredFeatureRule;
 
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @SmallTest
-@RequiresDevice
 @RunWith(AndroidJUnit4.class)
 public class ExceptionsTest {
+    @ClassRule
+    public static final RequiredFeatureRule sRequiredFeatureRule = new RequiredFeatureRule(
+            PackageManager.FEATURE_AUTOMOTIVE);
+
     private static final String MESSAGE = "Oops!";
     private static final Exception CAUSE = new RuntimeException();
-
-    @Before
-    public void setUp() {
-        assumeTrue(FeatureUtil.isAutomotive());
-    }
 
     @Test
     public void testCarNotConnectedException() {

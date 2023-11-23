@@ -20,7 +20,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             3c:b2:f4:48:0a:00:e2:fe:eb:24:3b:5e:60:3e:c3:6b
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: C=US, O=GeoTrust Inc., OU=(c) 2007 GeoTrust Inc. - For authorized use only, CN=GeoTrust Primary Certification Authority - G2
         Validity
             Not Before: Nov  5 00:00:00 2007 GMT

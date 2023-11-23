@@ -28,19 +28,20 @@ using android::frameworks::stats::V1_0::BatteryHealthSnapshotArgs;
 using android::frameworks::stats::V1_0::IStats;
 
 BatteryMetricsLogger::BatteryMetricsLogger(const char *const batt_res, const char *const batt_ocv,
-                                           int sample_period, int upload_period)
+                                           const char *const batt_avg_res, int sample_period,
+                                           int upload_period)
     : kBatteryResistance(batt_res),
       kBatteryOCV(batt_ocv),
+      kBatteryAvgResistance(batt_avg_res),
       kSamplePeriod(sample_period),
       kUploadPeriod(upload_period),
       kMaxSamples(upload_period / sample_period) {
     last_sample_ = 0;
     last_upload_ = 0;
-    num_res_samples_ = 0;
     num_samples_ = 0;
+    num_res_samples_ = 0;
     memset(min_, 0, sizeof(min_));
     memset(max_, 0, sizeof(max_));
-    accum_resistance_ = 0;
 }
 
 int64_t BatteryMetricsLogger::getTime(void) {
@@ -77,20 +78,45 @@ bool BatteryMetricsLogger::uploadOutlierMetric(sp<IStats> stats_client, sampleTy
     return true;
 }
 
+bool BatteryMetricsLogger::uploadAverageBatteryResistance(sp<IStats> stats_client) {
+    if (strlen(kBatteryAvgResistance) == 0) {
+        LOG(INFO) << "Sysfs path for average battery resistance not specified";
+        return true;
+    }
+
+    std::string file_content;
+    int32_t batt_avg_res;
+
+    if (!android::base::ReadFileToString(kBatteryAvgResistance, &file_content)) {
+        LOG(ERROR) << "Can't read " << kBatteryAvgResistance;
+        return false;
+    }
+    std::stringstream ss(file_content);
+    if (!(ss >> batt_avg_res)) {
+        LOG(ERROR) << "Can't parse average battery resistance " << file_content;
+        return false;
+    }
+    // Upload average metric
+    BatteryHealthSnapshotArgs avg_res_ss_stats = {
+            .type = BatteryHealthSnapshotArgs::BatterySnapshotType::AVG_RESISTANCE,
+            .temperatureDeciC = 0,
+            .voltageMicroV = 0,
+            .currentMicroA = 0,
+            .openCircuitVoltageMicroV = 0,
+            .resistanceMicroOhm = batt_avg_res,
+            .levelPercent = 0};
+    stats_client->reportBatteryHealthSnapshot(avg_res_ss_stats);
+    return true;
+}
+
 bool BatteryMetricsLogger::uploadMetrics(void) {
     int64_t time = getTime();
-    int32_t avg_resistance = 0;
 
     if (last_sample_ == 0)
         return false;
 
     LOG(INFO) << "Uploading metrics at time " << std::to_string(time) << " w/ "
               << std::to_string(num_samples_) << " samples";
-
-    if (num_res_samples_)
-        avg_resistance = accum_resistance_ / num_res_samples_;
-
-    LOG(INFO) << "Logging metrics";
 
     sp<IStats> stats_client = IStats::tryGetService();
     if (!stats_client) {
@@ -114,26 +140,14 @@ bool BatteryMetricsLogger::uploadMetrics(void) {
         uploadOutlierMetric(stats_client, static_cast<sampleType>(metric));
     }
 
-    // Upload average metric
-    BatteryHealthSnapshotArgs avg_res_ss_stats = {
-            .type = BatteryHealthSnapshotArgs::BatterySnapshotType::AVG_RESISTANCE,
-            .temperatureDeciC = 0,
-            .voltageMicroV = 0,
-            .currentMicroA = 0,
-            .openCircuitVoltageMicroV = 0,
-            .resistanceMicroOhm = avg_resistance,
-            .levelPercent = 0};
-    if (num_res_samples_) {
-        stats_client->reportBatteryHealthSnapshot(avg_res_ss_stats);
-    }
+    uploadAverageBatteryResistance(stats_client);
 
     // Clear existing data
     memset(min_, 0, sizeof(min_));
     memset(max_, 0, sizeof(max_));
-    num_res_samples_ = 0;
     num_samples_ = 0;
+    num_res_samples_ = 0;
     last_upload_ = time;
-    accum_resistance_ = 0;
     LOG(INFO) << "Finished uploading to tron";
     return true;
 }
@@ -146,17 +160,19 @@ bool BatteryMetricsLogger::recordSample(struct android::BatteryProperties *props
     LOG(INFO) << "Recording a sample at time " << std::to_string(time);
 
     if (!android::base::ReadFileToString(kBatteryResistance, &resistance_str)) {
-        LOG(ERROR) << "Can't read the battery resistance";
-        resistance = 0;
-    } else if (!(resistance = stoi(resistance_str))) {
+        LOG(ERROR) << "Can't read the battery resistance from " << kBatteryResistance;
+        resistance = -INT_MAX;
+    } else if (!(std::stringstream(resistance_str) >> resistance)) {
         LOG(ERROR) << "Can't parse battery resistance value " << resistance_str;
+        resistance = -INT_MAX;
     }
 
     if (!android::base::ReadFileToString(kBatteryOCV, &ocv_str)) {
-        LOG(ERROR) << "Can't read the open-circuit voltage (ocv) value";
-        ocv = 0;
-    } else if (!(ocv = stoi(ocv_str))) {
+        LOG(ERROR) << "Can't read open-circuit voltage (ocv) value from " << kBatteryOCV;
+        ocv = -INT_MAX;
+    } else if (!(std::stringstream(ocv_str) >> ocv)) {
         LOG(ERROR) << "Can't parse open-circuit voltage (ocv) value " << ocv_str;
+        ocv = -INT_MAX;
     }
 
     int32_t sample[NUM_FIELDS] = {[TIME] = time,
@@ -167,7 +183,6 @@ bool BatteryMetricsLogger::recordSample(struct android::BatteryProperties *props
                                   [SOC] = props->batteryLevel,
                                   [OCV] = ocv};
     if (props->batteryStatus != android::BATTERY_STATUS_CHARGING) {
-        accum_resistance_ += resistance;
         num_res_samples_++;
     }
 

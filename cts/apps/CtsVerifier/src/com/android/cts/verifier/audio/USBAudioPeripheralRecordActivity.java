@@ -139,11 +139,18 @@ public class USBAudioPeripheralRecordActivity extends USBAudioPeripheralPlayerAc
 
         setPassFailButtonClickListeners();
         setInfoResources(R.string.usbaudio_record_test, R.string.usbaudio_record_info, -1);
+
+        connectUSBPeripheralUI();
     }
 
     //
     // USBAudioPeripheralActivity
     //
+    void enableTestUI(boolean enable) {
+        mRecordBtn.setEnabled(enable);
+        mRecordLoopbackBtn.setEnabled(enable);
+    }
+
     public void updateConnectStatus() {
         mRecordBtn.setEnabled(mIsPeripheralAttached);
         mRecordLoopbackBtn.setEnabled(mIsPeripheralAttached);

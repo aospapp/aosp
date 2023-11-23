@@ -42,8 +42,10 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -59,6 +61,12 @@ public class TfTestLauncher extends SubprocessTfLauncher {
     @Option(name = "jacoco-code-coverage", description = "Enable jacoco code coverage on the java "
             + "sub process. Run will be slightly slower because of the overhead.")
     private boolean mEnableCoverage = false;
+
+    @Option(name = "include-coverage", description = "Patterns to include in the code coverage.")
+    private Set<String> mIncludeCoverage = new LinkedHashSet<>();
+
+    @Option(name = "exclude-coverage", description = "Patterns to exclude in the code coverage.")
+    private Set<String> mExcludeCoverage = new LinkedHashSet<>();
 
     @Option(
         name = "hprof-heap-memory",
@@ -240,10 +248,19 @@ public class TfTestLauncher extends SubprocessTfLauncher {
      * @param destfile destination file where the report will be put.
      */
     private void addCoverageArgs(File jacocoAgent, List<String> args, File destfile) {
-        String javaagent = String.format("-javaagent:%s=destfile=%s,"
-                + "includes=com.android.tradefed*:com.google.android.tradefed*",
-                jacocoAgent.getAbsolutePath(),
-                destfile.getAbsolutePath());
+        if (mIncludeCoverage.isEmpty() && mExcludeCoverage.isEmpty()) {
+            mIncludeCoverage.add("com.android.tradefed*");
+            mIncludeCoverage.add("com.google.android.tradefed*");
+        }
+        String includeFilter = String.join(":", mIncludeCoverage);
+        String javaagent =
+                String.format(
+                        "-javaagent:%s=destfile=%s," + "includes=%s",
+                        jacocoAgent.getAbsolutePath(), destfile.getAbsolutePath(), includeFilter);
+        if (!mExcludeCoverage.isEmpty()) {
+            String excludeFilter = String.join(":", mExcludeCoverage);
+            javaagent += ",excludes=" + excludeFilter;
+        }
         args.add(javaagent);
     }
 

@@ -16,6 +16,8 @@
 
 import logging
 import os
+import re
+import tempfile
 import xml.etree.ElementTree
 
 from vts.runners.host import asserts
@@ -116,6 +118,9 @@ class GtestBinaryTest(binary_test.BinaryTest):
                 continue
             elif line.startswith(' '):  # Test case name
                 test_name = line.split('#')[0].strip()
+                # Skip any test that doesn't instantiate the parameterized gtest
+                if re.match('UninstantiatedParamaterizedTestSuite<(.*)>', test_name):
+                    continue
                 test_case = gtest_test_case.GtestTestCase(
                     test_suite, test_name, path, tag, self.PutTag,
                     working_directory, ld_library_path, profiling_library_path,
@@ -127,19 +132,17 @@ class GtestBinaryTest(binary_test.BinaryTest):
                 if test_suite.endswith('.'):
                     test_suite = test_suite[:-1]
 
-        #if not self.batch_mode:
-        # Avoid batch mode as it creates overly large filters
-        return test_cases
+        if not self.batch_mode:
+            return test_cases
 
         # Gtest batch mode
-        # test_names = map(lambda test: test.full_name, test_cases)
-        #test_names = {}
+        test_names = map(lambda test: test.full_name, test_cases)
 
-        #gtest_batch = gtest_test_case.GtestTestCase(
-        #    path, '', path, tag, self.PutTag, working_directory,
-        #    ld_library_path, profiling_library_path, envp=envp)
-        #gtest_batch.full_name = ':'.join(test_names)
-        #return [gtest_batch]
+        gtest_batch = gtest_test_case.GtestTestCase(
+            path, '', path, tag, self.PutTag, working_directory,
+            ld_library_path, profiling_library_path, envp=envp)
+        gtest_batch.full_name = ':'.join(test_names)
+        return [gtest_batch]
 
     # @Override
     def VerifyTestResult(self, test_case, command_results):
@@ -274,13 +277,32 @@ class GtestBinaryTest(binary_test.BinaryTest):
 
     # @Override
     def generateAllTests(self):
-        '''Runs all binary tests.'''
-        if self.batch_mode:
+        '''Runs all binary tests.
+
+        If the test cases should run in batch mode, this method executes the
+        gtest commands without adding test records, and then parses the XML
+        reports to records.
+        If the test cases should run in batch mode but be skipped (e.g., HAL is
+        not implemented), this method applies the filters in base_test, skips
+        the batch test cases, and adds one record for each of them.
+        '''
+        if self.batch_mode and not self.isSkipAllTests():
+            # TODO(b/126412742): Convert filters to --gtest_filter.
             for test_case in self.testcases:
                 logging.info('Running %s test cases in batch.',
                              len(test_case.full_name.split(':')))
+                gtest_filter_flag=('--gtest_filter={test}').format(test = test_case)
+                dst = '/data/local/tmp/filter_file'
+                temp = tempfile.NamedTemporaryFile()
+                try:
+                    temp.write(gtest_filter_flag)
+                    self._dut.adb.push('{src} {dst}'.format(src=temp.name, dst=dst))
+                finally:
+                    temp.close()
+                test_case.filter_file = dst
                 self.RunTestCase(test_case)
 
+                self.shell.Execute('rm %s' % dst)
                 self.runGeneratedTests(
                     test_func=self._VerifyBatchResult,
                     settings=self._gtest_results,

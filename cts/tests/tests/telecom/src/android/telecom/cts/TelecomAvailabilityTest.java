@@ -118,6 +118,26 @@ public class TelecomAvailabilityTest extends InstrumentationTestCase {
     }
 
     /**
+     * Tests that TelecomManager always creates resolvable/actionable emergency dialer intent.
+     */
+    public void testCreateLaunchEmergencyDialerIntent() {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+        final TelecomManager telecomManager = mContext.getSystemService(TelecomManager.class);
+
+        final Intent intentWithoutNumber = telecomManager.createLaunchEmergencyDialerIntent(null);
+        assertNotNull(intentWithoutNumber);
+        assertEquals(1, mPackageManager.queryIntentActivities(intentWithoutNumber,
+                PackageManager.MATCH_DEFAULT_ONLY).size());
+
+        final Intent intentWithNumber = telecomManager.createLaunchEmergencyDialerIntent("12345");
+        assertNotNull(intentWithNumber);
+        assertEquals(1, mPackageManager.queryIntentActivities(intentWithNumber,
+                PackageManager.MATCH_DEFAULT_ONLY).size());
+    }
+
+    /**
      * @return The {@link PackageInfo} of the only app named {@code PACKAGE_NAME}.
      */
     private static PackageInfo findOnlyTelecomPackageInfo(PackageManager packageManager) {

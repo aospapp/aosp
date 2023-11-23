@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test {
+android_test_helper_app {
     name: "CtsPkgAccessApp",
     defaults: ["cts_defaults"],
     static_libs: [
@@ -23,7 +23,7 @@ android_test {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
     sdk_version: "test_current",

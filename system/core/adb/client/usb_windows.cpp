@@ -18,6 +18,8 @@
 
 #include "sysdeps.h"
 
+#include "client/usb.h"
+
 // clang-format off
 #include <winsock2.h>  // winsock.h *must* be included before windows.h.
 #include <windows.h>
@@ -172,6 +174,7 @@ void device_poll_thread() {
 
     while (true) {
         find_devices();
+        adb_notify_device_scan_complete();
         std::this_thread::sleep_for(1s);
     }
 }

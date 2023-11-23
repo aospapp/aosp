@@ -31,13 +31,16 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 public class SystemUtil {
     private static final String TAG = "CtsSystemUtil";
+    private static final long TIMEOUT_MILLIS = 10000;
 
     public static long getFreeDiskSize(Context context) {
         final StatFs statFs = new StatFs(context.getFilesDir().getAbsolutePath());
@@ -81,21 +84,30 @@ public class SystemUtil {
      */
     public static String runShellCommand(UiAutomation automation, String cmd)
             throws IOException {
+        return new String(runShellCommandByteOutput(automation, cmd));
+    }
+
+    /**
+     * Executes a shell command using shell user identity, and return the standard output as a byte
+     * array
+     * <p>Note: calling this function requires API level 21 or above
+     *
+     * @param automation {@link UiAutomation} instance, obtained from a test running in
+     *                   instrumentation framework
+     * @param cmd        the command to run
+     * @return the standard output of the command as a byte array
+     */
+    static byte[] runShellCommandByteOutput(UiAutomation automation, String cmd)
+            throws IOException {
         Log.v(TAG, "Running command: " + cmd);
         if (cmd.startsWith("pm grant ") || cmd.startsWith("pm revoke ")) {
             throw new UnsupportedOperationException("Use UiAutomation.grantRuntimePermission() "
                     + "or revokeRuntimePermission() directly, which are more robust.");
         }
         ParcelFileDescriptor pfd = automation.executeShellCommand(cmd);
-        byte[] buf = new byte[512];
-        int bytesRead;
-        FileInputStream fis = new ParcelFileDescriptor.AutoCloseInputStream(pfd);
-        StringBuffer stdout = new StringBuffer();
-        while ((bytesRead = fis.read(buf)) != -1) {
-            stdout.append(new String(buf, 0, bytesRead));
+        try (FileInputStream fis = new ParcelFileDescriptor.AutoCloseInputStream(pfd)) {
+            return FileUtils.readInputStreamFully(fis);
         }
-        fis.close();
-        return stdout.toString();
     }
 
     /**
@@ -159,6 +171,28 @@ public class SystemUtil {
     }
 
     /**
+     * Runs a {@link ThrowingSupplier} adopting Shell's permissions, and returning the result.
+     */
+    public static <T> T runWithShellPermissionIdentity(@NonNull ThrowingSupplier<T> supplier) {
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        AtomicReference<T> result = new AtomicReference<>();
+        runWithShellPermissionIdentity(automan, () -> result.set(supplier.get()));
+        return result.get();
+    }
+
+    /**
+     * Runs a {@link ThrowingSupplier} adopting a subset of Shell's permissions,
+     * and returning the result.
+     */
+    public static <T> T runWithShellPermissionIdentity(@NonNull ThrowingSupplier<T> supplier,
+            String... permissions) {
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        AtomicReference<T> result = new AtomicReference<>();
+        runWithShellPermissionIdentity(automan, () -> result.set(supplier.get()), permissions);
+        return result.get();
+    }
+
+    /**
      * Runs a {@link ThrowingRunnable} adopting Shell's permissions.
      */
     public static void runWithShellPermissionIdentity(@NonNull ThrowingRunnable runnable) {
@@ -215,6 +249,102 @@ public class SystemUtil {
             return callable.call();
         } finally {
             automan.dropShellPermissionIdentity();
+        }
+    }
+
+    /**
+     * Calls a {@link Callable} adopting Shell's permissions.
+     *
+     * @param callable The code to call with Shell's identity.
+     * @param permissions A subset of Shell's permissions. Passing {@code null} will use all
+     *                    available permissions.     */
+    public static <T> T callWithShellPermissionIdentity(@NonNull Callable<T> callable,
+            String... permissions) throws Exception {
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        automan.adoptShellPermissionIdentity(permissions);
+        try {
+            return callable.call();
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+    }
+
+    /**
+     * Make sure that a {@link Runnable} eventually finishes without throwing a {@link
+     * Exception}.
+     *
+     * @param r The {@link Runnable} to run.
+     */
+    public static void eventually(@NonNull ThrowingRunnable r) {
+        eventually(r, TIMEOUT_MILLIS);
+    }
+
+    /**
+     * Make sure that a {@link Runnable} eventually finishes without throwing a {@link
+     * Exception}.
+     *
+     * @param r The {@link Runnable} to run.
+     * @param r The number of milliseconds to wait for r to not throw
+     */
+    public static void eventually(@NonNull ThrowingRunnable r, long timeoutMillis) {
+        long start = System.currentTimeMillis();
+
+        while (true) {
+            try {
+                r.run();
+                return;
+            } catch (Throwable e) {
+                if (System.currentTimeMillis() - start < timeoutMillis) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ignored) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Make sure that a {@link Callable} eventually finishes without throwing a {@link
+     * Exception}.
+     *
+     * @param c The {@link Callable} to run.
+     *
+     * @return The return value of {@code c}
+     */
+    public static <T> T getEventually(@NonNull Callable<T> c) throws Exception {
+        return getEventually(c, TIMEOUT_MILLIS);
+    }
+
+    /**
+     * Make sure that a {@link Callable} eventually finishes without throwing a {@link
+     * Exception}.
+     *
+     * @param c The {@link Callable} to run.
+     * @param timeoutMillis The number of milliseconds to wait for r to not throw
+     *
+     * @return The return value of {@code c}
+     */
+    public static <T> T getEventually(@NonNull Callable<T> c, long timeoutMillis) throws Exception {
+        long start = System.currentTimeMillis();
+
+        while (true) {
+            try {
+                return c.call();
+            } catch (Throwable e) {
+                if (System.currentTimeMillis() - start < timeoutMillis) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ignored) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    throw e;
+                }
+            }
         }
     }
 }

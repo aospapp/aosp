@@ -41,8 +41,8 @@ class FixedSizeBlockingQueue : public NonCopyable {
    *
    * @return true if the element is pushed successfully.
    */
-  bool push(const ElementType& element);
-  bool push(ElementType&& element);
+  bool push(const ElementType &element);
+  bool push(ElementType &&element);
 
   /**
    * Pops one element from the queue. If the queue is empty, the thread will
@@ -80,7 +80,7 @@ class FixedSizeBlockingQueue : public NonCopyable {
    * @param index Requested index in range [0,size()-1]
    * @return The element.
    */
-  ElementType& operator[](size_t index);
+  ElementType &operator[](size_t index);
 
   /**
    * Obtains a const element of the queue given an index. It is illegal to index
@@ -91,11 +91,11 @@ class FixedSizeBlockingQueue : public NonCopyable {
    * @param index Requested index in the rante [0,size()-1]
    * @return The element.
    */
-  const ElementType& operator[](size_t index) const;
+  const ElementType &operator[](size_t index) const;
 
  private:
-  //! The mutex used to ensure thread-safety.
-  Mutex mMutex;
+  //! The mutex used to ensure thread-safety. Mutable to allow const operator[].
+  mutable Mutex mMutex;
 
   //! The condition variable used to implement the blocking behavior of the
   //! queue.

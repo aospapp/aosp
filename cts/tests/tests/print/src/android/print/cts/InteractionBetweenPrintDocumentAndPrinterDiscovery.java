@@ -183,7 +183,7 @@ public class InteractionBetweenPrintDocumentAndPrinterDiscovery extends BasePrin
         // Finish test: Fail pending write, exit print activity and wait for print subsystem to shut
         // down
         writeCallBack[0].onWriteFailed(null);
-        getUiDevice().pressBack();
+        mPrintHelper.cancelPrinting();
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
     }
 }

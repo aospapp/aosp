@@ -16,7 +16,7 @@
 
 #include <hidl/HidlPassthroughSupport.h>
 
-#include <InternalStatic.h>  // TODO(b/69122224): remove this include, for tryWrap
+#include "InternalStatic.h"  // TODO(b/69122224): remove this include, for tryWrap
 
 #include <hidl/HidlTransportUtils.h>
 #include <hidl/Static.h>

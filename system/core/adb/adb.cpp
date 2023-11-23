@@ -34,6 +34,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -52,6 +53,7 @@
 #include "adb_listeners.h"
 #include "adb_unique_fd.h"
 #include "adb_utils.h"
+#include "adb_wifi.h"
 #include "sysdeps/chrono.h"
 #include "transport.h"
 
@@ -60,6 +62,12 @@
 #include <sys/mount.h>
 #include <android-base/properties.h>
 using namespace std::chrono_literals;
+
+#include "daemon/logging.h"
+#endif
+
+#if ADB_HOST
+#include "client/usb.h"
 #endif
 
 std::string adb_version() {
@@ -140,6 +148,9 @@ void print_packet(const char *label, apacket *p)
     case A_CLSE: tag = "CLSE"; break;
     case A_WRTE: tag = "WRTE"; break;
     case A_AUTH: tag = "AUTH"; break;
+    case A_STLS:
+        tag = "STLS";
+        break;
     default: tag = "????"; break;
     }
 
@@ -207,6 +218,15 @@ std::string get_connection_string() {
     return android::base::StringPrintf(
         "%s::%s", adb_device_banner,
         android::base::Join(connection_properties, ';').c_str());
+}
+
+void send_tls_request(atransport* t) {
+    D("Calling send_tls_request");
+    apacket* p = get_apacket();
+    p->msg.command = A_STLS;
+    p->msg.arg0 = A_STLS_VERSION;
+    p->msg.data_length = 0;
+    send_packet(p, t);
 }
 
 void send_connect(atransport* t) {
@@ -299,7 +319,16 @@ static void handle_new_connection(atransport* t, apacket* p) {
 #if ADB_HOST
     handle_online(t);
 #else
-    if (!auth_required) {
+    ADB_LOG(Connection) << "received CNXN: version=" << p->msg.arg0 << ", maxdata = " << p->msg.arg1
+                        << ", banner = '" << banner << "'";
+
+    if (t->use_tls) {
+        // We still handshake in TLS mode. If auth_required is disabled,
+        // we'll just not verify the client's certificate. This should be the
+        // first packet the client receives to indicate the new protocol.
+        send_tls_request(t);
+    } else if (!auth_required) {
+        LOG(INFO) << "authentication not required";
         handle_online(t);
         send_connect(t);
     } else {
@@ -323,8 +352,21 @@ void handle_packet(apacket *p, atransport *t)
     case A_CNXN:  // CONNECT(version, maxdata, "system-id-string")
         handle_new_connection(t, p);
         break;
+    case A_STLS:  // TLS(version, "")
+        t->use_tls = true;
+#if ADB_HOST
+        send_tls_request(t);
+        adb_auth_tls_handshake(t);
+#else
+        adbd_auth_tls_handshake(t);
+#endif
+        break;
 
     case A_AUTH:
+        // All AUTH commands are ignored in TLS mode
+        if (t->use_tls) {
+            break;
+        }
         switch (p->msg.arg0) {
 #if ADB_HOST
             case ADB_AUTH_TOKEN:
@@ -1052,9 +1094,9 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
         // New transport selection protocol:
         // This is essentially identical to the previous version, except it returns the selected
         // transport id to the caller as well.
-        if (ConsumePrefix(&service, "tport:")) {
+        if (android::base::ConsumePrefix(&service, "tport:")) {
             legacy = false;
-            if (ConsumePrefix(&service, "serial:")) {
+            if (android::base::ConsumePrefix(&service, "serial:")) {
                 serial_storage = service;
                 serial = serial_storage.c_str();
             } else if (service == "usb") {
@@ -1068,7 +1110,7 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
             // Selection by id is unimplemented, since you obviously already know the transport id
             // you're connecting to.
         } else {
-            if (ConsumePrefix(&service, "transport-id:")) {
+            if (android::base::ConsumePrefix(&service, "transport-id:")) {
                 if (!ParseUint(&transport_id, service)) {
                     SendFail(reply_fd, "invalid transport id");
                     return HostRequestResult::Handled;
@@ -1079,7 +1121,7 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
                 type = kTransportLocal;
             } else if (service == "transport-any") {
                 type = kTransportAny;
-            } else if (ConsumePrefix(&service, "transport:")) {
+            } else if (android::base::ConsumePrefix(&service, "transport:")) {
                 serial_storage = service;
                 serial = serial_storage.c_str();
             }
@@ -1131,7 +1173,9 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
 
     if (service == "features") {
         std::string error;
-        atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
+        atransport* t =
+                s->transport ? s->transport
+                             : acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t != nullptr) {
             SendOkay(reply_fd, FeatureSetToString(t->features()));
         } else {
@@ -1164,7 +1208,7 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
         std::string host;
         int port = DEFAULT_ADB_LOCAL_TRANSPORT_PORT;
         std::string error;
-        if (address.starts_with("vsock:")) {
+        if (address.starts_with("vsock:") || address.starts_with("localfilesystem:")) {
             serial = address;
         } else if (!android::base::ParseNetAddress(address, &host, &port, &serial, &error)) {
             SendFail(reply_fd, android::base::StringPrintf("couldn't parse '%s': %s",
@@ -1190,7 +1234,9 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
     // These always report "unknown" rather than the actual error, for scripts.
     if (service == "get-serialno") {
         std::string error;
-        atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
+        atransport* t =
+                s->transport ? s->transport
+                             : acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t) {
             SendOkay(reply_fd, !t->serial.empty() ? t->serial : "unknown");
         } else {
@@ -1200,7 +1246,9 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
     }
     if (service == "get-devpath") {
         std::string error;
-        atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
+        atransport* t =
+                s->transport ? s->transport
+                             : acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t) {
             SendOkay(reply_fd, !t->devpath.empty() ? t->devpath : "unknown");
         } else {
@@ -1210,7 +1258,9 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
     }
     if (service == "get-state") {
         std::string error;
-        atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
+        atransport* t =
+                s->transport ? s->transport
+                             : acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t) {
             SendOkay(reply_fd, t->connection_state_name());
         } else {
@@ -1220,7 +1270,7 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
     }
 
     // Indicates a new emulator instance has started.
-    if (ConsumePrefix(&service, "emulator:")) {
+    if (android::base::ConsumePrefix(&service, "emulator:")) {
         unsigned int port;
         if (!ParseUint(&port, service)) {
           LOG(ERROR) << "received invalid port for emulator: " << service;
@@ -1234,7 +1284,9 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
 
     if (service == "reconnect") {
         std::string response;
-        atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &response, true);
+        atransport* t = s->transport ? s->transport
+                                     : acquire_one_transport(type, serial, transport_id, nullptr,
+                                                             &response, true);
         if (t != nullptr) {
             kick_transport(t, true);
             response =
@@ -1246,12 +1298,15 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
 
     // TODO: Switch handle_forward_request to string_view.
     std::string service_str(service);
-    if (handle_forward_request(
-                service_str.c_str(),
-                [=](std::string* error) {
-                    return acquire_one_transport(type, serial, transport_id, nullptr, error);
-                },
-                reply_fd)) {
+    auto transport_acquirer = [=](std::string* error) {
+        if (s->transport) {
+            return s->transport;
+        } else {
+            std::string error;
+            return acquire_one_transport(type, serial, transport_id, nullptr, &error);
+        }
+    };
+    if (handle_forward_request(service_str.c_str(), transport_acquirer, reply_fd)) {
         return HostRequestResult::Handled;
     }
 

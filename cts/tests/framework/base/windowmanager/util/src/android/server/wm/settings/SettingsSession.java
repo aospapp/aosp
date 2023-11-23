@@ -80,10 +80,10 @@ public class SettingsSession<T> implements AutoCloseable {
     private static final SessionCounters sSessionCounters = new SessionCounters();
 
     protected final Uri mUri;
+    protected final boolean mHasInitialValue;
+    protected final T mInitialValue;
     private final SettingsGetter<T> mGetter;
     private final SettingsSetter<T> mSetter;
-    private final boolean mHasInitialValue;
-    private final T mInitialValue;
 
     public SettingsSession(final Uri uri, final SettingsGetter<T> getter,
             final SettingsSetter<T> setter) {
@@ -124,7 +124,7 @@ public class SettingsSession<T> implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (mHasInitialValue) {
             put(mUri, mSetter, mInitialValue);
             if (DEBUG) {
@@ -152,7 +152,7 @@ public class SettingsSession<T> implements AutoCloseable {
         return getter.get(getContentResolver(), uri.getLastPathSegment());
     }
 
-    private static void delete(final Uri uri) {
+    protected static void delete(final Uri uri) {
         final List<String> segments = uri.getPathSegments();
         if (segments.size() != 2) {
             Log.w(TAG, "Unsupported uri for deletion: " + uri, new Throwable());

@@ -22,19 +22,19 @@
 
 using android::status_t;
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 const uint32_t PnoSettings::kFastScanIterations = 3;
 const uint32_t PnoSettings::kSlowScanIntervalMultiplier = 3;
 
 status_t PnoSettings::writeToParcel(::android::Parcel* parcel) const {
-  RETURN_IF_FAILED(parcel->writeInt32(interval_ms_));
+  RETURN_IF_FAILED(parcel->writeInt64(interval_ms_));
   RETURN_IF_FAILED(parcel->writeInt32(min_2g_rssi_));
   RETURN_IF_FAILED(parcel->writeInt32(min_5g_rssi_));
+  RETURN_IF_FAILED(parcel->writeInt32(min_6g_rssi_));
   RETURN_IF_FAILED(parcel->writeInt32(pno_networks_.size()));
   for (const auto& network : pno_networks_) {
     // For Java readTypedList():
@@ -46,9 +46,10 @@ status_t PnoSettings::writeToParcel(::android::Parcel* parcel) const {
 }
 
 status_t PnoSettings::readFromParcel(const ::android::Parcel* parcel) {
-  RETURN_IF_FAILED(parcel->readInt32(&interval_ms_));
+  RETURN_IF_FAILED(parcel->readInt64(&interval_ms_));
   RETURN_IF_FAILED(parcel->readInt32(&min_2g_rssi_));
   RETURN_IF_FAILED(parcel->readInt32(&min_5g_rssi_));
+  RETURN_IF_FAILED(parcel->readInt32(&min_6g_rssi_));
   int32_t num_pno_networks = 0;
   RETURN_IF_FAILED(parcel->readInt32(&num_pno_networks));
   for (int i = 0; i < num_pno_networks; i++) {
@@ -69,8 +70,7 @@ status_t PnoSettings::readFromParcel(const ::android::Parcel* parcel) {
   return ::android::OK;
 }
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com

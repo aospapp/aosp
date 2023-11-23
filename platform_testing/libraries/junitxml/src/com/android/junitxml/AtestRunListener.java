@@ -16,6 +16,7 @@
 
 package com.android.junitxml;
 
+import org.json.JSONObject;
 import org.junit.runner.Description;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
@@ -134,7 +135,7 @@ public class AtestRunListener extends RunListener {
         if (mReportFile.canWrite()) {
             try {
                 try (FileWriter fw = new FileWriter(mReportFile, true)) {
-                    String eventLog = String.format("%s %s\n\n", key, toJson(event));
+                    String eventLog = String.format("%s %s\n\n", key, new JSONObject(event));
                     fw.append(eventLog);
                 }
             } catch (IOException e) {
@@ -145,20 +146,5 @@ public class AtestRunListener extends RunListener {
                     String.format(
                             "report file: %s is not writable", mReportFile.getAbsolutePath()));
         }
-    }
-
-    private String toJson(Map<String, Object> data) {
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, Object> entry : data.entrySet()) {
-            sb.append(",");
-            sb.append("\"").append(entry.getKey()).append("\":");
-            if (entry.getValue() instanceof Number) {
-                sb.append(entry.getValue().toString());
-            } else {
-                sb.append("\"").append(entry.getValue()).append("\"");
-            }
-        }
-        sb.replace(0, 1, "{").append("}");
-        return sb.toString();
     }
 }

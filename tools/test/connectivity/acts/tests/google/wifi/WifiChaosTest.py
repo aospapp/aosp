@@ -116,7 +116,7 @@ class WifiChaosTest(WifiBaseTest):
         self.admin = 'admin' + str(random.randint(1000001, 12345678))
         wutils.wifi_test_device_init(self.dut)
         # Set country code explicitly to "US".
-        self.dut.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+        wutils.set_wifi_country_code(self.dut, wutils.WifiEnums.CountryCode.US)
 
         asserts.assert_true(
             self.lock_pcap(),
@@ -199,8 +199,12 @@ class WifiChaosTest(WifiBaseTest):
             sec: Time in seconds to run teh ping traffic.
 
         """
+        self.log.info("Finding Gateway...")
+        route_response = self.dut.adb.shell("ip route get 8.8.8.8")
+        gateway_ip = re.search('via (.*) dev', str(route_response)).group(1)
+        self.log.info("Gateway IP = %s" % gateway_ip)
         self.log.info("Running ping for %d seconds" % sec)
-        result = self.dut.adb.shell("ping -w %d %s" % (sec, PING_ADDR),
+        result = self.dut.adb.shell("ping -w %d %s" % (sec, gateway_ip),
                                     timeout=sec + 1)
         self.log.debug("Ping Result = %s" % result)
         if "100% packet loss" in result:
@@ -213,15 +217,13 @@ class WifiChaosTest(WifiBaseTest):
 
         Steps:
         1. Send a few link probes.
-        2. Verify that at least one link probe succeeded.
-        3. Ensure that the device and AP did not crash (by checking that the
+        2. Ensure that the device and AP did not crash (by checking that the
            device remains connected to the expected network).
         """
         results = wutils.send_link_probes(
             self.dut, NUM_LINK_PROBES, PROBE_DELAY_SEC)
 
-        asserts.assert_true(any(result.is_success for result in results),
-                            "Expect at least 1 probe success: " + str(results))
+        self.log.info("Link Probe results: %s" % (results,))
 
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         expected = network[WifiEnums.SSID_KEY]
@@ -269,12 +271,13 @@ class WifiChaosTest(WifiBaseTest):
                 self.log.info("Connecting to %s" % ssid)
                 self.scan_and_connect_by_id(network, net_id)
                 self.run_ping(10)
-                self.send_link_probes(network)
+                # TODO(b/133369482): uncomment once bug is resolved
+                # self.send_link_probes(network)
                 wutils.wifi_forget_network(self.dut, ssid)
                 time.sleep(WAIT_BEFORE_CONNECTION)
-            except:
+            except Exception as e:
                 self.log.error("Connection to %s network failed on the %d "
-                               "attempt." % (ssid, attempt))
+                               "attempt with exception %s." % (ssid, attempt, e))
                 # TODO:(bmahadev) Uncomment after scan issue is fixed.
                 # self.dut.take_bug_report(ssid, begin_time)
                 # self.dut.cat_adb_log(ssid, begin_time)

@@ -74,6 +74,11 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                 NetworkRequestUnavailableNetworkSpecifierTestActivity.class.getName(),
                 new Intent(this, NetworkRequestUnavailableNetworkSpecifierTestActivity.class),
                 null));
+        adapter.add(TestListAdapter.TestListItem.newTest(this,
+                R.string.wifi_test_network_request_invalid_credential,
+                NetworkRequestInvalidCredentialNetworkSpecifierTestActivity.class.getName(),
+                new Intent(this, NetworkRequestInvalidCredentialNetworkSpecifierTestActivity.class),
+                null));
         adapter.add(TestListAdapter.TestListItem.newCategory(this,
                 R.string.wifi_test_network_suggestion));
         adapter.add(TestListAdapter.TestListItem.newTest(this,
@@ -88,6 +93,14 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                 R.string.wifi_test_network_suggestion_ssid_post_connect,
                 NetworkSuggestionSsidPostConnectTestActivity.class.getName(),
                 new Intent(this, NetworkSuggestionSsidPostConnectTestActivity.class), null));
+        adapter.add(TestListAdapter.TestListItem.newTest(this,
+                R.string.wifi_test_network_suggestion_connection_failure,
+                NetworkSuggestionConnectionFailureTestActivity.class.getName(),
+                new Intent(this, NetworkSuggestionConnectionFailureTestActivity.class), null));
+        adapter.add(TestListAdapter.TestListItem.newTest(this,
+                R.string.wifi_test_network_suggestion_modification_in_place,
+                NetworkSuggestionModificationInPlaceTestActivity.class.getName(),
+                new Intent(this, NetworkSuggestionModificationInPlaceTestActivity.class), null));
 
         adapter.registerDataSetObserver(new DataSetObserver() {
             @Override

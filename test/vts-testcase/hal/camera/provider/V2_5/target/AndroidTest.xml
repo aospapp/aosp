@@ -24,7 +24,7 @@
         <!-- Provider V2.5 is tested by V2.4 tests -->
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalCameraProviderV2_4TargetTest/VtsHalCameraProviderV2_4TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalCameraProviderV2_4TargetTest/VtsHalCameraProviderV2_4TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="exclude-coverage-path" value="hardware/qcom/camera/msm8998/QCamera2/HAL" />
         <option name="exclude-coverage-path" value="hardware/interfaces/graphics/mapper/2.0" />
         <option name="exclude-coverage-path" value="hardware/interfaces/configstore/utils" />

@@ -65,6 +65,10 @@ class HashTreeBuilder {
   // nullptr if the algorithm is unrecongnized or not supported.
   static const EVP_MD* HashFunction(const std::string& hash_name);
 
+  // Calculates the digest of the root of a verity tree.
+  bool CalculateRootDigest(const std::vector<unsigned char>& root_verity,
+                           std::vector<unsigned char>* root_digest);
+
  private:
   friend class BuildVerityTreeTest;
   // Calculates the hash of one single block. Write the result to |out|, a

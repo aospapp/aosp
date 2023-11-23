@@ -23,9 +23,13 @@ import android.autofillservice.cts.augmented.CtsAugmentedAutofillService.Augment
 import android.content.AutofillOptions;
 import android.view.autofill.AutofillManager;
 
+import com.android.compatibility.common.util.RequiredSystemResourceRule;
+
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.rules.RuleChain;
+import org.junit.rules.TestRule;
 
 /////
 ///// NOTE: changes in this class should also be applied to
@@ -40,6 +44,13 @@ public abstract class AugmentedAutofillManualActivityLaunchTestCase
     protected AugmentedUiBot mAugmentedUiBot;
 
     private CtsAugmentedAutofillService.ServiceWatcher mServiceWatcher;
+
+    private static final RequiredSystemResourceRule sRequiredResource =
+            new RequiredSystemResourceRule("config_defaultAugmentedAutofillService");
+
+    private static final RuleChain sRequiredFeatures = RuleChain
+            .outerRule(sRequiredFeatureRule)
+            .around(sRequiredResource);
 
     @BeforeClass
     public static void allowAugmentedAutofill() {
@@ -76,6 +87,11 @@ public abstract class AugmentedAutofillManualActivityLaunchTestCase
     @Override
     protected int getSmartSuggestionMode() {
         return AutofillManager.FLAG_SMART_SUGGESTION_SYSTEM;
+    }
+
+    @Override
+    protected TestRule getRequiredFeaturesRule() {
+        return sRequiredFeatures;
     }
 
     protected CtsAugmentedAutofillService enableAugmentedService() throws InterruptedException {

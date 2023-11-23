@@ -28,21 +28,23 @@ namespace chre {
 namespace {
 
 void handleAudioDataEvent(struct chreAudioDataEvent *event) {
-  EventLoopManagerSingleton::get()->getAudioRequestManager()
+  EventLoopManagerSingleton::get()
+      ->getAudioRequestManager()
       .handleAudioDataEvent(event);
 }
 
 void handleAudioAvailability(uint32_t handle, bool available) {
   LOGD("SPI audio handle %" PRIu32 " available: %d", handle, available);
-  EventLoopManagerSingleton::get()->getAudioRequestManager()
+  EventLoopManagerSingleton::get()
+      ->getAudioRequestManager()
       .handleAudioAvailability(handle, available);
 }
 
 }  // anonymous namespace
 
 const chrePalAudioCallbacks PlatformAudioBase::sAudioCallbacks = {
-  handleAudioDataEvent,
-  handleAudioAvailability,
+    handleAudioDataEvent,
+    handleAudioAvailability,
 };
 
 PlatformAudio::PlatformAudio() {}
@@ -92,8 +94,10 @@ void PlatformAudio::setHandleEnabled(uint32_t handle, bool enabled) {
     }
   } else if (lastNumAudioClients > 0 && mNumAudioClients == 0) {
     mTargetAudioEnabled = false;
-    if (EventLoopManagerSingleton::get()->getEventLoop()
-            .getPowerControlManager().hostIsAwake()) {
+    if (EventLoopManagerSingleton::get()
+            ->getEventLoop()
+            .getPowerControlManager()
+            .hostIsAwake()) {
       onHostAwake();
     } else {
       LOGD("Deferring disable audio");
@@ -101,14 +105,13 @@ void PlatformAudio::setHandleEnabled(uint32_t handle, bool enabled) {
   }
 }
 
-bool PlatformAudio::requestAudioDataEvent(uint32_t handle,
-                                          uint32_t numSamples,
+bool PlatformAudio::requestAudioDataEvent(uint32_t handle, uint32_t numSamples,
                                           Nanoseconds eventDelay) {
   bool success = false;
   if (mAudioApi != nullptr) {
     prePalApiCall();
-    success = mAudioApi->requestAudioDataEvent(
-        handle, numSamples, eventDelay.toRawNanoseconds());
+    success = mAudioApi->requestAudioDataEvent(handle, numSamples,
+                                               eventDelay.toRawNanoseconds());
   }
 
   return success;

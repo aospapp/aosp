@@ -27,16 +27,16 @@
  *  debugFree(free, buf);
  */
 
+#include <string.h>
 #include <cstddef>
 #include <cstdint>
-#include <string.h>
 
 #include "chre/platform/fatal_error.h"
 
 namespace chre {
 
 constexpr uint64_t kMagicAllocated = UINT64_C(0x997af173b998b686);
-constexpr uint64_t kMagicFreed     = UINT64_C(0x1a16b89bf3d69842);
+constexpr uint64_t kMagicFreed = UINT64_C(0x1a16b89bf3d69842);
 static_assert(sizeof(kMagicAllocated) == sizeof(kMagicFreed),
               "Trailer magic values need to be the same size");
 
@@ -49,7 +49,7 @@ struct alignas(alignof(max_align_t)) MemoryDebugPreamble {
 };
 
 typedef void *(MemoryAllocFunction)(size_t);
-typedef void (MemoryFreeFunction)(void *);
+typedef void(MemoryFreeFunction)(void *);
 
 /**
  * Allocate memory, and prepend + append debugging information to help detect
@@ -105,8 +105,8 @@ inline void debugFree(MemoryFreeFunction *freeFunc, void *pointer) {
     uint8_t *trailer = static_cast<uint8_t *>(pointer) + preamble->allocSize;
     if (memcmp(trailer, &kMagicFreed, sizeof(kMagicFreed)) == 0) {
       FATAL_ERROR("Double-free detected");
-    } else if (memcmp(trailer, &kMagicAllocated, sizeof(kMagicAllocated))
-                   != 0) {
+    } else if (memcmp(trailer, &kMagicAllocated, sizeof(kMagicAllocated)) !=
+               0) {
       FATAL_ERROR("Buffer overflow detected (or maybe double free)");
     }
 

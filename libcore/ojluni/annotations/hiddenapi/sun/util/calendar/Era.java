@@ -28,12 +28,12 @@ package sun.util.calendar;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Era {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public Era(java.lang.String name, java.lang.String abbr, long since, boolean localTime) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String getName() {
         throw new RuntimeException("Stub!");
     }
@@ -42,7 +42,7 @@ public final class Era {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String getAbbreviation() {
         throw new RuntimeException("Stub!");
     }
@@ -55,7 +55,7 @@ public final class Era {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.util.calendar.CalendarDate getSinceDate() {
         throw new RuntimeException("Stub!");
     }

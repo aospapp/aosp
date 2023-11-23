@@ -28,6 +28,11 @@ DEFAULT_TIMEOUT = 30
 DEFAULT_SLEEPTIME = 5
 DEFAULT_FUNCTION_SWITCH_TIME = 10
 DEFAULT_SERVICE_WAITING_TIME = 20
+DEFAULT_GROUP_CLIENT_LOST_TIME = 60
+
+P2P_CONNECT_NEGOTIATION = 0
+P2P_CONNECT_JOIN = 1
+P2P_CONNECT_INVITATION = 2
 ######################################################
 # Wifi P2p sl4a Event String
 ######################################################
@@ -40,7 +45,7 @@ ONGOING_PEER_SET_SUCCESS_EVENT = "WifiP2psetP2pPeerConfigureOnSuccess"
 CONNECT_SUCCESS_EVENT = "WifiP2pConnectOnSuccess"
 CREATE_GROUP_SUCCESS_EVENT = "WifiP2pCreateGroupOnSuccess"
 SET_CHANNEL_SUCCESS_EVENT = "WifiP2pSetChannelsOnSuccess"
-
+GROUP_INFO_AVAILABLE_EVENT = "WifiP2pOnGroupInfoAvailable"
 
 ######################################################
 # Wifi P2p local service event
@@ -60,13 +65,14 @@ UPNP_EVENT_SERVICELIST_KEY = "ServiceList"
 # Wifi P2p local service type
 ####################################################
 P2P_LOCAL_SERVICE_UPNP = 0
-P2P_LOCAL_SERVICE_IPP  = 1
-P2P_LOCAL_SERVICE_AFP  = 2
+P2P_LOCAL_SERVICE_IPP = 1
+P2P_LOCAL_SERVICE_AFP = 2
 
 ######################################################
 # Wifi P2p group capability
 ######################################################
 P2P_GROUP_CAPAB_GROUP_OWNER = 1
+
 
 ######################################################
 # Wifi P2p UPnP MediaRenderer local service
@@ -78,17 +84,19 @@ class UpnpTestData():
     uuid = "6859dede-8574-59ab-9332-123456789011"
     rootdevice = "upnp:rootdevice"
 
+
 ######################################################
 # Wifi P2p Bonjour IPP & AFP local service
 ######################################################
 class IppTestData():
-    ippInstanceName = "MyPrinter";
-    ippRegistrationType = "_ipp._tcp";
-    ippDomainName = "myprinter._ipp._tcp.local.";
-    ipp_txtRecord = {"txtvers":"1", "pdl": "application/postscript"}
+    ippInstanceName = "MyPrinter"
+    ippRegistrationType = "_ipp._tcp"
+    ippDomainName = "myprinter._ipp._tcp.local."
+    ipp_txtRecord = {"txtvers": "1", "pdl": "application/postscript"}
+
 
 class AfpTestData():
-    afpInstanceName = "Example";
-    afpRegistrationType = "_afpovertcp._tcp";
-    afpDomainName = "example._afpovertcp._tcp.local.";
+    afpInstanceName = "Example"
+    afpRegistrationType = "_afpovertcp._tcp"
+    afpDomainName = "example._afpovertcp._tcp.local."
     afp_txtRecord = {}

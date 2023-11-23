@@ -13,17 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#define LOG_TAG "vts_ibase_test"
 
+#include <algorithm>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <vector>
 
+#include <android-base/logging.h>
+#include <android-base/properties.h>
+#include <android-base/strings.h>
 #include <android/hidl/base/1.0/IBase.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <gtest/gtest.h>
+#include <hidl-util/FqInstance.h>
 #include <hidl/HidlBinderSupport.h>
 #include <hidl/ServiceManagement.h>
+#include <init-test-utils/service_utils.h>
 
+using android::FqInstance;
+using android::FQName;
+using android::sp;
+using android::wp;
+using android::base::Result;
 using android::hardware::hidl_array;
 using android::hardware::hidl_death_recipient;
 using android::hardware::hidl_handle;
@@ -33,8 +48,8 @@ using android::hardware::IBinder;
 using android::hardware::toBinder;
 using android::hidl::base::V1_0::IBase;
 using android::hidl::manager::V1_0::IServiceManager;
-using android::sp;
-using android::wp;
+using android::init::ServiceInterfacesMap;
+using PidInterfacesMap = std::map<pid_t, std::set<FqInstance>>;
 
 template <typename T>
 static inline ::testing::AssertionResult isOk(const ::android::hardware::Return<T>& ret) {
@@ -47,7 +62,39 @@ static inline ::testing::AssertionResult isOk(const ::android::hardware::Return<
 struct Hal {
     sp<IBase> service;
     std::string name;  // space separated list of android.hidl.foo@1.0::IFoo/instance-name
+    FqInstance fq_instance;
 };
+
+template <typename T>
+std::string FqInstancesToString(const T& instances) {
+    std::set<std::string> instance_strings;
+    for (const FqInstance& instance : instances) {
+        instance_strings.insert(instance.string());
+    }
+    return android::base::Join(instance_strings, "\n");
+}
+
+pid_t GetServiceDebugPid(const std::string& service) {
+    return android::base::GetIntProperty("init.svc_debug_pid." + service, 0);
+}
+
+std::map<std::string, std::vector<Hal>> gDeclaredServiceHalMap;
+std::mutex gDeclaredServiceHalMapMutex;
+
+void GetHal(const std::string& service, const FqInstance& instance) {
+    if (instance.getFqName().string() == IBase::descriptor) {
+        return;
+    }
+
+    sp<IBase> hal = android::hardware::details::getRawServiceInternal(
+            instance.getFqName().string(), instance.getInstance(), true /*retry*/,
+            false /*getStub*/);
+    // Add to gDeclaredServiceHalMap if getRawServiceInternal() returns (even if
+    // the returned HAL is null). getRawServiceInternal() won't return if the
+    // HAL is in the VINTF but unable to start.
+    std::lock_guard<std::mutex> guard(gDeclaredServiceHalMapMutex);
+    gDeclaredServiceHalMap[service].push_back(Hal{.service = hal, .fq_instance = instance});
+}
 
 class VtsHalBaseV1_0TargetTest : public ::testing::Test {
    public:
@@ -86,7 +133,7 @@ class VtsHalBaseV1_0TargetTest : public ::testing::Test {
                     // include all the names this is registered as for error messages
                     iter->second.name += " " + strName;
                 } else {
-                    all_hals_.insert(iter, {binder, Hal{service, strName}});
+                    all_hals_.insert(iter, {binder, Hal{.service = service, .name = strName}});
                 }
             }
         }));
@@ -98,6 +145,25 @@ class VtsHalBaseV1_0TargetTest : public ::testing::Test {
         for (auto iter = all_hals_.begin(); iter != all_hals_.end(); ++iter) {
             check(iter->second);
         }
+    }
+
+    PidInterfacesMap GetPidInterfacesMap() {
+        PidInterfacesMap result;
+        EXPECT_OK(default_manager_->debugDump([&result](const auto& list) {
+            for (const auto& debug_info : list) {
+                if (debug_info.pid != static_cast<int32_t>(IServiceManager::PidConstant::NO_PID)) {
+                    FQName fqName;
+                    ASSERT_TRUE(fqName.setTo(debug_info.interfaceName.c_str()))
+                            << "Unable to parse interface: '" << debug_info.interfaceName.c_str();
+                    FqInstance fqInstance;
+                    ASSERT_TRUE(fqInstance.setTo(fqName, debug_info.instanceName.c_str()));
+                    if (fqInstance.getFqName().string() != IBase::descriptor) {
+                        result[debug_info.pid].insert(fqInstance);
+                    }
+                }
+            }
+        }));
+        return result;
     }
 
     // default service manager
@@ -163,6 +229,87 @@ TEST_F(VtsHalBaseV1_0TargetTest, HashChain) {
             EXPECT_NE(0u, hashChain.size()) << "Invalid hash chain " << base.name;
         })) << base.name;
     });
+}
+
+TEST_F(VtsHalBaseV1_0TargetTest, ServiceProvidesAndDeclaresTheSameInterfaces) {
+    const Result<ServiceInterfacesMap> service_interfaces_map =
+            android::init::GetOnDeviceServiceInterfacesMap();
+    ASSERT_RESULT_OK(service_interfaces_map);
+
+    std::map<std::string, std::set<FqInstance>> hidl_interfaces_map;
+
+    // Attempt to get handles to all known declared interfaces. This will cause
+    // any non-running lazy HALs to start up.
+    // Results are saved in gDeclaredServiceHalMap.
+    for (const auto& [service, declared_interfaces] : *service_interfaces_map) {
+        if (declared_interfaces.empty()) {
+            LOG(INFO) << "Service '" << service << "' does not declare any interfaces.";
+        }
+        for (const auto& interface : declared_interfaces) {
+            if (interface.find("aidl/") == 0) {
+                LOG(INFO) << "Not testing '" << service << "' AIDL interface: " << interface;
+            } else {
+                FqInstance fqInstance;
+                ASSERT_TRUE(fqInstance.setTo(interface))
+                        << "Unable to parse interface: '" << interface << "'";
+
+                std::thread(GetHal, service, fqInstance).detach();
+                hidl_interfaces_map[service].insert(fqInstance);
+            }
+        }
+    }
+    // Allow the threads 5 seconds to attempt to get each HAL. Any HAL whose
+    // thread is stuck during retrieval is excluded from this test.
+    sleep(5);
+
+    std::lock_guard<std::mutex> guard(gDeclaredServiceHalMapMutex);
+    PidInterfacesMap pid_interfaces_map = GetPidInterfacesMap();
+
+    // For each service that had at least one thread return from attempting to
+    // retrieve a HAL:
+    for (const auto& [service, hals] : gDeclaredServiceHalMap) {
+        // Assert that the service is running.
+        pid_t pid = GetServiceDebugPid(service);
+        ASSERT_NE(pid, 0) << "Service '" << service << "' is not running.";
+
+        std::set<FqInstance> declared_interfaces;
+        for (const auto& hal : hals) {
+            declared_interfaces.insert(hal.fq_instance);
+        }
+
+        // Warn for any threads that were stuck when attempting to retrieve a
+        // HAL.
+        std::vector<FqInstance> missing_declared_interfaces;
+        std::set_difference(hidl_interfaces_map[service].begin(),
+                            hidl_interfaces_map[service].end(), declared_interfaces.begin(),
+                            declared_interfaces.end(),
+                            std::back_inserter(missing_declared_interfaces));
+        if (!missing_declared_interfaces.empty()) {
+            LOG(WARNING)
+                    << "Service '" << service
+                    << "' declares interfaces that are present in the VINTF but unable to start:"
+                    << std::endl
+                    << FqInstancesToString(missing_declared_interfaces);
+        }
+
+        // Expect that the set of interfaces running at this PID is the same as
+        // the set of interfaces declared by this service.
+        std::set<FqInstance> served_interfaces = pid_interfaces_map[pid];
+        std::vector<FqInstance> served_declared_diff;
+        std::set_symmetric_difference(declared_interfaces.begin(), declared_interfaces.end(),
+                                      served_interfaces.begin(), served_interfaces.end(),
+                                      std::back_inserter(served_declared_diff));
+
+        EXPECT_TRUE(served_declared_diff.empty())
+                << "Service '" << service << "' serves and declares different interfaces."
+                << std::endl
+                << "  Served:" << std::endl
+                << FqInstancesToString(served_interfaces) << std::endl
+                << "  Declared: " << std::endl
+                << FqInstancesToString(declared_interfaces) << std::endl
+                << "  Difference: " << std::endl
+                << FqInstancesToString(served_declared_diff);
+    }
 }
 
 int main(int argc, char** argv) {

@@ -103,7 +103,7 @@ class SuitePlanFinderUnittests(unittest.TestCase):
                                        test_runner=suite_plan_test_runner.SuitePlanTestRunner.NAME,
                                        build_targets={suite_name},
                                        suite=suite_name)
-        unittest_utils.assert_equal_testinfos(self, t_info, want_info)
+        unittest_utils.assert_equal_testinfos(self, t_info[0], want_info)
 
         suite_name = 'CTS'
         _search.return_value = None
@@ -113,13 +113,13 @@ class SuitePlanFinderUnittests(unittest.TestCase):
 
         suite_name = 'cts-common'
         suite = 'cts'
-        _search.return_value = os.path.join(uc.ROOT, uc.CTS_INT_DIR, suite_name + '.xml')
+        _search.return_value = [os.path.join(uc.ROOT, uc.CTS_INT_DIR, suite_name + '.xml')]
         t_info = self.suite_plan_finder.find_test_by_suite_name(suite_name)
         want_info = test_info.TestInfo(test_name=suite_name,
                                        test_runner=suite_plan_test_runner.SuitePlanTestRunner.NAME,
                                        build_targets=set([suite]),
                                        suite=suite)
-        unittest_utils.assert_equal_testinfos(self, t_info, want_info)
+        unittest_utils.assert_equal_testinfos(self, t_info[0], want_info)
 
     @mock.patch('os.path.realpath',
                 side_effect=unittest_utils.realpath_side_effect)
@@ -155,7 +155,7 @@ class SuitePlanFinderUnittests(unittest.TestCase):
                                        test_runner=suite_plan_test_runner.SuitePlanTestRunner.NAME,
                                        build_targets=set([suite]),
                                        suite=suite)
-        unittest_utils.assert_equal_testinfos(self, t_info, want_info)
+        unittest_utils.assert_equal_testinfos(self, t_info[0], want_info)
 
         suite_int_name = 'cts-common'
         suite = 'cts'
@@ -166,7 +166,7 @@ class SuitePlanFinderUnittests(unittest.TestCase):
                                        test_runner=suite_plan_test_runner.SuitePlanTestRunner.NAME,
                                        build_targets=set([suite]),
                                        suite=suite)
-        unittest_utils.assert_equal_testinfos(self, t_info, want_info)
+        unittest_utils.assert_equal_testinfos(self, t_info[0], want_info)
 
         suite_int_name = 'cts-camera'
         suite = 'cts'
@@ -177,7 +177,7 @@ class SuitePlanFinderUnittests(unittest.TestCase):
                                        test_runner=suite_plan_test_runner.SuitePlanTestRunner.NAME,
                                        build_targets=set([suite]),
                                        suite=suite)
-        unittest_utils.assert_equal_testinfos(self, t_info, want_info)
+        unittest_utils.assert_equal_testinfos(self, t_info[0], want_info)
 
 
 if __name__ == '__main__':

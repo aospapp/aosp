@@ -46,7 +46,7 @@ import subprocess
 import time
 
 import serial
-from acts import tracelogger
+from acts.controllers.buds_lib import tako_trace_logger
 from acts.controllers.buds_lib import logserial
 from acts.controllers.buds_lib.b29_lib import B29Device
 from acts.controllers.buds_lib.dev_utils import apollo_log_decoder
@@ -55,7 +55,7 @@ from acts.controllers.buds_lib.dev_utils import apollo_sink_events
 from logging import Logger
 from retry import retry
 
-logging = tracelogger.TakoTraceLogger(Logger('apollo'))
+logging = tako_trace_logger.TakoTraceLogger(Logger('apollo'))
 
 BAUD_RATE = 115200
 BYTE_SIZE = 8

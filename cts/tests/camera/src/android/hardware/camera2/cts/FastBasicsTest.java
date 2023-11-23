@@ -25,6 +25,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
+import android.hardware.cts.helpers.CameraUtils;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
@@ -41,6 +42,8 @@ import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleImageReaderListener;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 
+import org.junit.runners.Parameterized;
+import org.junit.runner.RunWith;
 import org.junit.Test;
 
 /**
@@ -50,6 +53,8 @@ import org.junit.Test;
  * May not take more than a few seconds to run, to be suitable for quick
  * testing.
  */
+
+@RunWith(Parameterized.class)
 public class FastBasicsTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "FastBasicsTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -62,17 +67,17 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
     @Presubmit
     @Test
     public void testCamera2() throws Exception {
-        for (int i = 0; i < mCameraIds.length; i++) {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
             try {
-                Log.i(TAG, "Testing camera2 API for camera device " + mCameraIds[i]);
+                Log.i(TAG, "Testing camera2 API for camera device " + mCameraIdsUnderTest[i]);
 
-                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                if (!mAllStaticInfo.get(mCameraIdsUnderTest[i]).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
 
-                openDevice(mCameraIds[i]);
+                openDevice(mCameraIdsUnderTest[i]);
                 camera2TestByCamera();
             } finally {
                 closeDevice();
@@ -189,7 +194,8 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
     @Presubmit
     @Test
     public void testCamera1() throws Exception {
-        for (int i = 0; i < Camera.getNumberOfCameras(); i++) {
+        int[] cameraIds = CameraUtils.deriveCameraIdsUnderTest();
+        for (int i : cameraIds) {
             Camera camera = null;
             try {
                 Log.i(TAG, "Testing android.hardware.Camera API for camera device " + i);

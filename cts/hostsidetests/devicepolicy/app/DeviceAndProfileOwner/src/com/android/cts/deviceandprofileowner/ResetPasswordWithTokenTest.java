@@ -154,26 +154,6 @@ public class ResetPasswordWithTokenTest extends BaseDeviceAdminTest {
         assertPasswordSucceeds("1234", caseDescription);
         assertPasswordSucceeds("abcd", caseDescription); // can't change.
         assertPasswordSucceeds("abcd1234", caseDescription);
-
-        mDevicePolicyManager.setPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT, 10);
-        caseDescription = "minimum password length = 10";
-        assertEquals(10, mDevicePolicyManager.getPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT));
-        assertPasswordSufficiency(true); // length not checked for this quality
-
-        // TODO(ascull): fix resetPassword() logic so these succeed
-        assertPasswordFails("1234", caseDescription);
-        assertPasswordFails("abcd", caseDescription);
-        assertPasswordFails("abcd1234", caseDescription);
-
-        mDevicePolicyManager.setPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT, 4);
-        caseDescription = "minimum password length = 4";
-        assertEquals(4, mDevicePolicyManager.getPasswordMinimumLength(
-                ADMIN_RECEIVER_COMPONENT));
-        assertPasswordSufficiency(true);
-
-        assertPasswordSucceeds("1234", caseDescription);
-        assertPasswordSucceeds("abcd", caseDescription);
-        assertPasswordSucceeds("abcd1234", caseDescription);
     }
 
     public void testPasswordQuality_numeric() {
@@ -527,7 +507,6 @@ public class ResetPasswordWithTokenTest extends BaseDeviceAdminTest {
         // First remove device lock
         mDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT,
                 DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED);
-        mDevicePolicyManager.setPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT, 0);
         assertTrue(mDevicePolicyManager.resetPasswordWithToken(ADMIN_RECEIVER_COMPONENT, null,
                 TOKEN0, 0));
 
@@ -557,7 +536,14 @@ public class ResetPasswordWithTokenTest extends BaseDeviceAdminTest {
     }
 
     private void resetComplexPasswordRestrictions() {
+        final int quality = mDevicePolicyManager.getPasswordQuality(ADMIN_RECEIVER_COMPONENT);
+        if (quality < PASSWORD_QUALITY_NUMERIC) {
+            return;
+        }
         mDevicePolicyManager.setPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT, 0);
+        if (quality < PASSWORD_QUALITY_COMPLEX) {
+            return;
+        }
         mDevicePolicyManager.setPasswordMinimumUpperCase(ADMIN_RECEIVER_COMPONENT, 0);
         mDevicePolicyManager.setPasswordMinimumLowerCase(ADMIN_RECEIVER_COMPONENT, 0);
         mDevicePolicyManager.setPasswordMinimumLetters(ADMIN_RECEIVER_COMPONENT, 0);

@@ -18,19 +18,19 @@
 
 #include <gtest/gtest.h>
 
-#include "android/net/wifi/IWifiScannerImpl.h"
+#include "android/net/wifi/nl80211/IWifiScannerImpl.h"
 #include "wificond/scanning/channel_settings.h"
 #include "wificond/scanning/hidden_network.h"
 #include "wificond/scanning/pno_network.h"
 #include "wificond/scanning/pno_settings.h"
 #include "wificond/scanning/single_scan_settings.h"
 
-using ::android::net::wifi::IWifiScannerImpl;
-using ::com::android::server::wifi::wificond::ChannelSettings;
-using ::com::android::server::wifi::wificond::HiddenNetwork;
-using ::com::android::server::wifi::wificond::PnoNetwork;
-using ::com::android::server::wifi::wificond::PnoSettings;
-using ::com::android::server::wifi::wificond::SingleScanSettings;
+using ::android::net::wifi::nl80211::IWifiScannerImpl;
+using ::android::net::wifi::nl80211::ChannelSettings;
+using ::android::net::wifi::nl80211::HiddenNetwork;
+using ::android::net::wifi::nl80211::PnoNetwork;
+using ::android::net::wifi::nl80211::PnoSettings;
+using ::android::net::wifi::nl80211::SingleScanSettings;
 using std::vector;
 
 namespace android {
@@ -46,6 +46,7 @@ const uint8_t kFakeSsid1[] =
 constexpr int32_t kFakePnoIntervalMs = 20000;
 constexpr int32_t kFakePnoMin2gRssi = -80;
 constexpr int32_t kFakePnoMin5gRssi = -85;
+constexpr int32_t kFakePnoMin6gRssi = -89;
 
 constexpr uint32_t kFakeFrequency = 5260;
 constexpr uint32_t kFakeFrequency1 = 2460;
@@ -162,6 +163,7 @@ TEST_F(ScanSettingsTest, PnoSettingsParcelableTest) {
   pno_settings.interval_ms_ = kFakePnoIntervalMs;
   pno_settings.min_2g_rssi_ = kFakePnoMin2gRssi;
   pno_settings.min_5g_rssi_ = kFakePnoMin5gRssi;
+  pno_settings.min_6g_rssi_ = kFakePnoMin6gRssi;
 
   pno_settings.pno_networks_ = {network, network1};
 

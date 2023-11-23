@@ -105,10 +105,10 @@ public class LogRegistryTest extends TestCase {
     }
 
     /**
-     * Tests for ensuring new threads spawned without an explicit ThreadGroup will inherit the
-     * same logger as the parent's logger.
+     * Tests for ensuring new threads spawned without an explicit ThreadGroup will inherit the same
+     * logger as the parent's logger.
      */
-    public void testThreadedLogging() {
+    public void testThreadedLogging() throws Exception {
         final String testMessage = "Another test message!";
         final ILeveledLogOutput mockLogger = EasyMock.createMock(ILeveledLogOutput.class);
 
@@ -129,11 +129,9 @@ public class LogRegistryTest extends TestCase {
                 secondThread.start();
                 try {
                     secondThread.join();  // threaded, but force serialization for testing
-                }
-                catch (InterruptedException ie) {
-                    fail("Thread was unexpectedly interrupted.");
-                }
-                finally {
+                } catch (InterruptedException ie) {
+                    throw new RuntimeException(ie);
+                } finally {
                     mLogRegistry.unregisterLogger();
                 }
             }
@@ -151,12 +149,6 @@ public class LogRegistryTest extends TestCase {
         ThreadGroup tg = new ThreadGroup("TestThreadGroup");
         Thread firstThread = new Thread(tg, new FirstThread());
         firstThread.start();
-
-        try {
-            firstThread.join();  // threaded, but force serialization for testing
-        }
-        catch (InterruptedException ie) {
-            fail("Thread was unexpectedly interrupted.");
-        }
+        firstThread.join(); // threaded, but force serialization for testing
     }
 }

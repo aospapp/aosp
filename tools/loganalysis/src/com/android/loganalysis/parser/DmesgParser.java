@@ -40,6 +40,7 @@ public class DmesgParser implements IParser {
     private static final String TIMESTAMP = "TIMESTAMP";
     private static final String STAGE = "STAGE";
     private static final String ACTION = "ACTION";
+    private static final String SOURCE = "SOURCE";
     private static final String DURATION = "DURATION";
     private static final String UEVENTD = "ueventd";
     private static final String INIT = "init";
@@ -74,20 +75,12 @@ public class DmesgParser implements IParser {
 
     // Matches: init: processing action (early-init) from (/init.rc:14)
     private static final String START_PROCESSING_ACTION_PREFIX =
-            String.format("processing action \\((?<%s>.*)\\) from.*$", ACTION);
-
-    // Matches: init: processing action (early-init)
-    private static final String START_PROCESSING_ACTION_PREFIX_LEGACY =
-            String.format("processing action \\((?<%s>.*)\\).*$", ACTION);
+            String.format("processing action \\((?<%s>[^)]*)\\)( from \\((?<%s>.*)\\)|.*)$",
+                    ACTION, SOURCE);
 
     // Matches: init: processing action (early-init) from (/init.rc:14)
     private static final Pattern START_PROCESSING_ACTION =
             Pattern.compile(String.format("%s%s", SERVICE_PREFIX, START_PROCESSING_ACTION_PREFIX));
-
-    // Matches: init: processing action (early-init)
-    private static final Pattern START_PROCESSING_ACTION_LEGACY =
-            Pattern.compile(
-                    String.format("%s%s", SERVICE_PREFIX, START_PROCESSING_ACTION_PREFIX_LEGACY));
 
     // Matches: [    3.791635] ueventd: Coldboot took 0.695055 seconds
     private static final String STAGE_SUFFIX= String.format(
@@ -222,8 +215,7 @@ public class DmesgParser implements IParser {
         if((match = matches(WAIT_FOR_PROPERTY_INFO, line)) != null) {
             DmesgStageInfoItem stageInfoItem = new DmesgStageInfoItem();
             stageInfoItem.setStageName(String.format("%s_%s", INIT, match.group(STAGE)));
-            stageInfoItem.setDuration((long) (Double.parseDouble(
-                    match.group(DURATION))));
+            stageInfoItem.setDuration((long) Double.parseDouble(match.group(DURATION)));
             mDmesgItem.addStageInfoItem(stageInfoItem);
             return true;
         }
@@ -242,9 +234,11 @@ public class DmesgParser implements IParser {
     @VisibleForTesting
     boolean parseActionInfo(String line) {
         Matcher match = null;
-        if ((match = matches(START_PROCESSING_ACTION, line)) != null
-                || (match = matches(START_PROCESSING_ACTION_LEGACY, line)) != null) {
+        if ((match = matches(START_PROCESSING_ACTION, line)) != null) {
             DmesgActionInfoItem actionInfoItem = new DmesgActionInfoItem();
+            if (match.group(SOURCE) != null) {
+                actionInfoItem.setSourceName(match.group(SOURCE));
+            }
             actionInfoItem.setActionName(match.group(ACTION));
             actionInfoItem.setStartTime((long) (Double.parseDouble(
                     match.group(TIMESTAMP)) * 1000));

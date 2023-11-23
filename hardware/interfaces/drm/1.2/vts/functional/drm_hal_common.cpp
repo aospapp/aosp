@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "vendor_modules.h"
 #define LOG_TAG "drm_hal_common@1.2"
 
 #include <android/hidl/allocator/1.0/IAllocator.h>
@@ -25,7 +26,7 @@
 #include <random>
 
 #include "drm_hal_clearkey_module.h"
-#include "drm_hal_common.h"
+#include "android/hardware/drm/1.2/vts/drm_hal_common.h"
 
 using ::android::hardware::drm::V1_0::BufferType;
 using ::android::hardware::drm::V1_0::DestinationBuffer;
@@ -81,16 +82,19 @@ Return<void> DrmHalPluginListener::sendKeysChange_1_2(const hidl_vec<uint8_t>& s
     return Void();
 }
 
+static DrmHalVTSVendorModule_V1* getModuleForInstance(const std::string& instance) {
+    if (instance == "clearkey" || instance == "default") {
+        return new DrmHalVTSClearkeyModule();
+    }
+
+    return static_cast<DrmHalVTSVendorModule_V1*>(DrmHalTest::gVendorModules->getModuleByName(instance));
+}
+
 /**
  * DrmHalTest
  */
 
-DrmHalTest::DrmHalTest()
-    : vendorModule(GetParam() == "clearkey"
-            ? new DrmHalVTSClearkeyModule()
-            : static_cast<DrmHalVTSVendorModule_V1*>(gVendorModules->getModule(GetParam()))),
-      contentConfigurations(vendorModule->getContentConfigurations()) {
-}
+DrmHalTest::DrmHalTest() : vendorModule(getModuleForInstance(GetParamService())) {}
 
 void DrmHalTest::SetUp() {
     const ::testing::TestInfo* const test_info =
@@ -98,29 +102,34 @@ void DrmHalTest::SetUp() {
 
     ALOGD("Running test %s.%s from (vendor) module %s",
           test_info->test_case_name(), test_info->name(),
-          GetParam().c_str());
+          GetParamService().c_str());
 
-    string name = vendorModule->getServiceName();
-    drmFactory = VtsHalHidlTargetTestBase::getService<IDrmFactory>(name);
-    if (drmFactory == nullptr) {
-        drmFactory = VtsHalHidlTargetTestBase::getService<IDrmFactory>();
-    }
-    if (drmFactory != nullptr) {
-        drmPlugin = createDrmPlugin();
+    const string instance = GetParamService();
+
+    drmFactory = IDrmFactory::getService(instance);
+    ASSERT_NE(drmFactory, nullptr);
+    drmPlugin = createDrmPlugin();
+
+    cryptoFactory = ICryptoFactory::getService(instance);
+    ASSERT_NE(cryptoFactory, nullptr);
+    cryptoPlugin = createCryptoPlugin();
+
+    if (!vendorModule) {
+        ASSERT_NE(instance, "widevine") << "Widevine requires vendor module.";
+        ASSERT_NE(instance, "clearkey") << "Clearkey requires vendor module.";
+        GTEST_SKIP() << "No vendor module installed";
     }
 
-    cryptoFactory = VtsHalHidlTargetTestBase::getService<ICryptoFactory>(name);
-    if (cryptoFactory == nullptr) {
-        cryptoFactory = VtsHalHidlTargetTestBase::getService<ICryptoFactory>();
-    }
-    if (cryptoFactory != nullptr) {
-        cryptoPlugin = createCryptoPlugin();
-    }
+    ASSERT_EQ(instance, vendorModule->getServiceName());
+    contentConfigurations = vendorModule->getContentConfigurations();
 
     // If drm scheme not installed skip subsequent tests
-    if (!drmFactory->isCryptoSchemeSupported(getVendorUUID())) {
-        vendorModule->setInstalled(false);
-        return;
+    if (!drmFactory->isCryptoSchemeSupported(getUUID())) {
+        if (GetParamUUID() == hidl_array<uint8_t, 16>()) {
+            GTEST_SKIP() << "vendor module drm scheme not supported";
+        } else {
+            FAIL() << "param scheme must be supported: " << android::hardware::toString(GetParamUUID());
+        }
     }
 
     ASSERT_NE(nullptr, drmPlugin.get()) << "Can't find " << vendorModule->getServiceName() <<  " drm@1.2 plugin";
@@ -134,12 +143,12 @@ sp<IDrmPlugin> DrmHalTest::createDrmPlugin() {
     }
     sp<IDrmPlugin> plugin = nullptr;
     hidl_string packageName("android.hardware.drm.test");
-    auto res = drmFactory->createPlugin(
-            getVendorUUID(), packageName,
-                    [&](StatusV1_0 status, const sp<IDrmPluginV1_0>& pluginV1_0) {
-                EXPECT_EQ(StatusV1_0::OK, status);
-                plugin = IDrmPlugin::castFrom(pluginV1_0);
-            });
+    auto res =
+            drmFactory->createPlugin(getUUID(), packageName,
+                                     [&](StatusV1_0 status, const sp<IDrmPluginV1_0>& pluginV1_0) {
+                                         EXPECT_EQ(StatusV1_0::OK == status, pluginV1_0 != nullptr);
+                                         plugin = IDrmPlugin::castFrom(pluginV1_0);
+                                     });
 
     if (!res.isOk()) {
         ALOGE("createDrmPlugin remote call failed");
@@ -154,9 +163,9 @@ sp<ICryptoPlugin> DrmHalTest::createCryptoPlugin() {
     sp<ICryptoPlugin> plugin = nullptr;
     hidl_vec<uint8_t> initVec;
     auto res = cryptoFactory->createPlugin(
-            getVendorUUID(), initVec,
-                    [&](StatusV1_0 status, const sp<ICryptoPluginV1_0>& pluginV1_0) {
-                EXPECT_EQ(StatusV1_0::OK, status);
+            getUUID(), initVec,
+            [&](StatusV1_0 status, const sp<ICryptoPluginV1_0>& pluginV1_0) {
+                EXPECT_EQ(StatusV1_0::OK == status, pluginV1_0 != nullptr);
                 plugin = ICryptoPlugin::castFrom(pluginV1_0);
             });
     if (!res.isOk()) {
@@ -165,9 +174,61 @@ sp<ICryptoPlugin> DrmHalTest::createCryptoPlugin() {
     return plugin;
 }
 
+hidl_array<uint8_t, 16> DrmHalTest::getUUID() {
+    if (GetParamUUID() == hidl_array<uint8_t, 16>()) {
+        return getVendorUUID();
+    }
+    return GetParamUUID();
+}
+
 hidl_array<uint8_t, 16> DrmHalTest::getVendorUUID() {
+    if (vendorModule == nullptr) return {};
     vector<uint8_t> uuid = vendorModule->getUUID();
     return hidl_array<uint8_t, 16>(&uuid[0]);
+}
+
+void DrmHalTest::provision() {
+    hidl_string certificateType;
+    hidl_string certificateAuthority;
+    hidl_vec<uint8_t> provisionRequest;
+    hidl_string defaultUrl;
+    auto res = drmPlugin->getProvisionRequest_1_2(
+            certificateType, certificateAuthority,
+            [&](StatusV1_2 status, const hidl_vec<uint8_t>& request,
+                const hidl_string& url) {
+                if (status == StatusV1_2::OK) {
+                    EXPECT_NE(request.size(), 0u);
+                    provisionRequest = request;
+                    defaultUrl = url;
+                } else if (status == StatusV1_2::ERROR_DRM_CANNOT_HANDLE) {
+                    EXPECT_EQ(0u, request.size());
+                }
+            });
+    EXPECT_OK(res);
+
+    if (provisionRequest.size() > 0) {
+        vector<uint8_t> response = vendorModule->handleProvisioningRequest(
+                provisionRequest, defaultUrl);
+        ASSERT_NE(0u, response.size());
+
+        auto res = drmPlugin->provideProvisionResponse(
+                response, [&](StatusV1_0 status, const hidl_vec<uint8_t>&,
+                              const hidl_vec<uint8_t>&) {
+                    EXPECT_EQ(StatusV1_0::OK, status);
+                });
+        EXPECT_OK(res);
+    }
+}
+
+SessionId DrmHalTest::openSession(SecurityLevel level, StatusV1_0 *err) {
+    SessionId sessionId;
+    auto res = drmPlugin->openSession_1_1(level,
+        [&](StatusV1_0 status, const hidl_vec<unsigned char> &id) {
+            *err = status;
+            sessionId = id;
+    });
+    EXPECT_OK(res);
+    return sessionId;
 }
 
 /**
@@ -459,7 +520,7 @@ void DrmHalTest::aes_cbc_decrypt(uint8_t* dest, uint8_t* src,
 /**
  * Helper method to test decryption with invalid keys is returned
  */
-void DrmHalClearkeyTest::decryptWithInvalidKeys(
+void DrmHalClearkeyTestV1_2::decryptWithInvalidKeys(
         hidl_vec<uint8_t>& invalidResponse,
         vector<uint8_t>& iv,
         const Pattern& noPattern,

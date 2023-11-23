@@ -28,7 +28,10 @@ import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.ExecutionFiles.FilesKey;
+import com.android.tradefed.invoker.ExecutionFiles;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.logger.CurrentInvocation;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.suite.TestSuiteInfo;
 import com.android.tradefed.util.FileUtil;
@@ -211,14 +214,6 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
      * {@inheritDoc}
      */
     @Override
-    public void buildNotTested(IBuildInfo info) {
-        // ignore
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public void cleanUp(IBuildInfo info) {
         // Everything should have been copied properly to result folder, we clean up
         if (info instanceof IDeviceBuildInfo) {
@@ -265,6 +260,14 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
             File testDir = new File(rootDir, String.format("android-%s/testcases/",
                     getSuiteInfoName().toLowerCase()));
             ((IDeviceBuildInfo) info).setTestsDir(testDir, "0");
+            if (getInvocationFiles() != null) {
+                getInvocationFiles()
+                        .put(
+                                FilesKey.TESTS_DIRECTORY,
+                                testDir,
+                                /** Should not delete */
+                                mArtificialRootDir == null);
+            }
         }
         if (mURL != null && !mURL.isEmpty()) {
             String suiteName = mUrlSuiteNameOverride;
@@ -281,7 +284,8 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
      */
     @VisibleForTesting
     String getRootDirPath() {
-        String varName = String.format("%s_ROOT", getSuiteInfoName());
+        // Replace - in the suite name with _, as environment variable can't have - in name.
+        String varName = String.format("%s_ROOT", getSuiteInfoName().replace('-', '_'));
         String rootDirVariable = System.getProperty(varName);
         if (rootDirVariable != null) {
             return rootDirVariable;
@@ -317,6 +321,11 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
             buildNumber = versionFile;
         }
         return buildNumber;
+    }
+
+    @VisibleForTesting
+    ExecutionFiles getInvocationFiles() {
+        return CurrentInvocation.getInvocationFiles();
     }
 
     /**

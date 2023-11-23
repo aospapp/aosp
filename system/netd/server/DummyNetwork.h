@@ -14,27 +14,22 @@
  * limitations under the License.
  */
 
-#ifndef NETD_SERVER_DUMMY_NETWORK_H
-#define NETD_SERVER_DUMMY_NETWORK_H
+#pragma once
 
 #include "Network.h"
 
-namespace android {
-namespace net {
+namespace android::net {
 
 class DummyNetwork : public Network {
-public:
+  public:
     static const char* INTERFACE_NAME;
     explicit DummyNetwork(unsigned netId);
     virtual ~DummyNetwork();
 
-private:
+  private:
     Type getType() const override;
-    int addInterface(const std::string& interface) override WARN_UNUSED_RESULT;
-    int removeInterface(const std::string& interface) override WARN_UNUSED_RESULT;
+    [[nodiscard]] int addInterface(const std::string& interface) override;
+    [[nodiscard]] int removeInterface(const std::string& interface) override;
 };
 
-}  // namespace net
-}  // namespace android
-
-#endif  // NETD_SERVER_DUMMY_NETWORK_H
+}  // namespace android::net

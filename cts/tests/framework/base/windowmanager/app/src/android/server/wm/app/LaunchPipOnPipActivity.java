@@ -26,7 +26,6 @@ public class LaunchPipOnPipActivity extends Activity {
     public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode,
             Configuration newConfig) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
-        AlwaysFocusablePipActivity.launchAlwaysFocusablePipActivity(this,
-            getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK));
+        AlwaysFocusablePipActivity.launchAlwaysFocusablePipActivity(this, false);
     }
 }

@@ -454,7 +454,7 @@ public class OptionSetter {
                 if ((option.updateRule() == OptionUpdateRule.GREATEST) ||
                         (option.updateRule() == OptionUpdateRule.LEAST)) {
                     Class cType = (Class) type;
-                    if (!(Comparable.class.isAssignableFrom(cType))) {
+                    if (!Comparable.class.isAssignableFrom(cType)) {
                         throw new ConfigurationException(String.format(
                                 "Option '%s' in class '%s' attempts to use updateRule %s with " +
                                 "non-Comparable type '%s'.", option.name(),

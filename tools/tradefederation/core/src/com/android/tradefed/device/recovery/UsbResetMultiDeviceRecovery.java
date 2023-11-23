@@ -46,6 +46,11 @@ public class UsbResetMultiDeviceRecovery implements IMultiDeviceRecovery {
     @Option(name = "disable", description = "Disable the device recoverer.")
     private boolean mDisable = false;
 
+    @Option(
+            name = "only-reset-unmanaged",
+            description = "Only reset the device that are not currently managed by Tradefed.")
+    private boolean mOnlyResetUnmanaged = false;
+
     private String mFastbootPath = "fastboot";
 
     @Override
@@ -84,6 +89,9 @@ public class UsbResetMultiDeviceRecovery implements IMultiDeviceRecovery {
             // Perform a USB port reset on the remaining devices
             for (String serial : deviceSerials) {
                 try (UsbDevice device = usb.getDevice(serial)) {
+                    if (mOnlyResetUnmanaged && managedDeviceMap.containsKey(serial)) {
+                        continue;
+                    }
                     if (device == null) {
                         CLog.w("Device '%s' not found during USB reset.", serial);
                         continue;

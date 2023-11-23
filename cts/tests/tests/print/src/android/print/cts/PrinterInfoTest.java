@@ -33,8 +33,6 @@ import android.print.test.services.PrintServiceCallbacks;
 import android.print.test.services.PrinterDiscoverySessionCallbacks;
 import android.print.test.services.SecondPrintService;
 import android.print.test.services.StubbablePrinterDiscoverySession;
-import android.support.test.uiautomator.UiObject;
-import android.support.test.uiautomator.UiSelector;
 import android.text.TextUtils;
 
 import androidx.test.runner.AndroidJUnit4;
@@ -342,17 +340,10 @@ public class PrinterInfoTest extends BasePrintTest {
         // Wait for write of the first page.
         waitForWriteAdapterCallback(1);
 
-        // Open destination spinner
-        UiObject destinationSpinner = getUiDevice().findObject(new UiSelector().resourceId(
-                "com.android.printspooler:id/destination_spinner"));
-        destinationSpinner.click();
-
-        // Wait until spinner is opened
-        getUiDevice().waitForIdle();
+        mPrintHelper.displayPrinterList();
 
         // Exit print spooler
-        getUiDevice().pressBack();
-        getUiDevice().pressBack();
-        getUiDevice().pressBack();
+        mPrintHelper.closePrinterList();
+        mPrintHelper.cancelPrinting();
     }
 }

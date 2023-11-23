@@ -20,7 +20,11 @@ LOCAL_MODULE := CtsTfliteNnapiDelegateTests_static
 LOCAL_SRC_FILES := \
     tensorflow/lite/delegates/nnapi/nnapi_delegate_test.cc \
     tensorflow/lite/kernels/test_util.cc \
-    tensorflow/core/platform/default/logging.cc
+    tensorflow/core/platform/default/logging.cc \
+    tensorflow/lite/kernels/acceleration_test_util.cc \
+    tensorflow/lite/kernels/acceleration_test_util_internal.cc \
+    tensorflow/lite/delegates/nnapi/acceleration_test_list.cc \
+    tensorflow/lite/delegates/nnapi/acceleration_test_util.cc
 LOCAL_CPP_EXTENSION := .cc
 
 LOCAL_C_INCLUDES += external/flatbuffers/include
@@ -38,6 +42,7 @@ LOCAL_CFLAGS :=  \
 
 LOCAL_SHARED_LIBRARIES := libandroid liblog libneuralnetworks
 LOCAL_STATIC_LIBRARIES := libgtest_ndk_c++ libgmock_ndk libtflite_static
+LOCAL_HEADER_LIBRARIES := libeigen gemmlowp_headers
 LOCAL_SDK_VERSION := current
 LOCAL_NDK_STL_VARIANT := c++_static
 include $(BUILD_STATIC_LIBRARY)
@@ -61,7 +66,7 @@ LOCAL_STATIC_LIBRARIES := libgtest_ndk_c++ libtflite_static
 LOCAL_CTS_TEST_PACKAGE := android.neuralnetworks
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 mts general-tests
 
 LOCAL_SDK_VERSION := current
 LOCAL_NDK_STL_VARIANT := c++_static

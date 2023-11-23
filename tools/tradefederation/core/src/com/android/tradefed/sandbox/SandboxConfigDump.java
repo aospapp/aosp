@@ -25,9 +25,12 @@ import com.android.tradefed.config.SandboxConfigurationFactory;
 import com.android.tradefed.device.IDeviceSelection;
 import com.android.tradefed.log.FileLogger;
 import com.android.tradefed.log.ILeveledLogOutput;
+import com.android.tradefed.result.FileSystemLogSaver;
+import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.SubprocessResultsReporter;
 import com.android.tradefed.result.proto.StreamProtoResultReporter;
+import com.android.tradefed.testtype.SubprocessTfLauncher;
 import com.android.tradefed.util.StreamUtil;
 
 import java.io.File;
@@ -87,6 +90,8 @@ public class SandboxConfigDump {
             if (DumpCmd.RUN_CONFIG.equals(cmd) || DumpCmd.TEST_MODE.equals(cmd)) {
                 config.getCommandOptions().setShouldUseSandboxing(false);
                 config.getConfigurationDescription().setSandboxed(true);
+                // Don't use replication in the sandbox
+                config.getCommandOptions().setReplicateSetup(false);
                 // Set the reporter
                 ITestInvocationListener reporter = null;
                 if (getSandboxOptions(config).shouldUseProtoReporter()) {
@@ -103,13 +108,20 @@ public class SandboxConfigDump {
                     // Ensure we get the stdout logging in FileLogger case.
                     ((FileLogger) logger).setLogLevelDisplay(LogLevel.VERBOSE);
                 }
-                // Turn off some of the invocation level options that would be duplicated in the
-                // parent.
-                config.getCommandOptions().setBugreportOnInvocationEnded(false);
-                config.getCommandOptions().setBugreportzOnInvocationEnded(false);
+
+                ILogSaver logSaver = config.getLogSaver();
+                if (logSaver instanceof FileSystemLogSaver) {
+                    // Send the files directly, the parent will take care of compression if needed
+                    ((FileSystemLogSaver) logSaver).setCompressFiles(false);
+                }
 
                 // Ensure in special conditions (placeholder devices) we can still allocate.
                 secureDeviceAllocation(config);
+
+                // Mark as subprocess
+                config.getCommandOptions()
+                        .getInvocationData()
+                        .put(SubprocessTfLauncher.SUBPROCESS_TAG_NAME, "true");
             }
             if (DumpCmd.TEST_MODE.equals(cmd)) {
                 // We allow one more layer of sandbox to be generated
@@ -121,7 +133,11 @@ public class SandboxConfigDump {
             pw = new PrintWriter(resFile);
             if (DumpCmd.NON_VERSIONED_CONFIG.equals(cmd)) {
                 // Remove elements that are versioned.
-                config.dumpXml(pw, new ArrayList<>(VERSIONED_ELEMENTS));
+                config.dumpXml(
+                        pw,
+                        new ArrayList<>(VERSIONED_ELEMENTS),
+                        true, /* Don't print unchanged options */
+                        false);
             } else {
                 // FULL_XML in that case.
                 config.dumpXml(pw);

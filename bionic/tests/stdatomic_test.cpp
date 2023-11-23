@@ -15,9 +15,11 @@
  */
 
 #include <gtest/gtest.h>
-// Fool stdatomic.h into not using <atomic>.
-#undef _USING_LIBCXX
-#include <stdatomic.h>
+
+// The real <stdatomic.h> checks for the availability of C++'s atomics and uses them if present. Since
+// we want to test the libc versions, we instead include <bits/stdatomic.h> where they're actually defined.
+#include <bits/stdatomic.h>
+
 #include <pthread.h>
 #include <stdint.h>
 
@@ -67,12 +69,7 @@ TEST(stdatomic, atomic_is_lock_free) {
   atomic_char small;
   ASSERT_TRUE(atomic_is_lock_free(&small));
   atomic_intmax_t big;
-  // atomic_intmax_t(size = 64) is not lock free on mips32.
-#if defined(__mips__) && !defined(__LP64__)
-  ASSERT_FALSE(atomic_is_lock_free(&big));
-#else
   ASSERT_TRUE(atomic_is_lock_free(&big));
-#endif
 }
 
 TEST(stdatomic, atomic_flag) {

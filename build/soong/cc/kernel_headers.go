@@ -25,13 +25,16 @@ type kernelHeadersDecorator struct {
 func (stub *kernelHeadersDecorator) link(ctx ModuleContext, flags Flags, deps PathDeps, objs Objects) android.Path {
 	if ctx.Device() {
 		f := &stub.libraryDecorator.flagExporter
-		for _, dir := range ctx.DeviceConfig().DeviceKernelHeaderDirs() {
-			f.flags = append(f.flags, "-isystem "+dir)
-		}
+		f.reexportSystemDirs(android.PathsForSource(ctx, ctx.DeviceConfig().DeviceKernelHeaderDirs())...)
 	}
 	return stub.libraryDecorator.linkStatic(ctx, flags, deps, objs)
 }
 
+// kernel_headers retrieves the list of kernel headers directories from
+// TARGET_BOARD_KERNEL_HEADERS and TARGET_PRODUCT_KERNEL_HEADERS variables in
+// a makefile for compilation. See
+// https://android.googlesource.com/platform/build/+/master/core/config.mk
+// for more details on them.
 func kernelHeadersFactory() android.Module {
 	module, library := NewLibrary(android.HostAndDeviceSupported)
 	library.HeaderOnly()

@@ -66,15 +66,13 @@ func (p *testDecorator) AndroidMk(base *Module, ret *android.AndroidMkData) {
 			fmt.Fprintln(w, "LOCAL_COMPATIBILITY_SUITE :=",
 				strings.Join(p.binaryDecorator.binaryProperties.Test_suites, " "))
 		}
-		// If the test config has an explicit config specified use it.
-		if p.testProperties.Test_config != nil {
-			fmt.Fprintln(w, "LOCAL_TEST_CONFIG :=",
-				*p.testProperties.Test_config)
-		} else {
-			if p.testConfig != nil {
-				fmt.Fprintln(w, "LOCAL_FULL_TEST_CONFIG :=",
-					p.testConfig.String())
-			}
+		if p.testConfig != nil {
+			fmt.Fprintln(w, "LOCAL_FULL_TEST_CONFIG :=",
+				p.testConfig.String())
+		}
+
+		if !BoolDefault(p.binaryProperties.Auto_gen_config, true) {
+			fmt.Fprintln(w, "LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG := true")
 		}
 	})
 	base.subAndroidMk(ret, p.binaryDecorator.pythonInstaller)
@@ -89,13 +87,13 @@ func (installer *pythonInstaller) AndroidMk(base *Module, ret *android.AndroidMk
 
 	ret.Required = append(ret.Required, "libc++")
 	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) {
-		path := installer.path.RelPathString()
-		dir, file := filepath.Split(path)
+		path, file := filepath.Split(installer.path.ToMakePath().String())
 		stem := strings.TrimSuffix(file, filepath.Ext(file))
 
 		fmt.Fprintln(w, "LOCAL_MODULE_SUFFIX := "+filepath.Ext(file))
-		fmt.Fprintln(w, "LOCAL_MODULE_PATH := $(OUT_DIR)/"+filepath.Clean(dir))
+		fmt.Fprintln(w, "LOCAL_MODULE_PATH := "+path)
 		fmt.Fprintln(w, "LOCAL_MODULE_STEM := "+stem)
 		fmt.Fprintln(w, "LOCAL_SHARED_LIBRARIES := "+strings.Join(installer.androidMkSharedLibs, " "))
+		fmt.Fprintln(w, "LOCAL_CHECK_ELF_FILES := false")
 	})
 }

@@ -47,7 +47,7 @@ device_info_dir="$ANDROID_BUILD_TOP/cts/tools/cts-device-info/"`
 out_files=()
 
 function relpath() {
-    python -c "import os.path; print os.path.relpath('$1', '$PWD')"
+    python3 -c "import os.path; print(os.path.relpath('$1', '$PWD'))"
 }
 
 # Generates a file. Appends to $out_files array as a side effect.
@@ -66,7 +66,7 @@ function gen_file_abs() {
     local hal_version="${4:-3.2}"
     local spec_file=$thisdir/metadata_definitions.xml
 
-    python $thisdir/metadata_parser_xml.py $spec_file $in $out $hal_version
+    python3 $thisdir/metadata_parser_xml.py $spec_file $in $out $hal_version
 
     local succ=$?
 
@@ -128,7 +128,7 @@ function insert_file() {
     (( start_line-- ))
     (( end_line++ ))
 
-    # Do some basic sanity checks
+    # Do some basic validity checks
 
     if [[ -z "$start_line" ]]; then
        echo "No starting delimiter found in ${dst_file}" >& 2
@@ -192,7 +192,7 @@ function copy_directory() {
 
 $thisdir/metadata-check-dependencies || exit 1
 $thisdir/metadata-validate $thisdir/metadata_definitions.xml || exit 1
-$thisdir/metadata-parser-sanity-check || exit 1
+$thisdir/metadata-parser-validity-check || exit 1
 
 # Generate HTML properties documentation
 gen_file html.mako docs.html || exit 1
@@ -208,6 +208,8 @@ mkdir -p "${hidldir}/3.3"
 gen_file_abs HidlMetadata.mako "$hidldir/3.3/types.hal" yes 3.3 || exit 1
 mkdir -p "${hidldir}/3.4"
 gen_file_abs HidlMetadata.mako "$hidldir/3.4/types.hal" yes 3.4 || exit 1
+mkdir -p "${hidldir}/3.5"
+gen_file_abs HidlMetadata.mako "$hidldir/3.5/types.hal" yes 3.5 || exit 1
 
 #Generate NDK header
 gen_file_abs ndk_camera_metadata_tags.mako "$ndk_header_dir/NdkCameraMetadataTags.h" yes || exit 1

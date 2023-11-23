@@ -186,9 +186,19 @@ public class SubPlanHelperTest extends TestCase {
         moduleBTest4.setResultStatus(TestStatus.PASS);
 
         // Serialize to file
-        ResultHandler.writeResults(SUITE_NAME, SUITE_VERSION, SUITE_PLAN, SUITE_BUILD,
-                result, mResultDir, START_MS, END_MS, REFERENCE_URL, LOG_URL,
-                COMMAND_LINE_ARGS);
+        ResultHandler.writeResults(
+                SUITE_NAME,
+                SUITE_VERSION,
+                SUITE_PLAN,
+                SUITE_BUILD,
+                result,
+                mResultDir,
+                START_MS,
+                END_MS,
+                REFERENCE_URL,
+                LOG_URL,
+                COMMAND_LINE_ARGS,
+                null);
     }
 
     private class SpctMockCompatibilityBuildHelper extends CompatibilityBuildHelper {

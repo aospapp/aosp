@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_library {
+cc_library_static {
     name: "libgtest_isolated",
     host_supported: true,
     cflags: ["-Wall", "-Werror"],
@@ -27,17 +27,22 @@ cc_library {
         "Test.cpp",
     ],
 
-    // NOTE: libbase and liblog are re-exported by including them below.
-    // When Soong supports transitive static dependency includes, these
-    // libraries can be removed.
+    // NOTE: libbase is re-exported by including them below.
+    // When Soong supports transitive static dependency includes, this
+    // library can be removed.
     whole_static_libs: [
         "libbase",
         "libgtest",
+    ],
+
+    // Add liblog as a shared library so that gtests can override liblog
+    // functions without getting duplicate symbols.
+    shared_libs: [
         "liblog",
     ],
 }
 
-cc_library {
+cc_library_static {
     name: "libgtest_isolated_main",
     host_supported: true,
     cflags: ["-Wall", "-Werror"],
@@ -47,6 +52,12 @@ cc_library {
 
     whole_static_libs: [
         "libgtest_isolated",
+    ],
+
+    // Add liblog as a shared library so that gtests can override liblog
+    // functions without getting duplicate symbols.
+    shared_libs: [
+        "liblog",
     ],
 }
 
@@ -59,6 +70,14 @@ cc_test {
     ],
     cflags: ["-Wall", "-Werror"],
 
-    shared_libs: ["libbase"],
+    shared_libs: [
+        "libbase",
+        "liblog",
+    ],
+    static_libs: [
+        "libgmock",
+    ],
     whole_static_libs: ["libgtest_isolated_main"],
+
+    test_suites: ["device-tests"],
 }

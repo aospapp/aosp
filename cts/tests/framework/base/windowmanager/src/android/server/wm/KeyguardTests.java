@@ -20,10 +20,7 @@ import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
-import static android.server.wm.ComponentNameUtils.getActivityName;
 import static android.server.wm.ComponentNameUtils.getWindowName;
-import static android.server.wm.UiDeviceUtils.pressBackButton;
-import static android.server.wm.UiDeviceUtils.pressHomeButton;
 import static android.server.wm.app.Components.BROADCAST_RECEIVER_ACTIVITY;
 import static android.server.wm.app.Components.DISMISS_KEYGUARD_ACTIVITY;
 import static android.server.wm.app.Components.DISMISS_KEYGUARD_METHOD_ACTIVITY;
@@ -71,6 +68,7 @@ import org.junit.Test;
  *     atest CtsWindowManagerDeviceTestCases:KeyguardTests
  */
 @Presubmit
+@android.server.wm.annotation.Group2
 public class KeyguardTests extends KeyguardTestBase {
     class AodSession extends SettingsSession<Integer> {
         private AmbientDisplayConfiguration mConfig;
@@ -86,7 +84,7 @@ public class KeyguardTests extends KeyguardTestBase {
             return mConfig.alwaysOnAvailable();
         }
 
-        void setAodEnabled(boolean enabled) throws Exception {
+        void setAodEnabled(boolean enabled) {
             set(enabled ? 1 : 0);
         }
     }
@@ -100,32 +98,32 @@ public class KeyguardTests extends KeyguardTestBase {
     }
 
     @Test
-    public void testKeyguardHidesActivity() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(TEST_ACTIVITY);
-            mAmWmState.computeState(TEST_ACTIVITY);
-            mAmWmState.assertVisibility(TEST_ACTIVITY, true);
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
-            assertTrue(mKeyguardManager.isKeyguardLocked());
-            mAmWmState.assertVisibility(TEST_ACTIVITY, false);
-        }
+    public void testKeyguardHidesActivity() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(TEST_ACTIVITY);
+        mWmState.computeState(TEST_ACTIVITY);
+        mWmState.assertVisibility(TEST_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        mWmState.assertKeyguardShowingAndNotOccluded();
+        assertTrue(mKeyguardManager.isKeyguardLocked());
+        mWmState.assertVisibility(TEST_ACTIVITY, false);
+
+        mObjectTracker.close(lockScreenSession);
         assertFalse(mKeyguardManager.isKeyguardLocked());
     }
 
     @Test
     @FlakyTest(bugId = 110276714)
-    public void testShowWhenLockedActivity() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
-            lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.computeState(true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
-            mAmWmState.assertKeyguardShowingAndOccluded();
-        }
+    public void testShowWhenLockedActivity() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.computeState();
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        mWmState.assertKeyguardShowingAndOccluded();
     }
 
     /**
@@ -133,56 +131,87 @@ public class KeyguardTests extends KeyguardTestBase {
      * showing.
      */
     @Test
-    public void testShowWhenLockedActivity_withDialog() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY);
-            mAmWmState.computeState(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY, true);
-            lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY);
-            mAmWmState.computeState(true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY, true);
-            assertTrue(mAmWmState.getWmState().allWindowsVisible(
-                    getWindowName(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY)));
-            mAmWmState.assertKeyguardShowingAndOccluded();
-        }
+    public void testShowWhenLockedActivity_withDialog() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY);
+        mWmState.computeState(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY);
+        mWmState.waitFor((wmState) -> wmState.allWindowSurfacesShown(
+                getWindowName(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY)),
+                "Wait for all windows visible for " + SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY, true);
+        assertTrue(mWmState.allWindowSurfacesShown(
+                getWindowName(SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY)));
+        mWmState.assertKeyguardShowingAndOccluded();
     }
 
     /**
      * Tests whether multiple SHOW_WHEN_LOCKED activities are shown if the topmost is translucent.
      */
     @Test
-    public void testMultipleShowWhenLockedActivities() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
-            launchActivity(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY,
-                    SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
-            lockScreenSession.gotoKeyguard(
-                    SHOW_WHEN_LOCKED_ACTIVITY, SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.computeState(true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
-            mAmWmState.assertKeyguardShowingAndOccluded();
-        }
+    public void testMultipleShowWhenLockedActivities() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
+        launchActivity(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY,
+                SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard(
+                SHOW_WHEN_LOCKED_ACTIVITY, SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.computeState();
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
+        mWmState.assertKeyguardShowingAndOccluded();
+    }
+
+    /**
+     * Tests that when top SHOW_WHEN_LOCKED activity is finishing and the next one is also
+     * SHOW_WHEN_LOCKED, it should be able to resume next SHOW_WHEN_LOCKED activity.
+     */
+    @Test
+    public void testFinishMultipleShowWhenLockedActivities() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        final ActivitySessionClient activitySession = createManagedActivityClientSession();
+
+        launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
+        final ActivitySession showWhenLockedActivitySession =
+                activitySession.startActivity(getLaunchActivityBuilder()
+                        .setUseInstrumentation()
+                        .setNewTask(true)
+                        .setMultipleTask(true)
+                        .setTargetActivity(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY));
+
+        mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY, SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, false);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
+
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, false);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY, true);
+        mWmState.assertKeyguardShowingAndOccluded();
+
+        showWhenLockedActivitySession.finish();
+        mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        mWmState.assertKeyguardShowingAndOccluded();
     }
 
     /**
      * If we have a translucent SHOW_WHEN_LOCKED_ACTIVITY, the wallpaper should also be showing.
      */
     @Test
-    public void testTranslucentShowWhenLockedActivity() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.computeState(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
-            lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.computeState(true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
-            assertWallpaperShowing();
-            mAmWmState.assertKeyguardShowingAndOccluded();
-        }
+    public void testTranslucentShowWhenLockedActivity() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.computeState(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.computeState();
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
+        assertWallpaperShowing();
+        mWmState.assertKeyguardShowingAndOccluded();
     }
 
     /**
@@ -190,33 +219,31 @@ public class KeyguardTests extends KeyguardTestBase {
      */
     @Test
     @FlakyTest
-    public void testTranslucentDoesntRevealBehind() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(TEST_ACTIVITY);
-            launchActivity(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.computeState(TEST_ACTIVITY, SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.assertVisibility(TEST_ACTIVITY, true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
-            lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
-            mAmWmState.computeState(true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
-            mAmWmState.assertVisibility(TEST_ACTIVITY, false);
-            mAmWmState.assertKeyguardShowingAndOccluded();
-        }
+    public void testTranslucentDoesntRevealBehind() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(TEST_ACTIVITY);
+        launchActivity(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.computeState(TEST_ACTIVITY, SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.assertVisibility(TEST_ACTIVITY, true);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
+        mWmState.computeState();
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY, true);
+        mWmState.assertVisibility(TEST_ACTIVITY, false);
+        mWmState.assertKeyguardShowingAndOccluded();
     }
 
     @Test
-    public void testDialogShowWhenLockedActivity() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY);
-            mAmWmState.computeState(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY, true);
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY, true);
-            assertWallpaperShowing();
-            mAmWmState.assertKeyguardShowingAndOccluded();
-        }
+    public void testDialogShowWhenLockedActivity() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY);
+        mWmState.computeState(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY, true);
+        assertWallpaperShowing();
+        mWmState.assertKeyguardShowingAndOccluded();
     }
 
     /**
@@ -224,24 +251,22 @@ public class KeyguardTests extends KeyguardTestBase {
      */
     @Test
     @Presubmit
-    public void testShowWhenLockedActivityWhileSplit() throws Exception {
+    public void testShowWhenLockedActivityWhileSplit() {
         assumeTrue(supportsSplitScreenMultiWindow());
 
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivitiesInSplitScreen(
-                    getLaunchActivityBuilder().setTargetActivity(LAUNCHING_ACTIVITY),
-                    getLaunchActivityBuilder().setTargetActivity(SHOW_WHEN_LOCKED_ACTIVITY)
-                            .setRandomData(true)
-                            .setMultipleTask(false)
-            );
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
-            lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
-            mAmWmState.assertKeyguardShowingAndOccluded();
-            mAmWmState.assertDoesNotContainStack("Activity must be full screen.",
-                    WINDOWING_MODE_SPLIT_SCREEN_PRIMARY, ACTIVITY_TYPE_STANDARD);
-        }
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivitiesInSplitScreen(
+                getLaunchActivityBuilder().setTargetActivity(LAUNCHING_ACTIVITY),
+                getLaunchActivityBuilder().setTargetActivity(SHOW_WHEN_LOCKED_ACTIVITY)
+                        .setRandomData(true)
+                        .setMultipleTask(false));
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        mWmState.assertKeyguardShowingAndOccluded();
+        mWmState.assertDoesNotContainStack("Activity must be full screen.",
+                WINDOWING_MODE_SPLIT_SCREEN_PRIMARY, ACTIVITY_TYPE_STANDARD);
     }
 
     /**
@@ -250,23 +275,22 @@ public class KeyguardTests extends KeyguardTestBase {
      */
     @Test
     @FlakyTest
-    public void testInheritShowWhenLockedAdd() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
+    public void testInheritShowWhenLockedAdd() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
 
-            launchActivity(INHERIT_SHOW_WHEN_LOCKED_ADD_ACTIVITY);
-            mAmWmState.computeState(
-                    SHOW_WHEN_LOCKED_ATTR_ACTIVITY, INHERIT_SHOW_WHEN_LOCKED_ADD_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-            mAmWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_ADD_ACTIVITY, true);
+        launchActivity(INHERIT_SHOW_WHEN_LOCKED_ADD_ACTIVITY);
+        mWmState.computeState(
+                SHOW_WHEN_LOCKED_ATTR_ACTIVITY, INHERIT_SHOW_WHEN_LOCKED_ADD_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
+        mWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_ADD_ACTIVITY, true);
 
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            mAmWmState.assertKeyguardShowingAndOccluded();
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-            mAmWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_ADD_ACTIVITY, true);
-        }
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        mWmState.assertKeyguardShowingAndOccluded();
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
+        mWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_ADD_ACTIVITY, true);
     }
 
     /**
@@ -276,24 +300,23 @@ public class KeyguardTests extends KeyguardTestBase {
      */
     @Test
     @FlakyTest
-    public void testInheritShowWhenLockedRemove() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
+    public void testInheritShowWhenLockedRemove() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
 
-            launchActivity(INHERIT_SHOW_WHEN_LOCKED_REMOVE_ACTIVITY);
-            mAmWmState.computeState(
-                    SHOW_WHEN_LOCKED_ATTR_ACTIVITY, INHERIT_SHOW_WHEN_LOCKED_REMOVE_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-            mAmWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_REMOVE_ACTIVITY, true);
+        launchActivity(INHERIT_SHOW_WHEN_LOCKED_REMOVE_ACTIVITY);
+        mWmState.computeState(
+                SHOW_WHEN_LOCKED_ATTR_ACTIVITY, INHERIT_SHOW_WHEN_LOCKED_REMOVE_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
+        mWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_REMOVE_ACTIVITY, true);
 
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
-            assertTrue(mKeyguardManager.isKeyguardLocked());
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-            mAmWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_REMOVE_ACTIVITY, false);
-        }
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        mWmState.assertKeyguardShowingAndNotOccluded();
+        assertTrue(mKeyguardManager.isKeyguardLocked());
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
+        mWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_REMOVE_ACTIVITY, false);
     }
 
     /**
@@ -302,23 +325,22 @@ public class KeyguardTests extends KeyguardTestBase {
      * */
     @Test
     @FlakyTest
-    public void testInheritShowWhenLockedAttr() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
+    public void testInheritShowWhenLockedAttr() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
 
-            launchActivity(INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
-            mAmWmState.computeState(
-                    SHOW_WHEN_LOCKED_ATTR_ACTIVITY, INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-            mAmWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
+        launchActivity(INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
+        mWmState.computeState(
+                SHOW_WHEN_LOCKED_ATTR_ACTIVITY, INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
+        mWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
 
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            mAmWmState.assertKeyguardShowingAndOccluded();
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-            mAmWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
-        }
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        mWmState.assertKeyguardShowingAndOccluded();
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
+        mWmState.assertVisibility(INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
     }
 
     /**
@@ -327,63 +349,62 @@ public class KeyguardTests extends KeyguardTestBase {
      * */
     @Test
     @FlakyTest
-    public void testNoInheritShowWhenLocked() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
+    public void testNoInheritShowWhenLocked() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
 
-            launchActivity(NO_INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
-            mAmWmState.computeState(
-                    SHOW_WHEN_LOCKED_ATTR_ACTIVITY, NO_INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-            mAmWmState.assertVisibility(NO_INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
+        launchActivity(NO_INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
+        mWmState.computeState(
+                SHOW_WHEN_LOCKED_ATTR_ACTIVITY, NO_INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
+        mWmState.assertVisibility(NO_INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY, true);
 
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
-            assertTrue(mKeyguardManager.isKeyguardLocked());
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-            mAmWmState.assertVisibility(NO_INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
-        }
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        mWmState.assertKeyguardShowingAndNotOccluded();
+        assertTrue(mKeyguardManager.isKeyguardLocked());
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
+        mWmState.assertVisibility(NO_INHERIT_SHOW_WHEN_LOCKED_ATTR_ACTIVITY, false);
     }
 
     @Test
     public void testNoTransientConfigurationWhenShowWhenLockedRequestsOrientation() {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession();
-                final ActivitySessionClient activitySession = new ActivitySessionClient(mContext)) {
-            final ActivitySession showWhenLockedActivitySession =
-                    activitySession.startActivity(getLaunchActivityBuilder()
-                            .setUseInstrumentation()
-                            .setTargetActivity(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY));
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY, true);
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        final ActivitySessionClient activitySession = createManagedActivityClientSession();
 
-            lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
+        final ActivitySession showWhenLockedActivitySession =
+                activitySession.startActivity(getLaunchActivityBuilder()
+                        .setUseInstrumentation()
+                        .setTargetActivity(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY));
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY, true);
 
-            separateTestJournal();
+        lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
 
-            final int displayId = mAmWmState.getAmState()
-                    .getDisplayByActivity(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
-            ActivityManagerState.ActivityDisplay display = mAmWmState.getAmState()
-                    .getDisplay(displayId);
-            final int origDisplayOrientation = display.mFullConfiguration.orientation;
-            final int orientation = origDisplayOrientation == Configuration.ORIENTATION_LANDSCAPE
-                    ? SCREEN_ORIENTATION_PORTRAIT
-                    : SCREEN_ORIENTATION_LANDSCAPE;
-            showWhenLockedActivitySession.requestOrientation(orientation);
+        separateTestJournal();
 
-            mAmWmState.waitForActivityOrientation(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY,
-                    orientation == SCREEN_ORIENTATION_LANDSCAPE
-                            ? Configuration.ORIENTATION_LANDSCAPE
-                            : Configuration.ORIENTATION_PORTRAIT);
+        final int displayId = mWmState
+                .getDisplayByActivity(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
+        WindowManagerState.DisplayContent display = mWmState
+                .getDisplay(displayId);
+        final int origDisplayOrientation = display.mFullConfiguration.orientation;
+        final int orientation = origDisplayOrientation == Configuration.ORIENTATION_LANDSCAPE
+                ? SCREEN_ORIENTATION_PORTRAIT
+                : SCREEN_ORIENTATION_LANDSCAPE;
+        showWhenLockedActivitySession.requestOrientation(orientation);
 
-            display = mAmWmState.getAmState().getDisplay(displayId);
+        mWmState.waitForActivityOrientation(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY,
+                orientation == SCREEN_ORIENTATION_LANDSCAPE
+                        ? Configuration.ORIENTATION_LANDSCAPE
+                        : Configuration.ORIENTATION_PORTRAIT);
 
-            // If the window is a non-fullscreen window (e.g. a freeform window) or the display is
-            // squared, there won't be activity lifecycle.
-            if (display.mFullConfiguration.orientation != origDisplayOrientation) {
-                assertActivityLifecycle(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY,
-                        false /* relaunched */);
-            }
+        display = mWmState.getDisplay(displayId);
+
+        // If the window is a non-fullscreen window (e.g. a freeform window) or the display is
+        // squared, there won't be activity lifecycle.
+        if (display.mFullConfiguration.orientation != origDisplayOrientation) {
+            assertActivityLifecycle(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY,
+                    false /* relaunched */);
         }
     }
 
@@ -407,184 +428,179 @@ public class KeyguardTests extends KeyguardTestBase {
     }
 
     private void testResumeOccludingActivityFromBackground(ComponentName occludingActivity) {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        lockScreenSession.gotoKeyguard();
+        mWmState.assertKeyguardShowingAndNotOccluded();
 
-            // Launch an activity which is able to occlude keyguard.
-            getLaunchActivityBuilder().setUseInstrumentation()
-                    .setTargetActivity(occludingActivity).execute();
+        // Launch an activity which is able to occlude keyguard.
+        getLaunchActivityBuilder().setUseInstrumentation()
+                .setTargetActivity(occludingActivity).execute();
 
-            // Launch an activity without SHOW_WHEN_LOCKED and finish it.
-            getLaunchActivityBuilder().setUseInstrumentation()
-                    .setMultipleTask(true)
-                    // Don't wait for activity visible because keyguard will show.
-                    .setWaitForLaunched(false)
-                    .setTargetActivity(BROADCAST_RECEIVER_ACTIVITY).execute();
-            mAmWmState.waitForKeyguardShowingAndNotOccluded();
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
+        // Launch an activity without SHOW_WHEN_LOCKED and finish it.
+        getLaunchActivityBuilder().setUseInstrumentation()
+                .setMultipleTask(true)
+                // Don't wait for activity visible because keyguard will show.
+                .setWaitForLaunched(false)
+                .setTargetActivity(BROADCAST_RECEIVER_ACTIVITY).execute();
+        mWmState.waitForKeyguardShowingAndNotOccluded();
+        mWmState.assertKeyguardShowingAndNotOccluded();
 
-            mBroadcastActionTrigger.finishBroadcastReceiverActivity();
-            mAmWmState.waitForKeyguardShowingAndOccluded();
+        mBroadcastActionTrigger.finishBroadcastReceiverActivity();
+        mWmState.waitForKeyguardShowingAndOccluded();
 
-            // The occluding activity should be resumed because it becomes the top activity.
-            mAmWmState.computeState(occludingActivity);
-            mAmWmState.assertVisibility(occludingActivity, true);
-            assertTrue(occludingActivity + " must be resumed.",
-                    mAmWmState.getAmState().hasActivityState(occludingActivity,
-                            ActivityManagerState.STATE_RESUMED));
-        }
+        // The occluding activity should be resumed because it becomes the top activity.
+        mWmState.computeState(occludingActivity);
+        mWmState.assertVisibility(occludingActivity, true);
+        assertTrue(occludingActivity + " must be resumed.",
+                mWmState.hasActivityState(occludingActivity,
+                        WindowManagerState.STATE_RESUMED));
     }
 
     /**
      * Tests whether a FLAG_DISMISS_KEYGUARD activity occludes Keyguard.
      */
     @Test
-    public void testDismissKeyguardActivity() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            assertTrue(mAmWmState.getAmState().getKeyguardControllerState().keyguardShowing);
-            launchActivity(DISMISS_KEYGUARD_ACTIVITY);
-            mAmWmState.waitForKeyguardShowingAndOccluded();
-            mAmWmState.computeState(DISMISS_KEYGUARD_ACTIVITY);
-            mAmWmState.assertVisibility(DISMISS_KEYGUARD_ACTIVITY, true);
-            mAmWmState.assertKeyguardShowingAndOccluded();
-        }
+    public void testDismissKeyguardActivity() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        assertTrue(mWmState.getKeyguardControllerState().keyguardShowing);
+        launchActivity(DISMISS_KEYGUARD_ACTIVITY);
+        mWmState.waitForKeyguardShowingAndOccluded();
+        mWmState.computeState(DISMISS_KEYGUARD_ACTIVITY);
+        mWmState.assertVisibility(DISMISS_KEYGUARD_ACTIVITY, true);
+        mWmState.assertKeyguardShowingAndOccluded();
     }
 
     @Test
-    public void testDismissKeyguardActivity_method() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            separateTestJournal();
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            assertTrue(mAmWmState.getAmState().getKeyguardControllerState().keyguardShowing);
-            launchActivity(DISMISS_KEYGUARD_METHOD_ACTIVITY);
-            mAmWmState.waitForKeyguardGone();
-            mAmWmState.computeState(DISMISS_KEYGUARD_METHOD_ACTIVITY);
-            mAmWmState.assertVisibility(DISMISS_KEYGUARD_METHOD_ACTIVITY, true);
-            assertFalse(mAmWmState.getAmState().getKeyguardControllerState().keyguardShowing);
-            assertOnDismissSucceeded(DISMISS_KEYGUARD_METHOD_ACTIVITY);
-        }
+    public void testDismissKeyguardActivity_method() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        separateTestJournal();
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        assertTrue(mWmState.getKeyguardControllerState().keyguardShowing);
+        launchActivity(DISMISS_KEYGUARD_METHOD_ACTIVITY);
+        mWmState.waitForKeyguardGone();
+        mWmState.computeState(DISMISS_KEYGUARD_METHOD_ACTIVITY);
+        mWmState.assertVisibility(DISMISS_KEYGUARD_METHOD_ACTIVITY, true);
+        assertFalse(mWmState.getKeyguardControllerState().keyguardShowing);
+        assertOnDismissSucceeded(DISMISS_KEYGUARD_METHOD_ACTIVITY);
     }
 
     @Test
-    public void testDismissKeyguardActivity_method_notTop() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            separateTestJournal();
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.computeState(true);
-            assertTrue(mAmWmState.getAmState().getKeyguardControllerState().keyguardShowing);
-            launchActivity(BROADCAST_RECEIVER_ACTIVITY);
-            launchActivity(TEST_ACTIVITY);
-            mBroadcastActionTrigger.dismissKeyguardByMethod();
-            assertOnDismissError(BROADCAST_RECEIVER_ACTIVITY);
-        }
+    public void testDismissKeyguardActivity_method_notTop() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        separateTestJournal();
+        lockScreenSession.gotoKeyguard();
+        mWmState.computeState();
+        assertTrue(mWmState.getKeyguardControllerState().keyguardShowing);
+        launchActivity(BROADCAST_RECEIVER_ACTIVITY);
+        launchActivity(TEST_ACTIVITY);
+        mBroadcastActionTrigger.dismissKeyguardByMethod();
+        assertOnDismissError(BROADCAST_RECEIVER_ACTIVITY);
     }
 
     @Test
-    public void testDismissKeyguardActivity_method_turnScreenOn() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            separateTestJournal();
-            lockScreenSession.sleepDevice();
-            mAmWmState.computeState(true);
-            assertTrue(mAmWmState.getAmState().getKeyguardControllerState().keyguardShowing);
-            launchActivity(TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY);
-            mAmWmState.waitForKeyguardGone();
-            mAmWmState.computeState(TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY);
-            mAmWmState.assertVisibility(TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY, true);
-            assertFalse(mAmWmState.getAmState().getKeyguardControllerState().keyguardShowing);
-            assertOnDismissSucceeded(TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY);
-            assertTrue(isDisplayOn(DEFAULT_DISPLAY));
-        }
+    public void testDismissKeyguardActivity_method_turnScreenOn() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        separateTestJournal();
+        lockScreenSession.sleepDevice();
+        mWmState.computeState();
+        assertTrue(mWmState.getKeyguardControllerState().keyguardShowing);
+        launchActivity(TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY);
+        mWmState.waitForKeyguardGone();
+        mWmState.computeState(TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY);
+        mWmState.assertVisibility(TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY, true);
+        assertFalse(mWmState.getKeyguardControllerState().keyguardShowing);
+        assertOnDismissSucceeded(TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY);
+        assertTrue(isDisplayOn(DEFAULT_DISPLAY));
     }
 
     @Test
-    public void testDismissKeyguard_fromShowWhenLocked_notAllowed() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
-            launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
-            mAmWmState.assertKeyguardShowingAndOccluded();
-            mBroadcastActionTrigger.dismissKeyguardByFlag();
-            mAmWmState.assertKeyguardShowingAndOccluded();
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
-        }
+    public void testDismissKeyguard_fromShowWhenLocked_notAllowed() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        lockScreenSession.gotoKeyguard();
+        mWmState.assertKeyguardShowingAndNotOccluded();
+        launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        mWmState.assertKeyguardShowingAndOccluded();
+        mBroadcastActionTrigger.dismissKeyguardByFlag();
+        mWmState.assertKeyguardShowingAndOccluded();
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
     }
 
     @Test
-    public void testKeyguardLock() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
-            launchActivity(KEYGUARD_LOCK_ACTIVITY);
-            mAmWmState.computeState(KEYGUARD_LOCK_ACTIVITY);
-            mAmWmState.assertVisibility(KEYGUARD_LOCK_ACTIVITY, true);
-            mBroadcastActionTrigger.finishBroadcastReceiverActivity();
-            mAmWmState.waitForKeyguardShowingAndNotOccluded();
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
-        }
+    public void testKeyguardLock() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        lockScreenSession.gotoKeyguard();
+        mWmState.assertKeyguardShowingAndNotOccluded();
+        launchActivity(KEYGUARD_LOCK_ACTIVITY);
+        mWmState.computeState(KEYGUARD_LOCK_ACTIVITY);
+        mWmState.assertVisibility(KEYGUARD_LOCK_ACTIVITY, true);
+        mBroadcastActionTrigger.finishBroadcastReceiverActivity();
+        mWmState.waitForKeyguardShowingAndNotOccluded();
+        mWmState.assertKeyguardShowingAndNotOccluded();
     }
 
-    @Test
-    public void testUnoccludeRotationChange() throws Exception {
 
+    /**
+     * Turn on keyguard, and launch an activity on top of the keyguard.
+     * Next, change the orientation of the device to rotate the activity.
+     * The activity should still remain above keyguard at this point.
+     * Send the 'finish' broadcast to dismiss the activity.
+     * Ensure that the activity is gone, and the keyguard is visible.
+     */
+    @Test
+    public void testUnoccludedRotationChange() {
         // Go home now to make sure Home is behind Keyguard.
-        pressHomeButton();
-        try (final LockScreenSession lockScreenSession = new LockScreenSession();
-             final RotationSession rotationSession = new RotationSession()) {
-            lockScreenSession.gotoKeyguard();
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
-            launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
-            mAmWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        launchHomeActivity();
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        final RotationSession rotationSession = createManagedRotationSession();
+        lockScreenSession.gotoKeyguard();
+        mWmState.assertKeyguardShowingAndNotOccluded();
 
-            rotationSession.set(ROTATION_90);
-            pressBackButton();
-            mAmWmState.waitForKeyguardShowingAndNotOccluded();
-            mAmWmState.waitForDisplayUnfrozen();
-            mAmWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
-            mAmWmState.assertSanity();
-            mAmWmState.assertHomeActivityVisible(false);
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
-            // The activity may not be destroyed immediately.
-            mAmWmState.waitForWithWmState(
-                    wmState -> !wmState.containsWindow(getWindowName(SHOW_WHEN_LOCKED_ACTIVITY)),
-                    "Waiting for " + getActivityName(SHOW_WHEN_LOCKED_ACTIVITY) + " to be removed");
-            // The {@link SHOW_WHEN_LOCKED_ACTIVITY} has gone because of {@link pressBackButton()}.
-            mAmWmState.assertNotExist(SHOW_WHEN_LOCKED_ACTIVITY);
-        }
+        launchActivity(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
+        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+
+        rotationSession.set(ROTATION_90);
+        mBroadcastActionTrigger.finishBroadcastReceiverActivity();
+        mWmState.waitForKeyguardShowingAndNotOccluded();
+        mWmState.waitForDisplayUnfrozen();
+        mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
+        mWmState.assertSanity();
+        mWmState.assertHomeActivityVisible(false);
+        mWmState.assertKeyguardShowingAndNotOccluded();
+        // The {@link SHOW_WHEN_LOCKED_ACTIVITY} has gone because of the 'finish' broadcast.
+        mWmState.waitAndAssertActivityRemoved(SHOW_WHEN_LOCKED_ACTIVITY);
     }
 
     private void assertWallpaperShowing() {
         WindowState wallpaper =
-                mAmWmState.getWmState().findFirstWindowWithType(TYPE_WALLPAPER);
+                mWmState.findFirstWindowWithType(TYPE_WALLPAPER);
         assertNotNull(wallpaper);
-        assertTrue(wallpaper.isShown());
+        assertTrue(wallpaper.isSurfaceShown());
     }
 
     @Test
-    public void testDismissKeyguardAttrActivity_method_turnScreenOn() throws Exception {
-        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
-            lockScreenSession.sleepDevice();
+    public void testDismissKeyguardAttrActivity_method_turnScreenOn() {
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        lockScreenSession.sleepDevice();
 
-            separateTestJournal();
-            mAmWmState.computeState(true);
-            assertTrue(mAmWmState.getAmState().getKeyguardControllerState().keyguardShowing);
-            launchActivity(TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY);
-            mAmWmState.waitForKeyguardGone();
-            mAmWmState.assertVisibility(TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY, true);
-            assertFalse(mAmWmState.getAmState().getKeyguardControllerState().keyguardShowing);
-            assertOnDismissSucceeded(TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY);
-            assertTrue(isDisplayOn(DEFAULT_DISPLAY));
-        }
+        separateTestJournal();
+        mWmState.computeState();
+        assertTrue(mWmState.getKeyguardControllerState().keyguardShowing);
+        launchActivity(TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY);
+        mWmState.waitForKeyguardGone();
+        mWmState.assertVisibility(TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY, true);
+        assertFalse(mWmState.getKeyguardControllerState().keyguardShowing);
+        assertOnDismissSucceeded(TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY);
+        assertTrue(isDisplayOn(DEFAULT_DISPLAY));
     }
 
     @Test
-    public void testScreenOffWhileOccludedStopsActivityNoAod() throws Exception {
+    public void testScreenOffWhileOccludedStopsActivityNoAod() {
         try (final AodSession aodSession = new AodSession()) {
             aodSession.setAodEnabled(false);
             testScreenOffWhileOccludedStopsActivity(false /* assertAod */);
@@ -592,7 +608,7 @@ public class KeyguardTests extends KeyguardTestBase {
     }
 
     @Test
-    public void testScreenOffWhileOccludedStopsActivityAod() throws Exception {
+    public void testScreenOffWhileOccludedStopsActivityAod() {
         try (final AodSession aodSession = new AodSession()) {
             assumeTrue(aodSession.isAodAvailable());
             aodSession.setAodEnabled(true);
@@ -608,25 +624,25 @@ public class KeyguardTests extends KeyguardTestBase {
         try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
             separateTestJournal();
             lockScreenSession.gotoKeyguard();
-            mAmWmState.assertKeyguardShowingAndNotOccluded();
+            mWmState.assertKeyguardShowingAndNotOccluded();
             launchActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
             waitAndAssertTopResumedActivity(SHOW_WHEN_LOCKED_ATTR_ACTIVITY, DEFAULT_DISPLAY,
                     "Activity with showWhenLocked attribute should be resumed.");
-            mAmWmState.assertKeyguardShowingAndOccluded();
+            mWmState.assertKeyguardShowingAndOccluded();
             if (assertAod) {
-                mAmWmState.assertAodNotShowing();
+                mWmState.assertAodNotShowing();
             }
             lockScreenSession.sleepDevice();
             if (assertAod) {
-                mAmWmState.assertAodShowing();
+                mWmState.assertAodShowing();
             }
-            mAmWmState.waitForAllStoppedActivities();
+            mWmState.waitForAllStoppedActivities();
             assertSingleLaunchAndStop(SHOW_WHEN_LOCKED_ATTR_ACTIVITY);
         }
     }
 
     @Test
-    public void testScreenOffCausesSingleStopNoAod() throws Exception {
+    public void testScreenOffCausesSingleStopNoAod() {
         try (final AodSession aodSession = new AodSession()) {
             aodSession.setAodEnabled(false);
             testScreenOffCausesSingleStop();
@@ -634,7 +650,7 @@ public class KeyguardTests extends KeyguardTestBase {
     }
 
     @Test
-    public void testScreenOffCausesSingleStopAod() throws Exception {
+    public void testScreenOffCausesSingleStopAod() {
         try (final AodSession aodSession = new AodSession()) {
             assumeTrue(aodSession.isAodAvailable());
             aodSession.setAodEnabled(true);
@@ -646,9 +662,9 @@ public class KeyguardTests extends KeyguardTestBase {
         try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
             separateTestJournal();
             launchActivity(TEST_ACTIVITY);
-            mAmWmState.assertVisibility(TEST_ACTIVITY, true);
+            mWmState.assertVisibility(TEST_ACTIVITY, true);
             lockScreenSession.sleepDevice();
-            mAmWmState.waitForAllStoppedActivities();
+            mWmState.waitForAllStoppedActivities();
             assertSingleLaunchAndStop(TEST_ACTIVITY);
         }
 

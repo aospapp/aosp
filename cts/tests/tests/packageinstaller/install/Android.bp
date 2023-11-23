@@ -17,18 +17,24 @@ android_test {
     sdk_version: "test_current",
 
     srcs: ["src/**/*.kt"],
+    exclude_srcs: [
+        "src/android/packageinstaller/install/cts/ExternalSourcesTestAppOpDenied.kt",
+        "src/android/packageinstaller/install/cts/ExternalSourcesTestAppOpDefault.kt",
+    ],
 
     static_libs: [
         "ub-uiautomator",
         "androidx.test.rules",
+        "androidx.test.ext.junit",
         "compatibility-device-util-axt",
         "androidx.legacy_legacy-support-v4",
         "platform-test-annotations",
+        "truth-prebuilt",
     ],
 
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }

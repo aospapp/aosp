@@ -16,135 +16,333 @@
 
 package android.net.cts;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.Socket;
-
-import javax.net.SocketFactory;
-import javax.net.ssl.SSLPeerUnverifiedException;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.net.SSLCertificateSocketFactory;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
-
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLSession;
 import libcore.javax.net.ssl.SSLConfigurationAsserts;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public class SSLCertificateSocketFactoryTest extends AndroidTestCase {
-    private SSLCertificateSocketFactory mFactory;
-    private int mTimeout;
+@RunWith(JUnit4.class)
+public class SSLCertificateSocketFactoryTest {
+    // TEST_HOST should point to a web server with a valid TLS certificate.
+    private static final String TEST_HOST = "www.google.com";
+    private static final int HTTPS_PORT = 443;
+    private HostnameVerifier mDefaultVerifier;
+    private SSLCertificateSocketFactory mSocketFactory;
+    private InetAddress mLocalAddress;
+    // InetAddress obtained by resolving TEST_HOST.
+    private InetAddress mTestHostAddress;
+    // SocketAddress combining mTestHostAddress and HTTPS_PORT.
+    private List<SocketAddress> mTestSocketAddresses;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mTimeout = 1000;
-        mFactory = (SSLCertificateSocketFactory) SSLCertificateSocketFactory.getDefault(mTimeout);
+    @Before
+    public void setUp() {
+        // Expected state before each test method is that
+        // HttpsURLConnection.getDefaultHostnameVerifier() will return the system default.
+        mDefaultVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
+        mSocketFactory = (SSLCertificateSocketFactory)
+            SSLCertificateSocketFactory.getDefault(1000 /* handshakeTimeoutMillis */);
+        assertNotNull(mSocketFactory);
+        InetAddress[] addresses;
+        try {
+            addresses = InetAddress.getAllByName(TEST_HOST);
+            mTestHostAddress = addresses[0];
+        } catch (UnknownHostException uhe) {
+            throw new AssertionError(
+                "Unable to test SSLCertificateSocketFactory: cannot resolve " + TEST_HOST, uhe);
+        }
+
+        mTestSocketAddresses = Arrays.stream(addresses)
+            .map(addr -> new InetSocketAddress(addr, HTTPS_PORT))
+            .collect(Collectors.toList());
+
+        // Find the local IP address which will be used to connect to TEST_HOST.
+        try {
+            Socket testSocket = new Socket(TEST_HOST, HTTPS_PORT);
+            mLocalAddress = testSocket.getLocalAddress();
+            testSocket.close();
+        } catch (IOException ioe) {
+            throw new AssertionError(""
+                + "Unable to test SSLCertificateSocketFactory: cannot connect to "
+                + TEST_HOST, ioe);
+        }
     }
 
+    // Restore the system default hostname verifier after each test.
+    @After
+    public void restoreDefaultHostnameVerifier() {
+        HttpsURLConnection.setDefaultHostnameVerifier(mDefaultVerifier);
+    }
+
+    @Test
     public void testDefaultConfiguration() throws Exception {
-        SSLConfigurationAsserts.assertSSLSocketFactoryDefaultConfiguration(mFactory);
+        SSLConfigurationAsserts.assertSSLSocketFactoryDefaultConfiguration(mSocketFactory);
     }
 
-    public void testAccessProperties() throws Exception {
-        mFactory.getSupportedCipherSuites();
-        mFactory.getDefaultCipherSuites();
-        SocketFactory sf = SSLCertificateSocketFactory.getDefault(mTimeout);
-        assertNotNull(sf);
+    @Test
+    public void testAccessProperties() {
+        mSocketFactory.getSupportedCipherSuites();
+        mSocketFactory.getDefaultCipherSuites();
     }
 
-    public void testCreateSocket() throws Exception {
-        new SSLCertificateSocketFactory(100);
-        int port = 443;
-        String host = "www.google.com";
-        InetAddress inetAddress = null;
-        inetAddress = InetAddress.getLocalHost();
+    /**
+     * Tests the {@code createSocket()} cases which are expected to fail with {@code IOException}.
+     */
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
+    public void createSocket_io_error_expected() {
+        // Connect to the localhost HTTPS port. Should result in connection refused IOException
+        // because no service should be listening on that port.
+        InetAddress localhostAddress = InetAddress.getLoopbackAddress();
         try {
-            mFactory.createSocket(inetAddress, port);
-            fail("should throw exception!");
+            mSocketFactory.createSocket(localhostAddress, HTTPS_PORT);
+            fail();
         } catch (IOException e) {
             // expected
         }
 
+        // Same, but also binding to a local address.
         try {
-            InetAddress inetAddress1 = InetAddress.getLocalHost();
-            InetAddress inetAddress2 = InetAddress.getLocalHost();
-            mFactory.createSocket(inetAddress1, port, inetAddress2, port);
-            fail("should throw exception!");
+            mSocketFactory.createSocket(localhostAddress, HTTPS_PORT, localhostAddress, 0);
+            fail();
         } catch (IOException e) {
             // expected
         }
 
+        // Same, wrapping an existing plain socket which is in an unconnected state.
         try {
             Socket socket = new Socket();
-            mFactory.createSocket(socket, host, port, true);
-            fail("should throw exception!");
+            mSocketFactory.createSocket(socket, "localhost", HTTPS_PORT, true);
+            fail();
         } catch (IOException e) {
             // expected
         }
-        Socket socket = null;
-        socket = mFactory.createSocket(host, port);
+    }
+
+    /**
+     * Tests hostname verification for
+     * {@link SSLCertificateSocketFactory#createSocket(String, int)}.
+     *
+     * <p>This method should return a socket which is fully connected (i.e. TLS handshake complete)
+     * and whose peer TLS certificate has been verified to have the correct hostname.
+     *
+     * <p>{@link SSLCertificateSocketFactory} is documented to verify hostnames using
+     * the {@link HostnameVerifier} returned by
+     * {@link HttpsURLConnection#getDefaultHostnameVerifier}, so this test connects twice,
+     * once with the system default {@link HostnameVerifier} which is expected to succeed,
+     * and once after installing a {@link NegativeHostnameVerifier} which will cause
+     * {@link SSLCertificateSocketFactory#verifyHostname} to throw a
+     * {@link SSLPeerUnverifiedException}.
+     *
+     * <p>These tests only test the hostname verification logic in SSLCertificateSocketFactory,
+     * other TLS failure modes and the default HostnameVerifier are tested elsewhere, see
+     * {@link com.squareup.okhttp.internal.tls.HostnameVerifierTest} and
+     * https://android.googlesource.com/platform/external/boringssl/+/refs/heads/master/src/ssl/test
+     *
+     * <p>Tests the following behaviour:-
+     * <ul>
+     * <li>TEST_SERVER is available and has a valid TLS certificate
+     * <li>{@code createSocket()} verifies the remote hostname is correct using
+     *     {@link HttpsURLConnection#getDefaultHostnameVerifier}
+     * <li>{@link SSLPeerUnverifiedException} is thrown when the remote hostname is invalid
+     * </ul>
+     *
+     * <p>See also http://b/2807618.
+     */
+    @Test
+    public void createSocket_simple_with_hostname_verification() throws Exception {
+        Socket socket = mSocketFactory.createSocket(TEST_HOST, HTTPS_PORT);
+        assertConnectedSocket(socket);
+        socket.close();
+
+        HttpsURLConnection.setDefaultHostnameVerifier(new NegativeHostnameVerifier());
+        try {
+            mSocketFactory.createSocket(TEST_HOST, HTTPS_PORT);
+            fail();
+        } catch (SSLPeerUnverifiedException expected) {
+            // expected
+        }
+    }
+
+    /**
+     * Tests hostname verification for
+     * {@link SSLCertificateSocketFactory#createSocket(Socket, String, int, boolean)}.
+     *
+     * <p>This method should return a socket which is fully connected (i.e. TLS handshake complete)
+     * and whose peer TLS certificate has been verified to have the correct hostname.
+     *
+     * <p>The TLS socket returned is wrapped around the plain socket passed into
+     * {@code createSocket()}.
+     *
+     * <p>See {@link #createSocket_simple_with_hostname_verification()} for test methodology.
+     */
+    @Test
+    public void createSocket_wrapped_with_hostname_verification() throws Exception {
+        Socket underlying = new Socket(TEST_HOST, HTTPS_PORT);
+        Socket socket = mSocketFactory.createSocket(underlying, TEST_HOST, HTTPS_PORT, true);
+        assertConnectedSocket(socket);
+        socket.close();
+
+        HttpsURLConnection.setDefaultHostnameVerifier(new NegativeHostnameVerifier());
+        try {
+            underlying = new Socket(TEST_HOST, HTTPS_PORT);
+            mSocketFactory.createSocket(underlying, TEST_HOST, HTTPS_PORT, true);
+            fail();
+        } catch (SSLPeerUnverifiedException expected) {
+            // expected
+        }
+    }
+
+    /**
+     * Tests hostname verification for
+     * {@link SSLCertificateSocketFactory#createSocket(String, int, InetAddress, int)}.
+     *
+     * <p>This method should return a socket which is fully connected (i.e. TLS handshake complete)
+     * and whose peer TLS certificate has been verified to have the correct hostname.
+     *
+     * <p>The TLS socket returned is also bound to the local address determined in {@link #setUp} to
+     * be used for connections to TEST_HOST, and a wildcard port.
+     *
+     * <p>See {@link #createSocket_simple_with_hostname_verification()} for test methodology.
+     */
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
+    public void createSocket_bound_with_hostname_verification() throws Exception {
+        Socket socket = mSocketFactory.createSocket(TEST_HOST, HTTPS_PORT, mLocalAddress, 0);
+        assertConnectedSocket(socket);
+        socket.close();
+
+        HttpsURLConnection.setDefaultHostnameVerifier(new NegativeHostnameVerifier());
+        try {
+            mSocketFactory.createSocket(TEST_HOST, HTTPS_PORT, mLocalAddress, 0);
+            fail();
+        } catch (SSLPeerUnverifiedException expected) {
+            // expected
+        }
+    }
+
+    /**
+     * Tests hostname verification for
+     * {@link SSLCertificateSocketFactory#createSocket(InetAddress, int)}.
+     *
+     * <p>This method should return a socket which the documentation describes as "unconnected",
+     * which actually means that the socket is fully connected at the TCP layer but TLS handshaking
+     * and hostname verification have not yet taken place.
+     *
+     * <p>Behaviour is tested by installing a {@link NegativeHostnameVerifier} and by calling
+     * {@link #assertConnectedSocket} to ensure TLS handshaking but no hostname verification takes
+     * place.  Next, {@link SSLCertificateSocketFactory#verifyHostname} is called to ensure
+     * that hostname verification is using the {@link HostnameVerifier} returned by
+     * {@link HttpsURLConnection#getDefaultHostnameVerifier} as documented.
+     *
+     * <p>Tests the following behaviour:-
+     * <ul>
+     * <li>TEST_SERVER is available and has a valid TLS certificate
+     * <li>{@code createSocket()} does not verify the remote hostname
+     * <li>Calling {@link SSLCertificateSocketFactory#verifyHostname} on the returned socket
+     *     throws {@link SSLPeerUnverifiedException} if the remote hostname is invalid
+     * </ul>
+     */
+    @Test
+    public void createSocket_simple_no_hostname_verification() throws Exception{
+        HttpsURLConnection.setDefaultHostnameVerifier(new NegativeHostnameVerifier());
+        Socket socket = mSocketFactory.createSocket(mTestHostAddress, HTTPS_PORT);
+        // Need to provide the expected hostname here or the TLS handshake will
+        // be unable to supply SNI to the remote host.
+        mSocketFactory.setHostname(socket, TEST_HOST);
+        assertConnectedSocket(socket);
+        try {
+          SSLCertificateSocketFactory.verifyHostname(socket, TEST_HOST);
+          fail();
+        } catch (SSLPeerUnverifiedException expected) {
+            // expected
+        }
+        HttpsURLConnection.setDefaultHostnameVerifier(mDefaultVerifier);
+        SSLCertificateSocketFactory.verifyHostname(socket, TEST_HOST);
+        socket.close();
+    }
+
+    /**
+     * Tests hostname verification for
+     * {@link SSLCertificateSocketFactory#createSocket(InetAddress, int, InetAddress, int)}.
+     *
+     * <p>This method should return a socket which the documentation describes as "unconnected",
+     * which actually means that the socket is fully connected at the TCP layer but TLS handshaking
+     * and hostname verification have not yet taken place.
+     *
+     * <p>The TLS socket returned is also bound to the local address determined in {@link #setUp} to
+     * be used for connections to TEST_HOST, and a wildcard port.
+     *
+     * <p>See {@link #createSocket_simple_no_hostname_verification()} for test methodology.
+     */
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
+    public void createSocket_bound_no_hostname_verification() throws Exception{
+        HttpsURLConnection.setDefaultHostnameVerifier(new NegativeHostnameVerifier());
+        Socket socket =
+            mSocketFactory.createSocket(mTestHostAddress, HTTPS_PORT, mLocalAddress, 0);
+        // Need to provide the expected hostname here or the TLS handshake will
+        // be unable to supply SNI to the peer.
+        mSocketFactory.setHostname(socket, TEST_HOST);
+        assertConnectedSocket(socket);
+        try {
+          SSLCertificateSocketFactory.verifyHostname(socket, TEST_HOST);
+          fail();
+        } catch (SSLPeerUnverifiedException expected) {
+            // expected
+        }
+        HttpsURLConnection.setDefaultHostnameVerifier(mDefaultVerifier);
+        SSLCertificateSocketFactory.verifyHostname(socket, TEST_HOST);
+        socket.close();
+    }
+
+    /**
+     * Asserts a socket is fully connected to the expected peer.
+     *
+     * <p>For the variants of createSocket which verify the remote hostname,
+     * {@code socket} should already be fully connected.
+     *
+     * <p>For the non-verifying variants, retrieving the input stream will trigger a TLS handshake
+     * and so may throw an exception, for example if the peer's certificate is invalid.
+     *
+     * <p>Does no hostname verification.
+     */
+    private void assertConnectedSocket(Socket socket) throws Exception {
         assertNotNull(socket);
-        assertNotNull(socket.getOutputStream());
+        assertTrue(socket.isConnected());
         assertNotNull(socket.getInputStream());
-
-        // it throw exception when calling createSocket(String, int, InetAddress, int)
-        // The socket level is invalid.
-    }
-
-    // a host and port that are expected to be available but have
-    // a cert with a different CN, in this case CN=mail.google.com
-    private static String TEST_CREATE_SOCKET_HOST = "www3.l.google.com";
-    private static int TEST_CREATE_SOCKET_PORT = 443;
-
-    /**
-     * b/2807618 Make sure that hostname verifcation in cases were it
-     * is documented to be included by various
-     * SSLCertificateSocketFactory.createSocket messages.
-     *
-     * NOTE: Test will fail if external server is not available.
-     */
-    @AppModeFull(reason = "Socket cannot bind in instant app mode")
-    public void test_createSocket_simple() throws Exception {
-        try {
-            mFactory.createSocket(TEST_CREATE_SOCKET_HOST, TEST_CREATE_SOCKET_PORT);
-            fail();
-        } catch (SSLPeerUnverifiedException expected) {
-            // expected
-        }
+        assertNotNull(socket.getOutputStream());
+        assertTrue(mTestSocketAddresses.contains(socket.getRemoteSocketAddress()));
     }
 
     /**
-     * b/2807618 Make sure that hostname verifcation in cases were it
-     * is documented to be included by various
-     * SSLCertificateSocketFactory.createSocket messages.
-     *
-     * NOTE: Test will fail if external server is not available.
+     * A HostnameVerifier which always returns false to simulate a server returning a
+     * certificate which does not match the expected hostname.
      */
-    @AppModeFull(reason = "Socket cannot bind in instant app mode")
-    public void test_createSocket_wrapping() throws Exception {
-        try {
-            Socket underlying = new Socket(TEST_CREATE_SOCKET_HOST, TEST_CREATE_SOCKET_PORT);
-            mFactory.createSocket(
-                    underlying, TEST_CREATE_SOCKET_HOST, TEST_CREATE_SOCKET_PORT, true);
-            fail();
-        } catch (SSLPeerUnverifiedException expected) {
-            // expected
-        }
-    }
-
-    /**
-     * b/2807618 Make sure that hostname verifcation in cases were it
-     * is documented to be included by various
-     * SSLCertificateSocketFactory.createSocket messages.
-     *
-     * NOTE: Test will fail if external server is not available.
-     */
-    @AppModeFull(reason = "Socket cannot bind in instant app mode")
-    public void test_createSocket_bind() throws Exception {
-        try {
-            mFactory.createSocket(TEST_CREATE_SOCKET_HOST, TEST_CREATE_SOCKET_PORT, null, 0);
-            fail();
-        } catch (SSLPeerUnverifiedException expected) {
-            // expected
+    private static class NegativeHostnameVerifier implements HostnameVerifier {
+        @Override
+        public boolean verify(String hostname, SSLSession sslSession) {
+            return false;
         }
     }
 }

@@ -31,7 +31,10 @@ using android::String16;
 using android::binder::Status;
 
 // generated
+using android::aidl::tests::ByteEnum;
+using android::aidl::tests::IntEnum;
 using android::aidl::tests::ITestService;
+using android::aidl::tests::LongEnum;
 using android::aidl::tests::SimpleParcelable;
 
 using std::string;
@@ -229,6 +232,27 @@ bool ConfirmNullables(const sp<ITestService>& s) {
                            unique_ptr<vector<int32_t>>(
                                new vector<int32_t>({1,2,3})),
                            &ITestService::RepeatNullableIntArray)) {
+    return false;
+  }
+
+  if (!ConfirmNullableType(
+          s, "byte enum array",
+          unique_ptr<vector<ByteEnum>>(new vector<ByteEnum>({ByteEnum::FOO, ByteEnum::BAR})),
+          &ITestService::RepeatNullableByteEnumArray)) {
+    return false;
+  }
+
+  if (!ConfirmNullableType(
+          s, "int enum array",
+          unique_ptr<vector<IntEnum>>(new vector<IntEnum>({IntEnum::FOO, IntEnum::BAR})),
+          &ITestService::RepeatNullableIntEnumArray)) {
+    return false;
+  }
+
+  if (!ConfirmNullableType(
+          s, "long enum array",
+          unique_ptr<vector<LongEnum>>(new vector<LongEnum>({LongEnum::FOO, LongEnum::BAR})),
+          &ITestService::RepeatNullableLongEnumArray)) {
     return false;
   }
 

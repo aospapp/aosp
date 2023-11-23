@@ -23,7 +23,7 @@
         <option name="test-module-name" value="VtsHalKeymasterV3_0Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalKeymasterV3_0TargetTest/VtsHalKeymasterV3_0TargetTest" />
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalKeymasterV3_0TargetTest/VtsHalKeymasterV3_0TargetTest" />
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="test-timeout" value="15m"/>
     </test>
 </configuration>

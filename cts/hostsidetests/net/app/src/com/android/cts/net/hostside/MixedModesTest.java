@@ -15,8 +15,20 @@
  */
 package com.android.cts.net.hostside;
 
+import static com.android.cts.net.hostside.NetworkPolicyTestUtils.setRestrictBackground;
+import static com.android.cts.net.hostside.Property.APP_STANDBY_MODE;
+import static com.android.cts.net.hostside.Property.BATTERY_SAVER_MODE;
+import static com.android.cts.net.hostside.Property.DATA_SAVER_MODE;
+import static com.android.cts.net.hostside.Property.DOZE_MODE;
+import static com.android.cts.net.hostside.Property.METERED_NETWORK;
+import static com.android.cts.net.hostside.Property.NON_METERED_NETWORK;
+
 import android.os.SystemClock;
 import android.util.Log;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Test cases for the more complex scenarios where multiple restrictions (like Battery Saver Mode
@@ -29,11 +41,9 @@ import android.util.Log;
 public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
     private static final String TAG = "MixedModesTest";
 
-    @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
-
-        if (!isSupported()) return;
 
         // Set initial state.
         removeRestrictBackgroundWhitelist(mUid);
@@ -44,11 +54,9 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         registerBroadcastReceiver();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         super.tearDown();
-
-        if (!isSupported()) return;
 
         try {
             setRestrictBackground(false);
@@ -57,34 +65,15 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         }
     }
 
-    @Override
-    public boolean isSupported() throws Exception {
-        if (!isDozeModeEnabled()) {
-            Log.i(TAG, "Skipping " + getClass() + "." + getName()
-                    + "() because device does not support Doze Mode");
-            return false;
-        }
-        return true;
-    }
-
     /**
      * Tests all DS ON and BS ON scenarios from network-policy-restrictions.md on metered networks.
      */
+    @RequiredProperties({DATA_SAVER_MODE, BATTERY_SAVER_MODE, METERED_NETWORK})
+    @Test
     public void testDataAndBatterySaverModes_meteredNetwork() throws Exception {
-        if (!isBatterySaverSupported()) {
-            Log.i(TAG, "Skipping " + getClass() + "." + getName()
-                    + "() because device does not support Battery saver mode");
-            return;
-        }
-        if (!isSupported()) return;
-
-        Log.i(TAG, "testDataAndBatterySaverModes_meteredNetwork() tests");
-        if (!setMeteredNetwork()) {
-            Log.w(TAG, "testDataAndBatterySaverModes_meteredNetwork() skipped because "
-                    + "device cannot use a metered network");
-            return;
-        }
-
+        final MeterednessConfigurationRule meterednessConfiguration
+                = new MeterednessConfigurationRule();
+        meterednessConfiguration.configureNetworkMeteredness(true);
         try {
             setRestrictBackground(true);
             setBatterySaverMode(true);
@@ -137,7 +126,7 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
             removeRestrictBackgroundBlacklist(mUid);
             removePowerSaveModeWhitelist(TEST_APP2_PKG);
         } finally {
-            resetMeteredNetwork();
+            meterednessConfiguration.resetNetworkMeteredness();
         }
     }
 
@@ -145,86 +134,75 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
      * Tests all DS ON and BS ON scenarios from network-policy-restrictions.md on non-metered
      * networks.
      */
+    @RequiredProperties({DATA_SAVER_MODE, BATTERY_SAVER_MODE, NON_METERED_NETWORK})
+    @Test
     public void testDataAndBatterySaverModes_nonMeteredNetwork() throws Exception {
-        if (!isBatterySaverSupported()) {
-            Log.i(TAG, "Skipping " + getClass() + "." + getName()
-                    + "() because device does not support Battery saver mode");
-            return;
+        final MeterednessConfigurationRule meterednessConfiguration
+                = new MeterednessConfigurationRule();
+        meterednessConfiguration.configureNetworkMeteredness(false);
+        try {
+            setRestrictBackground(true);
+            setBatterySaverMode(true);
+
+            Log.v(TAG, "Not whitelisted for any.");
+            assertBackgroundNetworkAccess(false);
+            assertsForegroundAlwaysHasNetworkAccess();
+            assertBackgroundNetworkAccess(false);
+
+            Log.v(TAG, "Whitelisted for Data Saver but not for Battery Saver.");
+            addRestrictBackgroundWhitelist(mUid);
+            removePowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+            assertsForegroundAlwaysHasNetworkAccess();
+            assertBackgroundNetworkAccess(false);
+            removeRestrictBackgroundWhitelist(mUid);
+
+            Log.v(TAG, "Whitelisted for Battery Saver but not for Data Saver.");
+            addPowerSaveModeWhitelist(TEST_APP2_PKG);
+            removeRestrictBackgroundWhitelist(mUid);
+            assertBackgroundNetworkAccess(true);
+            assertsForegroundAlwaysHasNetworkAccess();
+            assertBackgroundNetworkAccess(true);
+            removePowerSaveModeWhitelist(TEST_APP2_PKG);
+
+            Log.v(TAG, "Whitelisted for both.");
+            addRestrictBackgroundWhitelist(mUid);
+            addPowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(true);
+            assertsForegroundAlwaysHasNetworkAccess();
+            assertBackgroundNetworkAccess(true);
+            removePowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+            removeRestrictBackgroundWhitelist(mUid);
+
+            Log.v(TAG, "Blacklisted for Data Saver, not whitelisted for Battery Saver.");
+            addRestrictBackgroundBlacklist(mUid);
+            removePowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+            assertsForegroundAlwaysHasNetworkAccess();
+            assertBackgroundNetworkAccess(false);
+            removeRestrictBackgroundBlacklist(mUid);
+
+            Log.v(TAG, "Blacklisted for Data Saver, whitelisted for Battery Saver.");
+            addRestrictBackgroundBlacklist(mUid);
+            addPowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(true);
+            assertsForegroundAlwaysHasNetworkAccess();
+            assertBackgroundNetworkAccess(true);
+            removeRestrictBackgroundBlacklist(mUid);
+            removePowerSaveModeWhitelist(TEST_APP2_PKG);
+        } finally {
+            meterednessConfiguration.resetNetworkMeteredness();
         }
-        if (!isSupported()) return;
-
-        if (!setUnmeteredNetwork()) {
-            Log.w(TAG, "testDataAndBatterySaverModes_nonMeteredNetwork() skipped because network"
-                    + " is metered");
-            return;
-        }
-        Log.i(TAG, "testDataAndBatterySaverModes_nonMeteredNetwork() tests");
-        setRestrictBackground(true);
-        setBatterySaverMode(true);
-
-        Log.v(TAG, "Not whitelisted for any.");
-        assertBackgroundNetworkAccess(false);
-        assertsForegroundAlwaysHasNetworkAccess();
-        assertBackgroundNetworkAccess(false);
-
-        Log.v(TAG, "Whitelisted for Data Saver but not for Battery Saver.");
-        addRestrictBackgroundWhitelist(mUid);
-        removePowerSaveModeWhitelist(TEST_APP2_PKG);
-        assertBackgroundNetworkAccess(false);
-        assertsForegroundAlwaysHasNetworkAccess();
-        assertBackgroundNetworkAccess(false);
-        removeRestrictBackgroundWhitelist(mUid);
-
-        Log.v(TAG, "Whitelisted for Battery Saver but not for Data Saver.");
-        addPowerSaveModeWhitelist(TEST_APP2_PKG);
-        removeRestrictBackgroundWhitelist(mUid);
-        assertBackgroundNetworkAccess(true);
-        assertsForegroundAlwaysHasNetworkAccess();
-        assertBackgroundNetworkAccess(true);
-        removePowerSaveModeWhitelist(TEST_APP2_PKG);
-
-        Log.v(TAG, "Whitelisted for both.");
-        addRestrictBackgroundWhitelist(mUid);
-        addPowerSaveModeWhitelist(TEST_APP2_PKG);
-        assertBackgroundNetworkAccess(true);
-        assertsForegroundAlwaysHasNetworkAccess();
-        assertBackgroundNetworkAccess(true);
-        removePowerSaveModeWhitelist(TEST_APP2_PKG);
-        assertBackgroundNetworkAccess(false);
-        removeRestrictBackgroundWhitelist(mUid);
-
-        Log.v(TAG, "Blacklisted for Data Saver, not whitelisted for Battery Saver.");
-        addRestrictBackgroundBlacklist(mUid);
-        removePowerSaveModeWhitelist(TEST_APP2_PKG);
-        assertBackgroundNetworkAccess(false);
-        assertsForegroundAlwaysHasNetworkAccess();
-        assertBackgroundNetworkAccess(false);
-        removeRestrictBackgroundBlacklist(mUid);
-
-        Log.v(TAG, "Blacklisted for Data Saver, whitelisted for Battery Saver.");
-        addRestrictBackgroundBlacklist(mUid);
-        addPowerSaveModeWhitelist(TEST_APP2_PKG);
-        assertBackgroundNetworkAccess(true);
-        assertsForegroundAlwaysHasNetworkAccess();
-        assertBackgroundNetworkAccess(true);
-        removeRestrictBackgroundBlacklist(mUid);
-        removePowerSaveModeWhitelist(TEST_APP2_PKG);
     }
 
     /**
      * Tests that powersave whitelists works as expected when doze and battery saver modes
      * are enabled.
      */
+    @RequiredProperties({DOZE_MODE, BATTERY_SAVER_MODE})
+    @Test
     public void testDozeAndBatterySaverMode_powerSaveWhitelists() throws Exception {
-        if (!isBatterySaverSupported()) {
-            Log.i(TAG, "Skipping " + getClass() + "." + getName()
-                    + "() because device does not support Battery saver mode");
-            return;
-        }
-        if (!isSupported()) {
-            return;
-        }
-
         setBatterySaverMode(true);
         setDozeMode(true);
 
@@ -250,11 +228,9 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
      * Tests that powersave whitelists works as expected when doze and appIdle modes
      * are enabled.
      */
+    @RequiredProperties({DOZE_MODE, APP_STANDBY_MODE})
+    @Test
     public void testDozeAndAppIdle_powerSaveWhitelists() throws Exception {
-        if (!isSupported()) {
-            return;
-        }
-
         setDozeMode(true);
         setAppIdle(true);
 
@@ -276,11 +252,9 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         }
     }
 
+    @RequiredProperties({APP_STANDBY_MODE, DOZE_MODE})
+    @Test
     public void testAppIdleAndDoze_tempPowerSaveWhitelists() throws Exception {
-        if (!isSupported()) {
-            return;
-        }
-
         setDozeMode(true);
         setAppIdle(true);
 
@@ -299,16 +273,9 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         }
     }
 
+    @RequiredProperties({APP_STANDBY_MODE, BATTERY_SAVER_MODE})
+    @Test
     public void testAppIdleAndBatterySaver_tempPowerSaveWhitelists() throws Exception {
-        if (!isBatterySaverSupported()) {
-            Log.i(TAG, "Skipping " + getClass() + "." + getName()
-                    + "() because device does not support Battery saver mode");
-            return;
-        }
-        if (!isSupported()) {
-            return;
-        }
-
         setBatterySaverMode(true);
         setAppIdle(true);
 
@@ -330,11 +297,9 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
     /**
      * Tests that the app idle whitelist works as expected when doze and appIdle mode are enabled.
      */
+    @RequiredProperties({DOZE_MODE, APP_STANDBY_MODE})
+    @Test
     public void testDozeAndAppIdle_appIdleWhitelist() throws Exception {
-        if (!isSupported()) {
-            return;
-        }
-
         setDozeMode(true);
         setAppIdle(true);
 
@@ -353,11 +318,9 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         }
     }
 
+    @RequiredProperties({APP_STANDBY_MODE, DOZE_MODE})
+    @Test
     public void testAppIdleAndDoze_tempPowerSaveAndAppIdleWhitelists() throws Exception {
-        if (!isSupported()) {
-            return;
-        }
-
         setDozeMode(true);
         setAppIdle(true);
 
@@ -380,16 +343,9 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         }
     }
 
+    @RequiredProperties({APP_STANDBY_MODE, BATTERY_SAVER_MODE})
+    @Test
     public void testAppIdleAndBatterySaver_tempPowerSaveAndAppIdleWhitelists() throws Exception {
-        if (!isBatterySaverSupported()) {
-            Log.i(TAG, "Skipping " + getClass() + "." + getName()
-                    + "() because device does not support Battery saver mode");
-            return;
-        }
-        if (!isSupported()) {
-            return;
-        }
-
         setBatterySaverMode(true);
         setAppIdle(true);
 

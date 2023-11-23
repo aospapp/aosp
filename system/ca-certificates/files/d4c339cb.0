@@ -37,7 +37,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             4c:aa:f9:ca:db:63:6f:e0:1f:f7:4e:d8:5b:03:86:9d
-    Signature Algorithm: sha384WithRSAEncryption
+        Signature Algorithm: sha384WithRSAEncryption
         Issuer: C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO RSA Certification Authority
         Validity
             Not Before: Jan 19 00:00:00 2010 GMT
@@ -45,7 +45,7 @@ Certificate:
         Subject: C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO RSA Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:91:e8:54:92:d2:0a:56:b1:ac:0d:24:dd:c5:cf:
                     44:67:74:99:2b:37:a3:7d:23:70:00:71:bc:53:df:

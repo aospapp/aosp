@@ -63,7 +63,7 @@ class BluetoothCarHfpBaseTest(BluetoothBaseTest):
         sim_conf_file = self.user_params["sim_conf_file"][0]
         if not os.path.isfile(sim_conf_file):
             sim_conf_file = os.path.join(
-                self.user_params[Config.key_config_path], sim_conf_file)
+                self.user_params[Config.key_config_path.value], sim_conf_file)
             if not os.path.isfile(sim_conf_file):
                 self.log.error("Unable to load user config " + sim_conf_file +
                                " from test config file.")

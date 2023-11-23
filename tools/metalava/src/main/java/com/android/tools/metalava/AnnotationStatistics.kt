@@ -293,7 +293,7 @@ class AnnotationStatistics(val api: Codebase) {
 
         if (reportFile != null) {
             printer.close()
-            progress("\n$PROGRAM_NAME wrote class annotation coverage report to $reportFile")
+            progress("$PROGRAM_NAME wrote class annotation coverage report to $reportFile")
         }
     }
 
@@ -329,7 +329,7 @@ class AnnotationStatistics(val api: Codebase) {
 
         if (reportFile != null) {
             printer.close()
-            progress("\n$PROGRAM_NAME wrote member annotation coverage report to $reportFile")
+            progress("$PROGRAM_NAME wrote member annotation coverage report to $reportFile")
         }
     }
 

@@ -36,10 +36,11 @@ def main():
         print "Events over 1s: %d gyro, %d accel, %d mag"%(
                 len(events["gyro"]), len(events["accel"]), len(events["mag"]))
         for key, existing in sensors.iteritems():
-            if existing:
-                e_msg = 'Sensor %s has no events!' % key
+            # Vibrator does not return any sensor event. b/142653973
+            if existing and key != "vibrator":
+                e_msg = "Sensor %s has no events!" % key
                 assert len(events[key]) > 0, e_msg
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 

@@ -63,6 +63,7 @@ void btm_ble_batchscan_filter_track_adv_vse_cback(uint8_t len, uint8_t* p) {
 
   uint8_t sub_event = 0;
   tBTM_BLE_VSC_CB cmn_ble_vsc_cb;
+  if (len == 0) return;
   STREAM_TO_UINT8(sub_event, p);
 
   BTM_TRACE_EVENT(
@@ -90,6 +91,7 @@ void btm_ble_batchscan_filter_track_adv_vse_cback(uint8_t len, uint8_t* p) {
 
       /* Extract the adv info details */
       if (ADV_INFO_PRESENT == adv_data.advertiser_info_present) {
+        if (len < 15) return;
         STREAM_TO_UINT8(adv_data.tx_power, p);
         STREAM_TO_UINT8(adv_data.rssi_value, p);
         STREAM_TO_UINT16(adv_data.time_stamp, p);
@@ -240,7 +242,7 @@ void btm_ble_read_batchscan_reports(tBTM_BLE_BATCH_SCAN_MODE scan_mode,
   UINT8_TO_STREAM(pp, BTM_BLE_BATCH_SCAN_READ_RESULTS);
   UINT8_TO_STREAM(pp, scan_mode);
 
-  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_BLE_BATCH_SCAN_OCF, param, len, cb);
+  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_BLE_BATCH_SCAN, param, len, cb);
 }
 
 /* read reports. data is accumulated in |data_all|, number of records is
@@ -311,7 +313,7 @@ void btm_ble_set_storage_config(uint8_t batch_scan_full_max,
   UINT8_TO_STREAM(pp, batch_scan_trunc_max);
   UINT8_TO_STREAM(pp, batch_scan_notify_threshold);
 
-  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_BLE_BATCH_SCAN_OCF, param, len, cb);
+  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_BLE_BATCH_SCAN, param, len, cb);
 }
 
 /* This function writes the batch scan params in controller */
@@ -336,7 +338,7 @@ void btm_ble_set_batchscan_param(tBTM_BLE_BATCH_SCAN_MODE scan_mode,
   UINT8_TO_STREAM(p, addr_type);
   UINT8_TO_STREAM(p, discard_rule);
 
-  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_BLE_BATCH_SCAN_OCF, param, len, cb);
+  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_BLE_BATCH_SCAN, param, len, cb);
 }
 
 /* This function enables the customer specific feature in controller */
@@ -349,7 +351,7 @@ void btm_ble_enable_batchscan(hci_cmd_cb cb) {
   UINT8_TO_STREAM(p, BTM_BLE_BATCH_SCAN_ENB_DISAB_CUST_FEATURE);
   UINT8_TO_STREAM(p, 0x01 /* enable */);
 
-  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_BLE_BATCH_SCAN_OCF, param, len, cb);
+  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_BLE_BATCH_SCAN, param, len, cb);
 }
 
 }  // namespace

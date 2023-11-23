@@ -26,7 +26,7 @@ TEST(linkerconfig_variables, load_from_map) {
   Variables::AddValue("TEST_KEY", "TEST_VALUE");
   auto value = Variables::GetValue("TEST_KEY");
   ASSERT_TRUE(value.has_value());
-  ASSERT_EQ(value.value(), "TEST_VALUE");
+  ASSERT_EQ("TEST_VALUE", value.value());
 }
 
 TEST(linkerconfig_variables, load_from_property) {
@@ -38,11 +38,16 @@ TEST(linkerconfig_variables, load_from_property) {
                                              std::chrono::seconds(1)));
   auto value = Variables::GetValue("debug.linkerconfig.test_prop_key");
   ASSERT_TRUE(value.has_value());
-  ASSERT_EQ(value.value(), "TEST_PROP_VALUE");
+  ASSERT_EQ("TEST_PROP_VALUE", value.value());
 #endif
 }
 
 TEST(linkerconfig_variables, fallback_value) {
   auto value = Variables::GetValue("INVALID_KEY");
   ASSERT_FALSE(value.has_value());
+}
+
+TEST(linkerconfig_variables, empty_value) {
+  Variables::AddValue("TEST_KEY", "");
+  ASSERT_FALSE(Variables::GetValue("TEST_KEY").has_value());
 }

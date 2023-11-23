@@ -49,13 +49,13 @@ import com.google.android.mms.pdu.PduPart;
 import com.google.android.mms.pdu.SendConf;
 import com.google.android.mms.pdu.SendReq;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Random;
-
-import org.junit.Before;
-import org.junit.Test;
 
 /**
  * Test sending MMS using {@link android.telephony.SmsManager}.
@@ -185,7 +185,7 @@ public class MmsTest {
         Log.i(TAG, "testSendMmsMessage");
         // Prime the MmsService so that MMS config is loaded
         final SmsManager smsManager = SmsManager.getDefault();
-        smsManager.getAutoPersisting();
+        smsManager.getCarrierConfigValues();
         // MMS config is loaded asynchronously. Wait a bit so it will be loaded.
         try {
             Thread.sleep(1000);

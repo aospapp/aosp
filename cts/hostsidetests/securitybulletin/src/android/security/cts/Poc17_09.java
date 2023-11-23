@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,19 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc17_09 extends SecurityTestCase {
 
     /**
      * b/63852675
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-09")
     public void testPocCve_2017_6983() throws Exception {
       // Error code of 139 represents segmentation fault
@@ -53,14 +59,15 @@ public class Poc17_09 extends SecurityTestCase {
                                       )==139);
     }
 
-  /**
-   * b/38195738
-   * b/36590192
-   */
-  @SecurityTest(minPatchLevel = "2017-09")
-  public void testPocBug_38195738() throws Exception {
-    if(containsDriver(getDevice(), "/dev/kgsl-3d0")) {
-      AdbUtils.runPocNoOutput("Bug-38195738", getDevice(), 60);
+    /**
+     * b/38195738
+     * b/36590192
+     */
+    @Test
+    @SecurityTest(minPatchLevel = "2017-09")
+    public void testPocBug_38195738() throws Exception {
+        if(containsDriver(getDevice(), "/dev/kgsl-3d0")) {
+            AdbUtils.runPocNoOutput("Bug-38195738", getDevice(), 60);
+        }
     }
-  }
 }

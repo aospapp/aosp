@@ -24,18 +24,22 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
+import android.app.PendingIntent;
 import android.autofillservice.cts.InstrumentedAutoFillService.Replier;
+import android.autofillservice.cts.inline.InlineUiBot;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
+import android.service.autofill.InlinePresentation;
 import android.util.Log;
 import android.view.autofill.AutofillManager;
 import android.widget.RemoteViews;
 
 import androidx.annotation.NonNull;
+import androidx.test.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.compatibility.common.util.DeviceConfigStateChangerRule;
@@ -44,6 +48,7 @@ import com.android.compatibility.common.util.RetryRule;
 import com.android.compatibility.common.util.SafeCleanerRule;
 import com.android.compatibility.common.util.SettingsStateKeeperRule;
 import com.android.compatibility.common.util.TestNameUtils;
+import com.android.cts.mockime.ImeSettings;
 import com.android.cts.mockime.MockImeSessionRule;
 
 import org.junit.AfterClass;
@@ -53,7 +58,6 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
-import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.model.Statement;
@@ -85,12 +89,26 @@ public final class AutoFillServiceTestCase {
     public abstract static class AutoActivityLaunch<A extends AbstractAutoFillActivity>
             extends BaseTestCase {
 
+        /**
+         * Returns if inline suggestion is enabled.
+         */
+        protected boolean isInlineMode() {
+            return false;
+        }
+
+        protected static UiBot getInlineUiBot() {
+            return sDefaultUiBot2;
+        }
+
         @ClassRule
         public static final SettingsStateKeeperRule sPublicServiceSettingsKeeper =
                 sTheRealServiceSettingsKeeper;
 
         protected AutoActivityLaunch() {
             super(sDefaultUiBot);
+        }
+        protected AutoActivityLaunch(UiBot uiBot) {
+            super(uiBot);
         }
 
         @Override
@@ -193,17 +211,26 @@ public final class AutoFillServiceTestCase {
             }
         };
 
-        @ClassRule
-        public static final MockImeSessionRule sMockImeSessionRule = new MockImeSessionRule();
+        public static final MockImeSessionRule sMockImeSessionRule = new MockImeSessionRule(
+                InstrumentationRegistry.getTargetContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder().setInlineSuggestionsEnabled(true)
+                        .setInlineSuggestionViewContentDesc(InlineUiBot.SUGGESTION_STRIP_DESC));
 
-        private final TestWatcher mTestWatcher = new AutofillTestWatcher();
+        protected static final RequiredFeatureRule sRequiredFeatureRule =
+                new RequiredFeatureRule(PackageManager.FEATURE_AUTOFILL);
 
-        private final RetryRule mRetryRule = new RetryRule(getNumberRetries());
+        private final AutofillTestWatcher mTestWatcher = new AutofillTestWatcher();
+
+        private final RetryRule mRetryRule =
+                new RetryRule(getNumberRetries(), () -> {
+                    // Between testing and retries, clean all launched activities to avoid
+                    // exception:
+                    //     Could not launch intent Intent { ... } within 45 seconds.
+                    mTestWatcher.cleanAllActivities();
+                });
 
         private final AutofillLoggingTestRule mLoggingRule = new AutofillLoggingTestRule(TAG);
-
-        private final RequiredFeatureRule mRequiredFeatureRule =
-                new RequiredFeatureRule(PackageManager.FEATURE_AUTOFILL);
 
         protected final SafeCleanerRule mSafeCleanerRule = new SafeCleanerRule()
                 .setDumper(mLoggingRule)
@@ -214,12 +241,15 @@ public final class AutoFillServiceTestCase {
         @Rule
         public final RuleChain mLookAllTheseRules = RuleChain
                 //
-                // mRequiredFeatureRule should be first so the test can be skipped right away
-                .outerRule(mRequiredFeatureRule)
+                // requiredFeatureRule should be first so the test can be skipped right away
+                .outerRule(getRequiredFeaturesRule())
                 //
                 // mTestWatcher should always be one the first rules, as it defines the name of the
                 // test being ran and finishes dangling activities at the end
                 .around(mTestWatcher)
+                //
+                // sMockImeSessionRule make sure MockImeSession.create() is used to launch mock IME
+                .around(sMockImeSessionRule)
                 //
                 // mLoggingRule wraps the test but doesn't interfere with it
                 .around(mLoggingRule)
@@ -285,6 +315,17 @@ public final class AutoFillServiceTestCase {
                 }
             }
             return null;
+        }
+
+        /**
+         * Gets a rule that defines which features must be present for this test to run.
+         *
+         * <p>By default it returns a rule that requires {@link PackageManager#FEATURE_AUTOFILL},
+         * but subclass can override to be more specific.
+         */
+        @NonNull
+        protected TestRule getRequiredFeaturesRule() {
+            return sRequiredFeatureRule;
         }
 
         /**
@@ -387,10 +428,23 @@ public final class AutoFillServiceTestCase {
         }
 
         protected RemoteViews createPresentation(String message) {
+            return Helper.createPresentation(message);
+        }
+
+        protected RemoteViews createPresentationWithCancel(String message) {
             final RemoteViews presentation = new RemoteViews(getContext()
-                    .getPackageName(), R.layout.list_item);
+                    .getPackageName(), R.layout.list_item_cancel);
             presentation.setTextViewText(R.id.text1, message);
             return presentation;
+        }
+
+        protected InlinePresentation createInlinePresentation(String message) {
+            return Helper.createInlinePresentation(message);
+        }
+
+        protected InlinePresentation createInlinePresentation(String message,
+                                                              PendingIntent attribution) {
+            return Helper.createInlinePresentation(message, attribution);
         }
 
         @NonNull
@@ -400,6 +454,7 @@ public final class AutoFillServiceTestCase {
     }
 
     protected static final UiBot sDefaultUiBot = new UiBot();
+    protected static final UiBot sDefaultUiBot2 = new InlineUiBot();
 
     private AutoFillServiceTestCase() {
         throw new UnsupportedOperationException("Contain static stuff only");

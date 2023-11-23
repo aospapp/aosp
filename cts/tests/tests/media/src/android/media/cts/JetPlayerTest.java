@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+@NonMediaMainlineTest
 public class JetPlayerTest extends AndroidTestCase {
     private OnJetEventListener mOnJetEventListener;
     private boolean mOnJetUserIdUpdateCalled;

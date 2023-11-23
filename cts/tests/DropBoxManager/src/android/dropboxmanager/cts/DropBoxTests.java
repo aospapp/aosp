@@ -246,11 +246,12 @@ public class DropBoxTests {
         mAnotherLowPriorityTagLatch = new CountDownLatch(1);
         mAnotherLowPriorityBuffer = new ArrayList(nOtherEntries * 2);
 
-        final long startTimeDelta = BROADCAST_RATE_LIMIT / 2;
+        final long delayTime = BROADCAST_RATE_LIMIT / 2;
 
         // add several low priority entries across multiple tags
+        final long firstEntryTime = SystemClock.elapsedRealtime();
         sendExcessiveDropBoxEntries(LOW_PRIORITY_TAG, nLowPriorityEntries, 0);
-        Thread.sleep(startTimeDelta);
+        Thread.sleep(delayTime);
         final long startTime = SystemClock.elapsedRealtime();
         sendExcessiveDropBoxEntries(ANOTHER_LOW_PRIORITY_TAG, nOtherEntries, 0);
         assertTrue(mAnotherLowPriorityTagLatch.await(BROADCAST_RATE_LIMIT * 3 / 2,
@@ -272,6 +273,7 @@ public class DropBoxTests {
         assertEquals("All but one of the low priority broadcasts should have been dropped for " +
                         ANOTHER_LOW_PRIORITY_TAG, nOtherEntries - 1, anotherData.droppedCount);
 
+        final long startTimeDelta = startTime - firstEntryTime;
         final long receivedTimeDelta = anotherData.received - data.received;
         final long errorMargin = receivedTimeDelta - startTimeDelta;
 

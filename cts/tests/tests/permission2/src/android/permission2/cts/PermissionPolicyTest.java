@@ -65,6 +65,10 @@ public class PermissionPolicyTest {
     private static final String HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PERMISSION
             = "android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS";
 
+    private static final Date MANAGE_COMPANION_DEVICES_PATCH_DATE = parseDate("2020-07-01");
+    private static final String MANAGE_COMPANION_DEVICES_PERMISSION
+            = "android.permission.MANAGE_COMPANION_DEVICES";
+
     private static final String LOG_TAG = "PermissionProtectionTest";
 
     private static final String PLATFORM_PACKAGE_NAME = "android";
@@ -402,6 +406,12 @@ public class PermissionPolicyTest {
                 case "runtime": {
                     protectionLevel |= PermissionInfo.PROTECTION_FLAG_RUNTIME_ONLY;
                 } break;
+                case "companion": {
+                    protectionLevel |= PermissionInfo.PROTECTION_FLAG_COMPANION;
+                } break;
+                case "retailDemo": {
+                    protectionLevel |= PermissionInfo.PROTECTION_FLAG_RETAIL_DEMO;
+                } break;
             }
         }
         return protectionLevel;
@@ -431,9 +441,14 @@ public class PermissionPolicyTest {
     }
 
     private boolean shouldSkipPermission(String permissionName) {
-        return parseDate(SECURITY_PATCH).before(HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PATCH_DATE) &&
-                HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PERMISSION.equals(permissionName);
-
+        switch (permissionName) {
+            case HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PERMISSION:
+                return parseDate(SECURITY_PATCH).before(HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PATCH_DATE);
+            case MANAGE_COMPANION_DEVICES_PERMISSION:
+                return parseDate(SECURITY_PATCH).before(MANAGE_COMPANION_DEVICES_PATCH_DATE);
+            default:
+                return false;
+        }
     }
 
     private class ExpectedPermissionInfo {

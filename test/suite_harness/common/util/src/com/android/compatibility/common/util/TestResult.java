@@ -15,6 +15,8 @@
  */
 package com.android.compatibility.common.util;
 
+import java.util.List;
+
 /**
  * Represents a single test result.
  */
@@ -31,6 +33,7 @@ public class TestResult implements ITestResult {
     private String mScreenshot;
     private boolean mIsRetry;
     private boolean mSkipped;
+    private List<TestResultHistory> mTestResultHistories;
 
     /**
      * Create a {@link TestResult} for the given test name.
@@ -233,6 +236,7 @@ public class TestResult implements ITestResult {
         mScreenshot = null;
         mIsRetry = false;
         mSkipped = false;
+        mTestResultHistories = null;
     }
 
     /**
@@ -280,4 +284,19 @@ public class TestResult implements ITestResult {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<TestResultHistory> getTestResultHistories() {
+        return mTestResultHistories;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setTestResultHistories(List<TestResultHistory> resultHistories) {
+        mTestResultHistories = resultHistories;
+    }
 }

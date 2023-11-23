@@ -20,12 +20,22 @@
 #include "class_linker.h"
 
 namespace art {
+
+namespace gc {
+class Heap;
+}  // namespace gc
+
 // AotClassLinker is only used for AOT compiler, which includes some logic for class initialization
 // which will only be used in pre-compilation.
 class AotClassLinker : public ClassLinker {
  public:
   explicit AotClassLinker(InternTable *intern_table);
   ~AotClassLinker();
+
+  static bool CanReferenceInBootImageExtension(ObjPtr<mirror::Class> klass, gc::Heap* heap)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  bool SetUpdatableBootClassPackages(const std::vector<std::string>& packages);
 
  protected:
   // Overridden version of PerformClassVerification allows skipping verification if the class was
@@ -37,6 +47,13 @@ class AotClassLinker : public ClassLinker {
       override
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Override AllocClass because aot compiler will need to perform a transaction check to determine
+  // can we allocate class from heap.
+  bool CanAllocClass()
+      override
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!Roles::uninterruptible_);
+
   bool InitializeClass(Thread *self,
                        Handle<mirror::Class> klass,
                        bool can_run_clinit,
@@ -44,7 +61,13 @@ class AotClassLinker : public ClassLinker {
       override
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
+
+  bool IsUpdatableBootClassPathDescriptor(const char* descriptor) override;
+
+ private:
+  std::vector<std::string> updatable_boot_class_path_descriptor_prefixes_;
 };
+
 }  // namespace art
 
 #endif  // ART_RUNTIME_AOT_CLASS_LINKER_H_

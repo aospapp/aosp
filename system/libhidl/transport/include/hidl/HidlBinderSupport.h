@@ -28,7 +28,7 @@
 #include <hwbinder/Parcel.h>
 #include <log/log.h>  // TODO(b/65843592): remove. Too many users depending on this transitively.
 
-// Defines functions for hidl_string, hidl_version, Status, hidl_vec, MQDescriptor,
+// Defines functions for hidl_string, Status, hidl_vec, MQDescriptor,
 // etc. to interact with Parcel.
 
 namespace android {
@@ -71,13 +71,6 @@ status_t readEmbeddedFromParcel(const hidl_string &string,
 
 status_t writeEmbeddedToParcel(const hidl_string &string,
         Parcel *parcel, size_t parentHandle, size_t parentOffset);
-
-// ---------------------- hidl_version
-
-status_t writeToParcel(const hidl_version &version, android::hardware::Parcel& parcel);
-
-// Caller is responsible for freeing the returned object.
-hidl_version* readFromParcel(const android::hardware::Parcel& parcel);
 
 // ---------------------- Status
 
@@ -185,127 +178,6 @@ template<typename T, MQFlavor flavor>
     return _hidl_err;
 }
 
-// ---------------------- pointers for HIDL
-
-template <typename T>
-static status_t readEmbeddedReferenceFromParcel(
-        T const* * /* bufptr */,
-        const Parcel & parcel,
-        size_t parentHandle,
-        size_t parentOffset,
-        size_t *handle,
-        bool *shouldResolveRefInBuffer
-    ) {
-    // *bufptr is ignored because, if I am embedded in some
-    // other buffer, the kernel should have fixed me up already.
-    bool isPreviouslyWritten;
-    status_t result = parcel.readEmbeddedReference(
-        nullptr, // ignored, not written to bufptr.
-        handle,
-        parentHandle,
-        parentOffset,
-        &isPreviouslyWritten);
-    // tell caller to run T::readEmbeddedToParcel and
-    // T::readEmbeddedReferenceToParcel if necessary.
-    // It is not called here because we don't know if these two are valid methods.
-    *shouldResolveRefInBuffer = !isPreviouslyWritten;
-    return result;
-}
-
-template <typename T>
-static status_t writeEmbeddedReferenceToParcel(
-        T const* buf,
-        Parcel *parcel, size_t parentHandle, size_t parentOffset,
-        size_t *handle,
-        bool *shouldResolveRefInBuffer
-        ) {
-
-    if(buf == nullptr) {
-        *shouldResolveRefInBuffer = false;
-        return parcel->writeEmbeddedNullReference(handle, parentHandle, parentOffset);
-    }
-
-    // find whether the buffer exists
-    size_t childHandle, childOffset;
-    status_t result;
-    bool found;
-
-    result = parcel->findBuffer(buf, sizeof(T), &found, &childHandle, &childOffset);
-
-    // tell caller to run T::writeEmbeddedToParcel and
-    // T::writeEmbeddedReferenceToParcel if necessary.
-    // It is not called here because we don't know if these two are valid methods.
-    *shouldResolveRefInBuffer = !found;
-
-    if(result != OK) {
-        return result; // bad pointers and length given
-    }
-    if(!found) { // did not find it.
-        return parcel->writeEmbeddedBuffer(buf, sizeof(T), handle,
-                parentHandle, parentOffset);
-    }
-    // found the buffer. easy case.
-    return parcel->writeEmbeddedReference(
-            handle,
-            childHandle,
-            childOffset,
-            parentHandle,
-            parentOffset);
-}
-
-template <typename T>
-static status_t readReferenceFromParcel(
-        T const* *bufptr,
-        const Parcel & parcel,
-        size_t *handle,
-        bool *shouldResolveRefInBuffer
-    ) {
-    bool isPreviouslyWritten;
-    status_t result = parcel.readReference(reinterpret_cast<void const* *>(bufptr),
-            handle, &isPreviouslyWritten);
-    // tell caller to run T::readEmbeddedToParcel and
-    // T::readEmbeddedReferenceToParcel if necessary.
-    // It is not called here because we don't know if these two are valid methods.
-    *shouldResolveRefInBuffer = !isPreviouslyWritten;
-    return result;
-}
-
-template <typename T>
-static status_t writeReferenceToParcel(
-        T const *buf,
-        Parcel * parcel,
-        size_t *handle,
-        bool *shouldResolveRefInBuffer
-    ) {
-
-    if(buf == nullptr) {
-        *shouldResolveRefInBuffer = false;
-        return parcel->writeNullReference(handle);
-    }
-
-    // find whether the buffer exists
-    size_t childHandle, childOffset;
-    status_t result;
-    bool found;
-
-    result = parcel->findBuffer(buf, sizeof(T), &found, &childHandle, &childOffset);
-
-    // tell caller to run T::writeEmbeddedToParcel and
-    // T::writeEmbeddedReferenceToParcel if necessary.
-    // It is not called here because we don't know if these two are valid methods.
-    *shouldResolveRefInBuffer = !found;
-
-    if(result != OK) {
-        return result; // bad pointers and length given
-    }
-    if(!found) { // did not find it.
-        return parcel->writeBuffer(buf, sizeof(T), handle);
-    }
-    // found the buffer. easy case.
-    return parcel->writeReference(handle,
-        childHandle, childOffset);
-}
-
 // ---------------------- support for casting interfaces
 
 // Constructs a binder for this interface and caches it. If it has already been created
@@ -332,13 +204,19 @@ sp<IType> fromBinder(const sp<IBinder>& binderIface) {
     if (binderIface.get() == nullptr) {
         return nullptr;
     }
+
     if (binderIface->localBinder() == nullptr) {
         return new ProxyType(binderIface);
     }
+
+    // Ensure that IBinder is BnHwBase (not JHwBinder, for instance)
+    if (!binderIface->checkSubclass(IBase::descriptor)) {
+        return new ProxyType(binderIface);
+    }
     sp<IBase> base = static_cast<BnHwBase*>(binderIface.get())->getImpl();
+
     if (details::canCastInterface(base.get(), IType::descriptor)) {
-        StubType* stub = static_cast<StubType*>(binderIface.get());
-        return stub->getImpl();
+        return static_cast<IType*>(base.get());
     } else {
         return nullptr;
     }

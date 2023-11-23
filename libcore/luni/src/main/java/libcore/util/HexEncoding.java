@@ -23,17 +23,43 @@ package libcore.util;
 @libcore.api.CorePlatformApi
 public class HexEncoding {
 
+    private static final char[] LOWER_CASE_DIGITS = {
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
+
+    private static final char[] UPPER_CASE_DIGITS = {
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+    };
+
     /** Hidden constructor to prevent instantiation. */
     private HexEncoding() {}
 
-    private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
+    /**
+     * Encodes the provided byte as a two-digit hexadecimal String value.
+     */
+    @libcore.api.CorePlatformApi
+    public static String encodeToString(byte b, boolean upperCase) {
+        char[] digits = upperCase ? UPPER_CASE_DIGITS : LOWER_CASE_DIGITS;
+        char[] buf = new char[2]; // We always want two digits.
+        buf[0] = digits[(b >> 4) & 0xf];
+        buf[1] = digits[b & 0xf];
+        return new String(buf, 0, 2);
+    }
 
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
      */
     @libcore.api.CorePlatformApi
     public static char[] encode(byte[] data) {
-        return encode(data, 0, data.length);
+        return encode(data, 0, data.length, true /* upperCase */);
+    }
+
+    /**
+     * Encodes the provided data as a sequence of hexadecimal characters.
+     */
+    @libcore.api.CorePlatformApi
+    public static char[] encode(byte[] data, boolean upperCase) {
+        return encode(data, 0, data.length, upperCase);
     }
 
     /**
@@ -41,12 +67,20 @@ public class HexEncoding {
      */
     @libcore.api.CorePlatformApi
     public static char[] encode(byte[] data, int offset, int len) {
+        return encode(data, offset, len, true /* upperCase */);
+    }
+
+    /**
+     * Encodes the provided data as a sequence of hexadecimal characters.
+     */
+    private static char[] encode(byte[] data, int offset, int len, boolean upperCase) {
+        char[] digits = upperCase ? UPPER_CASE_DIGITS : LOWER_CASE_DIGITS;
         char[] result = new char[len * 2];
         for (int i = 0; i < len; i++) {
             byte b = data[offset + i];
             int resultIndex = 2 * i;
-            result[resultIndex] = (HEX_DIGITS[(b >>> 4) & 0x0f]);
-            result[resultIndex + 1] = (HEX_DIGITS[b & 0x0f]);
+            result[resultIndex] = (digits[(b >> 4) & 0x0f]);
+            result[resultIndex + 1] = (digits[b & 0x0f]);
         }
 
         return result;
@@ -57,7 +91,15 @@ public class HexEncoding {
      */
     @libcore.api.CorePlatformApi
     public static String encodeToString(byte[] data) {
-        return new String(encode(data));
+        return encodeToString(data, true /* upperCase */);
+    }
+
+    /**
+     * Encodes the provided data as a sequence of hexadecimal characters.
+     */
+    @libcore.api.CorePlatformApi
+    public static String encodeToString(byte[] data, boolean upperCase) {
+        return new String(encode(data, upperCase));
     }
 
     /**
@@ -78,7 +120,9 @@ public class HexEncoding {
      *
      * Throws an {@code IllegalArgumentException} if the input is malformed.
      */
-    public static byte[] decode(String encoded, boolean allowSingleChar) throws IllegalArgumentException {
+    @libcore.api.CorePlatformApi
+    public static byte[] decode(String encoded, boolean allowSingleChar)
+            throws IllegalArgumentException {
         return decode(encoded.toCharArray(), allowSingleChar);
     }
 
@@ -101,25 +145,28 @@ public class HexEncoding {
      * Throws an {@code IllegalArgumentException} if the input is malformed.
      */
     @libcore.api.CorePlatformApi
-    public static byte[] decode(char[] encoded, boolean allowSingleChar) throws IllegalArgumentException {
-        int resultLengthBytes = (encoded.length + 1) / 2;
+    public static byte[] decode(char[] encoded, boolean allowSingleChar)
+            throws IllegalArgumentException {
+        int encodedLength = encoded.length;
+        int resultLengthBytes = (encodedLength + 1) / 2;
         byte[] result = new byte[resultLengthBytes];
 
         int resultOffset = 0;
         int i = 0;
         if (allowSingleChar) {
-            if ((encoded.length % 2) != 0) {
-                // Odd number of digits -- the first digit is the lower 4 bits of the first result byte.
+            if ((encodedLength % 2) != 0) {
+                // Odd number of digits -- the first digit is the lower 4 bits of the first result
+                // byte.
                 result[resultOffset++] = (byte) toDigit(encoded, i);
                 i++;
             }
         } else {
-            if ((encoded.length % 2) != 0) {
-                throw new IllegalArgumentException("Invalid input length: " + encoded.length);
+            if ((encodedLength % 2) != 0) {
+                throw new IllegalArgumentException("Invalid input length: " + encodedLength);
             }
         }
 
-        for (int len = encoded.length; i < len; i += 2) {
+        for (; i < encodedLength; i += 2) {
             result[resultOffset++] = (byte) ((toDigit(encoded, i) << 4) | toDigit(encoded, i + 1));
         }
 
@@ -139,7 +186,6 @@ public class HexEncoding {
             return 10 + (pseudoCodePoint - 'A');
         }
 
-        throw new IllegalArgumentException("Illegal char: " + str[offset] +
-                " at offset " + offset);
+        throw new IllegalArgumentException("Illegal char: " + str[offset] + " at offset " + offset);
     }
 }

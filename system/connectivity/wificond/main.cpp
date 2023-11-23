@@ -26,7 +26,6 @@
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 #include <cutils/properties.h>
-#include <hidl/HidlTransportSupport.h>
 #include <libminijail.h>
 #include <utils/String16.h>
 #include <wifi_system/interface_tool.h>
@@ -37,10 +36,12 @@
 #include "wificond/net/netlink_utils.h"
 #include "wificond/scanning/scan_utils.h"
 #include "wificond/server.h"
+#include "wifi_keystore_hal_connector.h"
 
-using android::net::wifi::IWificond;
+using android::net::wifi::nl80211::IWificond;
 using android::wifi_system::InterfaceTool;
 using android::wificond::ipc_constants::kServiceName;
+using android::wificond::WifiKeystoreHalConnector;
 using std::unique_ptr;
 
 namespace {
@@ -88,14 +89,6 @@ int SetupBinderOrCrash() {
   return binder_fd;
 }
 
-// Setup our interface to the hw Binder driver or die trying.
-int SetupHwBinderOrCrash() {
-  android::hardware::configureRpcThreadpool(1, true /* callerWillJoin */);
-  int binder_fd  = android::hardware::setupTransportPolling();
-  CHECK_GE(binder_fd, 0) << "Invalid hw binder FD: " << binder_fd;
-  return binder_fd;
-}
-
 void RegisterServiceOrCrash(const android::sp<android::IBinder>& service) {
   android::sp<android::IServiceManager> sm = android::defaultServiceManager();
   CHECK_EQ(sm != NULL, true) << "Could not obtain IServiceManager";
@@ -108,10 +101,6 @@ void RegisterServiceOrCrash(const android::sp<android::IBinder>& service) {
 
 void OnBinderReadReady(int fd) {
   android::IPCThreadState::self()->handlePolledCommands();
-}
-
-void OnHwBinderReadReady(int fd) {
-  android::hardware::handleTransportPoll(fd);
 }
 
 int main(int argc, char** argv) {
@@ -128,11 +117,6 @@ int main(int argc, char** argv) {
       android::wificond::EventLoop::kModeInput,
       &OnBinderReadReady)) << "Failed to watch binder FD";
 
-  int hw_binder_fd = SetupHwBinderOrCrash();
-  CHECK(event_dispatcher->WatchFileDescriptor(
-      hw_binder_fd, android::wificond::EventLoop::kModeInput,
-      &OnHwBinderReadReady)) << "Failed to watch Hw Binder FD";
-
   android::wificond::NetlinkManager netlink_manager(event_dispatcher.get());
   if (!netlink_manager.Start()) {
     LOG(ERROR) << "Failed to start netlink manager";
@@ -145,6 +129,9 @@ int main(int argc, char** argv) {
       &netlink_utils,
       &scan_utils));
   RegisterServiceOrCrash(server.get());
+
+  WifiKeystoreHalConnector keystore_connector;
+  keystore_connector.start();
 
   event_dispatcher->Poll();
   LOG(INFO) << "wificond is about to exit";

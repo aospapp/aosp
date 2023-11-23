@@ -24,6 +24,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.app.backup.BackupManager;
+import android.app.backup.BackupObserver;
 import android.app.backup.FileBackupHelper;
 import android.app.backup.SharedPreferencesBackupHelper;
 import android.content.BroadcastReceiver;
@@ -35,6 +36,9 @@ import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.TestUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -60,6 +64,8 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 @AppModeFull
 public class KeyValueBackupRestoreTest {
+    private static final String KEY_VALUE_RESTORE_APP_PACKAGE =
+            "android.cts.backup.keyvaluerestoreapp";
     private static final String TAG = "KeyValueBackupRestore";
 
     // Names and values of the test files for
@@ -111,6 +117,7 @@ public class KeyValueBackupRestoreTest {
     private static final String EXTRA_SUCCESS = "EXTRA_SUCCESS";
 
     private static final int ACTIVITY_TEST_TIMEOUT_MS = 5000;
+    private static final int REQUEST_BACKUP_TIMEOUT_SECS = 60;
 
     private Context mContext;
 
@@ -125,6 +132,7 @@ public class KeyValueBackupRestoreTest {
     private boolean mSharedPrefTestSuccess;
     private CountDownLatch mLatch;
     private Intent mSharedPrefActivityIntent;
+    private BackupManager mBackupManager;
 
     private final BroadcastReceiver mSharedPrefencesReceiver = new BroadcastReceiver() {
         @Override
@@ -147,6 +155,7 @@ public class KeyValueBackupRestoreTest {
                         SHARED_PREFERENCES_RESTORE_ACTIVITY_NAME)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.registerReceiver(mSharedPrefencesReceiver, new IntentFilter(RESULT_ACTION));
+        mBackupManager = new BackupManager(mContext);
     }
 
     @After
@@ -290,5 +299,42 @@ public class KeyValueBackupRestoreTest {
 
     public static FileBackupHelper getFileBackupHelper(Context context) {
         return new FileBackupHelper(context, TEST_FILE_1, TEST_FILE_2);
+    }
+
+    /**
+     * This is not an actual test, but a device-side routine that's called from the host-side to
+     * requestBackup.
+     */
+    @Test
+    public void requestBackup(){
+        SystemUtil.runWithShellPermissionIdentity(this::requestBackupInternal);
+    }
+
+    private void requestBackupInternal() throws Exception {
+        RequestBackupObserver observer = new RequestBackupObserver();
+        int result = mBackupManager.requestBackup(
+                new String[] {KEY_VALUE_RESTORE_APP_PACKAGE}, observer);
+        Log.i(TAG, "requestBackup returned with:" + result);
+        if (result == 0) {
+            Log.i(TAG, "Waiting for requestBackup to finish");
+            observer.waitForCompletion();
+        }
+    }
+
+    private static class RequestBackupObserver extends BackupObserver {
+        private volatile boolean mDone = false;
+
+        @Override
+        public void backupFinished(int status) {
+            Log.i(TAG, "backupFinished with status=:" + status);
+            mDone = true;
+        }
+
+        public void waitForCompletion() throws Exception {
+            TestUtils.waitUntil(
+                    "Waiting for requestBackup to complete for " + KEY_VALUE_RESTORE_APP_PACKAGE,
+                    REQUEST_BACKUP_TIMEOUT_SECS,
+                    () -> mDone);
+        }
     }
 }

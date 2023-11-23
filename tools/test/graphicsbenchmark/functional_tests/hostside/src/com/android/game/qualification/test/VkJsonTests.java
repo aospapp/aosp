@@ -82,6 +82,8 @@ public class VkJsonTests extends BaseHostJUnit4Test {
 
     @Before
     public void setUp() throws DeviceNotAvailableException {
+        TestUtils.assumeGameCoreCertified(getDevice());
+
         String cmdString = getDevice().executeShellCommand("cmd gpu vkjson");
         Gson gson = new Gson();
         try {

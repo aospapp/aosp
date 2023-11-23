@@ -73,11 +73,11 @@ static jstring String_fastSubstring(JNIEnv* env, jobject java_this, jint start, 
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::String> string_this(hs.NewHandle(soa.Decode<mirror::String>(java_this)));
   gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
-  ObjPtr<mirror::String> result = mirror::String::AllocFromString<true>(soa.Self(),
-                                                                        length,
-                                                                        string_this,
-                                                                        start,
-                                                                        allocator_type);
+  ObjPtr<mirror::String> result = mirror::String::AllocFromString(soa.Self(),
+                                                                  length,
+                                                                  string_this,
+                                                                  start,
+                                                                  allocator_type);
   return soa.AddLocalReference<jstring>(result);
 }
 
@@ -105,8 +105,9 @@ static jstring String_doReplace(JNIEnv* env, jobject java_this, jchar old_c, jch
 
 static jcharArray String_toCharArray(JNIEnv* env, jobject java_this) {
   ScopedFastNativeObjectAccess soa(env);
-  ObjPtr<mirror::String> s = soa.Decode<mirror::String>(java_this);
-  return soa.AddLocalReference<jcharArray>(s->ToCharArray(soa.Self()));
+  StackHandleScope<1u> hs(soa.Self());
+  Handle<mirror::String> s = hs.NewHandle(soa.Decode<mirror::String>(java_this));
+  return soa.AddLocalReference<jcharArray>(mirror::String::ToCharArray(s, soa.Self()));
 }
 
 static JNINativeMethod gMethods[] = {

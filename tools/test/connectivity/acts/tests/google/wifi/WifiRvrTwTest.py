@@ -49,11 +49,9 @@ class WifiRvrTWTest(WifiBaseTest):
     """
     TEST_TIMEOUT = 10
 
-    def __init__(self, controllers):
-        self.attenuators = None
-        WifiBaseTest.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
 
@@ -91,7 +89,7 @@ class WifiRvrTWTest(WifiBaseTest):
 
         # create folder for rvr test result
         self.log_path = os.path.join(logging.log_path, "rvr_results")
-        utils.create_dir(self.log_path)
+        os.makedirs(self.log_path, exist_ok=True)
 
         Header=("test_SSID","Turn table (angle)","Attenuator(dBm)",
                 "TX throughput (Mbps)","RX throughput (Mbps)",

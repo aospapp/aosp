@@ -42,6 +42,8 @@ message DefaultUserConfig {
   // the parts in {} will be automatically replaced with the actual value if
   // you specify them in the pattern, uuid will be automatically generated.
   optional string instance_name_pattern = 11;
+  // [CVD only] Version of fetch_cvd to use.
+  optional string fetch_cvd_version = 12;
 }
 
 // Internal configuration

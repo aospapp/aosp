@@ -34,12 +34,30 @@ public interface IYTMusicHelper extends IAppHelper {
     public void openAlbums();
 
     /**
+     * Setup expectations: YT Music is open and the Library tab is visible.
+     *
+     * <p>This method will select the songs. This method blocks until the process is complete.
+     */
+    public default void openSongs() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
      * Setup expectations: YT Music is open and the Albums page is visible.
      *
      * <p>This method will browse the device files. The method will block until the process is
      * complete.
      */
     public void browseDeviceFiles();
+
+    /**
+     * Setup expectations: YT Music is open and the song list is visible.
+     *
+     * <p>This method will select the song. The method will block until the song is playing.
+     */
+    public default void selectSong(String song) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 
     /**
      * Setup expectations: YT Music is open and the album list is visible.

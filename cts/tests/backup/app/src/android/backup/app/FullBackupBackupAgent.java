@@ -53,23 +53,25 @@ public class FullBackupBackupAgent extends BackupAgent {
     @Override
     public void onRestoreFile(ParcelFileDescriptor data, long size,
             File destination, int type, long mode, long mtime) throws IOException {
-        Log.d(MainActivity.TAG, "onRestoreFile " + destination);
         super.onRestoreFile(data, size, destination, type, mode, mtime);
+        Log.d(MainActivity.TAG, "onRestoreFile " + destination);
     }
 
     @Override
     public void onFullBackup(FullBackupDataOutput data) throws IOException {
-        Log.d(MainActivity.TAG, "Full backup requested, quota is " + data.getQuota());
         super.onFullBackup(data);
+        Log.d(MainActivity.TAG, "Full backup requested, quota is " + data.getQuota());
     }
 
     @Override
     public void onQuotaExceeded(long backupDataBytes, long quotaBytes) {
+        super.onQuotaExceeded(backupDataBytes, quotaBytes);
         Log.d(MainActivity.TAG, "Quota exceeded!");
     }
 
     @Override
     public void onRestoreFinished() {
+        super.onRestoreFinished();
         Log.d(MainActivity.TAG, "onRestoreFinished");
     }
 

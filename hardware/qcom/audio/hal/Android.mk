@@ -224,7 +224,10 @@ ifeq ($(strip $(AUDIO_FEATURE_ENABLED_DYNAMIC_ECNS)),true)
     LOCAL_CFLAGS += -DDYNAMIC_ECNS_ENABLED
 endif
 
-LOCAL_SHARED_LIBRARIES += libbase libhidlbase libhwbinder libutils android.hardware.power@1.2 liblog
+LOCAL_SHARED_LIBRARIES += libbase libhidlbase libutils android.hardware.power@1.2 liblog
+
+LOCAL_SHARED_LIBRARIES += android.hardware.power-ndk_platform
+LOCAL_SHARED_LIBRARIES += libbinder_ndk
 
 LOCAL_SRC_FILES += audio_perf.cpp
 

@@ -143,6 +143,9 @@ WAIT_TIME_ANDROID_STATE_SETTLING = 1
 # has sufficient time to reconfigure based on new network
 WAIT_TIME_BETWEEN_REG_AND_CALL = 5
 
+# Wait time for data pdn to be up on CBRS
+WAIT_TIME_FOR_CBRS_DATA_SWITCH = 60
+
 # Time to wait for 1xrtt voice attach check
 # After DUT voice network type report 1xrtt (from unknown), it need to wait for
 # several seconds before the DUT can receive incoming call.
@@ -165,6 +168,9 @@ WAIT_TIME_AFTER_REBOOT = 10
 
 # Time to wait for radio to up and running after force crash
 WAIT_TIME_AFTER_CRASH = 60
+
+# Time to wait for factory data reset
+WAIT_TIME_AFTER_FDR = 60
 
 # Time to wait for boot complete after reboot
 WAIT_TIME_FOR_BOOT_COMPLETE = 75
@@ -313,6 +319,7 @@ CAPABILITY_WFC_MODE_CHANGE = 'wfc_mode_change'
 CAPABILITY_CONFERENCE = 'conference'
 CAPABILITY_VOLTE_PROVISIONING = 'volte_provisioning'
 CAPABILITY_VOLTE_OVERRIDE_WFC_PROVISIONING = 'volte_override_wfc_provisioning'
+CAPABILITY_HIDE_ENHANCED_4G_LTE_BOOL = 'hide_enhanced_4g_lte'
 
 # Carrier Config Versions
 VZW_CARRIER_CONFIG_VERSION = "29999999999.1"
@@ -596,6 +603,7 @@ NETWORK_MODE_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA = "NETWORK_MODE_LTE_TDSCDMA_CDMA_EV
 
 # Carrier Config Update
 CARRIER_ID_VERSION = "3"
+CARRIER_ID_VERSION_P = "5"
 WAIT_TIME_FOR_CARRIERID_CHANGE = 6
 CARRIER_ID_METADATA_URL = "am broadcast -a com.google.android.gms." \
      "phenotype.FLAG_OVERRIDE --es package 'com.google.android.configupdater'" \
@@ -603,11 +611,23 @@ CARRIER_ID_METADATA_URL = "am broadcast -a com.google.android.gms." \
      "--esa values 'https://www.gstatic.com/android/config_update/110618-" \
      "carrier-id-metadata.txt' --esa types 'string' com.google.android.gms"
 
+CARRIER_ID_METADATA_URL_P = "am broadcast -a com.google.android.gms." \
+     "phenotype.FLAG_OVERRIDE --es package 'com.google.android.configupdater'" \
+     " --es user '\*' --esa flags 'CarrierIdentification__metadata_url' " \
+     "--esa values 'https://www.gstatic.com/android/telephony/carrierid/" \
+     "030419-p-carrier-id-metadata.txt' --esa types 'string' com.google.android.gms"
+
 CARRIER_ID_CONTENT_URL = "am broadcast -a com.google.android.gms." \
      "phenotype.FLAG_OVERRIDE --es package 'com.google.android.configupdater'" \
      " --es user '\*' --esa flags 'CarrierIdentification__content_url' " \
      "--esa values 'https://www.gstatic.com/android/config_update/110618-" \
      "carrier-id.pb' --esa types 'string' com.google.android.gms"
+
+CARRIER_ID_CONTENT_URL_P = "am broadcast -a com.google.android.gms." \
+     "phenotype.FLAG_OVERRIDE --es package 'com.google.android.configupdater'" \
+     " --es user '\*' --esa flags 'CarrierIdentification__content_url' " \
+     "--esa values 'https://www.gstatic.com/android/telephony/carrierid/" \
+     "030419-p-carrier-id.pb' --esa types 'string' com.google.android.gms"
 
 # Constant for Messaging Event Name
 EventSmsDeliverSuccess = "SmsDeliverSuccess"
@@ -657,6 +677,7 @@ EventSignalStrengthChanged = "SignalStrengthChanged"
 EventVolteServiceStateChanged = "VolteServiceStateChanged"
 EventMessageWaitingIndicatorChanged = "MessageWaitingIndicatorChanged"
 EventConnectivityChanged = "ConnectivityChanged"
+EventActiveDataSubIdChanged = "ActiveDataSubIdChanged"
 
 # Constant for Packet Keep Alive Call Back
 EventPacketKeepaliveCallback = "PacketKeepaliveCallback"
@@ -768,6 +789,7 @@ class CarrierConfigs:
     VOLTE_OVERRIDE_WFC_BOOL = "carrier_volte_override_wfc_provisioning_bool"
     VT_AVAILABLE_BOOL = "carrier_vt_available_bool"
     ENHANCED_4G_LTE_ON_BY_DEFAULT_BOOL = "enhanced_4g_lte_on_by_default_bool"
+    HIDE_ENHANCED_4G_LTE_BOOL = "hide_enhanced_4g_lte_bool"
     WFC_IMS_AVAILABLE_BOOL = "carrier_wfc_ims_available_bool"
     WFC_SUPPORTS_WIFI_ONLY_BOOL = "carrier_wfc_supports_wifi_only_bool"
     EDITABLE_ENHANCED_4G_LTE_BOOL = "editable_enhanced_4g_lte_bool"

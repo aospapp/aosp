@@ -79,3 +79,9 @@ bool Inode::Parse(const std::string& str, Inode* out, std::string* error_msg) {
 }
 
 }  // namespace iorap::inode2filename
+
+// Ensure our pollution-free aliases match the typedefs in the system headers.
+static_assert(std::is_same_v<iorap::inode2filename::dev_t, dev_t>);
+static_assert(std::is_same_v<iorap::inode2filename::ino_t, ino_t>);
+
+// TODO: consider some tests for major, minor, etc.

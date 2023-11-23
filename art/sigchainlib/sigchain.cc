@@ -59,7 +59,7 @@
 //               doesn't have SA_RESTART, and raise the signal to avoid restarting syscalls that are
 //               expected to be interrupted?
 
-#if defined(__BIONIC__) && !defined(__LP64__) && !defined(__mips__)
+#if defined(__BIONIC__) && !defined(__LP64__)
 static int sigismember(const sigset64_t* sigset, int signum) {
   return sigismember64(sigset, signum);
 }
@@ -98,9 +98,28 @@ static decltype(&sigaction64) linked_sigaction64;
 static decltype(&sigprocmask64) linked_sigprocmask64;
 #endif
 
-template<typename T>
-static void lookup_next_symbol(T* output, T wrapper, const char* name) {
-  void* sym = dlsym(RTLD_NEXT, name);  // NOLINT glibc triggers cert-dcl16-c with RTLD_NEXT.
+template <typename T>
+static void lookup_libc_symbol(T* output, T wrapper, const char* name) {
+#if defined(__BIONIC__)
+  constexpr const char* libc_name = "libc.so";
+#elif defined(__GLIBC__)
+#if __GNU_LIBRARY__ != 6
+#error unsupported glibc version
+#endif
+  constexpr const char* libc_name = "libc.so.6";
+#else
+#error unsupported libc: not bionic or glibc?
+#endif
+
+  static void* libc = []() {
+    void* result = dlopen(libc_name, RTLD_LOCAL | RTLD_LAZY);
+    if (!result) {
+      fatal("failed to dlopen %s: %s", libc_name, dlerror());
+    }
+    return result;
+  }();
+
+  void* sym = dlsym(libc, name);  // NOLINT glibc triggers cert-dcl16-c with RTLD_NEXT.
   if (sym == nullptr) {
     sym = dlsym(RTLD_DEFAULT, name);
     if (sym == wrapper || sym == sigaction) {
@@ -113,12 +132,12 @@ static void lookup_next_symbol(T* output, T wrapper, const char* name) {
 __attribute__((constructor)) static void InitializeSignalChain() {
   static std::once_flag once;
   std::call_once(once, []() {
-    lookup_next_symbol(&linked_sigaction, sigaction, "sigaction");
-    lookup_next_symbol(&linked_sigprocmask, sigprocmask, "sigprocmask");
+    lookup_libc_symbol(&linked_sigaction, sigaction, "sigaction");
+    lookup_libc_symbol(&linked_sigprocmask, sigprocmask, "sigprocmask");
 
 #if defined(__BIONIC__)
-    lookup_next_symbol(&linked_sigaction64, sigaction64, "sigaction64");
-    lookup_next_symbol(&linked_sigprocmask64, sigprocmask64, "sigprocmask64");
+    lookup_libc_symbol(&linked_sigaction64, sigaction64, "sigaction64");
+    lookup_libc_symbol(&linked_sigprocmask64, sigprocmask64, "sigprocmask64");
 #endif
   });
 }
@@ -271,6 +290,8 @@ class SignalChain {
 // Leave an empty element at index 0 for convenience.
 static SignalChain chains[_NSIG + 1];
 
+static bool is_signal_hook_debuggable = false;
+
 void SignalChain::Handler(int signo, siginfo_t* siginfo, void* ucontext_raw) {
   // Try the special handlers first.
   // If one of them crashes, we'll reenter this handler and pass that crash onto the user handler.
@@ -339,6 +360,10 @@ static int __sigaction(int signal, const SigactionType* new_action,
                        SigactionType* old_action,
                        int (*linked)(int, const SigactionType*,
                                      SigactionType*)) {
+  if (is_signal_hook_debuggable) {
+    return 0;
+  }
+
   // If this signal has been claimed as a signal chain, record the user's
   // action but don't pass it on to the kernel.
   // Note that we check that the signal number is in range here.  An out of range signal
@@ -504,6 +529,10 @@ extern "C" void EnsureFrontOfChain(int signal) {
     log("Warning: Unexpected sigaction action found %p\n", current_action.sa_sigaction);
     chains[signal].Register(signal);
   }
+}
+
+extern "C" void SkipAddSignalHandler(bool value) {
+  is_signal_hook_debuggable = value;
 }
 
 }   // namespace art

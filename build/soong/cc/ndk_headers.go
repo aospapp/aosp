@@ -16,7 +16,6 @@ package cc
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -48,7 +47,7 @@ func init() {
 }
 
 // Returns the NDK base include path for use with sdk_version current. Usable with -I.
-func getCurrentIncludePath(ctx android.ModuleContext) android.OutputPath {
+func getCurrentIncludePath(ctx android.ModuleContext) android.InstallPath {
 	return getNdkSysrootBase(ctx).Join(ctx, "usr/include")
 }
 
@@ -94,7 +93,7 @@ type headerModule struct {
 }
 
 func getHeaderInstallDir(ctx android.ModuleContext, header android.Path, from string,
-	to string) android.OutputPath {
+	to string) android.InstallPath {
 	// Output path is the sysroot base + "usr/include" + to directory + directory component
 	// of the file without the leading from directory stripped.
 	//
@@ -159,6 +158,16 @@ func (m *headerModule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	}
 }
 
+// ndk_headers installs the sets of ndk headers defined in the srcs property
+// to the sysroot base + "usr/include" + to directory + directory component.
+// ndk_headers requires the license file to be specified. Example:
+//
+//    Given:
+//    sysroot base = "ndk/sysroot"
+//    from = "include/foo"
+//    to = "bar"
+//    header = "include/foo/woodly/doodly.h"
+//    output path = "ndk/sysroot/usr/include/bar/woodly/doodly.h"
 func ndkHeadersFactory() android.Module {
 	module := &headerModule{}
 	module.AddProperties(&module.properties)
@@ -245,16 +254,8 @@ func processHeadersWithVersioner(ctx android.ModuleContext, srcDir, outDir andro
 	depsPath := android.PathForSource(ctx, "bionic/libc/versioner-dependencies")
 	depsGlob := ctx.Glob(filepath.Join(depsPath.String(), "**/*"), nil)
 	for i, path := range depsGlob {
-		fileInfo, err := os.Lstat(path.String())
-		if err != nil {
-			ctx.ModuleErrorf("os.Lstat(%q) failed: %s", path.String, err)
-		}
-		if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
-			dest, err := os.Readlink(path.String())
-			if err != nil {
-				ctx.ModuleErrorf("os.Readlink(%q) failed: %s",
-					path.String, err)
-			}
+		if ctx.IsSymlink(path) {
+			dest := ctx.Readlink(path)
 			// Additional .. to account for the symlink itself.
 			depsGlob[i] = android.PathForSource(
 				ctx, filepath.Clean(filepath.Join(path.String(), "..", dest)))
@@ -278,6 +279,11 @@ func processHeadersWithVersioner(ctx android.ModuleContext, srcDir, outDir andro
 	return timestampFile
 }
 
+// versioned_ndk_headers preprocesses the headers with the bionic versioner:
+// https://android.googlesource.com/platform/bionic/+/master/tools/versioner/README.md.
+// Unlike the ndk_headers soong module, versioned_ndk_headers operates on a
+// directory level specified in `from` property. This is only used to process
+// the bionic/libc/include directory.
 func versionedNdkHeadersFactory() android.Module {
 	module := &versionedHeaderModule{}
 
@@ -360,6 +366,8 @@ func (m *preprocessedHeadersModule) GenerateAndroidBuildActions(ctx android.Modu
 	}
 }
 
+// preprocessed_ndk_headers preprocesses all the ndk headers listed in the srcs
+// property by executing the command defined in the preprocessor property.
 func preprocessedNdkHeadersFactory() android.Module {
 	module := &preprocessedHeadersModule{}
 

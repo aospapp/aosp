@@ -85,6 +85,7 @@ public:
             mDiscontinuity = false;
             mFirstTimestamp = {frames, timeNs};
             mLastTimestamp = mFirstTimestamp;
+            mLastCorrectedTimestamp = mFirstTimestamp;
             mSampleRate = sampleRate;
         } else {
             assert(sampleRate != 0);
@@ -95,6 +96,7 @@ public:
                 // cold is when the timestamp may take some time to start advancing at normal rate.
                 ++mColds;
                 mFirstTimestamp = timestamp;
+                mLastCorrectedTimestamp = mFirstTimestamp;
                 // ALOGD("colds:%lld frames:%lld timeNs:%lld",
                 //         (long long)mColds, (long long)frames, (long long)timeNs);
             } else {

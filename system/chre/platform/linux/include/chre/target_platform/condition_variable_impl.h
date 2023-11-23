@@ -29,11 +29,11 @@ inline void ConditionVariable::notify_one() {
   mConditionVariable.notify_one();
 }
 
-inline void ConditionVariable::wait(Mutex& mutex) {
+inline void ConditionVariable::wait(Mutex &mutex) {
   mConditionVariable.wait(mutex);
 }
 
-inline bool ConditionVariable::wait_for(Mutex& mutex, Nanoseconds timeout) {
+inline bool ConditionVariable::wait_for(Mutex &mutex, Nanoseconds timeout) {
   std::cv_status result = mConditionVariable.wait_for(
       mutex, std::chrono::nanoseconds(timeout.toRawNanoseconds()));
   return (result != std::cv_status::timeout);

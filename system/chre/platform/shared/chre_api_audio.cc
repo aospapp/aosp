@@ -32,8 +32,9 @@ DLL_EXPORT bool chreAudioGetSource(uint32_t handle,
 #ifdef CHRE_AUDIO_SUPPORT_ENABLED
   bool success = false;
   if (audioSource != nullptr) {
-    success = EventLoopManagerSingleton::get()->getAudioRequestManager()
-        .getAudioSource(handle, audioSource);
+    success = EventLoopManagerSingleton::get()
+                  ->getAudioRequestManager()
+                  .getAudioSource(handle, audioSource);
   }
 
   return success;
@@ -47,7 +48,8 @@ DLL_EXPORT bool chreAudioConfigureSource(uint32_t handle, bool enable,
                                          uint64_t deliveryInterval) {
 #ifdef CHRE_AUDIO_SUPPORT_ENABLED
   Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
-  return EventLoopManagerSingleton::get()->getAudioRequestManager()
+  return EventLoopManagerSingleton::get()
+      ->getAudioRequestManager()
       .configureSource(nanoapp, handle, enable, bufferDuration,
                        deliveryInterval);
 #else

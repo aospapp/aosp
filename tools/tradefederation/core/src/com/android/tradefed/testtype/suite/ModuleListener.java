@@ -16,9 +16,11 @@
 package com.android.tradefed.testtype.suite;
 
 import com.android.ddmlib.Log.LogLevel;
+import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
@@ -26,7 +28,6 @@ import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
 import com.android.tradefed.result.LogSaverResultForwarder;
 import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.IRemoteTest;
 
 import java.util.HashMap;
@@ -38,10 +39,10 @@ import java.util.HashMap;
 public class ModuleListener extends CollectingTestListener {
 
     private boolean mSkip = false;
-    private boolean mTestFailed = false;
+    private TestStatus mTestStatus;
+    private String mTrace;
     private int mTestsRan = 1;
     private ITestInvocationListener mMainListener;
-    private boolean mHasFailed = false;
 
     private boolean mCollectTestsOnly = false;
     /** Track runs in progress for logging purpose */
@@ -61,6 +62,11 @@ public class ModuleListener extends CollectingTestListener {
 
     @Override
     public void testRunStarted(String name, int numTests, int attemptNumber) {
+        testRunStarted(name, numTests, attemptNumber, System.currentTimeMillis());
+    }
+
+    @Override
+    public void testRunStarted(String name, int numTests, int attemptNumber, long startTime) {
         mRunInProgress = true;
         // In case of retry of the same run, do not add the expected count again. This allows
         // situation where test runner has a built-in retry (like InstrumentationTest) and calls
@@ -68,18 +74,25 @@ public class ModuleListener extends CollectingTestListener {
         if (getTestRunAtAttempt(name, attemptNumber) != null) {
             numTests = 0;
         }
-        super.testRunStarted(name, numTests, attemptNumber);
+        super.testRunStarted(name, numTests, attemptNumber, startTime);
         if (attemptNumber != 0) {
             mTestsRan = 1;
         }
+        CLog.d("ModuleListener.testRunStarted(%s, %s, %s)", name, numTests, attemptNumber);
     }
 
     /** {@inheritDoc} */
     @Override
     public void testRunFailed(String errorMessage) {
-        mHasFailed = true;
         CLog.d("ModuleListener.testRunFailed(%s)", errorMessage);
         super.testRunFailed(errorMessage);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void testRunFailed(FailureDescription failure) {
+        CLog.d("ModuleListener.testRunFailed(%s)", failure.toString());
+        super.testRunFailed(failure);
     }
 
     /** {@inheritDoc} */
@@ -89,9 +102,9 @@ public class ModuleListener extends CollectingTestListener {
         mRunInProgress = false;
     }
 
-    /** Returns whether or not the listener session has failed. */
-    public boolean hasFailed() {
-        return mHasFailed;
+    /** Returns whether or not the listener last retry session has failed. */
+    public boolean hasLastAttemptFailed() {
+        return getCurrentRunResults().isRunFailure();
     }
 
     /** {@inheritDoc} */
@@ -100,18 +113,31 @@ public class ModuleListener extends CollectingTestListener {
         if (!mCollectTestsOnly) {
             CLog.d("ModuleListener.testStarted(%s)", test.toString());
         }
-        mTestFailed = false;
+        mTestStatus = TestStatus.PASSED;
+        mTrace = null;
         super.testStarted(test, startTime);
         if (mSkip) {
             super.testIgnored(test);
+            mTestStatus = TestStatus.IGNORED;
         }
     }
 
     /** Helper to log the test passed if it didn't fail. */
-    private void logTestPassed(String testName) {
-        if (!mTestFailed && !mCollectTestsOnly) {
-            CLog.logAndDisplay(
-                    LogLevel.INFO, "[%d/%d] %s pass", mTestsRan, getExpectedTests(), testName);
+    private void logTestStatus(TestDescription testName, TestStatus status) {
+        if (!mCollectTestsOnly) {
+            String runName = "";
+            // Only print the run name in addition to test case fully qualified if different.
+            if (!testName.getClassName().startsWith(getCurrentRunResults().getName())) {
+                runName = getCurrentRunResults().getName() + " ";
+            }
+            String runAndTestCase = String.format("%s%s", runName, testName.toString());
+            String message =
+                    String.format(
+                            "[%d/%d] %s %s", mTestsRan, getExpectedTests(), runAndTestCase, status);
+            if (mTrace != null) {
+                message += ": " + mTrace;
+            }
+            CLog.logAndDisplay(LogLevel.INFO, message);
         }
         mTestsRan++;
     }
@@ -125,8 +151,28 @@ public class ModuleListener extends CollectingTestListener {
     /** {@inheritDoc} */
     @Override
     public void testEnded(TestDescription test, long endTime, HashMap<String, Metric> testMetrics) {
-        logTestPassed(test.toString());
+        logTestStatus(test, mTestStatus);
         super.testEnded(test, endTime, testMetrics);
+    }
+
+    @Override
+    public void testIgnored(TestDescription test) {
+        super.testIgnored(test);
+        mTestStatus = TestStatus.IGNORED;
+    }
+
+    @Override
+    public void testAssumptionFailure(TestDescription test, String trace) {
+        super.testAssumptionFailure(test, trace);
+        mTestStatus = TestStatus.ASSUMPTION_FAILURE;
+        mTrace = trace;
+    }
+
+    @Override
+    public void testAssumptionFailure(TestDescription test, FailureDescription failure) {
+        super.testAssumptionFailure(test, failure);
+        mTestStatus = TestStatus.ASSUMPTION_FAILURE;
+        mTrace = failure.toString();
     }
 
     /** {@inheritDoc} */
@@ -135,15 +181,20 @@ public class ModuleListener extends CollectingTestListener {
         if (mSkip) {
             return;
         }
-        CLog.logAndDisplay(
-                LogLevel.INFO,
-                "[%d/%d] %s fail:\n%s",
-                mTestsRan,
-                getExpectedTests(),
-                test.toString(),
-                trace);
-        mTestFailed = true;
+        mTestStatus = TestStatus.FAILURE;
+        mTrace = trace;
         super.testFailed(test, trace);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void testFailed(TestDescription test, FailureDescription failure) {
+        if (mSkip) {
+            return;
+        }
+        mTestStatus = TestStatus.FAILURE;
+        mTrace = failure.toString();
+        super.testFailed(test, failure);
     }
 
     /** Whether or not to mark all the test cases skipped. */
@@ -187,21 +238,5 @@ public class ModuleListener extends CollectingTestListener {
                 ((ILogSaverListener) mMainListener).logAssociation(dataName, logFile);
             }
         }
-    }
-
-    /**
-     * Check if any runs in the given attempt have incompleted (aka "run failure").
-     *
-     * @param attemptNumber indicates which attempt should the test runs come from.
-     * @return true if any of the runs in the given attempt has crashed.
-     */
-    public boolean hasRunCrashedAtAttempt(int attemptNumber) {
-        for (String runName : getTestRunNames()) {
-            TestRunResult run = getTestRunAtAttempt(runName, attemptNumber);
-            if (run != null && run.isRunFailure()) {
-                return true;
-            }
-        }
-        return false;
     }
 }

@@ -18,40 +18,30 @@
         ]
     },
     "initialState": {
-        "stacks": [
+        "tasks": [
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity",
-                                "state": "RESUMED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$RegularActivity",
+                        "state": "RESUMED"
                     }
-                ],
-                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity"
+                ]
             }
         ]
     },
     "endState": {
-        "stacks": [
+        "tasks": [
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTopActivity",
-                                "state": "RESUMED"
-                            },
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity",
-                                "state": "STOPPED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$SingleTopActivity",
+                        "state": "RESUMED"
+                    },
+                    {
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$RegularActivity",
+                        "state": "STOPPED"
                     }
-                ],
-                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTopActivity"
+                ]
             }
         ]
     }

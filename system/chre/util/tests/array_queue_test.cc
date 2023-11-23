@@ -1,5 +1,5 @@
-#include "gtest/gtest.h"
 #include "chre/util/array_queue.h"
+#include "gtest/gtest.h"
 
 #include <algorithm>
 #include <type_traits>
@@ -35,7 +35,7 @@ class DummyElement {
  private:
   int val_ = kMaxTestCapacity - 1;
 };
-}
+}  // namespace
 
 TEST(ArrayQueueTest, IsEmptyInitially) {
   ArrayQueue<int, 4> q;
@@ -186,7 +186,7 @@ TEST(ArrayQueueTest, TestBack) {
 TEST(ArrayQueueDeathTest, InvalidSubscript) {
   ArrayQueue<int, 2> q;
   EXPECT_DEATH(q[0], "");
- }
+}
 
 TEST(ArrayQueueTest, Subscript) {
   ArrayQueue<int, 2> q;
@@ -242,7 +242,8 @@ TEST(ArrayQueueTest, ElementsDestructedWhenQueueDestructed) {
 
   // Put q and e in the scope so their destructor will be called going
   // out of scope.
-  { ArrayQueue<DummyElement, 4> q;
+  {
+    ArrayQueue<DummyElement, 4> q;
     DummyElement e;
 
     for (size_t i = 0; i < 3; ++i) {
@@ -410,8 +411,8 @@ TEST(ArrayQueueTest, SimpleConstIterator) {
   }
 
   size_t index = 0;
-  for (ArrayQueue<int, 4>::const_iterator cit = q.cbegin();
-       cit != q.cend(); ++cit) {
+  for (ArrayQueue<int, 4>::const_iterator cit = q.cbegin(); cit != q.cend();
+       ++cit) {
     EXPECT_EQ(q[index++], *cit);
   }
 
@@ -480,7 +481,6 @@ TEST(ArrayQueueTest, IteratorTraits) {
 
   typename traits::pointer p = &r;
   EXPECT_EQ(*p, q[0]);
-
 
   // Note: if the implementation is upgraded to another category like random
   // access, then this static assert should be updated. It exists primarily to

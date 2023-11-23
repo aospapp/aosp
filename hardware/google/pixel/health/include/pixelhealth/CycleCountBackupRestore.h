@@ -35,7 +35,7 @@ class CycleCountBackupRestore {
     void Backup(int battery_level);
 
   private:
-    const char *kPersistSerial = "/persist/battery/serial_number";
+    const char *kPersistSerial = "/mnt/vendor/persist/battery/serial_number";
 
     int nb_buckets_;
     int *sw_bins_;

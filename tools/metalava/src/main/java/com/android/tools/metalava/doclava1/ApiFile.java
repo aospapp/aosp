@@ -21,6 +21,7 @@ import com.android.tools.metalava.FileFormat;
 import com.android.tools.metalava.model.AnnotationItem;
 import com.android.tools.metalava.model.DefaultModifierList;
 import com.android.tools.metalava.model.TypeParameterList;
+import com.android.tools.metalava.model.VisibilityLevel;
 import com.android.tools.metalava.model.text.TextClassItem;
 import com.android.tools.metalava.model.text.TextConstructorItem;
 import com.android.tools.metalava.model.text.TextFieldItem;
@@ -38,12 +39,11 @@ import kotlin.Pair;
 import kotlin.text.StringsKt;
 import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.android.tools.metalava.ConstantsKt.ANDROIDX_NONNULL;
 import static com.android.tools.metalava.ConstantsKt.ANDROIDX_NULLABLE;
@@ -58,61 +58,134 @@ import static kotlin.text.Charsets.UTF_8;
 // metalava's richer files, e.g. annotations)
 //
 public class ApiFile {
-    public static TextCodebase parseApi(File file) throws ApiParseException {
-        return parseApi(file, null);
+    /**
+     * Same as {@link #parseApi(List, boolean)}}, but take a single file for convenience.
+     *
+     * @param file input signature file
+     * @param kotlinStyleNulls if true, we assume the input has a kotlin style nullability markers (e.g. "?").
+     *                         Even if false, we'll allow them if the file format supports them/
+     */
+    public static TextCodebase parseApi(@Nonnull File file, boolean kotlinStyleNulls) throws ApiParseException {
+        final List<File> files = new ArrayList<>(1);
+        files.add(file);
+        return parseApi(files, kotlinStyleNulls);
     }
 
-    public static TextCodebase parseApi(File file,
-                                        Boolean kotlinStyleNulls) throws ApiParseException {
-        try {
-            String apiText = Files.asCharSource(file, UTF_8).read();
-            return parseApi(file.getPath(), apiText, kotlinStyleNulls);
-        } catch (IOException ex) {
-            throw new ApiParseException("Error reading API file", ex);
+    /**
+     * Read API signature files into a {@link TextCodebase}.
+     *
+     * Note: when reading from them multiple files, {@link TextCodebase#getLocation} would refer to the first
+     * file specified. each {@link com.android.tools.metalava.model.text.TextItem#getPosition} would correctly
+     * point out the source file of each item.
+     *
+     * @param files input signature files
+     * @param kotlinStyleNulls if true, we assume the input has a kotlin style nullability markers (e.g. "?").
+     *                         Even if false, we'll allow them if the file format supports them/
+     */
+    public static TextCodebase parseApi(@Nonnull List<File> files, boolean kotlinStyleNulls)
+        throws ApiParseException {
+        if (files.size() == 0) {
+            throw new IllegalArgumentException("files must not be empty");
         }
+        final TextCodebase api = new TextCodebase(files.get(0));
+        final StringBuilder description = new StringBuilder("Codebase loaded from ");
+
+        boolean first = true;
+        for (File file : files) {
+            if (!first) {
+                description.append(", ");
+            }
+            description.append(file.getPath());
+
+            final String apiText;
+            try {
+                apiText = Files.asCharSource(file, UTF_8).read();
+            } catch (IOException ex) {
+                throw new ApiParseException("Error reading API file", file.getPath(), ex);
+            }
+            parseApiSingleFile(api, !first, file.getPath(), apiText, kotlinStyleNulls);
+            first = false;
+        }
+        api.setDescription(description.toString());
+        api.postProcess();
+        return api;
     }
 
-    @SuppressWarnings("StatementWithEmptyBody")
-    @VisibleForTesting
-    public static TextCodebase parseApi(String filename, String apiText,
+    /** @deprecated Exists only for external callers. */
+    @Deprecated
+    public static TextCodebase parseApi(@Nonnull String filename, @Nonnull String apiText,
                                         Boolean kotlinStyleNulls) throws ApiParseException {
+        return parseApi(filename, apiText, kotlinStyleNulls != null && kotlinStyleNulls);
+    }
+
+    /**
+     * Entry point fo test. Take a filename and content separately.
+     */
+    @VisibleForTesting
+    public static TextCodebase parseApi(@Nonnull String filename, @Nonnull String apiText,
+                                        boolean kotlinStyleNulls) throws ApiParseException {
+        final TextCodebase api = new TextCodebase(new File(filename));
+        api.setDescription("Codebase loaded from " + filename);
+        parseApiSingleFile(api, false, filename, apiText, kotlinStyleNulls);
+        api.postProcess();
+        return api;
+    }
+
+    private static void parseApiSingleFile(TextCodebase api, boolean appending, String filename, String apiText,
+                                           boolean kotlinStyleNulls) throws ApiParseException {
+        // Infer the format.
         FileFormat format = FileFormat.Companion.parseHeader(apiText);
+
+        // If it's the first file, set the format. Otherwise, make sure the format is the same as the prior files.
+        if (!appending) {
+            // This is the first file to process.
+            api.setFormat(format);
+        } else {
+            // If we're appending to another API file, make sure the format is the same.
+            if (!format.equals(api.getFormat())) {
+                throw new ApiParseException(String.format(
+                    "Cannot merge different formats of signature files. First file format=%s, current file format=%s: file=%s",
+                    api.getFormat(), format, filename));
+            }
+            // When we're appending, and the content is empty, nothing to do.
+            if (StringsKt.isBlank(apiText)) {
+                return;
+            }
+        }
+
+        // Even if kotlinStyleNulls is false, still allow kotlin nullability markers, if the format allows them.
         if (format.isSignatureFormat()) {
-            if (kotlinStyleNulls == null || !kotlinStyleNulls) {
+            if (!kotlinStyleNulls) {
                 kotlinStyleNulls = format.useKotlinStyleNulls();
             }
         } else if (StringsKt.isBlank(apiText)) {
-            // Signature files are sometimes blank, particularly with show annotations
-            kotlinStyleNulls = false;
+            // Sometimes, signature files are empty, and we do want to accept them.
         } else {
             throw new ApiParseException("Unknown file format of " + filename);
         }
 
+        if (kotlinStyleNulls) {
+            api.setKotlinStyleNulls(true);
+        }
+
+        // Remove the block comments.
         if (apiText.contains("/*")) {
             apiText = ClassNameKt.stripComments(apiText, false); // line comments are used to stash field constants
         }
 
         final Tokenizer tokenizer = new Tokenizer(filename, apiText.toCharArray());
-        final TextCodebase api = new TextCodebase(new File(filename));
-        api.setDescription("Codebase loaded from " + filename);
-        api.setFormat(format);
-        api.setKotlinStyleNulls(kotlinStyleNulls);
-
         while (true) {
             String token = tokenizer.getToken();
             if (token == null) {
                 break;
             }
+            // TODO: Accept annotations on packages.
             if ("package".equals(token)) {
                 parsePackage(api, tokenizer);
             } else {
                 throw new ApiParseException("expected package got " + token, tokenizer);
             }
         }
-
-        api.postProcess();
-
-        return api;
     }
 
     private static void parsePackage(TextCodebase api, Tokenizer tokenizer)
@@ -134,7 +207,28 @@ public class ApiFile {
 
         assertIdent(tokenizer, token);
         name = token;
+
+        // If the same package showed up multiple times, make sure they have the same modifiers.
+        // (Packages can't have public/private/etc, but they can have annotations, which are part of ModifierList.)
+        // ModifierList doesn't provide equals(), neither does AnnotationItem which ModifilerList contains,
+        // so we just use toString() here for equality comparison.
+        // However, ModifierList.toString() throws if the owner is not yet set, so we have to instantiate an
+        // (owner) TextPackageItem here.
+        // If it's a duplicate package, then we'll replace pkg with the existing one in the following if block.
+
+        // TODO: However, currently this parser can't handle annotations on packages, so we will never hit this case.
+        // Once the parser supports that, we should add a test case for this too.
         pkg = new TextPackageItem(api, name, modifiers, tokenizer.pos());
+
+        final TextPackageItem existing = api.findPackage(name);
+        if (existing != null) {
+            if (!pkg.getModifiers().toString().equals(existing.getModifiers().toString())) {
+                throw new ApiParseException(String.format(
+                    "Contradicting declaration of package %s. Previously seen with modifiers \"%s\", but now with \"%s\"",
+                    name, pkg.getModifiers(), modifiers), tokenizer);
+            }
+            pkg = existing;
+        }
 
         token = tokenizer.requireToken();
         if (!"{".equals(token)) {
@@ -191,6 +285,11 @@ public class ApiFile {
         assertIdent(tokenizer, token);
         name = token;
         qualifiedName = qualifiedName(pkg.name(), name);
+
+        if (api.findClass(qualifiedName) != null) {
+            throw new ApiParseException("Duplicate class found: " + qualifiedName, tokenizer);
+        }
+
         final TextTypeItem typeInfo = api.obtainTypeFromString(qualifiedName);
         // Simple type info excludes the package name (but includes enclosing class names)
 
@@ -275,6 +374,11 @@ public class ApiFile {
     }
 
     private static Pair<String, List<String>> processKotlinTypeSuffix(TextCodebase api, String type, List<String> annotations) throws ApiParseException {
+        boolean varArgs = false;
+        if (type.endsWith("...")) {
+            type = type.substring(0, type.length() - 3);
+            varArgs = true;
+        }
         if (api.getKotlinStyleNulls()) {
             if (type.endsWith("?")) {
                 type = type.substring(0, type.length() - 1);
@@ -290,6 +394,9 @@ public class ApiFile {
             throw new ApiParseException("Did you forget to supply --input-kotlin-nulls? Found Kotlin-style null type suffix when parser was not configured " +
                 "to interpret signature file that way: " + type);
         }
+        if (varArgs) {
+            type = type + "...";
+        }
         return new Pair<>(type, annotations);
     }
 
@@ -300,10 +407,10 @@ public class ApiFile {
             if (token.startsWith("@")) {
                 // Annotation
                 String annotation = token;
-                if (annotation.indexOf('.') == -1) {
-                    // Restore annotations that were shortened on export
-                    annotation = AnnotationItem.Companion.unshortenAnnotation(annotation);
-                }
+
+                // Restore annotations that were shortened on export
+                annotation = AnnotationItem.Companion.unshortenAnnotation(annotation);
+
                 token = tokenizer.requireToken();
                 if (token.equals("(")) {
                     // Annotation arguments; potentially nested
@@ -503,25 +610,25 @@ public class ApiFile {
         String token,
         List<String> annotations) throws ApiParseException {
 
-        TextModifiers modifiers = new TextModifiers(api, 0, null);
+        TextModifiers modifiers = new TextModifiers(api, DefaultModifierList.PACKAGE_PRIVATE, null);
 
         processModifiers:
         while (true) {
             switch (token) {
                 case "public":
-                    modifiers.setPublic(true);
+                    modifiers.setVisibilityLevel(VisibilityLevel.PUBLIC);
                     token = tokenizer.requireToken();
                     break;
                 case "protected":
-                    modifiers.setProtected(true);
+                    modifiers.setVisibilityLevel(VisibilityLevel.PROTECTED);
                     token = tokenizer.requireToken();
                     break;
                 case "private":
-                    modifiers.setPrivate(true);
+                    modifiers.setVisibilityLevel(VisibilityLevel.PRIVATE);
                     token = tokenizer.requireToken();
                     break;
                 case "internal":
-                    modifiers.setInternal(true);
+                    modifiers.setVisibilityLevel(VisibilityLevel.INTERNAL);
                     token = tokenizer.requireToken();
                     break;
                 case "static":
@@ -792,7 +899,7 @@ public class ApiFile {
                     int balance = defaultValue.equals("(") ? 1 : 0;
                     while (true) {
                         token = tokenizer.requireToken(true, false);
-                        if (token.endsWith(",") || token.endsWith(")") && balance <= 0) {
+                        if ((token.endsWith(",") || token.endsWith(")")) && balance <= 0) {
                             if (token.length() > 1) {
                                 sb.append(token, 0, token.length() - 1);
                                 token = Character.toString(token.charAt(token.length() - 1));
@@ -889,7 +996,7 @@ public class ApiFile {
         }
 
         SourcePositionInfo pos() {
-            return new SourcePositionInfo(mFilename, mLine, 0);
+            return new SourcePositionInfo(mFilename, mLine);
         }
 
         public int getLine() {
@@ -939,7 +1046,7 @@ public class ApiFile {
             if (token != null) {
                 return token;
             } else {
-                throw new ApiParseException("Unexpected end of file", mLine);
+                throw new ApiParseException("Unexpected end of file", this);
             }
         }
 
@@ -982,11 +1089,11 @@ public class ApiFile {
                 int state = STATE_BEGIN;
                 while (true) {
                     if (mPos >= mBuf.length) {
-                        throw new ApiParseException("Unexpected end of file for \" starting at " + line, mLine);
+                        throw new ApiParseException("Unexpected end of file for \" starting at " + line, this);
                     }
                     final char k = mBuf[mPos];
                     if (k == '\n' || k == '\r') {
-                        throw new ApiParseException("Unexpected newline for \" starting at " + line + " in " + mFilename, mLine);
+                        throw new ApiParseException("Unexpected newline for \" starting at " + line +" in " + mFilename, this);
                     }
                     mPos++;
                     switch (state) {
@@ -994,12 +1101,12 @@ public class ApiFile {
                             switch (k) {
                                 case '\\':
                                     state = STATE_ESCAPE;
-                                    mPos++;
                                     break;
                                 case '"':
                                     mCurrent = new String(mBuf, start, mPos - start);
                                     return mCurrent;
                             }
+                            break;
                         case STATE_ESCAPE:
                             state = STATE_BEGIN;
                             break;
@@ -1045,7 +1152,7 @@ public class ApiFile {
                 } while (mPos < mBuf.length
                     && ((!isSpace(mBuf[mPos]) && !isSeparator(mBuf[mPos], parenIsSep)) || genericDepth != 0));
                 if (mPos >= mBuf.length) {
-                    throw new ApiParseException("Unexpected end of file for \" starting at " + line, mLine);
+                    throw new ApiParseException("Unexpected end of file for \" starting at " + line, this);
                 }
                 mCurrent = new String(mBuf, start, mPos - start);
                 return mCurrent;

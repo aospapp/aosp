@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef NETD_SERVER_NETWORK_H
-#define NETD_SERVER_NETWORK_H
+#pragma once
 
 #include "NetdConstants.h"
 
 #include <set>
 #include <string>
 
-namespace android {
-namespace net {
+namespace android::net {
 
 // A Network represents a collection of interfaces participating as a single administrative unit.
 class Network {
@@ -47,9 +45,9 @@ public:
     const std::set<std::string>& getInterfaces() const;
 
     // These return 0 on success or negative errno on failure.
-    virtual int addInterface(const std::string& interface) WARN_UNUSED_RESULT = 0;
-    virtual int removeInterface(const std::string& interface) WARN_UNUSED_RESULT = 0;
-    int clearInterfaces() WARN_UNUSED_RESULT;
+    [[nodiscard]] virtual int addInterface(const std::string& interface) = 0;
+    [[nodiscard]] virtual int removeInterface(const std::string& interface) = 0;
+    [[nodiscard]] int clearInterfaces();
 
     std::string toString() const;
 
@@ -60,7 +58,4 @@ protected:
     std::set<std::string> mInterfaces;
 };
 
-}  // namespace net
-}  // namespace android
-
-#endif  // NETD_SERVER_NETWORK_H
+}  // namespace android::net

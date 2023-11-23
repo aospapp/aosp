@@ -16,17 +16,26 @@
 
 package com.android.compatibility.common.util;
 
+import static org.junit.Assume.assumeTrue;
+
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 
+import org.junit.AssumptionViolatedException;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
 /**
  * Custom JUnit4 rule that does not run a test case if the device does not have a given service.
+ *
+ * <p>The tests are skipped by throwing a {@link AssumptionViolatedException}.  CTS test runners
+ * will report this as a {@code ASSUMPTION_FAILED}.
+ *
+ * <p><b>NOTE:</b> it must be used as {@code Rule}, not {@code ClassRule}.
+ *
  */
 public class RequiredServiceRule implements TestRule {
     private static final String TAG = "RequiredServiceRule";
@@ -52,6 +61,8 @@ public class RequiredServiceRule implements TestRule {
                     Log.d(TAG, "skipping "
                             + description.getClassName() + "#" + description.getMethodName()
                             + " because device does not have service '" + mService + "'");
+                    assumeTrue("Device does not have service '" + mService + "'",
+                            mHasService);
                     return;
                 }
                 base.evaluate();
@@ -74,5 +85,10 @@ public class RequiredServiceRule implements TestRule {
             Log.w(TAG, "Exception running '" + command + "': " + e);
             return false;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "RequiredServiceRule[" + mService + "]";
     }
 }

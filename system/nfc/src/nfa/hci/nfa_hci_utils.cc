@@ -25,6 +25,7 @@
 
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
+#include <log/log.h>
 
 #include "nfa_dm_int.h"
 #include "nfa_hci_api.h"
@@ -305,13 +306,21 @@ tNFA_STATUS nfa_hciu_send_msg(uint8_t pipe_id, uint8_t type,
   bool first_pkt = true;
   uint16_t data_len;
   tNFA_STATUS status = NFA_STATUS_OK;
-  uint16_t max_seg_hcp_pkt_size = nfa_hci_cb.buff_size - NCI_DATA_HDR_SIZE;
+  uint16_t max_seg_hcp_pkt_size;
+  if (nfa_hci_cb.buff_size > (NCI_DATA_HDR_SIZE + 2)) {
+    max_seg_hcp_pkt_size = nfa_hci_cb.buff_size - NCI_DATA_HDR_SIZE;
+  } else {
+    android_errorWriteLog(0x534e4554, "124521372");
+    return NFA_STATUS_NO_BUFFERS;
+  }
+  const uint8_t MAX_BUFF_SIZE = 100;
+  char buff[MAX_BUFF_SIZE];
 
-  char buff[100];
-
-  DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
-      "nfa_hciu_send_msg pipe_id:%d   %s  len:%d", pipe_id,
-      nfa_hciu_get_type_inst_names(pipe_id, type, instruction, buff), msg_len);
+  DLOG_IF(INFO, nfc_debug_enabled)
+      << StringPrintf("nfa_hciu_send_msg pipe_id:%d   %s  len:%d", pipe_id,
+                      nfa_hciu_get_type_inst_names(pipe_id, type, instruction,
+                                                   buff, MAX_BUFF_SIZE),
+                      msg_len);
 
   if (instruction == NFA_HCI_ANY_GET_PARAMETER)
     nfa_hci_cb.param_in_use = *p_msg;
@@ -349,8 +358,12 @@ tNFA_STATUS nfa_hciu_send_msg(uint8_t pipe_id, uint8_t type,
         memcpy(p_data, p_msg, data_len);
 
         p_buf->len += data_len;
-        msg_len -= data_len;
-        if (msg_len > 0) p_msg += data_len;
+        if (msg_len >= data_len) {
+          msg_len -= data_len;
+          p_msg += data_len;
+        } else {
+          msg_len = 0;
+        }
       }
 
       if (HCI_LOOPBACK_DEBUG == NFA_HCI_DEBUG_ON)
@@ -1311,27 +1324,30 @@ std::string nfa_hciu_get_state_name(uint8_t state) {
 **
 *******************************************************************************/
 char* nfa_hciu_get_type_inst_names(uint8_t pipe, uint8_t type, uint8_t inst,
-                                   char* p_buff) {
+                                   char* p_buff, const uint8_t max_buff_size) {
   int xx;
 
-  xx = sprintf(p_buff, "Type: %s [0x%02x] ", nfa_hciu_type_2_str(type).c_str(),
-               type);
+  xx = snprintf(p_buff, max_buff_size, "Type: %s [0x%02x] ",
+                nfa_hciu_type_2_str(type).c_str(), type);
 
   switch (type) {
     case NFA_HCI_COMMAND_TYPE:
-      sprintf(&p_buff[xx], "Inst: %s [0x%02x] ",
-              nfa_hciu_instr_2_str(inst).c_str(), inst);
+      snprintf(&p_buff[xx], max_buff_size - xx, "Inst: %s [0x%02x] ",
+               nfa_hciu_instr_2_str(inst).c_str(), inst);
+
       break;
     case NFA_HCI_EVENT_TYPE:
-      sprintf(&p_buff[xx], "Evt: %s [0x%02x] ",
-              nfa_hciu_evt_2_str(pipe, inst).c_str(), inst);
+      snprintf(&p_buff[xx], max_buff_size - xx, "Evt: %s [0x%02x] ",
+               nfa_hciu_evt_2_str(pipe, inst).c_str(), inst);
+
       break;
     case NFA_HCI_RESPONSE_TYPE:
-      sprintf(&p_buff[xx], "Resp: %s [0x%02x] ",
-              nfa_hciu_get_response_name(inst).c_str(), inst);
+      snprintf(&p_buff[xx], max_buff_size - xx, "Resp: %s [0x%02x] ",
+               nfa_hciu_get_response_name(inst).c_str(), inst);
+
       break;
     default:
-      sprintf(&p_buff[xx], "Inst: %u ", inst);
+      snprintf(&p_buff[xx], max_buff_size - xx, "Inst: %u ", inst);
       break;
   }
   return p_buff;

@@ -16,8 +16,8 @@
 
 import logging
 import time
+import os
 from acts import utils
-from acts.controllers import monsoon
 from acts.libs.proc import job
 from acts.controllers.ap_lib import bridge_interface as bi
 from acts.test_utils.wifi import wifi_test_utils as wutils
@@ -39,7 +39,7 @@ ENABLED_MODULATED_DTIM = 'gEnableModulatedDTIM='
 MAX_MODULATED_DTIM = 'gMaxLIModulatedDTIM='
 
 
-def monsoon_data_plot(mon_info, file_path, tag=""):
+def monsoon_data_plot(mon_info, monsoon_results, tag=''):
     """Plot the monsoon current data using bokeh interactive plotting tool.
 
     Plotting power measurement data with bokeh to generate interactive plots.
@@ -50,9 +50,10 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
 
     Args:
         mon_info: obj with information of monsoon measurement, including
-                  monsoon device object, measurement frequency, duration and
-                  offset etc.
-        file_path: the path to the monsoon log file with current data
+            monsoon device object, measurement frequency, duration, etc.
+        monsoon_results: a MonsoonResult or list of MonsoonResult objects to
+                         to plot.
+        tag: an extra tag to append to the resulting filename.
 
     Returns:
         plot: the plotting object of bokeh, optional, will be needed if multiple
@@ -60,25 +61,35 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
         dt: the datatable object of bokeh, optional, will be needed if multiple
            datatables will be combined to one html file.
     """
+    if not isinstance(monsoon_results, list):
+        monsoon_results = [monsoon_results]
+    logging.info('Plotting the power measurement data.')
 
-    log = logging.getLogger()
-    log.info("Plot the power measurement data")
-    #Get results as monsoon data object from the input file
-    results = monsoon.MonsoonData.from_text_file(file_path)
-    #Decouple current and timestamp data from the monsoon object
-    current_data = []
-    timestamps = []
-    voltage = results[0].voltage
-    [current_data.extend(x.data_points) for x in results]
-    [timestamps.extend(x.timestamps) for x in results]
-    period = 1 / float(mon_info.freq)
-    time_relative = [x * period for x in range(len(current_data))]
-    #Calculate the average current for the test
-    current_data = [x * 1000 for x in current_data]
-    avg_current = sum(current_data) / len(current_data)
-    color = ['navy'] * len(current_data)
+    voltage = monsoon_results[0].voltage
 
-    #Preparing the data and source link for bokehn java callback
+    total_current = 0
+    total_samples = 0
+    for result in monsoon_results:
+        total_current += result.average_current * result.num_samples
+        total_samples += result.num_samples
+    avg_current = total_current / total_samples
+
+    time_relative = [
+        data_point.time
+        for monsoon_result in monsoon_results
+        for data_point in monsoon_result.get_data_points()
+    ]
+
+    current_data = [
+        data_point.current * 1000
+        for monsoon_result in monsoon_results
+        for data_point in monsoon_result.get_data_points()
+    ]
+
+    total_data_points = sum(result.num_samples for result in monsoon_results)
+    color = ['navy'] * total_data_points
+
+    # Preparing the data and source link for bokehn java callback
     source = ColumnDataSource(
         data=dict(x0=time_relative, y0=current_data, color=color))
     s2 = ColumnDataSource(
@@ -88,7 +99,7 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
             x0=[round(avg_current * voltage, 2)],
             z1=[round(avg_current * voltage * mon_info.duration, 2)],
             z2=[round(avg_current * mon_info.duration, 2)]))
-    #Setting up data table for the output
+    # Setting up data table for the output
     columns = [
         TableColumn(field='z0', title='Total Duration (s)'),
         TableColumn(field='y0', title='Average Current (mA)'),
@@ -99,31 +110,32 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
     dt = DataTable(
         source=s2, columns=columns, width=1300, height=60, editable=True)
 
-    plot_title = file_path[file_path.rfind('/') + 1:-4] + tag
-    output_file("%s/%s.html" % (mon_info.data_path, plot_title))
-    TOOLS = ('box_zoom,box_select,pan,crosshair,redo,undo,reset,hover,save')
+    plot_title = (os.path.basename(os.path.splitext(monsoon_results[0].tag)[0])
+                  + tag)
+    output_file(os.path.join(mon_info.data_path, plot_title + '.html'))
+    tools = 'box_zoom,box_select,pan,crosshair,redo,undo,reset,hover,save'
     # Create a new plot with the datatable above
     plot = figure(
         plot_width=1300,
         plot_height=700,
         title=plot_title,
-        tools=TOOLS,
-        output_backend="webgl")
-    plot.add_tools(bokeh_tools.WheelZoomTool(dimensions="width"))
-    plot.add_tools(bokeh_tools.WheelZoomTool(dimensions="height"))
+        tools=tools,
+        output_backend='webgl')
+    plot.add_tools(bokeh_tools.WheelZoomTool(dimensions='width'))
+    plot.add_tools(bokeh_tools.WheelZoomTool(dimensions='height'))
     plot.line('x0', 'y0', source=source, line_width=2)
     plot.circle('x0', 'y0', source=source, size=0.5, fill_color='color')
     plot.xaxis.axis_label = 'Time (s)'
     plot.yaxis.axis_label = 'Current (mA)'
     plot.title.text_font_size = {'value': '15pt'}
 
-    #Callback Java scripting
-    source.callback = CustomJS(
-        args=dict(mytable=dt),
-        code="""
-    var inds = cb_obj.get('selected')['1d'].indices;
-    var d1 = cb_obj.get('data');
-    var d2 = mytable.get('source').get('data');
+    # Callback JavaScript
+    source.selected.js_on_change(
+        "indices",
+        CustomJS(args=dict(source=source, mytable=dt), code="""
+    var inds = cb_obj.indices;
+    var d1 = source.data;
+    var d2 = mytable.source.data;
     ym = 0
     ts = 0
     d2['x0'] = []
@@ -153,13 +165,12 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
     d2['y0'].push(dy0)
     d2['z1'].push(dz1)
     d2['z2'].push(dz2)
-    mytable.trigger('change');
-    """)
+    mytable.change.emit();
+    """))
 
-    #Layout the plot and the datatable bar
-    l = layout([[dt], [plot]])
-    save(l)
-    return [plot, dt]
+    # Layout the plot and the datatable bar
+    save(layout([[dt], [plot]]))
+    return plot, dt
 
 
 def change_dtim(ad, gEnableModulatedDTIM, gMaxLIModulatedDTIM=10):
@@ -289,12 +300,12 @@ def bokeh_plot(data_sets,
         Returns:
             plot: bokeh plot figure object
     """
-    TOOLS = ('box_zoom,box_select,pan,crosshair,redo,undo,reset,hover,save')
+    tools = 'box_zoom,box_select,pan,crosshair,redo,undo,reset,hover,save'
     plot = figure(
         plot_width=1300,
         plot_height=700,
         title=fig_property['title'],
-        tools=TOOLS,
+        tools=tools,
         output_backend="webgl")
     plot.add_tools(bokeh_tools.WheelZoomTool(dimensions="width"))
     plot.add_tools(bokeh_tools.WheelZoomTool(dimensions="height"))
@@ -326,7 +337,7 @@ def bokeh_plot(data_sets,
             legend=str(legend),
             fill_color=color)
 
-    #Plot properties
+    # Plot properties
     plot.xaxis.axis_label = fig_property['x_label']
     plot.yaxis.axis_label = fig_property['y_label']
     plot.legend.location = "top_right"
@@ -436,43 +447,66 @@ def get_if_addr6(intf, address_type):
     return None
 
 
-@utils.timeout(60)
-def wait_for_dhcp(intf):
+def wait_for_dhcp(interface_name):
     """Wait the DHCP address assigned to desired interface.
 
     Getting DHCP address takes time and the wait time isn't constant. Utilizing
     utils.timeout to keep trying until success
 
     Args:
-        intf: desired interface name
+        interface_name: desired interface name
     Returns:
         ip: ip address of the desired interface name
     Raise:
         TimeoutError: After timeout, if no DHCP assigned, raise
     """
     log = logging.getLogger()
-    reset_host_interface(intf)
+    reset_host_interface(interface_name)
+    start_time = time.time()
+    time_limit_seconds = 60
     ip = '0.0.0.0'
-    while ip == '0.0.0.0':
-        ip = scapy.get_if_addr(intf)
-    log.info('DHCP address assigned to {} as {}'.format(intf, ip))
-    return ip
+    while start_time + time_limit_seconds > time.time():
+        ip = scapy.get_if_addr(interface_name)
+        if ip == '0.0.0.0':
+            time.sleep(1)
+        else:
+            log.info(
+                'DHCP address assigned to %s as %s' % (interface_name, ip))
+            return ip
+    raise TimeoutError('Timed out while getting if_addr after %s seconds.' %
+                       time_limit_seconds)
 
 
-def reset_host_interface(intf):
+def reset_host_interface(intferface_name):
     """Reset the host interface.
 
     Args:
-        intf: the desired interface to reset
+        intferface_name: the desired interface to reset
     """
     log = logging.getLogger()
-    intf_down_cmd = 'ifconfig %s down' % intf
-    intf_up_cmd = 'ifconfig %s up' % intf
+    intf_down_cmd = 'ifconfig %s down' % intferface_name
+    intf_up_cmd = 'ifconfig %s up' % intferface_name
     try:
         job.run(intf_down_cmd)
         time.sleep(10)
         job.run(intf_up_cmd)
-        log.info('{} has been reset'.format(intf))
+        log.info('{} has been reset'.format(intferface_name))
+    except job.Error:
+        raise Exception('No such interface')
+
+
+def bringdown_host_interface(intferface_name):
+    """Reset the host interface.
+
+    Args:
+        intferface_name: the desired interface to reset
+    """
+    log = logging.getLogger()
+    intf_down_cmd = 'ifconfig %s down' % intferface_name
+    try:
+        job.run(intf_down_cmd)
+        time.sleep(2)
+        log.info('{} has been brought down'.format(intferface_name))
     except job.Error:
         raise Exception('No such interface')
 

@@ -281,7 +281,6 @@ void UContext::Dump(std::ostream& os) const {
   DumpArmStatusRegister(os, context.pstate);
   os << '\n';
 #else
-  // TODO: Add support for MIPS32 and MIPS64.
   os << "Unknown architecture/word size/OS in ucontext dump";
 #endif
 }
@@ -376,6 +375,12 @@ std::string GetFaultMessageForAbortLogging() {
   return  (runtime != nullptr) ? runtime->GetFaultMessage() : "";
 }
 
+static std::atomic<bool> gIsRuntimeAbort = false;
+
+void FlagRuntimeAbort() {
+  gIsRuntimeAbort = true;
+}
+
 static void HandleUnexpectedSignalCommonDump(int signal_number,
                                              siginfo_t* info,
                                              void* raw_context,
@@ -444,6 +449,11 @@ void HandleUnexpectedSignalCommon(int signal_number,
                                   void* raw_context,
                                   bool handle_timeout_signal,
                                   bool dump_on_stderr) {
+  bool runtime_abort = gIsRuntimeAbort.exchange(false);
+  if (runtime_abort) {
+    return;
+  }
+
   // Local _static_ storing the currently handled signal (or -1).
   static int handling_unexpected_signal = -1;
 

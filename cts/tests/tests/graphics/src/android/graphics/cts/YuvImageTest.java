@@ -16,7 +16,6 @@
 package android.graphics.cts;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -33,6 +32,8 @@ import android.util.Log;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.BitmapUtils;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -253,13 +254,13 @@ public class YuvImageTest {
         Bitmap actual = null;
         boolean sameRect = rect1.equals(rect2) ? true : false;
 
-		Rect actualRect = new Rect(rect2);
+        Rect actualRect = new Rect(rect2);
         actual = compressDecompress(image, actualRect);
 
         Rect expectedRect = sameRect ? actualRect : rect1;
         expected = Bitmap.createBitmap(testBitmap, expectedRect.left, expectedRect.top,
                 expectedRect.width(), expectedRect.height());
-        compareBitmaps(expected, actual, MSE_MARGIN, sameRect);
+        BitmapUtils.assertBitmapsMse(expected, actual, MSE_MARGIN, sameRect, false);
     }
 
     // Compress rect in image.
@@ -275,7 +276,7 @@ public class YuvImageTest {
         expected = Bitmap.createBitmap(testBitmap, newRect.left, newRect.top,
               newRect.width(), newRect.height());
 
-        compareBitmaps(expected, actual, MSE_MARGIN, true);
+        BitmapUtils.assertBitmapsMse(expected, actual, MSE_MARGIN, true, false);
     }
 
     // Compress rect in image to a jpeg and then decode the jpeg to a bitmap.
@@ -332,50 +333,6 @@ public class YuvImageTest {
         }
 
         return yuv;
-    }
-
-    // Compare expected to actual to see if their diff is less then mseMargin.
-    // lessThanMargin is to indicate whether we expect the diff to be
-    // "less than" or "no less than".
-    private void compareBitmaps(Bitmap expected, Bitmap actual,
-            int mseMargin, boolean lessThanMargin) {
-        assertEquals("mismatching widths", expected.getWidth(),
-                actual.getWidth());
-        assertEquals("mismatching heights", expected.getHeight(),
-                actual.getHeight());
-
-        double mse = 0;
-        int width = expected.getWidth();
-        int height = expected.getHeight();
-        int[] expColors = new int [width * height];
-        expected.getPixels(expColors, 0, width, 0, 0, width, height);
-
-        int[] actualColors = new int [width * height];
-        actual.getPixels(actualColors, 0, width, 0, 0, width, height);
-
-        for (int row = 0; row < height; ++row) {
-            for (int col = 0; col < width; ++col) {
-                int idx = row * width + col;
-                mse += distance(expColors[idx], actualColors[idx]);
-            }
-        }
-        mse /= width * height;
-
-        Log.i(TAG, "MSE: " + mse);
-        if (lessThanMargin) {
-            assertTrue("MSE too large for normal case: " + mse,
-                    mse <= mseMargin);
-        } else {
-            assertFalse("MSE too small for abnormal case: " + mse,
-                    mse <= mseMargin);
-        }
-    }
-
-    private double distance(int exp, int actual) {
-        int r = Color.red(actual) - Color.red(exp);
-        int g = Color.green(actual) - Color.green(exp);
-        int b = Color.blue(actual) - Color.blue(exp);
-        return r * r + g * g + b * b;
     }
 
     private void argb2yuv(int argb, byte[] yuv) {

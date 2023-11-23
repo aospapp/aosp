@@ -22,8 +22,11 @@ a number of purposes:
 
 ## Building and running
 
+To download the code and any dependencies required for building, see [DOWNLOADING.md](DOWNLOADING.md)
+
 To build:
 
+    $ cd tools/metalava
     $ ./gradlew
 
 This builds a binary distribution in `../../out/host/common/install/metalava/bin/metalava`.

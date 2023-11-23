@@ -4,29 +4,41 @@ The Recovery Image
 Quick turn-around testing
 -------------------------
 
-    mm -j && m ramdisk-nodeps && m recoveryimage-nodeps
+* Devices using recovery-as-boot (e.g. Pixels, which set BOARD\_USES\_RECOVERY\_AS\_BOOT)
 
-    # To boot into the new recovery image
-    # without flashing the recovery partition:
-    adb reboot bootloader
-    fastboot boot $ANDROID_PRODUCT_OUT/recovery.img
+      # After setting up environment and lunch.
+      m -j bootimage
+      adb reboot bootloader
+
+      # Pixel devices don't support booting into recovery mode with `fastboot boot`.
+      fastboot flash boot
+
+      # Manually choose `Recovery mode` from bootloader menu.
+
+* Devices with a separate recovery image (e.g. Nexus)
+
+      # After setting up environment and lunch.
+      mm -j && m ramdisk-nodeps && m recoveryimage-nodeps
+      adb reboot bootloader
+
+      # To boot into the new recovery image without flashing the recovery partition:
+      fastboot boot $ANDROID_PRODUCT_OUT/recovery.img
 
 Running the tests
 -----------------
+
     # After setting up environment and lunch.
     mmma -j bootable/recovery
 
-    # Running the tests on device.
+    # Running the tests on device (under normal boot).
     adb root
     adb sync data
 
     # 32-bit device
     adb shell /data/nativetest/recovery_unit_test/recovery_unit_test
-    adb shell /data/nativetest/recovery_component_test/recovery_component_test
 
     # Or 64-bit device
     adb shell /data/nativetest64/recovery_unit_test/recovery_unit_test
-    adb shell /data/nativetest64/recovery_component_test/recovery_component_test
 
 Running the manual tests
 ------------------------

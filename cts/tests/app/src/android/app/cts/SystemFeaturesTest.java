@@ -54,16 +54,16 @@ import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.PropertyUtil;
 import com.android.compatibility.common.util.SystemUtil;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Test for checking that the {@link PackageManager} is reporting the correct features.
@@ -327,6 +327,24 @@ public class SystemFeaturesTest {
     }
 
     @Test
+    public void testNfcFeatures() {
+        if (NfcAdapter.getDefaultAdapter(mContext) != null) {
+            // Watches MAY support all FEATURE_NFC features when an NfcAdapter is available, but
+            // non-watches MUST support them both.
+            if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+                assertOneAvailable(PackageManager.FEATURE_NFC,
+                    PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
+            } else {
+                assertAvailable(PackageManager.FEATURE_NFC);
+                assertAvailable(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
+            }
+        } else {
+            assertNotAvailable(PackageManager.FEATURE_NFC);
+            assertNotAvailable(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
+        }
+    }
+
+    @Test
     public void testScreenFeatures() {
         assertTrue(mPackageManager.hasSystemFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE)
                 || mPackageManager.hasSystemFeature(PackageManager.FEATURE_SCREEN_PORTRAIT));
@@ -361,6 +379,8 @@ public class SystemFeaturesTest {
                 Sensor.TYPE_AMBIENT_TEMPERATURE);
         assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_RELATIVE_HUMIDITY,
                 Sensor.TYPE_RELATIVE_HUMIDITY);
+        assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HINGE_ANGLE,
+                Sensor.TYPE_HINGE_ANGLE);
 
 
         /*

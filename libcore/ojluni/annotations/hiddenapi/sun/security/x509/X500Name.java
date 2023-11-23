@@ -26,14 +26,10 @@
 
 package sun.security.x509;
 
-import java.lang.reflect.*;
-import java.util.*;
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class X500Name implements sun.security.x509.GeneralNameInterface, java.security.Principal {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X500Name(java.lang.String dname) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -44,12 +40,12 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X500Name(java.lang.String dname, java.lang.String format) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X500Name(
             java.lang.String commonName,
             java.lang.String organizationUnit,
@@ -59,7 +55,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X500Name(
             java.lang.String commonName,
             java.lang.String organizationUnit,
@@ -75,17 +71,17 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X500Name(sun.security.util.DerValue value) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X500Name(sun.security.util.DerInputStream in) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X500Name(byte[] name) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -98,7 +94,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.util.List<sun.security.x509.AVA> allAvas() {
         throw new RuntimeException("Stub!");
     }
@@ -107,7 +103,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public boolean isEmpty() {
         throw new RuntimeException("Stub!");
     }
@@ -141,7 +137,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String getCommonName() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -235,7 +231,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void encode(sun.security.util.DerOutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -300,12 +296,12 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public javax.security.auth.x500.X500Principal asX500Principal() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static sun.security.x509.X500Name asX500Name(javax.security.auth.x500.X500Principal p) {
         throw new RuntimeException("Stub!");
     }
@@ -316,7 +312,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         DNQUALIFIER_DATA = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier DNQUALIFIER_OID;
 
     static {
@@ -329,7 +325,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         DOMAIN_COMPONENT_DATA = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier DOMAIN_COMPONENT_OID;
 
     static {
@@ -342,7 +338,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         GENERATIONQUALIFIER_DATA = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier GENERATIONQUALIFIER_OID;
 
     static {
@@ -355,7 +351,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         GIVENNAME_DATA = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier GIVENNAME_OID;
 
     static {
@@ -368,7 +364,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         INITIALS_DATA = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier INITIALS_OID;
 
     static {
@@ -381,7 +377,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         SERIALNUMBER_DATA = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier SERIALNUMBER_OID;
 
     static {
@@ -394,7 +390,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         SURNAME_DATA = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier SURNAME_OID;
 
     static {
@@ -411,7 +407,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         commonName_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier commonName_oid;
 
     static {
@@ -424,7 +420,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         countryName_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier countryName_oid;
 
     static {
@@ -449,7 +445,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         ipAddress_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier ipAddress_oid;
 
     static {
@@ -462,7 +458,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         localityName_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier localityName_oid;
 
     static {
@@ -477,7 +473,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         orgName_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier orgName_oid;
 
     static {
@@ -490,7 +486,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         orgUnitName_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier orgUnitName_oid;
 
     static {
@@ -522,7 +518,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         stateName_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier stateName_oid;
 
     static {
@@ -535,7 +531,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         streetAddress_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier streetAddress_oid;
 
     static {
@@ -548,7 +544,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         title_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier title_oid;
 
     static {
@@ -561,7 +557,7 @@ public class X500Name implements sun.security.x509.GeneralNameInterface, java.se
         userid_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier userid_oid;
 
     static {

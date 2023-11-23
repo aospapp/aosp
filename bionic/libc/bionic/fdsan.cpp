@@ -40,13 +40,15 @@
 #include <unistd.h>
 
 #include <async_safe/log.h>
+#include <platform/bionic/reserved_signals.h>
 #include <sys/system_properties.h>
 
+#include "private/bionic_fdtrack.h"
 #include "private/bionic_globals.h"
 #include "private/bionic_inline_raise.h"
 #include "pthread_internal.h"
 
-extern "C" int ___close(int fd);
+extern "C" int __close(int fd);
 pid_t __get_cached_pid();
 
 static constexpr const char* kFdsanPropertyName = "debug.fdsan";
@@ -106,30 +108,8 @@ FdEntry* FdTableImpl<inline_fds>::at(size_t idx) {
 }
 
 void __libc_init_fdsan() {
-  constexpr auto default_level = ANDROID_FDSAN_ERROR_LEVEL_WARN_ONCE;
-  const prop_info* pi = __system_property_find(kFdsanPropertyName);
-  if (!pi) {
-    android_fdsan_set_error_level(default_level);
-    return;
-  }
-  __system_property_read_callback(
-      pi,
-      [](void*, const char*, const char* value, uint32_t) {
-        if (strcasecmp(value, "1") == 0 || strcasecmp(value, "fatal") == 0) {
-          android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_FATAL);
-        } else if (strcasecmp(value, "warn") == 0) {
-          android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_WARN_ALWAYS);
-        } else if (strcasecmp(value, "warn_once") == 0) {
-          android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_WARN_ONCE);
-        } else {
-          if (strlen(value) != 0 && strcasecmp(value, "0") != 0) {
-            async_safe_format_log(ANDROID_LOG_ERROR, "libc",
-                                  "debug.fdsan set to unknown value '%s', disabling", value);
-          }
-          android_fdsan_set_error_level(default_level);
-        }
-      },
-      nullptr);
+  constexpr auto default_level = ANDROID_FDSAN_ERROR_LEVEL_FATAL;
+  android_fdsan_set_error_level_from_property(default_level);
 }
 
 static FdTable& GetFdTable() {
@@ -190,8 +170,7 @@ __printflike(1, 0) static void fdsan_error(const char* fmt, ...) {
                                      ANDROID_FDSAN_ERROR_LEVEL_DISABLED);
       __BIONIC_FALLTHROUGH;
     case ANDROID_FDSAN_ERROR_LEVEL_WARN_ALWAYS:
-      // DEBUGGER_SIGNAL
-      inline_raise(__SIGRTMIN + 3, &abort_message);
+      inline_raise(BIONIC_SIGNAL_DEBUGGER, &abort_message);
       break;
 
     case ANDROID_FDSAN_ERROR_LEVEL_FATAL:
@@ -267,9 +246,14 @@ uint64_t android_fdsan_get_tag_value(uint64_t tag) {
 }
 
 int android_fdsan_close_with_tag(int fd, uint64_t expected_tag) {
+  if (__get_thread()->is_vforked()) {
+    return __close(fd);
+  }
+
+  FDTRACK_CLOSE(fd);
   FdEntry* fde = GetFdEntry(fd);
   if (!fde) {
-    return ___close(fd);
+    return __close(fd);
   }
 
   uint64_t tag = expected_tag;
@@ -299,7 +283,7 @@ int android_fdsan_close_with_tag(int fd, uint64_t expected_tag) {
     }
   }
 
-  int rc = ___close(fd);
+  int rc = __close(fd);
   // If we were expecting to close with a tag, abort on EBADF.
   if (expected_tag && rc == -1 && errno == EBADF) {
     fdsan_error("double-close of file descriptor %d detected", fd);
@@ -316,6 +300,10 @@ uint64_t android_fdsan_get_owner_tag(int fd) {
 }
 
 void android_fdsan_exchange_owner_tag(int fd, uint64_t expected_tag, uint64_t new_tag) {
+  if (__get_thread()->is_vforked()) {
+    return;
+  }
+
   FdEntry* fde = GetFdEntry(fd);
   if (!fde) {
     return;
@@ -352,7 +340,50 @@ android_fdsan_error_level android_fdsan_get_error_level() {
 }
 
 android_fdsan_error_level android_fdsan_set_error_level(android_fdsan_error_level new_level) {
+  if (__get_thread()->is_vforked()) {
+    return android_fdsan_get_error_level();
+  }
+
   return atomic_exchange(&GetFdTable().error_level, new_level);
+}
+
+android_fdsan_error_level android_fdsan_set_error_level_from_property(
+    android_fdsan_error_level default_level) {
+  const prop_info* pi = __system_property_find(kFdsanPropertyName);
+  if (!pi) {
+    return android_fdsan_set_error_level(default_level);
+  }
+
+  struct callback_data {
+    android_fdsan_error_level default_value;
+    android_fdsan_error_level result;
+  };
+
+  callback_data data;
+  data.default_value = default_level;
+
+  __system_property_read_callback(
+      pi,
+      [](void* arg, const char*, const char* value, uint32_t) {
+        callback_data* data = static_cast<callback_data*>(arg);
+
+        if (strcasecmp(value, "1") == 0 || strcasecmp(value, "fatal") == 0) {
+          data->result = android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_FATAL);
+        } else if (strcasecmp(value, "warn") == 0) {
+          data->result = android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_WARN_ALWAYS);
+        } else if (strcasecmp(value, "warn_once") == 0) {
+          data->result = android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_WARN_ONCE);
+        } else {
+          if (strlen(value) != 0 && strcasecmp(value, "0") != 0) {
+            async_safe_format_log(ANDROID_LOG_ERROR, "libc",
+                                  "debug.fdsan set to unknown value '%s', disabling", value);
+          }
+          data->result = android_fdsan_set_error_level(data->default_value);
+        }
+      },
+      &data);
+
+  return data.result;
 }
 
 int close(int fd) {

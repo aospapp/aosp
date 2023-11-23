@@ -21,8 +21,11 @@ import android.net.rtp.AudioCodec;
 import android.net.rtp.AudioGroup;
 import android.net.rtp.AudioStream;
 import android.net.rtp.RtpStream;
+import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
+
+import androidx.core.os.BuildCompat;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -62,7 +65,10 @@ public class AudioGroupTest extends AndroidTestCase {
         mSocketB.connect(mStreamB.getLocalAddress(), mStreamB.getLocalPort());
         mStreamB.associate(mSocketB.getLocalAddress(), mSocketB.getLocalPort());
 
-        mGroup = new AudioGroup();
+        // BuildCompat.isAtLeastR is documented to return false on release SDKs (including R)
+        mGroup = Build.VERSION.SDK_INT > Build.VERSION_CODES.Q || BuildCompat.isAtLeastR()
+                ? new AudioGroup(mContext)
+                : new AudioGroup(); // Constructor with context argument was introduced in R
     }
 
     @Override

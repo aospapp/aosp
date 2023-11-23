@@ -47,5 +47,5 @@ class ImportResolver {
   DISALLOW_COPY_AND_ASSIGN(ImportResolver);
 };
 
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

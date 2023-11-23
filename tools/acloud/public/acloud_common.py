@@ -56,6 +56,12 @@ def AddCommonArguments(parser):
                         default=0,
                         help="Enable verbose log. Use --verbose or -v for "
                         "logging at INFO level, and -vv for DEBUG level.")
+    parser.add_argument("--no-metrics",
+                        action="store_true",
+                        dest="no_metrics",
+                        required=False,
+                        default=False,
+                        help="Don't log metrics.")
 
     # Allow for using the underscore args as well to keep it backward
     # compatible with the infra use case. Remove when g3 acloud is

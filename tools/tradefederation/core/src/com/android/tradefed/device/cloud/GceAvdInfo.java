@@ -16,10 +16,13 @@
 package com.android.tradefed.device.cloud;
 
 import com.android.tradefed.command.remote.DeviceDescriptor;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.FileUtil;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.net.HostAndPort;
 
@@ -184,6 +187,7 @@ public class GceAvdInfo {
             if (devices != null) {
                 if (devices.length() == 1) {
                     JSONObject d = (JSONObject) devices.get(0);
+                    addCfStartTimeMetrics(d);
                     String ip = d.getString("ip");
                     String instanceName = d.getString("instance_name");
                     GceAvdInfo avdInfo =
@@ -224,5 +228,32 @@ public class GceAvdInfo {
             res += (errors.getString(i) + "\n");
         }
         return res;
+    }
+
+    @VisibleForTesting
+    static void addCfStartTimeMetrics(JSONObject json) {
+        // These metrics may not be available for all GCE.
+        String fetch_artifact_time = json.optString("fetch_artifact_time");
+        if (!fetch_artifact_time.isEmpty()) {
+            InvocationMetricLogger.addInvocationMetrics(
+                    InvocationMetricKey.CF_FETCH_ARTIFACT_TIME,
+                    Double.valueOf(Double.parseDouble(fetch_artifact_time) * 1000).longValue());
+        }
+        String gce_create_time = json.optString("gce_create_time");
+        if (!gce_create_time.isEmpty()) {
+            InvocationMetricLogger.addInvocationMetrics(
+                    InvocationMetricKey.CF_GCE_CREATE_TIME,
+                    Double.valueOf(Double.parseDouble(gce_create_time) * 1000).longValue());
+        }
+        String launch_cvd_time = json.optString("launch_cvd_time");
+        if (!launch_cvd_time.isEmpty()) {
+            InvocationMetricLogger.addInvocationMetrics(
+                    InvocationMetricKey.CF_LAUNCH_CVD_TIME,
+                    Double.valueOf(Double.parseDouble(launch_cvd_time) * 1000).longValue());
+        }
+        if (!InvocationMetricLogger.getInvocationMetrics()
+                .containsKey(InvocationMetricKey.CF_INSTANCE_COUNT.toString())) {
+            InvocationMetricLogger.addInvocationMetrics(InvocationMetricKey.CF_INSTANCE_COUNT, 1);
+        }
     }
 }

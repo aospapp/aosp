@@ -18,7 +18,7 @@
     package="android.transition.cts">
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <application android:theme="@style/Theme_NoSwipeDismiss">
+    <application>
         <activity android:name="android.transition.cts.TransitionActivity"
             android:label="TransitionActivity"/>
         <activity android:name="android.transition.cts.TargetActivity"

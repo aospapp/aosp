@@ -70,7 +70,8 @@ public class Camera_SizeTest extends CtsAndroidTestCase {
      * @see {@link android.hardware.camera2.CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
      */
     public void testMaxAspectRatios() throws Exception {
-        for (int id = 0; id < Camera.getNumberOfCameras(); ++id) {
+        int[] cameraIds = CameraUtils.deriveCameraIdsUnderTest();
+        for (int id : cameraIds) {
             if (CameraUtils.isLegacyHAL(getContext(), id)) {
 
                 Camera camera = Camera.open(id);

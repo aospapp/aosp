@@ -23,8 +23,8 @@
 
 namespace chre {
 
-bool parseSsidToStr(char *buffer, size_t bufferLen,
-                    const uint8_t *ssid, uint8_t ssidLen) {
+bool parseSsidToStr(char *buffer, size_t bufferLen, const uint8_t *ssid,
+                    uint8_t ssidLen) {
   // Ensure that there is enough space in the buffer to copy the SSID and
   // null-terminate it.
   bool success = (bufferLen >= static_cast<size_t>(ssidLen + 1));
@@ -48,16 +48,16 @@ bool parseSsidToStr(char *buffer, size_t bufferLen,
   return success;
 }
 
-bool parseBssidToStr(const uint8_t bssid[CHRE_WIFI_BSSID_LEN],
-                     char *buffer, size_t bufferLen) {
-  const char *kFormat = "%02" PRIx8 ":%02" PRIx8 ":%02" PRIx8
-                        ":%02" PRIx8 ":%02" PRIx8 ":%02" PRIx8;
+bool parseBssidToStr(const uint8_t bssid[CHRE_WIFI_BSSID_LEN], char *buffer,
+                     size_t bufferLen) {
+  const char *kFormat = "%02" PRIx8 ":%02" PRIx8 ":%02" PRIx8 ":%02" PRIx8
+                        ":%02" PRIx8 ":%02" PRIx8;
 
   bool success = false;
   if (bufferLen >= kBssidStrLen) {
     success = true;
-    snprintf(buffer, bufferLen, kFormat, bssid[0], bssid[1], bssid[2],
-             bssid[3], bssid[4], bssid[5]);
+    snprintf(buffer, bufferLen, kFormat, bssid[0], bssid[1], bssid[2], bssid[3],
+             bssid[4], bssid[5]);
   }
 
   return success;

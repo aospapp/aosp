@@ -48,6 +48,7 @@ namespace android {
 TEST(BpfTest, bpfMapPinTest) {
   SKIP_IF_BPF_NOT_SUPPORTED;
 
+  EXPECT_EQ(0, setrlimitForTest());
   const char* bpfMapPath = "/sys/fs/bpf/testMap";
   int ret = access(bpfMapPath, F_OK);
   if (!ret) {
@@ -87,7 +88,6 @@ class BpfRaceTest : public ::testing::Test {
   BpfRaceTest() {}
   BpfMap<uint64_t, stats_value> cookieStatsMap[2];
   BpfMap<uint32_t, uint32_t> configurationMap;
-  BpfProgInfo program;
   bool stop;
   std::thread tds[NUM_SOCKETS];
 
@@ -127,6 +127,8 @@ class BpfRaceTest : public ::testing::Test {
 
   void SetUp() {
     SKIP_IF_BPF_NOT_SUPPORTED;
+
+    EXPECT_EQ(0, setrlimitForTest());
     int ret = access(TEST_PROG_PATH, R_OK);
     // Always create a new program and remove the pinned program after program
     // loading is done.
@@ -134,19 +136,23 @@ class BpfRaceTest : public ::testing::Test {
       remove(TEST_PROG_PATH);
     }
     std::string progSrcPath = BPF_SRC_PATH BPF_SRC_NAME;
-    ASSERT_EQ(0, android::bpf::loadProg(progSrcPath.c_str()));
+    // 0 != 2 means ENOENT - ie. missing bpf program.
+    ASSERT_EQ(0, access(progSrcPath.c_str(), R_OK) ? errno : 0);
+    bool critical = true;
+    ASSERT_EQ(0, android::bpf::loadProg(progSrcPath.c_str(), &critical));
+    ASSERT_EQ(false, critical);
 
-    EXPECT_TRUE(isOk(cookieStatsMap[0].init(TEST_STATS_MAP_A_PATH)));
-    EXPECT_TRUE(isOk(cookieStatsMap[1].init(TEST_STATS_MAP_B_PATH)));
-    EXPECT_TRUE(isOk(configurationMap.init(TEST_CONFIGURATION_MAP_PATH)));
+    EXPECT_RESULT_OK(cookieStatsMap[0].init(TEST_STATS_MAP_A_PATH));
+    EXPECT_RESULT_OK(cookieStatsMap[1].init(TEST_STATS_MAP_B_PATH));
+    EXPECT_RESULT_OK(configurationMap.init(TEST_CONFIGURATION_MAP_PATH));
     EXPECT_TRUE(cookieStatsMap[0].isValid());
     EXPECT_TRUE(cookieStatsMap[1].isValid());
     EXPECT_TRUE(configurationMap.isValid());
     // Start several threads to send and receive packets with an eBPF program
     // attached to the socket.
     stop = false;
-    int prog_fd = bpfFdGet(TEST_PROG_PATH, 0);
-    EXPECT_OK(configurationMap.writeValue(ACTIVE_MAP_KEY, 0, BPF_ANY));
+    int prog_fd = retrieveProgram(TEST_PROG_PATH);
+    EXPECT_RESULT_OK(configurationMap.writeValue(ACTIVE_MAP_KEY, 0, BPF_ANY));
 
     for (int i = 0; i < NUM_SOCKETS; i++) {
       tds[i] = std::thread(workerThread, prog_fd, &stop);
@@ -159,7 +165,7 @@ class BpfRaceTest : public ::testing::Test {
     // Stop the threads and clean up the program.
     stop = true;
     for (int i = 0; i < NUM_SOCKETS; i++) {
-      tds[i].join();
+      if (tds[i].joinable()) tds[i].join();
     }
     remove(TEST_PROG_PATH);
     remove(TEST_STATS_MAP_A_PATH);
@@ -169,11 +175,14 @@ class BpfRaceTest : public ::testing::Test {
 
   void swapAndCleanStatsMap(bool expectSynchronized, int seconds) {
     uint64_t i = 0;
-    auto start = std::clock();
-    while (((double)(std::clock() - start) / CLOCKS_PER_SEC) < seconds) {
+    auto test_start = std::chrono::system_clock::now();
+    while ((std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now() - test_start)
+                .count() /
+            1000) < seconds) {
       // Check if the vacant map is empty based on the current configuration.
       auto isEmpty = cookieStatsMap[i].isEmpty();
-      EXPECT_TRUE(isOk(isEmpty));
+      ASSERT_RESULT_OK(isEmpty);
       if (expectSynchronized) {
         // The map should always be empty because synchronizeKernelRCU should
         // ensure that the BPF programs running on all cores have seen the write
@@ -189,16 +198,20 @@ class BpfRaceTest : public ::testing::Test {
 
       // Change the configuration and wait for rcu grace period.
       i ^= 1;
-      EXPECT_OK(configurationMap.writeValue(ACTIVE_MAP_KEY, i, BPF_ANY));
+      ASSERT_RESULT_OK(configurationMap.writeValue(ACTIVE_MAP_KEY, i, BPF_ANY));
       if (expectSynchronized) {
         EXPECT_EQ(0, synchronizeKernelRCU());
       }
 
       // Clean up the previous map after map swap.
-      EXPECT_OK(cookieStatsMap[i].clear());
+      EXPECT_RESULT_OK(cookieStatsMap[i].clear());
     }
     if (!expectSynchronized) {
-      EXPECT_GE(seconds, (double)(std::clock() - start) / CLOCKS_PER_SEC)
+      auto test_end = std::chrono::system_clock::now();
+      auto diffSec = test_end - test_start;
+      auto msec =
+          std::chrono::duration_cast<std::chrono::milliseconds>(diffSec);
+      EXPECT_GE(seconds, (double)(msec.count() / 1000.0))
           << "Race problem didn't happen before time out";
     }
   }
@@ -217,7 +230,7 @@ TEST_F(BpfRaceTest, testRaceWithBarrier) {
 TEST_F(BpfRaceTest, testRaceWithoutBarrier) {
   SKIP_IF_BPF_NOT_SUPPORTED;
 
-  swapAndCleanStatsMap(false, 20);
+  swapAndCleanStatsMap(false, 60);
 }
 
 }  // namespace android

@@ -15,15 +15,15 @@
 # the License.
 
 import logging
+import numpy
 import os
-import wave
+import scipy.io.wavfile as sciwav
 
-from acts.controllers.utils_lib.ssh import connection
-from acts.controllers.utils_lib.ssh import settings
+from acts.test_utils.coex.audio_capture_device import AudioCaptureBase
+from acts.test_utils.coex.audio_capture_device import CaptureAudioOverAdb
+from acts.test_utils.coex.audio_capture_device import CaptureAudioOverLocal
 from acts.test_utils.audio_analysis_lib import audio_analysis
 from acts.test_utils.audio_analysis_lib.check_quality import quality_analysis
-from acts.test_utils.coex.audio_capture import AudioCapture
-from acts.test_utils.coex.audio_capture import RECORD_FILE_TEMPLATE
 
 ANOMALY_DETECTION_BLOCK_SIZE = audio_analysis.ANOMALY_DETECTION_BLOCK_SIZE
 ANOMALY_GROUPING_TOLERANCE = audio_analysis.ANOMALY_GROUPING_TOLERANCE
@@ -32,59 +32,54 @@ ANALYSIS_FILE_TEMPLATE = "audio_analysis_%s.txt"
 bits_per_sample = 32
 
 
+def get_audio_capture_device(ad, audio_params):
+    """Gets the device object of the audio capture device connected to server.
+
+    The audio capture device returned is specified by the audio_params
+    within user_params. audio_params must specify a "type" field, that
+    is either "AndroidDevice" or "Local"
+
+    Args:
+        ad: Android Device object.
+        audio_params: object containing variables to record audio.
+
+    Returns:
+        Object of the audio capture device.
+
+    Raises:
+        ValueError if audio_params['type'] is not "AndroidDevice" or
+            "Local".
+    """
+
+    if audio_params['type'] == 'AndroidDevice':
+        return CaptureAudioOverAdb(ad, audio_params)
+
+    elif audio_params['type'] == 'Local':
+        return CaptureAudioOverLocal(audio_params)
+
+    else:
+        raise ValueError('Unrecognized audio capture device '
+                         '%s' % audio_params['type'])
+
+
 class FileNotFound(Exception):
     """Raises Exception if file is not present"""
 
 
-class SshAudioCapture(AudioCapture):
-
-    def __init__(self, test_params, path):
-        super(SshAudioCapture, self).__init__(test_params, path)
-        self.remote_path = path
-        self.ssh_session = None
-
-    def capture_audio(self, trim_beginning=0, trim_end=0):
-        """Captures audio and store results.
+class AudioCaptureResult(AudioCaptureBase):
+    def __init__(self, path, audio_params=None):
+        """Initializes Audio Capture Result class.
 
         Args:
-            trim_beginning: To trim audio at the start in seconds.
-            trim_end: To trim audio at the end in seconds.
-
-        Returns:
-            Returns exit status of ssh connection.
+            path: Path of audio capture result.
         """
-        if not trim_beginning:
-            trim_beginning = self.audio_params.get('trim_beginning', 0)
-        if not trim_end:
-            trim_end = self.audio_params.get('trim_end', 0)
-        if self.audio_params["ssh_config"]:
-            ssh_settings = settings.from_config(
-                self.audio_params["ssh_config"])
-            self.ssh_session = connection.SshConnection(ssh_settings)
-            cur_path = os.path.dirname(os.path.realpath(__file__))
-            local_path = os.path.join(cur_path, "audio_capture.py")
-            self.ssh_session.send_file(local_path,
-                                       self.audio_params["dest_path"])
-            path = self.audio_params["dest_path"]
-            test_params = str(self.audio_params).replace("\'", "\"")
-            self.cmd = "python3 audio_capture.py -p '{}' -t '{}'".format(
-                path, test_params)
-            job_result = self.ssh_session.run(self.cmd)
-            logging.debug("Job Result {}".format(job_result.stdout))
-            self.ssh_session.pull_file(
-                self.remote_path, os.path.join(
-                    self.audio_params["dest_path"], "*.wav"),
-                    ignore_status=True)
-            return bool(not job_result.exit_status)
-        else:
-            return self.capture_and_store_audio(trim_beginning, trim_end)
-
-    def terminate_and_store_audio_results(self):
-        """Terminates audio and stores audio files."""
-        if self.audio_params["ssh_config"]:
-            self.ssh_session.run('rm *.wav', ignore_status=True)
-        else:
-            self.terminate_audio()
+        super().__init__()
+        self.path = path
+        self.audio_params = audio_params
+        self.analysis_path = os.path.join(self.log_path,
+                                          ANALYSIS_FILE_TEMPLATE)
+        if self.audio_params:
+            self._trim_wave_file()
 
     def THDN(self, win_size=None, step_size=None, q=1, freq=None):
         """Calculate THD+N value for most recently recorded file.
@@ -103,19 +98,19 @@ class SshAudioCapture(AudioCapture):
             channel_results (list): THD+N value for each channel's signal.
                 List index corresponds to channel index.
         """
-        latest_file_path = self.record_file_template % self.last_fileno()
         if not (win_size and step_size):
-            return audio_analysis.get_file_THDN(filename=latest_file_path,
+            return audio_analysis.get_file_THDN(filename=self.path,
                                                 q=q,
                                                 freq=freq)
         else:
-            return audio_analysis.get_file_max_THDN(filename=latest_file_path,
+            return audio_analysis.get_file_max_THDN(filename=self.path,
                                                     step_size=step_size,
                                                     window_size=win_size,
                                                     q=q,
                                                     freq=freq)
 
-    def detect_anomalies(self, freq=None,
+    def detect_anomalies(self,
+                         freq=None,
                          block_size=ANOMALY_DETECTION_BLOCK_SIZE,
                          threshold=PATTERN_MATCHING_THRESHOLD,
                          tolerance=ANOMALY_GROUPING_TOLERANCE):
@@ -138,51 +133,59 @@ class SshAudioCapture(AudioCapture):
             channel_results (list): anomaly durations for each channel's signal.
                 List index corresponds to channel index.
         """
-        latest_file_path = self.record_file_template % self.last_fileno()
-        return audio_analysis.get_file_anomaly_durations(
-            filename=latest_file_path,
-            freq=freq,
-            block_size=block_size,
-            threshold=threshold,
-            tolerance=tolerance)
+        return audio_analysis.get_file_anomaly_durations(filename=self.path,
+                                                         freq=freq,
+                                                         block_size=block_size,
+                                                         threshold=threshold,
+                                                         tolerance=tolerance)
 
-    def get_last_record_duration_millis(self):
-        """Get duration of most recently recorded file.
+    @property
+    def analysis_fileno(self):
+        """Returns the file number to dump audio analysis results."""
+        counter = 0
+        while os.path.exists(self.analysis_path % counter):
+            counter += 1
+        return counter
 
-        Returns:
-            duration (float): duration of recorded file in milliseconds.
-        """
-        latest_file_path = self.record_file_template % self.last_fileno()
-        with wave.open(latest_file_path, 'r') as f:
-            frames = f.getnframes()
-            rate = f.getframerate()
-            duration = (frames / float(rate)) * 1000
-        return duration
-
-    def audio_quality_analysis(self, path):
+    def audio_quality_analysis(self):
         """Measures audio quality based on the audio file given as input.
-
-        Args:
-            path: Log path
 
         Returns:
             analysis_path on success.
         """
-        dest_file_path = os.path.join(path,
-                RECORD_FILE_TEMPLATE % self.last_fileno())
-        analysis_path = os.path.join(path,
-                ANALYSIS_FILE_TEMPLATE % self.last_fileno())
-        if not os.path.exists(dest_file_path):
+        analysis_path = self.analysis_path % self.analysis_fileno
+        if not os.path.exists(self.path):
             raise FileNotFound("Recorded file not found")
         try:
-            quality_analysis(
-                filename=dest_file_path,
-                output_file=analysis_path,
-                bit_width=bits_per_sample,
-                rate=self.audio_params["sample_rate"],
-                channel=self.audio_params["channel"],
-                spectral_only=False)
+            quality_analysis(filename=self.path,
+                             output_file=analysis_path,
+                             bit_width=bits_per_sample,
+                             rate=self.audio_params["sample_rate"],
+                             channel=self.audio_params["channel"],
+                             spectral_only=False)
         except Exception as err:
             logging.exception("Failed to analyze raw audio: %s" % err)
         return analysis_path
 
+    def _trim_wave_file(self):
+        """Trim wave files.
+
+        """
+        original_record_file_name = 'original_' + os.path.basename(self.path)
+        original_record_file_path = os.path.join(os.path.dirname(self.path),
+                                                 original_record_file_name)
+        os.rename(self.path, original_record_file_path)
+        fs, data = sciwav.read(original_record_file_path)
+        trim_start = self.audio_params['trim_start']
+        trim_end = self.audio_params['trim_end']
+        trim = numpy.array([[trim_start, trim_end]])
+        trim = trim * fs
+        new_wave_file_list = []
+        for elem in trim:
+            # To check start and end doesn't exceed raw data dimension
+            start_read = min(elem[0], data.shape[0] - 1)
+            end_read = min(elem[1], data.shape[0] - 1)
+            new_wave_file_list.extend(data[start_read:end_read])
+        new_wave_file = numpy.array(new_wave_file_list)
+
+        sciwav.write(self.path, fs, new_wave_file)

@@ -16,12 +16,11 @@
 
 package com.android.tradefed.config;
 
-import com.android.tradefed.build.BuildSerializedVersion;
 import com.android.tradefed.device.metric.IMetricCollector;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import java.io.File;
-import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -50,38 +49,6 @@ public class ConfigurationDef {
 
     /** The set of files (and modification times) that were used to load this config */
     private final Map<File, Long> mSourceFiles = new HashMap<>();
-
-    /** Holds the details of an option. */
-    public static final class OptionDef implements Serializable {
-        private static final long serialVersionUID = BuildSerializedVersion.VERSION;
-
-        public final String name;
-        public final String key;
-        public final String value;
-        public final String source;
-        public final String applicableObjectType;
-
-        public OptionDef(String optionName, String optionValue, String source) {
-            this(optionName, null, optionValue, source, null);
-        }
-
-        public OptionDef(String optionName, String optionKey, String optionValue, String source) {
-            this(optionName, optionKey, optionValue, source, null);
-        }
-
-        public OptionDef(
-                String optionName,
-                String optionKey,
-                String optionValue,
-                String source,
-                String type) {
-            this.name = optionName;
-            this.key = optionKey;
-            this.value = optionValue;
-            this.source = source;
-            this.applicableObjectType = type;
-        }
-    }
 
     /**
      * Object to hold info for a className and the appearance number it has (e.g. if a config has
@@ -119,10 +86,8 @@ public class ConfigurationDef {
         return mDescription;
     }
 
-    /**
-     * Sets the configuration definition description
-     */
-    void setDescription(String description) {
+    /** Sets the configuration definition description */
+    public void setDescription(String description) {
         mDescription = description;
     }
 
@@ -132,11 +97,11 @@ public class ConfigurationDef {
      * @param typeName the config object type name
      * @param className the class name of the config object
      * @return the number of times this className has appeared in this {@link ConfigurationDef},
-     *         including this time.  Because all {@link ConfigurationDef} methods return these
-     *         classes with a constant ordering, this index can serve as a unique identifier for the
-     *         just-added instance of <code>clasName</code>.
+     *     including this time. Because all {@link ConfigurationDef} methods return these classes
+     *     with a constant ordering, this index can serve as a unique identifier for the just-added
+     *     instance of <code>clasName</code>.
      */
-    int addConfigObjectDef(String typeName, String className) {
+    public int addConfigObjectDef(String typeName, String className) {
         List<ConfigObjectDef> classList = mObjectClassMap.get(typeName);
         if (classList == null) {
             classList = new ArrayList<ConfigObjectDef>();
@@ -158,7 +123,7 @@ public class ConfigurationDef {
      * @param optionName the name of the option
      * @param optionValue the option value
      */
-    void addOptionDef(
+    public void addOptionDef(
             String optionName,
             String optionKey,
             String optionValue,
@@ -217,7 +182,7 @@ public class ConfigurationDef {
      * @return the created {@link IConfiguration}
      * @throws ConfigurationException if configuration could not be created
      */
-    IConfiguration createConfiguration() throws ConfigurationException {
+    public IConfiguration createConfiguration() throws ConfigurationException {
         IConfiguration config = new Configuration(getName(), getDescription());
         List<IDeviceConfiguration> deviceObjectList = new ArrayList<IDeviceConfiguration>();
         IDeviceConfiguration defaultDeviceConfig =
@@ -369,8 +334,8 @@ public class ConfigurationDef {
         if (!rejectedObjects.isEmpty()) {
             throw new ClassNotFoundConfigurationException(
                     String.format(
-                            "Failed to load some objects in the configuration: %s",
-                            rejectedObjects),
+                            "Failed to load some objects in the configuration '%s': %s",
+                            getName(), rejectedObjects),
                     cause,
                     rejectedObjects);
         }
@@ -454,10 +419,10 @@ public class ConfigurationDef {
             throws ConfigurationException {
         try {
             Class<?> objectClass = getClassForObject(objectTypeName, className);
-            Object configObject = objectClass.newInstance();
+            Object configObject = objectClass.getDeclaredConstructor().newInstance();
             checkObjectValid(objectTypeName, configObject);
             return configObject;
-        } catch (InstantiationException e) {
+        } catch (InstantiationException | InvocationTargetException | NoSuchMethodException e) {
             throw new ConfigurationException(String.format(
                     "Could not instantiate class %s for config object type %s", className,
                     objectTypeName), e);

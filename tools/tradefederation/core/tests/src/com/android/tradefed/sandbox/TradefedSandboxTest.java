@@ -122,7 +122,7 @@ public class TradefedSandboxTest {
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
                                 EasyMock.anyLong(),
-                                EasyMock.eq("java"),
+                                EasyMock.endsWith("/java"),
                                 EasyMock.eq("-cp"),
                                 EasyMock.anyObject(),
                                 EasyMock.eq(SandboxConfigDump.class.getCanonicalName()),
@@ -165,7 +165,7 @@ public class TradefedSandboxTest {
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
                                 EasyMock.anyLong(),
-                                EasyMock.eq("java"),
+                                EasyMock.endsWith("/java"),
                                 EasyMock.eq("-cp"),
                                 EasyMock.anyObject(),
                                 EasyMock.eq(SandboxConfigDump.class.getCanonicalName()),
@@ -183,6 +183,48 @@ public class TradefedSandboxTest {
         assertNotNull(res);
         assertTrue(res instanceof ConfigurationException);
         assertEquals("Error when dumping the config. stderr: Ouch I failed.", res.getMessage());
+    }
+
+    /** Test that the fallback dump config also attempt to parse the config. */
+    @Test
+    public void testPrepareEnvironment_dumpConfigFail_fallback_fail() throws Exception {
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        EasyMock.expectLastCall().times(2);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        EasyMock.expectLastCall().times(2);
+        mMockRunUtil.setEnvVariable(
+                EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE), EasyMock.anyObject());
+        mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
+        mMockListener.testLog(
+                EasyMock.eq("sandbox-global-config"),
+                EasyMock.eq(LogDataType.XML),
+                EasyMock.anyObject());
+        CommandResult result = new CommandResult();
+        result.setStatus(CommandStatus.FAILED);
+        result.setStderr("Could not find configuration 'empty'");
+        EasyMock.expect(
+                        mMockRunUtil.runTimedCmd(
+                                EasyMock.anyLong(),
+                                EasyMock.endsWith("/java"),
+                                EasyMock.eq("-cp"),
+                                EasyMock.anyObject(),
+                                EasyMock.eq(SandboxConfigDump.class.getCanonicalName()),
+                                EasyMock.eq("RUN_CONFIG"),
+                                EasyMock.anyObject(),
+                                EasyMock.eq("empty"),
+                                EasyMock.eq("--arg"),
+                                EasyMock.eq("1"),
+                                EasyMock.eq("--use-proto-reporter")))
+                .andReturn(result);
+        setPrepareConfigurationExpectations();
+        EasyMock.replay(mMockConfig, mMockListener, mMockRunUtil);
+        Exception res = mSandbox.prepareEnvironment(mMockContext, mMockConfig, mMockListener);
+        EasyMock.verify(mMockConfig, mMockListener, mMockRunUtil);
+        assertNotNull(res);
+        assertTrue(res instanceof ConfigurationException);
+        assertEquals(
+                "Error when dumping the config. stderr: Could not find configuration 'empty'",
+                res.getMessage());
     }
 
     /**

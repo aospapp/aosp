@@ -25,7 +25,7 @@
 
 package java.net;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 class SocksSocketImpl extends java.net.PlainSocketImpl implements java.net.SocksConsts {

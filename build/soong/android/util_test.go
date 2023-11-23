@@ -252,7 +252,7 @@ func TestPrefixInList(t *testing.T) {
 
 	for _, testCase := range testcases {
 		t.Run(testCase.str, func(t *testing.T) {
-			out := PrefixInList(testCase.str, prefixes)
+			out := HasAnyPrefix(testCase.str, prefixes)
 			if out != testCase.expected {
 				t.Errorf("incorrect output:")
 				t.Errorf("       str: %#v", testCase.str)
@@ -403,4 +403,168 @@ func ExampleCopyOf_append() {
 	// a = ["foo"]
 	// b = ["foo" "bar"]
 	// c = ["foo" "baz"]
+}
+
+func TestSplitFileExt(t *testing.T) {
+	t.Run("soname with version", func(t *testing.T) {
+		root, suffix, ext := SplitFileExt("libtest.so.1.0.30")
+		expected := "libtest"
+		if root != expected {
+			t.Errorf("root should be %q but got %q", expected, root)
+		}
+		expected = ".so.1.0.30"
+		if suffix != expected {
+			t.Errorf("suffix should be %q but got %q", expected, suffix)
+		}
+		expected = ".so"
+		if ext != expected {
+			t.Errorf("ext should be %q but got %q", expected, ext)
+		}
+	})
+
+	t.Run("soname with svn version", func(t *testing.T) {
+		root, suffix, ext := SplitFileExt("libtest.so.1svn")
+		expected := "libtest"
+		if root != expected {
+			t.Errorf("root should be %q but got %q", expected, root)
+		}
+		expected = ".so.1svn"
+		if suffix != expected {
+			t.Errorf("suffix should be %q but got %q", expected, suffix)
+		}
+		expected = ".so"
+		if ext != expected {
+			t.Errorf("ext should be %q but got %q", expected, ext)
+		}
+	})
+
+	t.Run("version numbers in the middle should be ignored", func(t *testing.T) {
+		root, suffix, ext := SplitFileExt("libtest.1.0.30.so")
+		expected := "libtest.1.0.30"
+		if root != expected {
+			t.Errorf("root should be %q but got %q", expected, root)
+		}
+		expected = ".so"
+		if suffix != expected {
+			t.Errorf("suffix should be %q but got %q", expected, suffix)
+		}
+		expected = ".so"
+		if ext != expected {
+			t.Errorf("ext should be %q but got %q", expected, ext)
+		}
+	})
+
+	t.Run("no known file extension", func(t *testing.T) {
+		root, suffix, ext := SplitFileExt("test.exe")
+		expected := "test"
+		if root != expected {
+			t.Errorf("root should be %q but got %q", expected, root)
+		}
+		expected = ".exe"
+		if suffix != expected {
+			t.Errorf("suffix should be %q but got %q", expected, suffix)
+		}
+		if ext != expected {
+			t.Errorf("ext should be %q but got %q", expected, ext)
+		}
+	})
+}
+
+func Test_Shard(t *testing.T) {
+	type args struct {
+		strings   []string
+		shardSize int
+	}
+	tests := []struct {
+		name string
+		args args
+		want [][]string
+	}{
+		{
+			name: "empty",
+			args: args{
+				strings:   nil,
+				shardSize: 1,
+			},
+			want: [][]string(nil),
+		},
+		{
+			name: "single shard",
+			args: args{
+				strings:   []string{"a", "b"},
+				shardSize: 2,
+			},
+			want: [][]string{{"a", "b"}},
+		},
+		{
+			name: "single short shard",
+			args: args{
+				strings:   []string{"a", "b"},
+				shardSize: 3,
+			},
+			want: [][]string{{"a", "b"}},
+		},
+		{
+			name: "shard per input",
+			args: args{
+				strings:   []string{"a", "b", "c"},
+				shardSize: 1,
+			},
+			want: [][]string{{"a"}, {"b"}, {"c"}},
+		},
+		{
+			name: "balanced shards",
+			args: args{
+				strings:   []string{"a", "b", "c", "d"},
+				shardSize: 2,
+			},
+			want: [][]string{{"a", "b"}, {"c", "d"}},
+		},
+		{
+			name: "unbalanced shards",
+			args: args{
+				strings:   []string{"a", "b", "c"},
+				shardSize: 2,
+			},
+			want: [][]string{{"a", "b"}, {"c"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Run("strings", func(t *testing.T) {
+				if got := ShardStrings(tt.args.strings, tt.args.shardSize); !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("ShardStrings(%v, %v) = %v, want %v",
+						tt.args.strings, tt.args.shardSize, got, tt.want)
+				}
+			})
+
+			t.Run("paths", func(t *testing.T) {
+				stringsToPaths := func(strings []string) Paths {
+					if strings == nil {
+						return nil
+					}
+					paths := make(Paths, len(strings))
+					for i, s := range strings {
+						paths[i] = PathForTesting(s)
+					}
+					return paths
+				}
+
+				paths := stringsToPaths(tt.args.strings)
+
+				var want []Paths
+				if sWant := tt.want; sWant != nil {
+					want = make([]Paths, len(sWant))
+					for i, w := range sWant {
+						want[i] = stringsToPaths(w)
+					}
+				}
+
+				if got := ShardPaths(paths, tt.args.shardSize); !reflect.DeepEqual(got, want) {
+					t.Errorf("ShardPaths(%v, %v) = %v, want %v",
+						paths, tt.args.shardSize, got, want)
+				}
+			})
+		})
+	}
 }

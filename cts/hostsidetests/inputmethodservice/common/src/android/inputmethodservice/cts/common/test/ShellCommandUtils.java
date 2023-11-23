@@ -152,6 +152,11 @@ public final class ShellCommandUtils {
         return "input keyevent KEYCODE_WAKEUP";
     }
 
+    /** Command to turn off the display */
+    public static String sleepDevice() {
+        return "input keyevent KEYCODE_SLEEP";
+    }
+
     /** Command to dismiss Keyguard (if it's shown) */
     public static String dismissKeyguard() {
         return "wm dismiss-keyguard";
@@ -160,6 +165,27 @@ public final class ShellCommandUtils {
     /** Command to close system dialogs (if shown) */
     public static String closeSystemDialog() {
         return "am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS";
+    }
+
+    /**
+     * Command to unlock screen.
+     *
+     * Note that this command is originated from
+     * {@code android.server.wm.UiDeviceUtils#pressUnlockButton()}, which is only valid for
+     * unlocking insecure keyguard for test automation.
+     */
+    public static String unlockScreen() {
+        return "input keyevent KEYCODE_MENU";
+    }
+
+    /**
+     * Command to show IME picker popup window.
+     *
+     * Note that {@code android.view.inputmethod.InputMethodManager#dispatchInputEvent} will handle
+     * KEYCODE_SYM to show IME picker when any input method enabled.
+     */
+    public static String showImePicker() {
+        return "input keyevent KEYCODE_SYM";
     }
 
     /**

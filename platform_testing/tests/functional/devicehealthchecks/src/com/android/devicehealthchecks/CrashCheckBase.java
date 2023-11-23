@@ -17,11 +17,22 @@ package com.android.devicehealthchecks;
 
 import android.content.Context;
 import android.os.DropBoxManager;
-import android.support.test.InstrumentationRegistry;
+import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Assert;
 import org.junit.Before;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Pattern;
 
 abstract class CrashCheckBase {
 
@@ -32,15 +43,19 @@ abstract class CrashCheckBase {
     private Context mContext;
     private KnownFailures mKnownFailures = new KnownFailures();
     /** whether known failures should be reported anyways, useful for bug investigation */
-    private boolean mIncludeKnownFailures;
+    private boolean mIncludeKnownFailures = false;
 
+    private List<String> failures = new ArrayList<>();
 
     @Before
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        mIncludeKnownFailures = InstrumentationRegistry.getArguments().getBoolean(
-                INCLUDE_KNOWN_FAILURES, false);
-
+        Bundle bundle = InstrumentationRegistry.getArguments();
+        mIncludeKnownFailures = TextUtils.equals("true", bundle.getString(INCLUDE_KNOWN_FAILURES));
+        if (!mIncludeKnownFailures) {
+            Log.i(LOG_TAG, "Will ignore known failures, populating known failure list");
+            populateKnownFailures();
+        }
     }
 
     /**
@@ -64,9 +79,11 @@ abstract class CrashCheckBase {
             }
             KnownFailureItem k = mKnownFailures.findMatchedKnownFailure(label, dropboxSnippet);
             if (k != null && !mIncludeKnownFailures) {
-                Log.i(LOG_TAG, String.format(
-                        "Ignored a known failure, type: %s, pattern: %s, bug: %s",
-                        label, k.failurePattern, k.bugNumber));
+                Log.i(
+                        LOG_TAG,
+                        String.format(
+                                "Ignored a known failure, type: %s, pattern: %s, bug: b/%s",
+                                label, k.failurePattern, k.bugNumber));
             } else {
                 crashCount++;
                 errorDetails.append(label);
@@ -99,5 +116,45 @@ abstract class CrashCheckBase {
             ret.append(" more lines truncated ...\n");
         }
         return ret.toString();
+    }
+
+    /** Parse known failure file and add to the list of known failures */
+    private void populateKnownFailures() {
+
+        try {
+            BufferedReader reader =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    mContext.getAssets().open("bug_map"), StandardCharsets.UTF_8));
+            while (reader.ready()) {
+                failures = Arrays.asList(reader.readLine());
+
+                for (String bug : failures) {
+                    Log.i(LOG_TAG, String.format("ParsedFile: %s", bug));
+
+                    List<String> split_bug = Arrays.asList(bug.split(" "));
+
+                    if (split_bug.size() != 3) {
+                        Log.e(
+                                LOG_TAG,
+                                String.format(
+                                        "bug_map file splits lines using space, please correct: %s",
+                                        bug));
+                    } else {
+                        String dropbox_label = split_bug.get(0);
+                        Pattern pattern = Pattern.compile(split_bug.get(1), Pattern.MULTILINE);
+                        String bug_id = split_bug.get(2);
+                        Log.i(
+                                LOG_TAG,
+                                String.format(
+                                        "Adding failure b/%s to test: %s", bug_id, dropbox_label));
+
+                        mKnownFailures.addKnownFailure(dropbox_label, pattern, bug_id);
+                    }
+                }
+            }
+        } catch (IOException | NullPointerException e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -28,10 +28,8 @@ import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_STOP;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.platform.test.annotations.Presubmit;
 
-import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Test;
@@ -44,30 +42,29 @@ import java.util.Arrays;
  */
 @MediumTest
 @Presubmit
+@android.server.wm.annotation.Group3
 public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestBase {
 
     @Test
-    @FlakyTest(bugId = 131005232)
     public void testSingleLaunch() throws Exception {
         assumeTrue(supportsSecureLock());
         try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
             lockScreenSession.setLockCredential().gotoKeyguard();
 
-            final Activity activity = mFirstActivityTestRule.launchActivity(new Intent());
-            waitAndAssertActivityStates(state(activity, ON_STOP));
-
+            new Launcher(FirstActivity.class)
+                    .setExpectedState(ON_STOP)
+                    .setNoInstance()
+                    .launch();
             LifecycleVerifier.assertLaunchAndStopSequence(FirstActivity.class, getLifecycleLog());
         }
     }
 
     @Test
-    @FlakyTest(bugId = 131005232)
     public void testKeyguardShowHide() throws Exception {
         assumeTrue(supportsSecureLock());
 
         // Launch first activity and wait for resume
-        final Activity activity = mFirstActivityTestRule.launchActivity(new Intent());
-        waitAndAssertActivityStates(state(activity, ON_RESUME));
+        final Activity activity = launchActivityAndWait(FirstActivity.class);
 
         // Show and hide lock screen
         try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
@@ -84,23 +81,23 @@ public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestB
     }
 
     @Test
-    @FlakyTest(bugId = 131005232)
     public void testKeyguardShowHideOverSplitScreen() throws Exception {
         assumeTrue(supportsSecureLock());
         assumeTrue(supportsSplitScreenMultiWindow());
 
-        final Activity firstActivity = mFirstActivityTestRule.launchActivity(new Intent());
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
+        // TODO(b/149338177): Fix test to pass with organizer API.
+        mUseTaskOrganizer = false;
+
+        final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Enter split screen
         moveTaskToPrimarySplitScreenAndVerify(firstActivity);
 
         // Launch second activity to side
-        final Activity secondActivity = mSecondActivityTestRule.launchActivity(
-                new Intent().setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK));
+        final Activity secondActivity = new Launcher(SecondActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
+                .launch();
 
-        // Wait for second activity to resume.
-        waitAndAssertActivityStates(state(secondActivity, ON_RESUME));
         // Leaving the minimized dock, the stack state on the primary split screen should change
         // from Paused to Resumed.
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
@@ -124,33 +121,34 @@ public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestB
     }
 
     @Test
-    @FlakyTest(bugId = 131005232)
     public void testKeyguardShowHideOverPip() throws Exception {
+        assumeTrue(supportsSecureLock());
         if (!supportsPip()) {
             // Skipping test: no Picture-In-Picture support
             return;
         }
 
         // Launch first activity
-        final Activity firstActivity = mFirstActivityTestRule.launchActivity(new Intent());
+        final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Clear the log before launching to Pip
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
         getLifecycleLog().clear();
 
         // Launch Pip-capable activity and enter Pip immediately
-        final Activity pipActivity = mPipActivityTestRule.launchActivity(
-                new Intent().putExtra(EXTRA_ENTER_PIP, true));
+        new Launcher(PipActivity.class)
+                .setExpectedState(ON_PAUSE)
+                .setExtraFlags(EXTRA_ENTER_PIP)
+                .launch();
 
         // Wait and assert lifecycle
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME), state(pipActivity, ON_PAUSE));
+        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
 
         // Show and hide lock screen
         getLifecycleLog().clear();
         try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
             lockScreenSession.setLockCredential().gotoKeyguard();
             waitAndAssertActivityStates(state(firstActivity, ON_STOP));
-            waitAndAssertActivityStates(state(pipActivity, ON_STOP));
+            waitAndAssertActivityStates(state(PipActivity.class, ON_STOP));
 
             LifecycleVerifier.assertResumeToStopSequence(FirstActivity.class, getLifecycleLog());
             LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
@@ -159,7 +157,8 @@ public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestB
         } // keyguard hidden
 
         // Wait and assert lifecycle
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME), state(pipActivity, ON_PAUSE));
+        waitAndAssertActivityStates(state(firstActivity, ON_RESUME),
+                state(PipActivity.class, ON_PAUSE));
         LifecycleVerifier.assertRestartAndResumeSequence(FirstActivity.class, getLifecycleLog());
         LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
                 Arrays.asList(ON_RESTART, ON_START, ON_RESUME, ON_PAUSE), "keyguardGone");

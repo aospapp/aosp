@@ -36,6 +36,7 @@ metadata_definitions.xml file.
 """
 
 import sys
+import functools
 import itertools
 from collections import OrderedDict
 
@@ -176,9 +177,8 @@ class Node(object):
 
     for child in self._get_children():
       if child.parent != self:
-        print >> sys.stderr, ("ERROR: Node '%s' doesn't match the parent" +    \
-                             "(expected: %s, actual %s)")                      \
-                             %(child, self, child.parent)
+        print("ERROR: Node '%s' doesn't match the parent (expected: %s, actual %s)" \
+              % (child, self, child.parent), file=sys.stderr)
         succ = False
 
       succ = child.validate_tree() and succ
@@ -422,9 +422,8 @@ class Metadata(Node):
       # should not throw if we pass validation
       # but can happen when importing obsolete CSV entries
       if target_entry is None:
-        print >> sys.stderr, ("WARNING: Clone entry '%s' target kind '%s'" +   \
-                              " has no corresponding entry")                   \
-                             %(p.name, p.target_kind)
+        print("WARNING: Clone entry '%s' target kind '%s' has no corresponding entry" \
+              % (p.name, p.target_kind), file=sys.stderr)
 
   def _construct_outer_namespaces(self):
 
@@ -432,7 +431,7 @@ class Metadata(Node):
       self._outer_namespaces = []
 
     root = self._dictionary_by_name(self._outer_namespaces)
-    for ons_name, ons in root.iteritems():
+    for ons_name, ons in root.items():
       ons._leafs = []
 
     for p in self._entries_ordered:
@@ -443,7 +442,7 @@ class Metadata(Node):
       if p not in ons._leafs:
         ons._leafs.append(p)
 
-    for ons_name, ons in root.iteritems():
+    for ons_name, ons in root.items():
 
       ons.validate_tree()
 
@@ -457,7 +456,7 @@ class Metadata(Node):
   def _construct_sections(self, outer_namespace):
 
     sections_dict = self._dictionary_by_name(outer_namespace.sections)
-    for sec_name, sec in sections_dict.iteritems():
+    for sec_name, sec in sections_dict.items():
       sec._leafs = []
       sec.validate_tree()
 
@@ -473,12 +472,11 @@ class Metadata(Node):
       if p not in sec._leafs:
         sec._leafs.append(p)
 
-    for sec_name, sec in sections_dict.iteritems():
+    for sec_name, sec in sections_dict.items():
 
       if not sec.validate_tree():
-        print >> sys.stderr, ("ERROR: Failed to validate tree in " +           \
-                             "construct_sections (start), with section = '%s'")\
-                             %(sec)
+        print("ERROR: Failed to validate tree in construct_sections (start), with section = '%s'"
+              % (sec), file=sys.stderr)
 
       self._construct_kinds(sec)
 
@@ -486,9 +484,8 @@ class Metadata(Node):
         outer_namespace._sections.append(sec)
 
       if not sec.validate_tree():
-        print >> sys.stderr, ("ERROR: Failed to validate tree in " +           \
-                              "construct_sections (end), with section = '%s'") \
-                             %(sec)
+        print("ERROR: Failed to validate tree in construct_sections (end), with section = '%s'"
+              % (sec), file=sys.stderr)
 
   # 'controls', 'static' 'dynamic'. etc
   def _construct_kinds(self, section):
@@ -522,17 +519,17 @@ class Metadata(Node):
       kind.validate_tree()
 
       if not section.validate_tree():
-        print >> sys.stderr, ("ERROR: Failed to validate tree in " +           \
-                             "construct_kinds, with kind = '%s'") %(kind)
+        print("ERROR: Failed to validate tree in construct_kinds, with kind = '%s'" % (kind),
+              file=sys.stderr)
 
       if not kind.validate_tree():
-        print >> sys.stderr, ("ERROR: Failed to validate tree in " +           \
-                              "construct_kinds, with kind = '%s'") %(kind)
+        print("ERROR: Failed to validate tree in construct_kinds, with kind = '%s'" % (kind),
+              file=sys.stderr)
 
   def _construct_inner_namespaces(self, parent, depth=0):
     #parent is InnerNamespace or Kind
     ins_dict = self._dictionary_by_name(parent.namespaces)
-    for name, ins in ins_dict.iteritems():
+    for name, ins in ins_dict.items():
       ins._leafs = []
 
     for p in parent._leafs:
@@ -546,7 +543,7 @@ class Metadata(Node):
         if p not in ins._leafs:
           ins._leafs.append(p)
 
-    for name, ins in ins_dict.iteritems():
+    for name, ins in ins_dict.items():
       ins.validate_tree()
       # construct children INS
       self._construct_inner_namespaces(ins, depth + 1)
@@ -558,9 +555,8 @@ class Metadata(Node):
         parent._namespaces.append(ins)
 
       if not ins.validate_tree():
-        print >> sys.stderr, ("ERROR: Failed to validate tree in " +           \
-                              "construct_inner_namespaces, with ins = '%s'")   \
-                             %(ins)
+        print("ERROR: Failed to validate tree in construct_inner_namespaces, with ins = '%s'"
+              % (ins), file=sys.stderr)
 
   # doesnt construct the entries, so much as links them
   def _construct_entries(self, parent, depth=0):
@@ -573,7 +569,7 @@ class Metadata(Node):
         entry = entry_dict.get(p.name, p)
         entry_dict[p.name] = entry
 
-    for name, entry in entry_dict.iteritems():
+    for name, entry in entry_dict.items():
 
       old_parent = entry.parent
       entry._parent = parent
@@ -582,9 +578,8 @@ class Metadata(Node):
         parent._entries.append(entry)
 
       if old_parent is not None and old_parent != parent:
-        print >> sys.stderr, ("ERROR: Parent changed from '%s' to '%s' for " + \
-                              "entry '%s'")                                    \
-                             %(old_parent.name, parent.name, entry.name)
+        print("ERROR: Parent changed from '%s' to '%s' for entry '%s'"
+              % (old_parent.name, parent.name, entry.name), file = sys.stderr)
 
   def _get_children(self):
     if self.outer_namespaces is not None:
@@ -749,7 +744,7 @@ class Section(Node):
 
       return acc
 
-    new_kinds_lst = reduce(aggregate_by_name, self.kinds, [])
+    new_kinds_lst = functools.reduce(aggregate_by_name, self.kinds, [])
 
     for k in new_kinds_lst:
       yield k
@@ -1201,8 +1196,8 @@ class Entry(Node):
     """
 
     if kwargs.get('type') is None:
-      print >> sys.stderr, "ERROR: Missing type for entry '%s' kind  '%s'"     \
-      %(kwargs.get('name'), kwargs.get('kind'))
+      print("ERROR: Missing type for entry '%s' kind '%s'"
+            % (kwargs.get('name'), kwargs.get('kind')), file=sys.stderr)
 
     # Attributes are Read-Only, but edges may be mutated by
     # Metadata, particularly during construct_graph

@@ -32,23 +32,19 @@ public class CookieSyncManagerCtsActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        try {
-            CookieSyncManager.createInstance(this);
+        // Only do the rest of setup if the device is supposed to have a WebView implementation.
+        if (!NullWebViewUtils.isWebViewAvailable()) return;
 
-            mWebView = new WebView(this);
-            setContentView(mWebView);
-        } catch (Exception e) {
-            NullWebViewUtils.determineIfWebViewAvailable(this, e);
-        }
+        CookieSyncManager.createInstance(this);
+        mWebView = new WebView(this);
+        setContentView(mWebView);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        try {
+        if (NullWebViewUtils.isWebViewAvailable()) {
             CookieSyncManager.getInstance().startSync();
-        } catch (Exception e) {
-            // May throw on a device with no webview, OK to ignore at this point.
         }
     }
 
@@ -67,14 +63,12 @@ public class CookieSyncManagerCtsActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
-        try {
+        if (NullWebViewUtils.isWebViewAvailable()) {
             CookieSyncManager.getInstance().stopSync();
-        } catch (Exception e) {
-            // May throw on a device with no webview, OK to ignore at this point.
         }
     }
 
-    public WebView getWebView(){
+    public WebView getWebView() {
         return mWebView;
     }
 }

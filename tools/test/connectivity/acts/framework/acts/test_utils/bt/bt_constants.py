@@ -38,7 +38,8 @@ default_le_data_length = 23
 default_le_connection_interval_ms = 30
 le_connection_event_time_step_ms = 0.625
 
-# Headers of LE L2CAP Connection-oriented Channels. See section 3.4, Vol 3, Part A, Version 5.0.
+# Headers of LE L2CAP Connection-oriented Channels. See section 3.4, Vol
+# 3, Part A, Version 5.0.
 l2cap_header_size = 4
 l2cap_coc_sdu_length_field_size = 2
 l2cap_coc_header_size = l2cap_header_size + l2cap_coc_sdu_length_field_size
@@ -632,15 +633,15 @@ headphone_bus_endpoint = 'Cros device headphone'
 
 ### Chameleon Constants End ###
 
-### Begin logcat strings dict"""
+# Begin logcat strings dict"""
 logcat_strings = {
     "media_playback_vol_changed": "onRouteVolumeChanged",
 }
 
-### End logcat strings dict"""
+# End logcat strings dict"""
 
 ### Begin Service Discovery UUIDS ###
-### Values match the Bluetooth SIG defined values: """
+# Values match the Bluetooth SIG defined values: """
 """ https://www.bluetooth.com/specifications/assigned-numbers/service-discovery """
 sig_uuid_constants = {
     "BASE_UUID": "0000{}-0000-1000-8000-00805F9B34FB",
@@ -736,3 +737,21 @@ sig_uuid_constants = {
 }
 
 ### End Service Discovery UUIDS ###
+
+
+# Attribute Record values from the Bluetooth Specification
+# Version 5, Vol 3, Part B
+bt_attribute_values = {
+    'ATTR_SERVICE_RECORD_HANDLE': 0x0000,
+    'ATTR_SERVICE_CLASS_ID_LIST': 0x0001,
+    'ATTR_SERVICE_RECORD_STATE': 0x0002,
+    'ATTR_SERVICE_ID': 0x0003,
+    'ATTR_PROTOCOL_DESCRIPTOR_LIST': 0x0004,
+    'ATTR_ADDITIONAL_PROTOCOL_DESCRIPTOR_LIST': 0x000D,
+    'ATTR_BROWSE_GROUP_LIST': 0x0005,
+    'ATTR_LANGUAGE_BASE_ATTRIBUTE_ID_LIST': 0x0006,
+    'ATTR_SERVICE_INFO_TIME_TO_LIVE': 0x0007,
+    'ATTR_SERVICE_AVAILABILITY': 0x0008,
+    'ATTR_BLUETOOTH_PROFILE_DESCRIPTOR_LIST': 0x0009,
+    'ATTR_A2DP_SUPPORTED_FEATURES': 0x0311,
+}

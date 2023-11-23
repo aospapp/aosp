@@ -60,9 +60,8 @@ TEST(cmd_debug_unwind, symfs_option) {
   const std::map<int, PerfFileFormat::SectionDesc>& features = reader->FeatureSectionDescriptors();
   ASSERT_NE(features.find(PerfFileFormat::FEAT_FILE), features.end());
   ASSERT_NE(features.find(PerfFileFormat::FEAT_META_INFO), features.end());
-  std::unordered_map<std::string, std::string> info_map;
-  ASSERT_TRUE(reader->ReadMetaInfoFeature(&info_map));
-  ASSERT_EQ(info_map["debug_unwind"], "true");
+  auto meta_info = reader->GetMetaInfoFeature();
+  ASSERT_EQ(meta_info["debug_unwind"], "true");
 }
 
 TEST(cmd_debug_unwind, unwind_with_ip_zero_in_callchain) {
@@ -72,4 +71,21 @@ TEST(cmd_debug_unwind, unwind_with_ip_zero_in_callchain) {
   ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", GetTestData(PERF_DATA_WITH_IP_ZERO_IN_CALLCHAIN),
                                      "-o", tmp_file.path}));
   ASSERT_NE(capture.Finish().find("Unwinding sample count: 1"), std::string::npos);
+}
+
+TEST(cmd_debug_unwind, unwind_embedded_lib_in_apk) {
+  // Check if we can unwind through a native library embedded in an apk. In the profiling data
+  // file, there is a sample with ip address pointing to
+  // /data/app/simpleperf.demo.cpp_api/base.apk!/lib/arm64-v8a/libnative-lib.so.
+  // If unwound successfully, it can reach a function in libc.so.
+  TemporaryFile tmp_file;
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", GetTestData("perf_unwind_embedded_lib_in_apk.data"),
+                                     "--symfs", GetTestDataDir(), "-o", tmp_file.path}));
+  CaptureStdout capture;
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(CreateCommandInstance("report-sample")->Run(
+      {"--show-callchain", "-i", tmp_file.path}));
+  std::string output = capture.Finish();
+  ASSERT_NE(output.find("libnative-lib.so"), std::string::npos);
+  ASSERT_NE(output.find("libc.so"), std::string::npos);
 }

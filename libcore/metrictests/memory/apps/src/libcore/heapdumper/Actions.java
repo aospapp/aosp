@@ -19,6 +19,8 @@ package libcore.heapdumper;
 import java.text.Collator;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * An enumeration of actions for which we'd like to measure the effect on the post-GC heap.
@@ -64,6 +66,33 @@ enum Actions implements Runnable {
             useCollatorForLocale(Locale.KOREAN);
         }
     },
+
+    REGEX {
+        @Override
+        public void run() {
+            final String sequence = "foo 123 bar baz";
+            Pattern p = Pattern.compile("foo (\\d+) bar (\\w+)");
+            Matcher m = p.matcher(sequence);
+
+            boolean found = m.find();
+            boolean matches = m.matches();
+            int groups = m.groupCount();
+            String first = m.group(1);
+            String second = m.group(2);
+            boolean hitEnd = m.hitEnd();
+
+            // Set region to prefix of the original sequence
+            m.region(0, "foo 123".length());
+            boolean matchesPrefix = m.lookingAt();
+            boolean requireEnd = m.requireEnd();
+
+            m.useTransparentBounds(true);
+            boolean matchesPrefixTransparentBounds = m.lookingAt();
+
+            m.useAnchoringBounds(true);
+            boolean matchesPrefixAnchoringBounds = m.lookingAt();
+        }
+    }
 
     ;
 

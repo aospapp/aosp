@@ -15,11 +15,11 @@
  */
 package com.android.compatibility.common.tradefed.targetprep;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -37,24 +37,47 @@ public class PropertyCheck extends PreconditionPreparer {
     )
     private String mPropertyName = null;
 
-    @Option(
-        name = "expected-value",
-        description = "The expected value of the property",
-        mandatory = true
-    )
+    @Option(name = "expected-value", description = "The expected value of the property")
     private String mExpectedPropertyValue = null;
 
     @Option(
-        name = "throw-error",
-        description = "Whether to throw an error for an unexpected property value"
-    )
+            name = "is-set-only",
+            description = "Whether this value must be set only (don't check value)")
+    private boolean mPropertyValueIsSetOnly = false;
+
+    @Option(
+            name = "throw-error",
+            description = "Whether to throw an error for an unexpected property value")
     private boolean mThrowError = false;
 
     @Override
-    public void run(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
-            BuildError, DeviceNotAvailableException {
-
+    public void run(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        ITestDevice device = testInfo.getDevice();
         String propertyValue = device.getProperty(mPropertyName);
+
+        if (mPropertyValueIsSetOnly && mExpectedPropertyValue != null) {
+            throw new IllegalArgumentException(
+                    "is-set-only and " + "expected-value cannot both be set.");
+        } else if (!mPropertyValueIsSetOnly && mExpectedPropertyValue == null) {
+            throw new IllegalArgumentException("is-set-only or expected-value must be set.");
+        }
+
+        if (mPropertyValueIsSetOnly) {
+            if (propertyValue == null || propertyValue.equals("")) {
+                String msg =
+                        String.format(
+                                "Property \"%s\" not found or not set on device", mPropertyName);
+                // Handle missing property with either exception or warning
+                if (mThrowError) {
+                    throw new TargetSetupError(msg, device.getDeviceDescriptor());
+                } else {
+                    logWarning(msg);
+                }
+            }
+            return;
+        }
+
         if (propertyValue == null) {
             CLog.w(
                     "Property \"%s\" not found on device, cannot verify value \"%s\" ",

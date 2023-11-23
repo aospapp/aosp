@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HARDWARE_MANAGER_SERVICEMANAGER_H
-#define ANDROID_HARDWARE_MANAGER_SERVICEMANAGER_H
+#pragma once
 
 #include <android/hidl/manager/1.2/IServiceManager.h>
 #include <hidl/Status.h>
@@ -164,5 +163,3 @@ private:
 }  // namespace manager
 }  // namespace hidl
 }  // namespace android
-
-#endif  // ANDROID_HARDWARE_MANAGER_SERVICEMANAGER_H

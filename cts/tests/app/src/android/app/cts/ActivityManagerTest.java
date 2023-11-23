@@ -28,6 +28,7 @@ import android.app.Instrumentation.ActivityResult;
 import android.app.PendingIntent;
 import android.app.stubs.ActivityManagerRecentOneActivity;
 import android.app.stubs.ActivityManagerRecentTwoActivity;
+import android.app.stubs.CommandReceiver;
 import android.app.stubs.MockApplicationActivity;
 import android.app.stubs.MockService;
 import android.app.stubs.ScreenOnActivity;
@@ -37,17 +38,20 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ConfigurationInfo;
 import android.content.res.Resources;
+import android.os.SystemClock;
 import android.platform.test.annotations.RestrictedBuildTest;
 import android.support.test.uiautomator.UiDevice;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
+import com.android.compatibility.common.util.AmMonitor;
 import com.android.compatibility.common.util.SystemUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public class ActivityManagerTest extends InstrumentationTestCase {
     private static final String TAG = ActivityManagerTest.class.getSimpleName();
@@ -73,12 +77,21 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             "com.android.cts.launchertests.LauncherAppsTests.CHAIN_EXIT_ACTION";
     // The action sent to identify the time track info.
     private static final String ACTIVITY_TIME_TRACK_INFO = "com.android.cts.TIME_TRACK_INFO";
+
+    private static final String PACKAGE_NAME_APP1 = "com.android.app1";
+
+    private static final String MCC_TO_UPDATE = "987";
+    private static final String MNC_TO_UPDATE = "654";
+    private static final String SHELL_COMMAND_GET_CONFIG = "am get-config";
+    private static final String SHELL_COMMAND_RESULT_CONFIG_NAME_MCC = "mcc";
+    private static final String SHELL_COMMAND_RESULT_CONFIG_NAME_MNC = "mnc";
+
     // Return states of the ActivityReceiverFilter.
     public static final int RESULT_PASS = 1;
     public static final int RESULT_FAIL = 2;
     public static final int RESULT_TIMEOUT = 3;
 
-    private Context mContext;
+    private Context mTargetContext;
     private ActivityManager mActivityManager;
     private Intent mIntent;
     private List<Activity> mStartedActivityList;
@@ -89,8 +102,9 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mInstrumentation = getInstrumentation();
-        mContext = mInstrumentation.getContext();
-        mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
+        mTargetContext = mInstrumentation.getTargetContext();
+        mActivityManager = (ActivityManager) mInstrumentation.getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
         mStartedActivityList = new ArrayList<Activity>();
         mErrorProcessID = -1;
         startSubActivity(ScreenOnActivity.class);
@@ -173,7 +187,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         intent.setClassName(SIMPLE_PACKAGE_NAME, SIMPLE_PACKAGE_NAME + SIMPLE_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         ActivityReceiverFilter receiver = new ActivityReceiverFilter(ACTIVITY_LAUNCHED_ACTION);
-        mContext.startActivity(intent);
+        mTargetContext.startActivity(intent);
 
         // Make sure the activity has really started.
         assertEquals(RESULT_PASS, receiver.waitForActivity());
@@ -187,7 +201,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         // Tell the activity to finalize.
         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         intent.putExtra("finish", true);
-        mContext.startActivity(intent);
+        mTargetContext.startActivity(intent);
     }
 
     // The receiver filter needs to be instantiated with the command to filter for before calling
@@ -314,7 +328,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         }
         assertTrue(foundService);
         MockService.prepareDestroy();
-        mContext.stopService(intent);
+        mTargetContext.stopService(intent);
         boolean destroyed = MockService.waitForDestroy(WAIT_TIME);
         assertTrue(destroyed);
     }
@@ -323,6 +337,11 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         final UiDevice uiDevice = UiDevice.getInstance(mInstrumentation);
         final String output = uiDevice.executeShellCommand(cmd);
         Log.d(TAG, "executed[" + cmd + "]; output[" + output.trim() + "]");
+    }
+
+    private String executeShellCommand(String cmd) throws IOException {
+        final UiDevice uiDevice = UiDevice.getInstance(mInstrumentation);
+        return uiDevice.executeShellCommand(cmd).trim();
     }
 
     private void setForcedAppStandby(String packageName, boolean enabled) throws IOException {
@@ -418,6 +437,62 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     }
 
     /**
+     * Due to the corresponding API is hidden in R and will be public in S, this test
+     * is commented and will be un-commented in Android S.
+     *
+    public void testUpdateMccMncConfiguration() throws Exception {
+        // Store the original mcc mnc to set back
+        String[] mccMncConfigOriginal = new String[2];
+        // Store other configs to check they won't be affected
+        Set<String> otherConfigsOriginal = new HashSet<String>();
+        getMccMncConfigsAndOthers(mccMncConfigOriginal, otherConfigsOriginal);
+
+        String[] mccMncConfigToUpdate = new String[] {MCC_TO_UPDATE, MNC_TO_UPDATE};
+        boolean success = ShellIdentityUtils.invokeMethodWithShellPermissions(mActivityManager,
+                (am) -> am.updateMccMncConfiguration(mccMncConfigToUpdate[0],
+                        mccMncConfigToUpdate[1]));
+
+        if (success) {
+            String[] mccMncConfigUpdated = new String[2];
+            Set<String> otherConfigsUpdated = new HashSet<String>();
+            getMccMncConfigsAndOthers(mccMncConfigUpdated, otherConfigsUpdated);
+            // Check the mcc mnc are updated as expected
+            assertTrue(Arrays.equals(mccMncConfigToUpdate, mccMncConfigUpdated));
+            // Check other configs are not changed
+            assertTrue(otherConfigsOriginal.equals(otherConfigsUpdated));
+        }
+
+        // Set mcc mnc configs back in the end of the test
+        ShellIdentityUtils.invokeMethodWithShellPermissions(mActivityManager,
+                (am) -> am.updateMccMncConfiguration(mccMncConfigOriginal[0],
+                        mccMncConfigOriginal[1]));
+    }
+     */
+
+    /**
+     * Due to the corresponding API is hidden in R and will be public in S, this method
+     * for test "testUpdateMccMncConfiguration" is commented and will be un-commented in
+     * Android S.
+     *
+    private void getMccMncConfigsAndOthers(String[] mccMncConfigs, Set<String> otherConfigs)
+            throws Exception {
+        String[] configs = SystemUtil.runShellCommand(
+                mInstrumentation, SHELL_COMMAND_GET_CONFIG).split(" |\\-");
+        for (String config : configs) {
+            if (config.startsWith(SHELL_COMMAND_RESULT_CONFIG_NAME_MCC)) {
+                mccMncConfigs[0] = config.substring(
+                        SHELL_COMMAND_RESULT_CONFIG_NAME_MCC.length());
+            } else if (config.startsWith(SHELL_COMMAND_RESULT_CONFIG_NAME_MNC)) {
+                mccMncConfigs[1] = config.substring(
+                        SHELL_COMMAND_RESULT_CONFIG_NAME_MNC.length());
+            } else {
+                otherConfigs.add(config);
+            }
+        }
+    }
+    */
+
+    /**
      * Simple test for {@link ActivityManager#isUserAMonkey()} - verifies its false.
      *
      * TODO: test positive case
@@ -444,7 +519,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             Intent intent = new Intent(Intent.ACTION_MAIN);
             intent.addCategory(Intent.CATEGORY_HOME);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            mContext.startActivity(intent);
+            mTargetContext.startActivity(intent);
             Thread.sleep(WAIT_TIME);
         }
     }
@@ -488,7 +563,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         ActivityReceiverFilter timeReceiver = new ActivityReceiverFilter(ACTIVITY_TIME_TRACK_INFO);
 
         // Run the activity.
-        mContext.startActivity(intent, options.toBundle());
+        mTargetContext.startActivity(intent, options.toBundle());
 
         // Wait until it finishes and end the reciever then.
         assertEquals(RESULT_PASS, appEndReceiver.waitForActivity());
@@ -546,7 +621,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         ActivityReceiverFilter timeReceiver = new ActivityReceiverFilter(ACTIVITY_TIME_TRACK_INFO);
 
         // Run the activity.
-        mContext.startActivity(intent, options.toBundle());
+        mTargetContext.startActivity(intent, options.toBundle());
 
         // Wait until it finishes and end the reciever then.
         assertEquals(RESULT_PASS, appStartedReceiver.waitForActivity());
@@ -594,7 +669,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         ActivityReceiverFilter timeReceiver = new ActivityReceiverFilter(ACTIVITY_TIME_TRACK_INFO);
 
         // Run the activity.
-        mContext.startActivity(intent, options.toBundle());
+        mTargetContext.startActivity(intent, options.toBundle());
 
         // Wait until it finishes and end the reciever then.
         assertEquals(RESULT_PASS, appEndReceiver.waitForActivity());
@@ -637,13 +712,13 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         Intent intent = new Intent();
         intent.setClassName(SIMPLE_PACKAGE_NAME, SIMPLE_PACKAGE_NAME + SIMPLE_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(intent);
+        mTargetContext.startActivity(intent);
         assertEquals(RESULT_PASS, appStartedReceiver.waitForActivity());
 
         // Start a new activity in the same task. Here adds an action to make a different to intent
         // filter comparison so another same activity will be created.
         intent.setAction(Intent.ACTION_MAIN);
-        mContext.startActivity(intent);
+        mTargetContext.startActivity(intent);
         assertEquals(RESULT_PASS, appStartedReceiver.waitForActivity());
         appStartedReceiver.close();
 
@@ -684,5 +759,191 @@ public class ActivityManagerTest extends InstrumentationTestCase {
        } catch (NoSuchMethodException e) {
            // Patched devices should throw this exception since isAppForeground is removed.
        }
+    }
+
+    /**
+     * This test verifies the self-induced ANR by ActivityManager.appNotResponding().
+     */
+    public void testAppNotResponding() throws Exception {
+        // Setup the ANR monitor
+        AmMonitor monitor = new AmMonitor(mInstrumentation,
+                new String[]{AmMonitor.WAIT_FOR_CRASHED});
+
+        // Now tell it goto ANR
+        CommandReceiver.sendCommand(mTargetContext, CommandReceiver.COMMAND_SELF_INDUCED_ANR,
+                PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+
+        try {
+
+            // Verify we got the ANR
+            assertTrue(monitor.waitFor(AmMonitor.WAIT_FOR_EARLY_ANR, WAITFOR_MSEC));
+
+            // Just kill the test app
+            monitor.sendCommand(AmMonitor.CMD_KILL);
+        } finally {
+            // clean up
+            monitor.finish();
+            SystemUtil.runWithShellPermissionIdentity(() -> {
+                mActivityManager.forceStopPackage(PACKAGE_NAME_APP1);
+            });
+        }
+    }
+
+    /*
+     * Verifies the {@link android.app.ActivityManager#killProcessesWhenImperceptible}.
+     */
+    public void testKillingPidsOnImperceptible() throws Exception {
+        // Start remote service process
+        final String remoteProcessName = STUB_PACKAGE_NAME + ":remote";
+        Intent intent = new Intent("android.app.REMOTESERVICE");
+        intent.setPackage(STUB_PACKAGE_NAME);
+        mTargetContext.startService(intent);
+        Thread.sleep(WAITFOR_MSEC);
+
+        RunningAppProcessInfo remote = getRunningAppProcessInfo(remoteProcessName);
+        assertNotNull(remote);
+
+        ActivityReceiverFilter appStartedReceiver = new ActivityReceiverFilter(
+                ACTIVITY_LAUNCHED_ACTION);
+        boolean disabled = "0".equals(executeShellCommand("cmd deviceidle enabled light"));
+        try {
+            if (disabled) {
+                executeAndLogShellCommand("cmd deviceidle enable light");
+            }
+            intent = new Intent(Intent.ACTION_MAIN);
+            intent.setClassName(SIMPLE_PACKAGE_NAME, SIMPLE_PACKAGE_NAME + SIMPLE_ACTIVITY);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            mTargetContext.startActivity(intent);
+            assertEquals(RESULT_PASS, appStartedReceiver.waitForActivity());
+
+            RunningAppProcessInfo proc = getRunningAppProcessInfo(SIMPLE_PACKAGE_NAME);
+            assertNotNull(proc);
+
+            final String reason = "cts";
+
+            try {
+                mActivityManager.killProcessesWhenImperceptible(new int[]{proc.pid}, reason);
+                fail("Shouldn't have the permission");
+            } catch (SecurityException e) {
+                // expected
+            }
+
+            final long defaultWaitForKillTimeout = 5_000;
+
+            // Keep the device awake
+            toggleScreenOn(true);
+
+            // Kill the remote process
+            SystemUtil.runWithShellPermissionIdentity(() -> {
+                mActivityManager.killProcessesWhenImperceptible(new int[]{remote.pid}, reason);
+            });
+
+            // Kill the activity process
+            SystemUtil.runWithShellPermissionIdentity(() -> {
+                mActivityManager.killProcessesWhenImperceptible(new int[]{proc.pid}, reason);
+            });
+
+            // The processes should be still alive because device isn't in idle
+            assertFalse(waitUntilTrue(defaultWaitForKillTimeout, () -> isProcessGone(
+                    remote.pid, remoteProcessName)));
+            assertFalse(waitUntilTrue(defaultWaitForKillTimeout, () -> isProcessGone(
+                    proc.pid, SIMPLE_PACKAGE_NAME)));
+
+            // force device idle
+            toggleScreenOn(false);
+            triggerIdle(true);
+
+            // Now the remote process should have been killed.
+            assertTrue(waitUntilTrue(defaultWaitForKillTimeout, () -> isProcessGone(
+                    remote.pid, remoteProcessName)));
+
+            // The activity process should be still alive because it's is on the top (perceptible)
+            assertFalse(waitUntilTrue(defaultWaitForKillTimeout, () -> isProcessGone(
+                    proc.pid, SIMPLE_PACKAGE_NAME)));
+
+            triggerIdle(false);
+            // Toogle screen ON
+            toggleScreenOn(true);
+
+            // Now launch home
+            executeAndLogShellCommand("input keyevent KEYCODE_HOME");
+
+            // force device idle again
+            toggleScreenOn(false);
+            triggerIdle(true);
+
+            // Now the activity process should be gone.
+            assertTrue(waitUntilTrue(defaultWaitForKillTimeout, () -> isProcessGone(
+                    proc.pid, SIMPLE_PACKAGE_NAME)));
+
+        } finally {
+            // Clean up code
+            triggerIdle(false);
+            toggleScreenOn(true);
+            appStartedReceiver.close();
+
+            if (disabled) {
+                executeAndLogShellCommand("cmd deviceidle disable light");
+            }
+            SystemUtil.runWithShellPermissionIdentity(() -> {
+                mActivityManager.forceStopPackage(SIMPLE_PACKAGE_NAME);
+            });
+        }
+    }
+
+    private RunningAppProcessInfo getRunningAppProcessInfo(String processName) {
+        try {
+            return SystemUtil.callWithShellPermissionIdentity(()-> {
+                return mActivityManager.getRunningAppProcesses().stream().filter(
+                        (ra) -> processName.equals(ra.processName)).findFirst().orElse(null);
+            });
+        } catch (Exception e) {
+        }
+        return null;
+    }
+
+    private boolean isProcessGone(int pid, String processName) {
+        RunningAppProcessInfo info = getRunningAppProcessInfo(processName);
+        return info == null || info.pid != pid;
+    }
+
+    // Copied from DeviceStatesTest
+    /**
+     * Make sure the screen state.
+     */
+    private void toggleScreenOn(final boolean screenon) throws Exception {
+        if (screenon) {
+            executeAndLogShellCommand("input keyevent KEYCODE_WAKEUP");
+            executeAndLogShellCommand("wm dismiss-keyguard");
+        } else {
+            executeAndLogShellCommand("input keyevent KEYCODE_SLEEP");
+        }
+        // Since the screen on/off intent is ordered, they will not be sent right now.
+        SystemClock.sleep(2_000);
+    }
+
+    /**
+     * Simulated for idle, and then perform idle maintenance now.
+     */
+    private void triggerIdle(boolean idle) throws Exception {
+        if (idle) {
+            executeAndLogShellCommand("cmd deviceidle force-idle light");
+        } else {
+            executeAndLogShellCommand("cmd deviceidle unforce");
+        }
+        // Wait a moment to let that happen before proceeding.
+        SystemClock.sleep(2_000);
+    }
+
+    /**
+     * Return true if the given supplier says it's true
+     */
+    private boolean waitUntilTrue(long maxWait, Supplier<Boolean> supplier) throws Exception {
+        final long deadLine = SystemClock.uptimeMillis() + maxWait;
+        boolean result = false;
+        do {
+            Thread.sleep(500);
+        } while (!(result = supplier.get()) && SystemClock.uptimeMillis() < deadLine);
+        return result;
     }
 }

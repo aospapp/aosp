@@ -113,4 +113,35 @@ public class BuildTestsZipUtilsTest {
             FileUtil.recursiveDelete(testDir);
         }
     }
+
+    /**
+     * Tests that when the search finds the file in the sub testcases dir and under a different
+     * module directory we still properly find it and return it.
+     */
+    @Test
+    public void testGetApkFile_fromTestDir_differentModule_testCase() throws Exception {
+        DeviceBuildInfo buildInfo = new DeviceBuildInfo();
+        File testDir = FileUtil.createTempDir("test-dir-build-tests");
+        try {
+            buildInfo.setTestsDir(testDir, "1");
+            File testcasedir = new File(testDir, "testcases");
+            testcasedir.mkdir();
+            File apkDir = new File(testcasedir, "DifferentTestModule");
+            apkDir.mkdir();
+            File apk = new File(apkDir, "TestApk.apk");
+            apk.createNewFile();
+            File apkFile =
+                    BuildTestsZipUtils.getApkFile(
+                            buildInfo,
+                            "TestApk.apk",
+                            new ArrayList<>(),
+                            AltDirBehavior.FALLBACK,
+                            true,
+                            null);
+            assertNotNull(apkFile);
+            assertEquals(apk, apkFile);
+        } finally {
+            FileUtil.recursiveDelete(testDir);
+        }
+    }
 }

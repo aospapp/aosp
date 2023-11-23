@@ -30,7 +30,8 @@ class TestInfo(object):
 
     # pylint: disable=too-many-arguments
     def __init__(self, test_name, test_runner, build_targets, data=None,
-                 suite=None, module_class=None, install_locations=None):
+                 suite=None, module_class=None, install_locations=None,
+                 test_finder='', compatibility_suites=None):
         """Init for TestInfo.
 
         Args:
@@ -43,6 +44,10 @@ class TestInfo(object):
                         in module_info. e.g. ["EXECUTABLES",  "NATIVE_TESTS"]
             install_locations: Set of install locations.
                         e.g. set(['host', 'device'])
+            test_finder: String of test finder.
+            compatibility_suites: A list of compatibility_suites. It's a
+                        snippet of compatibility_suites in module_info. e.g.
+                        ["device-tests",  "vts10"]
         """
         self.test_name = test_name
         self.test_runner = test_runner
@@ -57,15 +62,20 @@ class TestInfo(object):
         # True if the test should run on host and require no device. The
         # attribute is only set through TEST_MAPPING file.
         self.host = False
+        self.test_finder = test_finder
+        self.compatibility_suites = (map(str, compatibility_suites)
+                                     if compatibility_suites else [])
 
     def __str__(self):
         host_info = (' - runs on host without device required.' if self.host
                      else '')
         return ('test_name: %s - test_runner:%s - build_targets:%s - data:%s - '
-                'suite:%s - module_class: %s - install_locations:%s%s' % (
+                'suite:%s - module_class: %s - install_locations:%s%s - '
+                'test_finder: %s - compatibility_suites:%s' % (
                     self.test_name, self.test_runner, self.build_targets,
                     self.data, self.suite, self.module_class,
-                    self.install_locations, host_info))
+                    self.install_locations, host_info, self.test_finder,
+                    self.compatibility_suites))
 
     def get_supported_exec_mode(self):
         """Get the supported execution mode of the test.

@@ -16,3 +16,18 @@ filegroup {
     name: "cts-wm-components-base",
     srcs: ["**/ComponentsBase.java"],
 }
+
+java_test_helper_library {
+    name: "cts-wm-app-base",
+
+    srcs: [
+        "src/**/*.java",
+        ":cts-wm-app-util",
+    ],
+
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
+
+    sdk_version: "test_current",
+}

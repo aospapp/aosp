@@ -538,6 +538,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
       mLastRequestedLensShadingMapMode(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF),
       mLastRequestedFaceDetectMode(ANDROID_STATISTICS_FACE_DETECT_MODE_OFF),
       mLastRequestedOisDataMode(ANDROID_STATISTICS_OIS_DATA_MODE_OFF),
+      mLastRequestedZoomRatio(1.0f),
       mCurrFeatureState(0),
       mLdafCalibExist(false),
       mLastCustIntentFrmNum(-1),
@@ -672,13 +673,7 @@ QCamera3HardwareInterface::~QCamera3HardwareInterface()
     {
         std::unique_lock<std::mutex> l(gHdrPlusClientLock);
         finishHdrPlusClientOpeningLocked(l);
-        if (gHdrPlusClient != nullptr) {
-            // Disable HDR+ mode.
-            disableHdrPlusModeLocked();
-            // Disconnect Easel if it's connected.
-            gEaselManagerClient->closeHdrPlusClient(std::move(gHdrPlusClient));
-            gHdrPlusClient = nullptr;
-        }
+        closeHdrPlusClientLocked();
     }
 
     // unlink of dualcam during close camera
@@ -3889,7 +3884,7 @@ void QCamera3HardwareInterface::sendPartialMetadataWithLock(
 
     // Extract 3A metadata
     result.result = translateCbUrgentMetadataToResultMetadata(
-            metadata, lastUrgentMetadataInBatch, requestIter->frame_number,
+            metadata, lastUrgentMetadataInBatch, requestIter,
             isJumpstartMetadata);
     // Populate metadata result
     result.frame_number = requestIter->frame_number;
@@ -4215,8 +4210,10 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
                                             streamDim.width, streamDim.height);
 
                                     cam_eis_crop_info_t eisCrop = iter->crop_info;
+                                    //eisCrop already combines zoom_ratio, no
+                                    //need to apply it again.
                                     mStreamCropMapper.toSensor(eisCrop.delta_x, eisCrop.delta_y,
-                                            eisCrop.delta_width, eisCrop.delta_height);
+                                            eisCrop.delta_width, eisCrop.delta_height, 1.0f);
 
                                     int32_t crop[4] = {
                                         crop_data->crop_info[j].crop.left   + eisCrop.delta_x,
@@ -4338,11 +4335,12 @@ void QCamera3HardwareInterface::handleDepthDataLocked(
     }
 
     camera3_stream_buffer_t resultBuffer =
-        {.acquire_fence = -1,
-         .release_fence = -1,
-         .status = CAMERA3_BUFFER_STATUS_OK,
+        {.stream = mDepthChannel->getStream(),
          .buffer = nullptr,
-         .stream = mDepthChannel->getStream()};
+         .status = CAMERA3_BUFFER_STATUS_OK,
+         .acquire_fence = -1,
+         .release_fence = -1,
+        };
     do {
         depthBuffer = mDepthChannel->getOldestFrame(currentFrameNumber);
         if (nullptr == depthBuffer) {
@@ -4402,11 +4400,11 @@ void QCamera3HardwareInterface::notifyErrorFoPendingDepthData(
         {.type = CAMERA3_MSG_ERROR,
                 {{0, depthCh->getStream(), CAMERA3_MSG_ERROR_BUFFER}}};
     camera3_stream_buffer_t resultBuffer =
-        {.acquire_fence = -1,
-         .release_fence = -1,
+        {.stream = depthCh->getStream(),
          .buffer = nullptr,
-         .stream = depthCh->getStream(),
-         .status = CAMERA3_BUFFER_STATUS_ERROR};
+         .status = CAMERA3_BUFFER_STATUS_ERROR,
+         .acquire_fence = -1,
+         .release_fence = -1,};
 
     while (nullptr !=
             (depthBuffer = depthCh->getOldestFrame(currentFrameNumber))) {
@@ -4593,6 +4591,15 @@ void QCamera3HardwareInterface::handleBufferWithLock(
     buffer->status |= mPendingBuffersMap.getBufErrStatus(buffer->buffer);
     LOGH("result frame_number = %d, buffer = %p",
              frame_number, buffer->buffer);
+
+    if (buffer->status == CAMERA3_BUFFER_STATUS_ERROR) {
+        camera3_notify_msg_t notify_msg = {};
+        notify_msg.type = CAMERA3_MSG_ERROR;
+        notify_msg.message.error.frame_number = frame_number;
+        notify_msg.message.error.error_code = CAMERA3_MSG_ERROR_BUFFER ;
+        notify_msg.message.error.error_stream = buffer->stream;
+        orchestrateNotify(&notify_msg);
+    }
 
     mPendingBuffersMap.removeBuf(buffer->buffer);
     mOutputBufferDispatcher.markBufferReady(frame_number, *buffer);
@@ -5300,6 +5307,18 @@ int QCamera3HardwareInterface::processCaptureRequest(
     bool isVidBufRequested = false;
     camera3_stream_buffer_t *pInputBuffer = NULL;
 
+    // If Easel is thermal throttled and there is no pending HDR+ request,
+    // close HDR+ client.
+    {
+        std::unique_lock<std::mutex> l(gHdrPlusClientLock);
+        if (gHdrPlusClient != nullptr && mEaselThermalThrottled) {
+            Mutex::Autolock lock(mHdrPlusPendingRequestsLock);
+            if (mHdrPlusPendingRequests.empty()) {
+                closeHdrPlusClientLocked();
+            }
+        }
+    }
+
     pthread_mutex_lock(&mMutex);
 
     // Validate current state
@@ -5793,6 +5812,7 @@ no_error:
     pendingRequest.requestedLensShadingMapMode = requestedLensShadingMapMode;
     pendingRequest.requestedFaceDetectMode = mLastRequestedFaceDetectMode;
     pendingRequest.requestedOisDataMode = mLastRequestedOisDataMode;
+    pendingRequest.zoomRatio = mLastRequestedZoomRatio;
     if (request->input_buffer) {
         pendingRequest.input_buffer =
                 (camera3_stream_buffer_t*)malloc(sizeof(camera3_stream_buffer_t));
@@ -5855,7 +5875,6 @@ no_error:
     // Mark current timestamp for the new request
     bufsForCurRequest.timestamp = systemTime(CLOCK_MONOTONIC);
     bufsForCurRequest.av_timestamp = 0;
-    bufsForCurRequest.hdrplus = hdrPlusRequest;
 
     if (hdrPlusRequest) {
         // Save settings for this request.
@@ -5869,11 +5888,13 @@ no_error:
         ALOGD("%s: frame number %u is an HDR+ request.", __FUNCTION__, frameNumber);
     }
 
+    buffer_handle_t *depth_buffer = nullptr;
     for (size_t i = 0; i < request->num_output_buffers; i++) {
         if ((request->output_buffers[i].stream->data_space ==
                 HAL_DATASPACE_DEPTH) &&
                 (HAL_PIXEL_FORMAT_BLOB ==
                         request->output_buffers[i].stream->format)) {
+            depth_buffer = request->output_buffers[i].buffer;
             continue;
         }
         RequestedBufferInfo requestedBuf;
@@ -5910,6 +5931,23 @@ no_error:
 
     if(mFlush) {
         LOGI("mFlush is true");
+
+        // If depth buffer is requested, return an error depth buffer. The buffer is not
+        // going to be added to the depth channel so it won't be returned in
+        // notifyErrorFoPendingDepthData().
+        if (depth_buffer != nullptr) {
+            camera3_stream_buffer_t errorBuffer =
+            {
+                .stream = mDepthChannel->getStream(),
+                .buffer = depth_buffer,
+                .status = CAMERA3_BUFFER_STATUS_ERROR,
+                .acquire_fence = -1,
+                .release_fence = -1,
+            };
+
+            mOutputBufferDispatcher.markBufferReady(frameNumber, errorBuffer);
+        }
+
         pthread_mutex_unlock(&mMutex);
         return NO_ERROR;
     }
@@ -7379,6 +7417,24 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         camMetadata.update(ANDROID_SYNC_FRAME_NUMBER, &fwk_frame_number, 1);
     }
 
+    IF_META_AVAILABLE(cam_crop_region_t, hScalerCropRegion,
+            CAM_INTF_META_SCALER_CROP_REGION, metadata) {
+        int32_t scalerCropRegion[4];
+        scalerCropRegion[0] = hScalerCropRegion->left;
+        scalerCropRegion[1] = hScalerCropRegion->top;
+        scalerCropRegion[2] = hScalerCropRegion->width;
+        scalerCropRegion[3] = hScalerCropRegion->height;
+
+        // Adjust crop region from sensor output coordinate system to active
+        // array coordinate system.
+        mCropRegionMapper.toActiveArray(scalerCropRegion[0], scalerCropRegion[1],
+                scalerCropRegion[2], scalerCropRegion[3], pendingRequest.zoomRatio);
+
+        camMetadata.update(ANDROID_SCALER_CROP_REGION, scalerCropRegion, 4);
+    }
+
+    camMetadata.update(ANDROID_CONTROL_ZOOM_RATIO, &pendingRequest.zoomRatio, 1);
+
     IF_META_AVAILABLE(cam_fps_range_t, float_range, CAM_INTF_PARM_FPS_RANGE, metadata) {
         int32_t fps_range[2];
         fps_range[0] = (int32_t)float_range->min_fps;
@@ -7533,24 +7589,9 @@ QCamera3HardwareInterface::translateFromHalMetadata(
             CAM_INTF_META_EIS_CROP_INFO, metadata) {
         mLastEISCropInfo = *eisCropInfo;
 
+        //mLastEISCropInfo contains combined zoom_ratio.
         mCropRegionMapper.toActiveArray(mLastEISCropInfo.delta_x, mLastEISCropInfo.delta_y,
-                mLastEISCropInfo.delta_width, mLastEISCropInfo.delta_height);
-    }
-
-    IF_META_AVAILABLE(cam_crop_region_t, hScalerCropRegion,
-            CAM_INTF_META_SCALER_CROP_REGION, metadata) {
-        int32_t scalerCropRegion[4];
-        scalerCropRegion[0] = hScalerCropRegion->left;
-        scalerCropRegion[1] = hScalerCropRegion->top;
-        scalerCropRegion[2] = hScalerCropRegion->width;
-        scalerCropRegion[3] = hScalerCropRegion->height;
-
-        // Adjust crop region from sensor output coordinate system to active
-        // array coordinate system.
-        mCropRegionMapper.toActiveArray(scalerCropRegion[0], scalerCropRegion[1],
-                scalerCropRegion[2], scalerCropRegion[3]);
-
-        camMetadata.update(ANDROID_SCALER_CROP_REGION, scalerCropRegion, 4);
+                mLastEISCropInfo.delta_width, mLastEISCropInfo.delta_height, 1.0f/*zoom_ratio*/);
     }
 
     IF_META_AVAILABLE(int64_t, sensorExpTime, CAM_INTF_META_SENSOR_EXPOSURE_TIME, metadata) {
@@ -7634,7 +7675,7 @@ QCamera3HardwareInterface::translateFromHalMetadata(
                         // array coordinate system.
                         cam_rect_t rect = faceDetectionInfo->faces[i].face_boundary;
                         mCropRegionMapper.toActiveArray(rect.left, rect.top,
-                                rect.width, rect.height);
+                                rect.width, rect.height, pendingRequest.zoomRatio);
 
                         convertToRegions(rect, faceRectangles+j, -1);
 
@@ -7668,13 +7709,16 @@ QCamera3HardwareInterface::translateFromHalMetadata(
                                 // array coordinate system.
                                 mCropRegionMapper.toActiveArray(
                                         face_landmarks.left_eye_center.x,
-                                        face_landmarks.left_eye_center.y);
+                                        face_landmarks.left_eye_center.y,
+                                        pendingRequest.zoomRatio);
                                 mCropRegionMapper.toActiveArray(
                                         face_landmarks.right_eye_center.x,
-                                        face_landmarks.right_eye_center.y);
+                                        face_landmarks.right_eye_center.y,
+                                        pendingRequest.zoomRatio);
                                 mCropRegionMapper.toActiveArray(
                                         face_landmarks.mouth_center.x,
-                                        face_landmarks.mouth_center.y);
+                                        face_landmarks.mouth_center.y,
+                                        pendingRequest.zoomRatio);
 
                                 convertLandmarks(face_landmarks, faceLandmarks+k);
 
@@ -8109,7 +8153,7 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         // array coordinate system.
         cam_rect_t hAeRect = hAeRegions->rect;
         mCropRegionMapper.toActiveArray(hAeRect.left, hAeRect.top,
-                hAeRect.width, hAeRect.height);
+                hAeRect.width, hAeRect.height, pendingRequest.zoomRatio);
 
         convertToRegions(hAeRect, aeRegions, hAeRegions->weight);
         camMetadata.update(ANDROID_CONTROL_AE_REGIONS, aeRegions,
@@ -8692,7 +8736,7 @@ mm_jpeg_exif_params_t QCamera3HardwareInterface::get3AExifParams()
  *   @lastUrgentMetadataInBatch: Boolean to indicate whether this is the last
  *                               urgent metadata in a batch. Always true for
  *                               non-batch mode.
- *   @frame_number :             frame number for this urgent metadata
+ *   @requestIter:         Pending request iterator
  *   @isJumpstartMetadata: Whether this is a partial metadata for jumpstart,
  *                         i.e. even though it doesn't map to a valid partial
  *                         frame number, its metadata entries should be kept.
@@ -8702,10 +8746,11 @@ mm_jpeg_exif_params_t QCamera3HardwareInterface::get3AExifParams()
 camera_metadata_t*
 QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
                                 (metadata_buffer_t *metadata, bool lastUrgentMetadataInBatch,
-                                 uint32_t frame_number, bool isJumpstartMetadata)
+                                 const pendingRequestIterator requestIter, bool isJumpstartMetadata)
 {
     CameraMetadata camMetadata;
     camera_metadata_t *resultMetadata;
+    uint32_t frame_number = requestIter->frame_number;
 
     if (!lastUrgentMetadataInBatch && !isJumpstartMetadata) {
         /* In batch mode, use empty metadata if this is not the last in batch
@@ -8791,7 +8836,7 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
         // Adjust crop region from sensor output coordinate system to active
         // array coordinate system.
         mCropRegionMapper.toActiveArray(hAfRect.left, hAfRect.top,
-                hAfRect.width, hAfRect.height);
+                hAfRect.width, hAfRect.height, requestIter->zoomRatio);
 
         convertToRegions(hAfRect, afRegions, hAfRegions->weight);
         camMetadata.update(ANDROID_CONTROL_AF_REGIONS, afRegions,
@@ -10099,6 +10144,10 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     staticInfo.update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
             &maxZoom, 1);
 
+    float zoomRatioRange[] = {1.0f, maxZoom};
+    staticInfo.update(ANDROID_CONTROL_ZOOM_RATIO_RANGE, zoomRatioRange, 2);
+    gCamCapability[cameraId]->max_zoom = maxZoom;
+
     uint8_t croppingType = ANDROID_SCALER_CROPPING_TYPE_CENTER_ONLY;
     staticInfo.update(ANDROID_SCALER_CROPPING_TYPE, &croppingType, 1);
 
@@ -10879,6 +10928,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
        ANDROID_SENSOR_SENSITIVITY, ANDROID_SHADING_MODE,
 #ifndef USE_HAL_3_3
        ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST,
+       ANDROID_CONTROL_ZOOM_RATIO,
 #endif
        ANDROID_STATISTICS_FACE_DETECT_MODE,
        ANDROID_STATISTICS_SHARPNESS_MAP_MODE, ANDROID_STATISTICS_OIS_DATA_MODE,
@@ -10959,6 +11009,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
        ANDROID_STATISTICS_OIS_Y_SHIFTS,
 #ifndef USE_HAL_3_3
        ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST,
+       ANDROID_CONTROL_ZOOM_RATIO,
 #endif
        NEXUS_EXPERIMENTAL_2016_HYBRID_AE_ENABLE,
        NEXUS_EXPERIMENTAL_2016_AF_SCENE_CHANGE,
@@ -11158,6 +11209,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
 #ifndef USE_HAL_3_3
        ANDROID_SENSOR_OPAQUE_RAW_SIZE,
        ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE,
+       ANDROID_CONTROL_ZOOM_RATIO_RANGE,
 #endif
        ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS,
        ANDROID_SCALER_AVAILABLE_RECOMMENDED_INPUT_OUTPUT_FORMATS_MAP,
@@ -12187,6 +12239,9 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     scaler_crop_region[2] = gCamCapability[mCameraId]->active_array_size.width;
     scaler_crop_region[3] = gCamCapability[mCameraId]->active_array_size.height;
     settings.update(ANDROID_SCALER_CROP_REGION, scaler_crop_region, 4);
+
+    float zoom_ratio = 1.0f;
+    settings.update(ANDROID_CONTROL_ZOOM_RATIO, &zoom_ratio, 1);
 
     static const uint8_t antibanding_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
     settings.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &antibanding_mode, 1);
@@ -13422,9 +13477,16 @@ int QCamera3HardwareInterface::translateFwkMetadataToHalMetadata(
         scalerCropRegion.width = frame_settings.find(ANDROID_SCALER_CROP_REGION).data.i32[2];
         scalerCropRegion.height = frame_settings.find(ANDROID_SCALER_CROP_REGION).data.i32[3];
 
+        if (frame_settings.exists(ANDROID_CONTROL_ZOOM_RATIO)) {
+            mLastRequestedZoomRatio = frame_settings.find(ANDROID_CONTROL_ZOOM_RATIO).data.f[0];
+            mLastRequestedZoomRatio = MIN(MAX(mLastRequestedZoomRatio, 1.0f),
+                    gCamCapability[mCameraId]->max_zoom);
+            LOGD("setting zoomRatio %f", mLastRequestedZoomRatio);
+        }
+
         // Map coordinate system from active array to sensor output.
         mCropRegionMapper.toSensor(scalerCropRegion.left, scalerCropRegion.top,
-                scalerCropRegion.width, scalerCropRegion.height);
+                scalerCropRegion.width, scalerCropRegion.height, mLastRequestedZoomRatio);
 
         if (ADD_SET_PARAM_ENTRY_TO_BATCH(hal_metadata, CAM_INTF_META_SCALER_CROP_REGION,
                 scalerCropRegion)) {
@@ -13628,11 +13690,12 @@ int QCamera3HardwareInterface::translateFwkMetadataToHalMetadata(
 
         // Map coordinate system from active array to sensor output.
         mCropRegionMapper.toSensor(roi.rect.left, roi.rect.top, roi.rect.width,
-                roi.rect.height);
+                roi.rect.height, mLastRequestedZoomRatio);
 
         if (scalerCropSet) {
             reset = resetIfNeededROI(&roi, &scalerCropRegion);
         }
+
         if (reset && ADD_SET_PARAM_ENTRY_TO_BATCH(hal_metadata, CAM_INTF_META_AEC_ROI, roi)) {
             rc = BAD_VALUE;
         }
@@ -13645,7 +13708,7 @@ int QCamera3HardwareInterface::translateFwkMetadataToHalMetadata(
 
         // Map coordinate system from active array to sensor output.
         mCropRegionMapper.toSensor(roi.rect.left, roi.rect.top, roi.rect.width,
-                roi.rect.height);
+                roi.rect.height, mLastRequestedZoomRatio);
 
         if (scalerCropSet) {
             reset = resetIfNeededROI(&roi, &scalerCropRegion);
@@ -15136,7 +15199,8 @@ int32_t QCamera3HardwareInterface::notifyErrorForPendingRequests()
     while (pendingRequest != mPendingRequestsList.end() ||
            pendingBuffer != mPendingBuffersMap.mPendingBuffersInRequest.end()) {
         if (pendingRequest == mPendingRequestsList.end() ||
-            pendingBuffer->frame_number < pendingRequest->frame_number) {
+                ((pendingBuffer != mPendingBuffersMap.mPendingBuffersInRequest.end()) &&
+                 (pendingBuffer->frame_number < pendingRequest->frame_number))) {
             // If metadata for this frame was sent, notify about a buffer error and returns buffers
             // with error.
             for (auto &info : pendingBuffer->mPendingBufferList) {
@@ -15160,8 +15224,12 @@ int32_t QCamera3HardwareInterface::notifyErrorForPendingRequests()
 
             pendingBuffer = mPendingBuffersMap.mPendingBuffersInRequest.erase(pendingBuffer);
         } else if (pendingBuffer == mPendingBuffersMap.mPendingBuffersInRequest.end() ||
-                   pendingBuffer->frame_number > pendingRequest->frame_number) {
-            // If the buffers for this frame were sent already, notify about a result error.
+                   ((pendingRequest != mPendingRequestsList.end()) &&
+                   (pendingBuffer->frame_number > pendingRequest->frame_number ||
+                    (pendingBuffer->frame_number == pendingRequest->frame_number &&
+                     pendingBuffer->mPendingBufferList.size() < pendingRequest->num_buffers)))) {
+            // If some or all buffers for this frame were sent already, notify about a result error,
+            // as well as remaining buffer errors.
             camera3_notify_msg_t notify_msg;
             memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
             notify_msg.type = CAMERA3_MSG_ERROR;
@@ -15178,20 +15246,41 @@ int32_t QCamera3HardwareInterface::notifyErrorForPendingRequests()
                 orchestrateResult(&result);
             }
 
+            if (pendingBuffer != mPendingBuffersMap.mPendingBuffersInRequest.end() &&
+                    pendingBuffer->frame_number == pendingRequest->frame_number) {
+                for (const auto &info : pendingBuffer->mPendingBufferList) {
+                    // Send a buffer error for this frame number.
+                    camera3_notify_msg_t notify_msg;
+                    memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
+                    notify_msg.type = CAMERA3_MSG_ERROR;
+                    notify_msg.message.error.error_code = CAMERA3_MSG_ERROR_BUFFER;
+                    notify_msg.message.error.error_stream = info.stream;
+                    notify_msg.message.error.frame_number = pendingBuffer->frame_number;
+                    orchestrateNotify(&notify_msg);
+
+                    camera3_stream_buffer_t buffer = {};
+                    buffer.acquire_fence = -1;
+                    buffer.release_fence = -1;
+                    buffer.buffer = info.buffer;
+                    buffer.status = CAMERA3_BUFFER_STATUS_ERROR;
+                    buffer.stream = info.stream;
+                    mOutputBufferDispatcher.markBufferReady(pendingBuffer->frame_number, buffer);
+                }
+                pendingBuffer = mPendingBuffersMap.mPendingBuffersInRequest.erase(pendingBuffer);
+            }
             mShutterDispatcher.clear(pendingRequest->frame_number);
             pendingRequest = mPendingRequestsList.erase(pendingRequest);
         } else {
             // If both buffers and result metadata weren't sent yet, notify about a request error
             // and return buffers with error.
-            for (auto &info : pendingBuffer->mPendingBufferList) {
-                camera3_notify_msg_t notify_msg;
-                memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
-                notify_msg.type = CAMERA3_MSG_ERROR;
-                notify_msg.message.error.error_code = CAMERA3_MSG_ERROR_REQUEST;
-                notify_msg.message.error.error_stream = info.stream;
-                notify_msg.message.error.frame_number = pendingBuffer->frame_number;
-                orchestrateNotify(&notify_msg);
+            camera3_notify_msg_t notify_msg;
+            memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
+            notify_msg.type = CAMERA3_MSG_ERROR;
+            notify_msg.message.error.error_code = CAMERA3_MSG_ERROR_REQUEST;
+            notify_msg.message.error.frame_number = pendingBuffer->frame_number;
+            orchestrateNotify(&notify_msg);
 
+            for (auto &info : pendingBuffer->mPendingBufferList) {
                 camera3_stream_buffer_t buffer = {};
                 buffer.acquire_fence = -1;
                 buffer.release_fence = -1;
@@ -15885,11 +15974,29 @@ bool QCamera3HardwareInterface::trySubmittingHdrPlusRequestLocked(
         hdrPlusRequest->frameworkOutputBuffers.emplace(pbStreamId, request.output_buffers[i]);
     }
 
+    float zoomRatio = 1.0f;
+    camera_metadata_ro_entry zoomRatioEntry = metadata.find(ANDROID_CONTROL_ZOOM_RATIO);
+    if (zoomRatioEntry.count == 1) {
+        zoomRatio = MIN(MAX(zoomRatioEntry.data.f[0], 1.0f), gCamCapability[mCameraId]->max_zoom);
+    }
+
+    // Capture requests should not be modified.
+    CameraMetadata updatedMetadata(metadata);
+    camera_metadata_entry entry = updatedMetadata.find(ANDROID_SCALER_CROP_REGION);
     if (isEISCropInSnapshotNeeded(metadata)) {
         int32_t scalerRegion[4] = {0, 0, gCamCapability[mCameraId]->active_array_size.width,
             gCamCapability[mCameraId]->active_array_size.height};
-        if (metadata.exists(ANDROID_SCALER_CROP_REGION)) {
+        if (entry.count == 4) {
             auto currentScalerRegion = metadata.find(ANDROID_SCALER_CROP_REGION).data.i32;
+            scalerRegion[0] = currentScalerRegion[0];
+            scalerRegion[1] = currentScalerRegion[1];
+            scalerRegion[2] = currentScalerRegion[2];
+            scalerRegion[3] = currentScalerRegion[3];
+
+            // Apply zoom ratio to generate new crop region
+            mCropRegionMapper.applyZoomRatio(scalerRegion[0], scalerRegion[1],
+                    scalerRegion[2], scalerRegion[3], zoomRatio);
+
             scalerRegion[0] = currentScalerRegion[0] + mLastEISCropInfo.delta_x;
             scalerRegion[1] = currentScalerRegion[1] + mLastEISCropInfo.delta_y;
             scalerRegion[2] = currentScalerRegion[2] - mLastEISCropInfo.delta_width;
@@ -15901,8 +16008,6 @@ bool QCamera3HardwareInterface::trySubmittingHdrPlusRequestLocked(
             scalerRegion[3] -= mLastEISCropInfo.delta_height;
         }
 
-        // Capture requests should not be modified.
-        CameraMetadata updatedMetadata(metadata);
         if (isCropValid(scalerRegion[0], scalerRegion[1], scalerRegion[2], scalerRegion[3],
                     gCamCapability[mCameraId]->active_array_size.width,
                     gCamCapability[mCameraId]->active_array_size.height)) {
@@ -15910,11 +16015,13 @@ bool QCamera3HardwareInterface::trySubmittingHdrPlusRequestLocked(
         } else {
             LOGE("Invalid EIS compensated crop region");
         }
-
-        res = gHdrPlusClient->submitCaptureRequest(&pbRequest, updatedMetadata);
     } else {
-        res = gHdrPlusClient->submitCaptureRequest(&pbRequest, metadata);
+        if (entry.count == 4) {
+            mCropRegionMapper.applyZoomRatio(entry.data.i32[0], entry.data.i32[1],
+                    entry.data.i32[2], entry.data.i32[3], zoomRatio);
+        }
     }
+    res = gHdrPlusClient->submitCaptureRequest(&pbRequest, updatedMetadata);
 
     if (res != OK) {
         ALOGE("%s: %d: Submitting a capture request failed: %s (%d)", __FUNCTION__, __LINE__,
@@ -16142,6 +16249,25 @@ void QCamera3HardwareInterface::onEaselFatalError(std::string errMsg)
 {
     ALOGE("%s: Got an Easel fatal error: %s", __FUNCTION__, errMsg.c_str());
     handleEaselFatalErrorAsync();
+}
+
+void QCamera3HardwareInterface::closeHdrPlusClientLocked()
+{
+    if (gHdrPlusClient != nullptr) {
+        // Disable HDR+ mode.
+        disableHdrPlusModeLocked();
+        // Disconnect Easel if it's connected.
+        gEaselManagerClient->closeHdrPlusClient(std::move(gHdrPlusClient));
+        gHdrPlusClient = nullptr;
+        ALOGD("HDR+ client closed.");
+    }
+}
+
+void QCamera3HardwareInterface::onThermalThrottle() {
+    ALOGW("%s: Thermal throttling. Will close HDR+ client.", __FUNCTION__);
+    // HDR+ will be disabled when HAL receives the next request and there is no
+    // pending HDR+ request.
+    mEaselThermalThrottled = true;
 }
 
 void QCamera3HardwareInterface::onOpened(std::unique_ptr<HdrPlusClient> client)
@@ -16414,10 +16540,29 @@ void QCamera3HardwareInterface::onCaptureResult(pbcamera::CaptureResult *result,
         }
 
         if (channel == mPictureChannel) {
+            android_errorWriteLog(0x534e4554, "150004253");
+            // Keep a copy of outputBufferDef until the final JPEG buffer is
+            // ready because the JPEG callback uses the mm_camera_buf_def_t
+            // struct. The metaBufDef is stored in a shared_ptr to make sure
+            // it's freed.
+            std::shared_ptr<mm_camera_buf_def_t> metaBufDef =
+                    std::make_shared<mm_camera_buf_def_t>();
+            {
+                pthread_mutex_lock(&mMutex);
+                for (auto& pendingBuffers : mPendingBuffersMap.mPendingBuffersInRequest) {
+                    if (pendingBuffers.frame_number == result->requestId) {
+                        pendingBuffers.mHdrplusInputBuf = outputBufferDef;
+                        pendingBuffers.mHdrplusInputMetaBuf = metaBufDef;
+                        break;
+                    }
+                }
+                pthread_mutex_unlock(&mMutex);
+            }
+
             // Return the buffer to pic channel for encoding.
             mPictureChannel->returnYuvBufferAndEncode(outputBufferDef.get(),
                     frameworkOutputBuffer->buffer, result->requestId,
-                    halMetadata);
+                    halMetadata, metaBufDef.get());
         } else {
             // Return the buffer to camera framework.
             pthread_mutex_lock(&mMutex);

@@ -49,6 +49,7 @@ from oauth2client import tools as oauth2_tools
 
 from acloud import errors
 
+
 logger = logging.getLogger(__name__)
 HOME_FOLDER = os.path.expanduser("~")
 # If there is no specific scope use case, we will always use this default full

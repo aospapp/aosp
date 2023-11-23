@@ -154,13 +154,6 @@ typedef struct {
    BTM_SEC_OUT_AUTHENTICATE) /* Authentication required. */
 #define BTA_SEC_ENCRYPT \
   (BTM_SEC_IN_ENCRYPT | BTM_SEC_OUT_ENCRYPT) /* Encryption required. */
-#define BTA_SEC_MODE4_LEVEL4                                               \
-  (BTM_SEC_MODE4_LEVEL4) /* Mode 4 level 4 service, i.e. incoming/outgoing \
-                            MITM and P-256 encryption */
-#define BTA_SEC_MITM \
-  (BTM_SEC_IN_MITM | BTM_SEC_OUT_MITM) /* Man-In-The_Middle protection */
-#define BTA_SEC_IN_16_DIGITS \
-  (BTM_SEC_IN_MIN_16_DIGIT_PIN) /* Min 16 digit for pin code */
 
 typedef uint16_t tBTA_SEC;
 
@@ -1195,20 +1188,6 @@ tBTA_STATUS BTA_DmGetCachedRemoteName(const RawAddress& remote_device,
  * Function         BTA_DmBond
  *
  * Description      This function initiates a bonding procedure with a peer
- *                  device.  The bonding procedure enables authentication
- *                  and optionally encryption on the Bluetooth link.
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void BTA_DmBond(const RawAddress& bd_addr);
-
-/*******************************************************************************
- *
- * Function         BTA_DmBondByTransport
- *
- * Description      This function initiates a bonding procedure with a peer
  *                  device by designated transport.  The bonding procedure
  *                  enables authentication and optionally encryption on the
  *                  Bluetooth link.
@@ -1217,8 +1196,8 @@ extern void BTA_DmBond(const RawAddress& bd_addr);
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_DmBondByTransport(const RawAddress& bd_addr,
-                                  tBTA_TRANSPORT transport);
+extern void BTA_DmBond(const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type,
+                       tBTA_TRANSPORT transport);
 
 /*******************************************************************************
  *

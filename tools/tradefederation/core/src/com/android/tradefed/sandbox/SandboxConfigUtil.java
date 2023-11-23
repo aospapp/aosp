@@ -25,9 +25,9 @@ import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.IRunUtil.EnvPriority;
+import com.android.tradefed.util.SystemUtil;
 import com.android.tradefed.util.TimeUtil;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
 import java.io.File;
@@ -76,7 +76,7 @@ public class SandboxConfigUtil {
             throw e;
         }
         List<String> mCmdArgs = new ArrayList<>();
-        mCmdArgs.add("java");
+        mCmdArgs.add(SystemUtil.getRunningJavaBinaryPath().getAbsolutePath());
         mCmdArgs.add("-cp");
         mCmdArgs.add(classpath);
         mCmdArgs.add(SandboxConfigDump.class.getCanonicalName());
@@ -86,13 +86,14 @@ public class SandboxConfigUtil {
             mCmdArgs.add(arg);
         }
         CommandResult result = runUtil.runTimedCmd(DUMP_TIMEOUT, mCmdArgs.toArray(new String[0]));
-        CLog.d("stdout: %s", result.getStdout());
-        if (result.getStderr() != null && !result.getStderr().isEmpty()) {
-            CLog.d("stderr: %s", result.getStderr());
-        }
         if (CommandStatus.SUCCESS.equals(result.getStatus())) {
             return destination;
         }
+
+        if (result.getStderr() != null && !result.getStderr().isEmpty()) {
+            CLog.d("stderr: %s\nstdout: %s", result.getStderr(), result.getStdout());
+        }
+
         FileUtil.deleteFile(destination);
         // Do not delete the global configuration file here in this case, it might still be used.
         String errorMessage = "Error when dumping the config.";
@@ -122,7 +123,7 @@ public class SandboxConfigUtil {
         // include all jars on the classpath
         String classpath = "";
         Set<String> jarFiles = FileUtil.findFiles(rootDir, ".*.jar");
-        classpath = Joiner.on(":").join(jarFiles);
+        classpath = String.join(":", jarFiles);
         return dumpConfigForVersion(classpath, runUtil, args, dump, globalConfig);
     }
 

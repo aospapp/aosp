@@ -41,6 +41,7 @@
 #include <cld80211_lib.h>
 
 #include <sys/types.h>
+#include "list.h"
 #include <unistd.h>
 
 #include "sync.h"
@@ -48,6 +49,7 @@
 #define LOG_TAG  "WifiHAL"
 
 #include "wifi_hal.h"
+#include "wifi_hal_ctrl.h"
 #include "common.h"
 #include "cpp_bindings.h"
 #include "ifaceeventhandler.h"
@@ -72,6 +74,19 @@
  */
 #define POLL_DRIVER_DURATION_US (100000)
 #define POLL_DRIVER_MAX_TIME_MS (10000)
+
+static int attach_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg);
+
+static int dettach_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg);
+
+static int register_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg, int attach);
+
+static int send_nl_data(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg);
+
+static int internal_pollin_handler(wifi_handle handle, struct nl_sock *sock);
+
+static void internal_event_handler_app(wifi_handle handle, int events,
+                                       struct ctrl_sock *sock);
 
 static void internal_event_handler(wifi_handle handle, int events,
                                    struct nl_sock *sock);
@@ -133,6 +148,105 @@ static nl_sock * wifi_create_nl_socket(int port, int protocol)
     }
 
     return sock;
+}
+
+void wifi_create_ctrl_socket(hal_info *info)
+{
+#ifdef ANDROID
+   struct group *grp_wifi;
+   gid_t gid_wifi;
+   struct passwd *pwd_system;
+   uid_t uid_system;
+#endif
+
+    int flags;
+
+    info->wifihal_ctrl_sock.s = socket(PF_UNIX, SOCK_DGRAM, 0);
+
+    if (info->wifihal_ctrl_sock.s < 0) {
+        ALOGE("socket(PF_UNIX): %s", strerror(errno));
+        return;
+    }
+    memset(&info->wifihal_ctrl_sock.local, 0, sizeof(info->wifihal_ctrl_sock.local));
+
+    info->wifihal_ctrl_sock.local.sun_family = AF_UNIX;
+
+    snprintf(info->wifihal_ctrl_sock.local.sun_path,
+             sizeof(info->wifihal_ctrl_sock.local.sun_path), "%s", WIFI_HAL_CTRL_IFACE);
+
+    if (bind(info->wifihal_ctrl_sock.s, (struct sockaddr *) &info->wifihal_ctrl_sock.local,
+             sizeof(info->wifihal_ctrl_sock.local)) < 0) {
+        ALOGD("ctrl_iface bind(PF_UNIX) failed: %s",
+               strerror(errno));
+        if (connect(info->wifihal_ctrl_sock.s, (struct sockaddr *) &info->wifihal_ctrl_sock.local,
+                    sizeof(info->wifihal_ctrl_sock.local)) < 0) {
+                ALOGD("ctrl_iface exists, but does not"
+                      " allow connections - assuming it was left"
+                      "over from forced program termination");
+                if (unlink(info->wifihal_ctrl_sock.local.sun_path) < 0) {
+                   ALOGE("Could not unlink existing ctrl_iface socket '%s': %s",
+                          info->wifihal_ctrl_sock.local.sun_path, strerror(errno));
+                   goto out;
+
+                }
+                if (bind(info->wifihal_ctrl_sock.s ,
+                         (struct sockaddr *) &info->wifihal_ctrl_sock.local,
+                         sizeof(info->wifihal_ctrl_sock.local)) < 0) {
+                        ALOGE("wifihal-ctrl-iface-init: bind(PF_UNIX): %s",
+                               strerror(errno));
+                        goto out;
+                }
+                ALOGD("Successfully replaced leftover "
+                      "ctrl_iface socket '%s'", info->wifihal_ctrl_sock.local.sun_path);
+        } else {
+             ALOGI("ctrl_iface exists and seems to "
+                   "be in use - cannot override it");
+             ALOGI("Delete '%s' manually if it is "
+                   "not used anymore", info->wifihal_ctrl_sock.local.sun_path);
+             goto out;
+        }
+    }
+
+    /*
+     * Make socket non-blocking so that we don't hang forever if
+     * target dies unexpectedly.
+     */
+
+#ifdef ANDROID
+    if (chmod(info->wifihal_ctrl_sock.local.sun_path, S_IRWXU | S_IRWXG) < 0)
+    {
+      ALOGE("Failed to give permissions: %s", strerror(errno));
+    }
+
+    /* Set group even if we do not have privileges to change owner */
+    grp_wifi = getgrnam("wifi");
+    gid_wifi = grp_wifi ? grp_wifi->gr_gid : 0;
+    pwd_system = getpwnam("system");
+    uid_system = pwd_system ? pwd_system->pw_uid : 0;
+    if (!gid_wifi || !uid_system) {
+      ALOGE("Failed to get grp ids");
+      unlink(info->wifihal_ctrl_sock.local.sun_path);
+      goto out;
+    }
+    chown(info->wifihal_ctrl_sock.local.sun_path, -1, gid_wifi);
+    chown(info->wifihal_ctrl_sock.local.sun_path, uid_system, gid_wifi);
+#endif
+
+    flags = fcntl(info->wifihal_ctrl_sock.s, F_GETFL);
+    if (flags >= 0) {
+        flags |= O_NONBLOCK;
+        if (fcntl(info->wifihal_ctrl_sock.s, F_SETFL, flags) < 0) {
+            ALOGI("fcntl(ctrl, O_NONBLOCK): %s",
+                   strerror(errno));
+            /* Not fatal, continue on.*/
+        }
+    }
+  return;
+
+out:
+  close(info->wifihal_ctrl_sock.s);
+  info->wifihal_ctrl_sock.s = 0;
+  return;
 }
 
 int ack_handler(struct nl_msg *msg, void *arg)
@@ -457,7 +571,10 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_select_tx_power_scenario = wifi_select_tx_power_scenario;
     fn->wifi_reset_tx_power_scenario = wifi_reset_tx_power_scenario;
     fn->wifi_set_radio_mode_change_handler = wifi_set_radio_mode_change_handler;
+    fn->wifi_virtual_interface_create = wifi_virtual_interface_create;
+    fn->wifi_virtual_interface_delete = wifi_virtual_interface_delete;
     fn->wifi_set_latency_mode = wifi_set_latency_mode;
+    fn->wifi_set_thermal_mitigation_mode = wifi_set_thermal_mitigation_mode;
 
     return WIFI_SUCCESS;
 }
@@ -471,6 +588,7 @@ static void cld80211lib_cleanup(hal_info *info)
     cld80211_remove_mcast_group(info->cldctx, "per_pkt_stats");
     cld80211_remove_mcast_group(info->cldctx, "diag_events");
     cld80211_remove_mcast_group(info->cldctx, "fatal_events");
+    cld80211_remove_mcast_group(info->cldctx, "oem_msgs");
     exit_cld80211_recv(info->cldctx);
     cld80211_deinit(info->cldctx);
     info->cldctx = NULL;
@@ -584,6 +702,13 @@ wifi_error wifi_initialize(wifi_handle *handle)
     wifi_add_membership(*handle, "regulatory");
     wifi_add_membership(*handle, "vendor");
 
+    info->wifihal_ctrl_sock.s = 0;
+
+    wifi_create_ctrl_socket(info);
+
+    //! Initailise the monitoring clients list
+    INITIALISE_LIST(&info->monitor_sockets);
+
     info->cldctx = cld80211_init();
     if (info->cldctx != NULL) {
         info->user_sock = info->cldctx->sock;
@@ -617,6 +742,15 @@ wifi_error wifi_initialize(wifi_handle *handle)
         if (status) {
             ALOGE("Failed to add mcast group fatal_events :%d", status);
             goto cld80211_cleanup;
+        }
+
+        if(info->wifihal_ctrl_sock.s > 0)
+        {
+          status = cld80211_add_mcast_group(info->cldctx, "oem_msgs");
+          if (status) {
+             ALOGE("Failed to add mcast group oem_msgs :%d", status);
+             goto cld80211_cleanup;
+          }
         }
     } else {
         ret = wifi_init_user_sock(info);
@@ -687,7 +821,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
         }
         ALOGV("%s: hardware version type %d", __func__, info->pkt_log_ver);
     } else {
-        ALOGE("Failed to get supported logger feature set: %d", ret);
+        ALOGE("Failed to get firmware version: %d", ret);
     }
 
     ret = get_firmware_bus_max_size_supported(iface_handle);
@@ -749,7 +883,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
     }
 
     ALOGV("Initialized Wifi HAL Successfully; vendor cmd = %d Supported"
-            " features : %x", NL80211_CMD_VENDOR, info->supported_feature_set);
+            " features : 0x%" PRIx64, NL80211_CMD_VENDOR, info->supported_feature_set);
 
 cld80211_cleanup:
     if (status != 0 || ret != WIFI_SUCCESS) {
@@ -826,12 +960,26 @@ static void internal_cleaned_up_handler(wifi_handle handle)
 {
     hal_info *info = getHalInfo(handle);
     wifi_cleaned_up_handler cleaned_up_handler = info->cleaned_up_handler;
+    wifihal_mon_sock_t *reg, *tmp;
 
     if (info->cmd_sock != 0) {
         nl_socket_free(info->cmd_sock);
         nl_socket_free(info->event_sock);
         info->cmd_sock = NULL;
         info->event_sock = NULL;
+    }
+
+    if (info->wifihal_ctrl_sock.s != 0) {
+        close(info->wifihal_ctrl_sock.s);
+        unlink(info->wifihal_ctrl_sock.local.sun_path);
+        info->wifihal_ctrl_sock.s = 0;
+    }
+
+   list_for_each_entry_safe(reg, tmp, &info->monitor_sockets, list) {
+        del_from_list(&reg->list);
+        if(reg) {
+           free(reg);
+        }
     }
 
     if (info->interfaces) {
@@ -896,9 +1044,388 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
     hal_info *info = getHalInfo(handle);
     info->cleaned_up_handler = handler;
     info->clean_up = true;
+    // Remove the dynamically created interface during wifi cleanup.
+    wifi_cleanup_dynamic_ifaces(handle);
+
 
     TEMP_FAILURE_RETRY(write(info->exit_sockets[0], "E", 1));
     ALOGI("Sent msg on exit sock to unblock poll()");
+}
+
+
+
+static int validate_cld80211_msg(nlmsghdr *nlh, int family, int cmd)
+{
+    //! Enhance this API
+    struct genlmsghdr *hdr;
+    hdr = (genlmsghdr *)nlmsg_data(nlh);
+
+    if (nlh->nlmsg_len > DEFAULT_PAGE_SIZE - sizeof(wifihal_ctrl_req_t))
+    {
+      ALOGE("%s: Invalid nlmsg length", __FUNCTION__);
+      return -1;
+    }
+    if(hdr->cmd == WLAN_NL_MSG_OEM)
+    {
+      ALOGV("%s: FAMILY ID : %d ,NL CMD : %d received", __FUNCTION__,
+             nlh->nlmsg_type, hdr->cmd);
+
+      //! Update pid with the wifihal pid
+      nlh->nlmsg_pid = getpid();
+      return 0;
+    }
+    else
+    {
+      ALOGE("%s: NL CMD : %d received is not allowed", __FUNCTION__, hdr->cmd);
+      return -1;
+    }
+}
+
+
+static int validate_genl_msg(nlmsghdr *nlh, int family, int cmd)
+{
+    //! Enhance this API
+    struct genlmsghdr *hdr;
+    hdr = (genlmsghdr *)nlmsg_data(nlh);
+
+    if (nlh->nlmsg_len > DEFAULT_PAGE_SIZE - sizeof(wifihal_ctrl_req_t))
+    {
+      ALOGE("%s: Invalid nlmsg length", __FUNCTION__);
+      return -1;
+    }
+    if(hdr->cmd == NL80211_CMD_FRAME ||
+       hdr->cmd == NL80211_CMD_REGISTER_ACTION)
+    {
+      ALOGV("%s: FAMILY ID : %d ,NL CMD : %d received", __FUNCTION__,
+             nlh->nlmsg_type, hdr->cmd);
+      return 0;
+    }
+    else
+    {
+      ALOGE("%s: NL CMD : %d received is not allowed", __FUNCTION__, hdr->cmd);
+      return -1;
+    }
+}
+
+static int send_nl_data(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg)
+{
+    hal_info *info = getHalInfo(handle);
+    struct nl_msg *msg = NULL;
+    int retval = -1;
+
+    //! attach monitor socket if it was not it the list
+    if(ctrl_msg->monsock_len)
+    {
+      retval = attach_monitor_sock(handle, ctrl_msg);
+      if(retval)
+        goto nl_out;
+    }
+
+    msg = nlmsg_alloc();
+    if (!msg)
+    {
+       ALOGE("%s: Memory allocation failed \n", __FUNCTION__);
+       goto nl_out;
+    }
+
+    if (ctrl_msg->data_len > nlmsg_get_max_size(msg))
+    {
+        ALOGE("%s: Invalid ctrl msg length \n", __FUNCTION__);
+        retval = -1;
+        goto nl_out;
+    }
+    memcpy((char *)msg->nm_nlh, (char *)ctrl_msg->data, ctrl_msg->data_len);
+
+   if(ctrl_msg->family_name == GENERIC_NL_FAMILY)
+   {
+     //! Before sending the received gennlmsg to kernel,
+     //! better to have checks for allowed commands
+     retval = validate_genl_msg(msg->nm_nlh, ctrl_msg->family_name, ctrl_msg->cmd_id);
+     if (retval < 0)
+         goto nl_out;
+
+     retval = nl_send_auto_complete(info->event_sock, msg);    /* send message */
+     if (retval < 0)
+     {
+       ALOGE("%s: nl_send_auto_complete - failed : %d \n", __FUNCTION__, retval);
+       goto nl_out;
+     }
+
+     retval = internal_pollin_handler(handle, info->event_sock);
+  }
+  else if (ctrl_msg->family_name == CLD80211_FAMILY)
+  {
+    if (info->cldctx != NULL)
+    {
+      //! Before sending the received cld80211 msg to kernel,
+      //! better to have checks for allowed commands
+      retval = validate_cld80211_msg(msg->nm_nlh, ctrl_msg->family_name, ctrl_msg->cmd_id);
+      if (retval < 0)
+         goto nl_out;
+
+      retval = cld80211_send_msg(info->cldctx, msg);
+      if (retval != 0)
+      {
+        ALOGE("%s: send cld80211 message - failed\n", __FUNCTION__);
+        goto nl_out;
+      }
+      ALOGD("%s: sent cld80211 message for pid %d\n", __FUNCTION__, getpid());
+    }
+    else
+    {
+      ALOGE("%s: cld80211 ctx not present \n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    ALOGE("%s: Unknown family name : %d \n", __FUNCTION__, ctrl_msg->family_name);
+    retval = -1;
+  }
+nl_out:
+  if (msg)
+  {
+    nlmsg_free(msg);
+  }
+  return retval;
+}
+
+static int register_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg, int attach)
+{
+    hal_info *info = getHalInfo(handle);
+
+    wifihal_mon_sock_t *reg, *nreg;
+    char *match = NULL;
+    unsigned int match_len = 0;
+    unsigned int type;
+
+    //! For Register Action frames, compare the match length and match buffer.
+    //! For other registrations such as oem messages,
+    //! diag messages check for respective commands
+
+    if((ctrl_msg->family_name == GENERIC_NL_FAMILY) &&
+       (ctrl_msg->cmd_id == NL80211_CMD_REGISTER_ACTION))
+    {
+       struct genlmsghdr *genlh;
+       struct  nlmsghdr *nlh = (struct  nlmsghdr *)ctrl_msg->data;
+       genlh = (struct genlmsghdr *)nlmsg_data(nlh);
+       struct nlattr *nlattrs[NL80211_ATTR_MAX + 1];
+
+       if (nlh->nlmsg_len > DEFAULT_PAGE_SIZE - sizeof(*ctrl_msg))
+       {
+         ALOGE("%s: Invalid nlmsg length", __FUNCTION__);
+         return -1;
+       }
+       if (nla_parse(nlattrs, NL80211_ATTR_MAX, genlmsg_attrdata(genlh, 0),
+                 genlmsg_attrlen(genlh, 0), NULL))
+       {
+         ALOGE("unable to parse nl attributes");
+         return -1;
+       }
+       if (!nlattrs[NL80211_ATTR_FRAME_TYPE])
+       {
+         ALOGD("No Valid frame type");
+       }
+       else
+       {
+         type = nla_get_u16(nlattrs[NL80211_ATTR_FRAME_TYPE]);
+       }
+       if (!nlattrs[NL80211_ATTR_FRAME_MATCH])
+       {
+         ALOGE("No Frame Match");
+         return -1;
+       }
+       else
+       {
+         match_len = nla_len(nlattrs[NL80211_ATTR_FRAME_MATCH]);
+         match = (char *)nla_data(nlattrs[NL80211_ATTR_FRAME_MATCH]);
+
+         list_for_each_entry(reg, &info->monitor_sockets, list) {
+
+           if(reg == NULL)
+              break;
+
+           int mlen = min(match_len, reg->match_len);
+
+           if (reg->match_len == 0)
+               continue;
+
+           if (memcmp(reg->match, match, mlen) == 0) {
+
+              if((ctrl_msg->monsock_len == reg->monsock_len) &&
+                 (memcmp((char *)&reg->monsock, (char *)&ctrl_msg->monsock, ctrl_msg->monsock_len) == 0))
+              {
+                if(attach)
+                {
+                  ALOGE(" %s :Action frame already registered for this client ", __FUNCTION__);
+                  return -2;
+                }
+                else
+                {
+                  del_from_list(&reg->list);
+                  free(reg);
+                  return 0;
+                }
+              }
+              else
+              {
+                //! when action frame registered for other client,
+                //! you can't attach or dettach for new client
+                ALOGE(" %s :Action frame registered for other client ", __FUNCTION__);
+                return -2;
+              }
+           }
+         }
+       }
+    }
+    else
+    {
+      list_for_each_entry(reg, &info->monitor_sockets, list) {
+
+         //! Checking for monitor sock in the list :
+
+         //! For attach request :
+         //! if sock is not present, then it is a new entry , so add to list.
+         //! if sock is present,  and cmd_id does not match, add another entry to list.
+         //! if sock is present, and cmd_id matches, return 0.
+
+         //! For dettach req :
+         //! if sock is not present, return error -2.
+         //! if sock is present,  and cmd_id does not match, return error -2.
+         //! if sock is present, and cmd_id matches, delete entry and return 0.
+         if(reg == NULL)
+            break;
+
+         if (ctrl_msg->monsock_len != reg->monsock_len)
+             continue;
+
+         if (memcmp((char *)&reg->monsock, (char *)&ctrl_msg->monsock, ctrl_msg->monsock_len) == 0) {
+
+            if((reg->family_name == ctrl_msg->family_name) && (reg->cmd_id == ctrl_msg->cmd_id))
+            {
+               if(!attach)
+               {
+                 del_from_list(&reg->list);
+                 free(reg);
+               }
+               return 0;
+            }
+         }
+      }
+    }
+
+    if(attach)
+    {
+       if (ctrl_msg->monsock_len > sizeof(struct sockaddr_un))
+       {
+         ALOGE("%s: Invalid monitor socket length \n", __FUNCTION__);
+         return -3;
+       }
+
+       nreg = (wifihal_mon_sock_t *)malloc(sizeof(*reg) + match_len);
+        if (!nreg)
+           return -1;
+
+       memset((char *)nreg, 0, sizeof(*reg) + match_len);
+       nreg->family_name = ctrl_msg->family_name;
+       nreg->cmd_id = ctrl_msg->cmd_id;
+       nreg->monsock_len = ctrl_msg->monsock_len;
+       memcpy((char *)&nreg->monsock, (char *)&ctrl_msg->monsock, ctrl_msg->monsock_len);
+
+       if(match_len && match)
+       {
+         nreg->match_len = match_len;
+         memcpy(nreg->match, match, match_len);
+       }
+       add_to_list(&nreg->list, &info->monitor_sockets);
+    }
+    else
+    {
+       //! Not attached, so cant be dettached
+       ALOGE("%s: Dettaching the unregistered socket \n", __FUNCTION__);
+       return -2;
+    }
+
+   return 0;
+}
+
+static int attach_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg)
+{
+   return register_monitor_sock(handle, ctrl_msg, 1);
+}
+
+static int dettach_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg)
+{
+   return register_monitor_sock(handle, ctrl_msg, 0);
+}
+
+static int internal_pollin_handler_app(wifi_handle handle,  struct ctrl_sock *sock)
+{
+    int retval = -1;
+    int res;
+    struct sockaddr_un from;
+    socklen_t fromlen = sizeof(from);
+    wifihal_ctrl_req_t *ctrl_msg;
+    wifihal_ctrl_sync_rsp_t ctrl_reply;
+
+    ctrl_msg = (wifihal_ctrl_req_t *)malloc(DEFAULT_PAGE_SIZE);
+    if(ctrl_msg == NULL)
+    {
+      ALOGE ("Memory allocation failure");
+      return -1;
+    }
+
+    memset((char *)ctrl_msg, 0, DEFAULT_PAGE_SIZE);
+
+    res = recvfrom(sock->s, (char *)ctrl_msg, DEFAULT_PAGE_SIZE, 0,
+                   (struct sockaddr *)&from, &fromlen);
+    if (res < 0) {
+        ALOGE("recvfrom(ctrl_iface): %s",
+               strerror(errno));
+        if(ctrl_msg)
+           free(ctrl_msg);
+
+        return 0;
+    }
+    switch(ctrl_msg->ctrl_cmd)
+    {
+       case WIFIHAL_CTRL_MONITOR_ATTACH:
+         retval = attach_monitor_sock(handle, ctrl_msg);
+       break;
+       case WIFIHAL_CTRL_MONITOR_DETTACH:
+         retval = dettach_monitor_sock(handle, ctrl_msg);
+       break;
+       case WIFIHAL_CTRL_SEND_NL_DATA:
+         retval = send_nl_data(handle, ctrl_msg);
+       break;
+       default:
+       break;
+    }
+
+    ctrl_reply.ctrl_cmd = ctrl_msg->ctrl_cmd;
+    ctrl_reply.family_name = ctrl_msg->family_name;
+    ctrl_reply.cmd_id = ctrl_msg->cmd_id;
+    ctrl_reply.status = retval;
+
+    if(ctrl_msg)
+       free(ctrl_msg);
+
+    if (sendto(sock->s, (char *)&ctrl_reply, sizeof(ctrl_reply), 0, (struct sockaddr *)&from,
+               fromlen) < 0) {
+                  int _errno = errno;
+                  ALOGE("socket send failed : %d",_errno);
+
+       if (_errno == ENOBUFS || _errno == EAGAIN) {
+           /*
+            * The socket send buffer could be full. This
+            * may happen if client programs are not
+            * receiving their pending messages. Close and
+            * reopen the socket as a workaround to avoid
+            * getting stuck being unable to send any new
+            * responses.
+            */
+          }
+        }
+      return res;
 }
 
 static int internal_pollin_handler(wifi_handle handle, struct nl_sock *sock)
@@ -910,6 +1437,22 @@ static int internal_pollin_handler(wifi_handle handle, struct nl_sock *sock)
         ALOGE("Error :%d while reading nl msg", res);
     nl_cb_put(cb);
     return res;
+}
+
+static void internal_event_handler_app(wifi_handle handle, int events,
+                                    struct ctrl_sock *sock)
+{
+    if (events & POLLERR) {
+        ALOGE("Error reading from wifi_hal ctrl socket");
+        internal_pollin_handler_app(handle, sock);
+    } else if (events & POLLHUP) {
+        ALOGE("Remote side hung up");
+    } else if (events & POLLIN) {
+        //ALOGI("Found some events!!!");
+        internal_pollin_handler_app(handle, sock);
+    } else {
+        ALOGE("Unknown event - %0x", events);
+    }
 }
 
 static void internal_event_handler(wifi_handle handle, int events,
@@ -938,8 +1481,8 @@ void wifi_event_loop(wifi_handle handle)
         info->in_event_loop = true;
     }
 
-    pollfd pfd[3];
-    memset(&pfd, 0, 3*sizeof(pfd[0]));
+    pollfd pfd[4];
+    memset(&pfd, 0, 4*sizeof(pfd[0]));
 
     pfd[0].fd = nl_socket_get_fd(info->event_sock);
     pfd[0].events = POLLIN;
@@ -950,14 +1493,19 @@ void wifi_event_loop(wifi_handle handle)
     pfd[2].fd = info->exit_sockets[1];
     pfd[2].events = POLLIN;
 
+    if(info->wifihal_ctrl_sock.s > 0) {
+      pfd[3].fd = info->wifihal_ctrl_sock.s ;
+      pfd[3].events = POLLIN;
+    }
     /* TODO: Add support for timeouts */
 
     do {
         pfd[0].revents = 0;
         pfd[1].revents = 0;
         pfd[2].revents = 0;
+        pfd[3].revents = 0;
         //ALOGI("Polling sockets");
-        int result = poll(pfd, 3, -1);
+        int result = poll(pfd, 4, -1);
         if (result < 0) {
             ALOGE("Error polling socket");
         } else {
@@ -966,6 +1514,9 @@ void wifi_event_loop(wifi_handle handle)
             }
             if (pfd[1].revents & (POLLIN | POLLHUP | POLLERR)) {
                 internal_event_handler(handle, pfd[1].revents, info->user_sock);
+            }
+            if ((info->wifihal_ctrl_sock.s > 0) && (pfd[3].revents & (POLLIN | POLLHUP | POLLERR))) {
+                internal_event_handler_app(handle, pfd[3].revents, &info->wifihal_ctrl_sock);
             }
         }
         rb_timerhandler(info);
@@ -1008,7 +1559,67 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
             ALOGI("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
                   event.get_cmdString(), vendor_id, subcmd);
         }
-    } else {
+    }
+    else if((info->wifihal_ctrl_sock.s > 0) && (cmd == NL80211_CMD_FRAME))
+    {
+       struct genlmsghdr *genlh;
+       struct  nlmsghdr *nlh = nlmsg_hdr(msg);
+       genlh = (struct genlmsghdr *)nlmsg_data(nlh);
+       struct nlattr *nlattrs[NL80211_ATTR_MAX + 1];
+
+       wifihal_ctrl_event_t *ctrl_evt;
+       char *buff;
+       wifihal_mon_sock_t *reg;
+
+       nla_parse(nlattrs, NL80211_ATTR_MAX, genlmsg_attrdata(genlh, 0),
+                 genlmsg_attrlen(genlh, 0), NULL);
+
+       if (!nlattrs[NL80211_ATTR_FRAME])
+       {
+         ALOGD("No Frame body");
+         return WIFI_SUCCESS;
+       }
+       ctrl_evt = (wifihal_ctrl_event_t *)malloc(sizeof(*ctrl_evt) + nlh->nlmsg_len);
+       if(ctrl_evt == NULL)
+       {
+         ALOGE("Memory allocation failure");
+         return -1;
+       }
+       memset((char *)ctrl_evt, 0, sizeof(*ctrl_evt) + nlh->nlmsg_len);
+       ctrl_evt->family_name = GENERIC_NL_FAMILY;
+       ctrl_evt->cmd_id = cmd;
+       ctrl_evt->data_len = nlh->nlmsg_len;
+       memcpy(ctrl_evt->data, (char *)nlh, ctrl_evt->data_len);
+
+
+       buff = (char *)nla_data(nlattrs[NL80211_ATTR_FRAME]) + 24; //! Size of Wlan80211FrameHeader
+
+       list_for_each_entry(reg, &info->monitor_sockets, list) {
+
+                 if(reg == NULL)
+                    break;
+
+                 if (memcmp(reg->match, buff, reg->match_len))
+                     continue;
+
+                 /* found match! */
+                 /* Indicate the received Action frame to respective client */
+                 if (sendto(info->wifihal_ctrl_sock.s, (char *)ctrl_evt,
+                            sizeof(*ctrl_evt) + ctrl_evt->data_len,
+                            0, (struct sockaddr *)&reg->monsock, reg->monsock_len) < 0)
+                 {
+                   int _errno = errno;
+                   ALOGE("socket send failed : %d",_errno);
+
+                   if (_errno == ENOBUFS || _errno == EAGAIN) {
+                   }
+                 }
+
+        }
+        free(ctrl_evt);
+    }
+
+    else {
         ALOGV("event received %s", event.get_cmdString());
     }
 
@@ -1139,7 +1750,8 @@ static int wifi_get_multicast_id(wifi_handle handle, const char *name,
 
 static bool is_wifi_interface(const char *name)
 {
-    if (strncmp(name, "wlan", 4) != 0 && strncmp(name, "p2p", 3) != 0) {
+    if (strncmp(name, "wlan", 4) != 0 && strncmp(name, "p2p", 3) != 0
+        && strncmp(name, "wifi", 4) != 0) {
         /* not a wifi interface; ignore it */
         return false;
     } else {
@@ -1250,10 +1862,10 @@ wifi_error wifi_get_supported_feature_set(wifi_interface_handle iface,
     ret = acquire_supported_features(iface, set);
     if (ret != WIFI_SUCCESS) {
         *set = info->supported_feature_set;
-        ALOGV("Supported feature set acquired at initialization : %x", *set);
+        ALOGV("Supported feature set acquired at initialization : 0x%" PRIx64, *set);
     } else {
         info->supported_feature_set = *set;
-        ALOGV("Supported feature set acquired : %x", *set);
+        ALOGV("Supported feature set acquired : 0x%" PRIx64, *set);
     }
     return WIFI_SUCCESS;
 }

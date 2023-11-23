@@ -13,13 +13,15 @@
 // limitations under the License.
 
 java_test_host {
-    name: "GameQualificationPerformanceTestTest",
+    name: "GameCorePerformanceTestTest",
     srcs: ["**/*.java"],
     libs: [
-        "GameQualificationPerformanceTest",
-        "GameQualificationHelperHost",
         "junit-host",
         "tradefed",
+    ],
+    static_libs: [
+        "GameCorePerformanceTest",
+        "GameCoreHelperHost",
     ],
     test_suites: ["general-tests"],
     installable: false,

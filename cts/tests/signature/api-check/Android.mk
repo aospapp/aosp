@@ -12,18 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_PATH := $(call my-dir)
-
-# hidden API lists
-# ===================================
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := cts-hiddenapi_flags-csv
-LOCAL_MODULE_STEM := hiddenapi_flags.csv
-LOCAL_MODULE_CLASS := ETC
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-include $(BUILD_SYSTEM)/base_rules.mk
-$(eval $(call copy-one-file,$(INTERNAL_PLATFORM_HIDDENAPI_FLAGS),$(LOCAL_BUILT_MODULE)))
-
-
+LOCAL_PATH:= $(call my-dir)
 include $(call all-makefiles-under,$(LOCAL_PATH))

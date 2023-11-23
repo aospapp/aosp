@@ -23,7 +23,7 @@
 
 namespace chre {
 
-PowerControlManagerBase::PowerControlManagerBase() {
+PowerControlManagerBase::PowerControlManagerBase() : mHostIsAwake(true) {
 #ifdef CHRE_THREAD_UTIL_ENABLED
   sns_client_create_thread_utilization_client(&mThreadUtilClient);
 #endif  // CHRE_THREAD_UTIL_ENABLED
@@ -43,15 +43,23 @@ void PowerControlManagerBase::onHostWakeSuspendEvent(bool awake) {
   if (mHostIsAwake != awake) {
     mHostIsAwake = awake;
 
-    EventLoopManagerSingleton::get()->getEventLoop().postEvent(
+    if (!awake) {
+      EventLoopManagerSingleton::get()
+          ->getHostCommsManager()
+          .resetBlameForNanoappHostWakeup();
+    }
+
+    EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
         mHostIsAwake ? CHRE_EVENT_HOST_AWAKE : CHRE_EVENT_HOST_ASLEEP,
         nullptr /* eventData */, nullptr /* freeCallback */);
 
 #ifdef CHRE_AUDIO_SUPPORT_ENABLED
     if (awake) {
       auto callback = [](uint16_t /* eventType */, void * /* eventData*/) {
-        EventLoopManagerSingleton::get()->getAudioRequestManager()
-            .getPlatformAudio().onHostAwake();
+        EventLoopManagerSingleton::get()
+            ->getAudioRequestManager()
+            .getPlatformAudio()
+            .onHostAwake();
       };
 
       EventLoopManagerSingleton::get()->deferCallback(
@@ -90,4 +98,4 @@ bool PowerControlManager::hostIsAwake() {
   return mHostIsAwake;
 }
 
-} // namespace chre
+}  // namespace chre

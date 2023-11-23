@@ -49,7 +49,7 @@ class AAudioStreamTest : public ::testing::TestWithParam<StreamTestParams> {
     int32_t framesPerBurst() const { return mHelper->framesPerBurst(); }
 
     std::unique_ptr<T> mHelper;
-    bool mSetupSuccesful = false;
+    bool mSetupSuccessful = false;
     std::unique_ptr<int16_t[]> mData;
 };
 
@@ -62,14 +62,14 @@ class AAudioInputStreamTest : public AAudioStreamTest<InputStreamBuilderHelper> 
 };
 
 void AAudioInputStreamTest::SetUp() {
-    mSetupSuccesful = false;
+    mSetupSuccessful = false;
     if (!deviceSupportsFeature(FEATURE_RECORDING)) return;
     mHelper.reset(new InputStreamBuilderHelper(
                     std::get<PARAM_SHARING_MODE>(GetParam()),
                     std::get<PARAM_PERF_MODE>(GetParam())));
     mHelper->initBuilder();
-    mHelper->createAndVerifyStream(&mSetupSuccesful);
-    if (!mSetupSuccesful) return;
+    mHelper->createAndVerifyStream(&mSetupSuccessful);
+    if (!mSetupSuccessful) return;
 
     mFramesPerRead = framesPerBurst();
     const int32_t framesPerMsec = actual().sampleRate / MILLIS_PER_SECOND;
@@ -82,7 +82,7 @@ void AAudioInputStreamTest::SetUp() {
 }
 
 TEST_P(AAudioInputStreamTest, testReading) {
-    if (!mSetupSuccesful) return;
+    if (!mSetupSuccessful) return;
 
     const int32_t framesToRecord = actual().sampleRate;  // 1 second
     EXPECT_EQ(0, AAudioStream_getFramesRead(stream()));
@@ -105,7 +105,7 @@ TEST_P(AAudioInputStreamTest, testReading) {
 }
 
 TEST_P(AAudioInputStreamTest, testStartReadStop) {
-    if (!mSetupSuccesful) return;
+    if (!mSetupSuccessful) return;
 
     // Use 1/8 second as start-stops take a lot more time than just recording.
     const int32_t framesToRecord = actual().sampleRate / 8;
@@ -125,7 +125,7 @@ TEST_P(AAudioInputStreamTest, testStartReadStop) {
 }
 
 TEST_P(AAudioInputStreamTest, testReadCounterFreezeAfterStop) {
-    if (!mSetupSuccesful) return;
+    if (!mSetupSuccessful) return;
 
     const int32_t framesToRecord = actual().sampleRate / 10;  // 1/10 second
     EXPECT_EQ(0, AAudioStream_getFramesRead(stream()));
@@ -147,11 +147,30 @@ TEST_P(AAudioInputStreamTest, testReadCounterFreezeAfterStop) {
 }
 
 TEST_P(AAudioInputStreamTest, testPauseAndFlushNotSupported) {
-    if (!mSetupSuccesful) return;
+    if (!mSetupSuccessful) return;
     mHelper->startStream();
     EXPECT_EQ(AAUDIO_ERROR_UNIMPLEMENTED, AAudioStream_requestPause(stream()));
     EXPECT_EQ(AAUDIO_ERROR_UNIMPLEMENTED, AAudioStream_requestFlush(stream()));
     mHelper->stopStream();
+}
+
+TEST_P(AAudioInputStreamTest, testRelease) {
+    if (!mSetupSuccessful) return;
+
+    mHelper->startStream();
+    // Force update of states.
+    aaudio_result_t result = AAudioStream_read(
+            stream(), &mData[0], mFramesPerRead,
+            DEFAULT_READ_TIMEOUT);
+    ASSERT_GT(result, 0);
+    mHelper->stopStream();
+
+    // It should be safe to release multiple times.
+    for (int i = 0; i < 3; i++) {
+      EXPECT_EQ(AAUDIO_OK, AAudioStream_release(stream()));
+      aaudio_stream_state_t state = AAudioStream_getState(stream());
+      EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, state);
+    }
 }
 
 INSTANTIATE_TEST_CASE_P(SPM, AAudioInputStreamTest,
@@ -173,15 +192,15 @@ class AAudioOutputStreamTest : public AAudioStreamTest<OutputStreamBuilderHelper
 };
 
 void AAudioOutputStreamTest::SetUp() {
-    mSetupSuccesful = false;
+    mSetupSuccessful = false;
     if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     mHelper.reset(new OutputStreamBuilderHelper(
                     std::get<PARAM_SHARING_MODE>(GetParam()),
                     std::get<PARAM_PERF_MODE>(GetParam())));
     mHelper->initBuilder();
 
-    mHelper->createAndVerifyStream(&mSetupSuccesful);
-    if (!mSetupSuccesful) return;
+    mHelper->createAndVerifyStream(&mSetupSuccessful);
+    if (!mSetupSuccessful) return;
 
     // Allocate a buffer for the audio data.
     // TODO handle possibility of other data formats
@@ -190,7 +209,7 @@ void AAudioOutputStreamTest::SetUp() {
 }
 
 TEST_P(AAudioOutputStreamTest, testWriting) {
-    if (!mSetupSuccesful) return;
+    if (!mSetupSuccessful) return;
 
     // Prime the buffer.
     int32_t framesWritten = 0;
@@ -307,7 +326,7 @@ TEST_P(AAudioOutputStreamTest, testWriting) {
 // Make sure the read and write frame counters do not diverge by more than the
 // capacity of the buffer.
 TEST_P(AAudioOutputStreamTest, testWriteStopWrite) {
-    if (!mSetupSuccesful) return;
+    if (!mSetupSuccessful) return;
 
     int32_t framesWritten = 0;
     int64_t framesTotal = 0;
@@ -353,6 +372,24 @@ TEST_P(AAudioOutputStreamTest, testWriteStopWrite) {
     }
 }
 
+TEST_P(AAudioOutputStreamTest, testRelease) {
+    if (!mSetupSuccessful) return;
+
+    mHelper->startStream();
+    aaudio_result_t result = AAudioStream_write(
+            stream(), &mData[0], framesPerBurst(),
+            DEFAULT_READ_TIMEOUT);
+    ASSERT_GT(result, 0);
+    mHelper->stopStream();
+
+    // It should be safe to release multiple times.
+    for (int i = 0; i < 3; i++) {
+      EXPECT_EQ(AAUDIO_OK, AAudioStream_release(stream()));
+      aaudio_stream_state_t state = AAudioStream_getState(stream());
+      EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, state);
+    }
+}
+
 // Note that the test for EXCLUSIVE sharing mode may fail gracefully if
 // this mode isn't supported by the platform.
 INSTANTIATE_TEST_CASE_P(SPM, AAudioOutputStreamTest,
@@ -367,3 +404,4 @@ INSTANTIATE_TEST_CASE_P(SPM, AAudioOutputStreamTest,
                 std::make_tuple(
                         AAUDIO_SHARING_MODE_EXCLUSIVE, AAUDIO_PERFORMANCE_MODE_POWER_SAVING)),
         &getTestName);
+

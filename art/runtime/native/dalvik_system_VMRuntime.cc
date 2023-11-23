@@ -34,6 +34,7 @@ extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #include "base/enums.h"
 #include "base/sdk_version.h"
 #include "class_linker-inl.h"
+#include "class_loader_context.h"
 #include "common_throws.h"
 #include "debugger.h"
 #include "dex/class_accessor-inl.h"
@@ -46,6 +47,7 @@ extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #include "gc/space/image_space.h"
 #include "gc/task_processor.h"
 #include "intern_table.h"
+#include "jit/jit.h"
 #include "jni/java_vm_ext.h"
 #include "jni/jni_internal.h"
 #include "mirror/array-alloc-inl.h"
@@ -118,11 +120,11 @@ static jobject VMRuntime_newNonMovableArray(JNIEnv* env, jobject, jclass javaEle
     return nullptr;
   }
   gc::AllocatorType allocator = runtime->GetHeap()->GetCurrentNonMovingAllocator();
-  ObjPtr<mirror::Array> result = mirror::Array::Alloc<true>(soa.Self(),
-                                                            array_class,
-                                                            length,
-                                                            array_class->GetComponentSizeShift(),
-                                                            allocator);
+  ObjPtr<mirror::Array> result = mirror::Array::Alloc(soa.Self(),
+                                                      array_class,
+                                                      length,
+                                                      array_class->GetComponentSizeShift(),
+                                                      allocator);
   return soa.AddLocalReference<jobject>(result);
 }
 
@@ -145,12 +147,13 @@ static jobject VMRuntime_newUnpaddedArray(JNIEnv* env, jobject, jclass javaEleme
     return nullptr;
   }
   gc::AllocatorType allocator = runtime->GetHeap()->GetCurrentAllocator();
-  ObjPtr<mirror::Array> result = mirror::Array::Alloc<true, true>(
-      soa.Self(),
-      array_class,
-      length,
-      array_class->GetComponentSizeShift(),
-      allocator);
+  ObjPtr<mirror::Array> result =
+      mirror::Array::Alloc</*kIsInstrumented=*/ true, /*kFillUsable=*/ true>(
+          soa.Self(),
+          array_class,
+          length,
+          array_class->GetComponentSizeShift(),
+          allocator);
   return soa.AddLocalReference<jobject>(result);
 }
 
@@ -177,10 +180,6 @@ static void VMRuntime_clearGrowthLimit(JNIEnv*, jobject) {
 
 static void VMRuntime_clampGrowthLimit(JNIEnv*, jobject) {
   Runtime::Current()->GetHeap()->ClampGrowthLimit();
-}
-
-static jboolean VMRuntime_isDebuggerActive(JNIEnv*, jobject) {
-  return Dbg::IsDebuggerActive();
 }
 
 static jboolean VMRuntime_isNativeDebuggable(JNIEnv*, jobject) {
@@ -271,6 +270,20 @@ static void VMRuntime_setTargetSdkVersionNative(JNIEnv*, jobject, jint target_sd
   // target sdk version to enable compatibility workarounds.
   android_set_application_target_sdk_version(uint_target_sdk_version);
 #endif
+}
+
+static void VMRuntime_setDisabledCompatChangesNative(JNIEnv* env, jobject,
+    jlongArray disabled_compat_changes) {
+  if (disabled_compat_changes == nullptr) {
+    return;
+  }
+  std::set<uint64_t> disabled_compat_changes_set;
+  int length = env->GetArrayLength(disabled_compat_changes);
+  jlong* elements = env->GetLongArrayElements(disabled_compat_changes, /*isCopy*/nullptr);
+  for (int i = 0; i < length; i++) {
+    disabled_compat_changes_set.insert(static_cast<uint64_t>(elements[i]));
+  }
+  Runtime::Current()->SetDisabledCompatChanges(disabled_compat_changes_set);
 }
 
 static inline size_t clamp_to_size_t(jlong n) {
@@ -386,7 +399,6 @@ static void PreloadDexCachesResolveString(
   if (string == nullptr) {
     return;
   }
-  // LOG(INFO) << "VMRuntime.preloadDexCaches resolved string=" << utf8;
   dex_cache->SetResolvedString(string_idx, string);
 }
 
@@ -406,17 +418,10 @@ static void PreloadDexCachesResolveType(Thread* self,
   ObjPtr<mirror::Class> klass = (class_name[1] == '\0')
       ? linker->LookupPrimitiveClass(class_name[0])
       : linker->LookupClass(self, class_name, nullptr);
-  if (klass == nullptr) {
+  if (klass == nullptr || !klass->IsResolved()) {
     return;
   }
-  // LOG(INFO) << "VMRuntime.preloadDexCaches resolved klass=" << class_name;
   dex_cache->SetResolvedType(type_idx, klass);
-  // Skip uninitialized classes because filled static storage entry implies it is initialized.
-  if (!klass->IsInitialized()) {
-    // LOG(INFO) << "VMRuntime.preloadDexCaches uninitialized klass=" << class_name;
-    return;
-  }
-  // LOG(INFO) << "VMRuntime.preloadDexCaches static storage klass=" << class_name;
 }
 
 // Based on ClassLinker::ResolveField.
@@ -655,6 +660,9 @@ static void VMRuntime_registerAppInfo(JNIEnv* env,
   Runtime::Current()->RegisterAppInfo(code_paths_vec, profile_file_str);
 }
 
+static void VMRuntime_doNotInitializeInAot() {
+}
+
 static jboolean VMRuntime_isBootClassPathOnDisk(JNIEnv* env, jclass, jstring java_instruction_set) {
   ScopedUtfChars instruction_set(env, java_instruction_set);
   if (instruction_set.c_str() == nullptr) {
@@ -667,11 +675,7 @@ static jboolean VMRuntime_isBootClassPathOnDisk(JNIEnv* env, jclass, jstring jav
     env->ThrowNew(iae.get(), message.c_str());
     return JNI_FALSE;
   }
-  std::string error_msg;
-  Runtime* runtime = Runtime::Current();
-  std::unique_ptr<ImageHeader> image_header(gc::space::ImageSpace::ReadImageHeader(
-      runtime->GetImageLocation().c_str(), isa, runtime->GetImageSpaceLoadingOrder(), &error_msg));
-  return image_header.get() != nullptr;
+  return gc::space::ImageSpace::IsBootClassPathOnDisk(isa);
 }
 
 static jstring VMRuntime_getCurrentInstructionSet(JNIEnv* env, jclass) {
@@ -723,6 +727,54 @@ static jboolean VMRuntime_hasBootImageSpaces(JNIEnv* env ATTRIBUTE_UNUSED,
   return Runtime::Current()->GetHeap()->HasBootImageSpace() ? JNI_TRUE : JNI_FALSE;
 }
 
+static void VMRuntime_bootCompleted(JNIEnv* env ATTRIBUTE_UNUSED,
+                                    jclass klass ATTRIBUTE_UNUSED) {
+  jit::Jit* jit = Runtime::Current()->GetJit();
+  if (jit != nullptr) {
+    jit->BootCompleted();
+  }
+}
+
+class ClearJitCountersVisitor : public ClassVisitor {
+ public:
+  bool operator()(ObjPtr<mirror::Class> klass) override REQUIRES_SHARED(Locks::mutator_lock_) {
+    // Avoid some types of classes that don't need their methods visited.
+    if (klass->IsProxyClass() ||
+        klass->IsArrayClass() ||
+        klass->IsPrimitive() ||
+        !klass->IsResolved() ||
+        klass->IsErroneousResolved()) {
+      return true;
+    }
+    for (ArtMethod& m : klass->GetMethods(kRuntimePointerSize)) {
+      if (!m.IsAbstract()) {
+        if (m.GetCounter() != 0) {
+          m.SetCounter(0);
+        }
+      }
+    }
+    return true;
+  }
+};
+
+static void VMRuntime_resetJitCounters(JNIEnv* env, jclass klass ATTRIBUTE_UNUSED) {
+  ScopedObjectAccess soa(env);
+  ClearJitCountersVisitor visitor;
+  Runtime::Current()->GetClassLinker()->VisitClasses(&visitor);
+}
+
+static jboolean VMRuntime_isValidClassLoaderContext(JNIEnv* env,
+                                                    jclass klass ATTRIBUTE_UNUSED,
+                                                    jstring jencoded_class_loader_context) {
+  if (UNLIKELY(jencoded_class_loader_context == nullptr)) {
+    ScopedFastNativeObjectAccess soa(env);
+    ThrowNullPointerException("encoded_class_loader_context == null");
+    return false;
+  }
+  ScopedUtfChars encoded_class_loader_context(env, jencoded_class_loader_context);
+  return ClassLoaderContext::IsValidEncoding(encoded_class_loader_context.c_str());
+}
+
 static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(VMRuntime, addressOf, "(Ljava/lang/Object;)J"),
   NATIVE_METHOD(VMRuntime, bootClassPath, "()Ljava/lang/String;"),
@@ -735,7 +787,6 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, setHiddenApiExemptions, "([Ljava/lang/String;)V"),
   NATIVE_METHOD(VMRuntime, setHiddenApiAccessLogSamplingRate, "(I)V"),
   NATIVE_METHOD(VMRuntime, getTargetHeapUtilization, "()F"),
-  FAST_NATIVE_METHOD(VMRuntime, isDebuggerActive, "()Z"),
   FAST_NATIVE_METHOD(VMRuntime, isNativeDebuggable, "()Z"),
   NATIVE_METHOD(VMRuntime, isJavaDebuggable, "()Z"),
   NATIVE_METHOD(VMRuntime, nativeSetTargetHeapUtilization, "(F)V"),
@@ -743,6 +794,7 @@ static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(VMRuntime, newUnpaddedArray, "(Ljava/lang/Class;I)Ljava/lang/Object;"),
   NATIVE_METHOD(VMRuntime, properties, "()[Ljava/lang/String;"),
   NATIVE_METHOD(VMRuntime, setTargetSdkVersionNative, "(I)V"),
+  NATIVE_METHOD(VMRuntime, setDisabledCompatChangesNative, "([J)V"),
   NATIVE_METHOD(VMRuntime, registerNativeAllocation, "(J)V"),
   NATIVE_METHOD(VMRuntime, registerNativeFree, "(J)V"),
   NATIVE_METHOD(VMRuntime, getNotifyNativeInterval, "()I"),
@@ -765,6 +817,7 @@ static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(VMRuntime, isCheckJniEnabled, "()Z"),
   NATIVE_METHOD(VMRuntime, preloadDexCaches, "()V"),
   NATIVE_METHOD(VMRuntime, registerAppInfo, "(Ljava/lang/String;[Ljava/lang/String;)V"),
+  CRITICAL_NATIVE_METHOD(VMRuntime, doNotInitializeInAot, "()V"),
   NATIVE_METHOD(VMRuntime, isBootClassPathOnDisk, "(Ljava/lang/String;)Z"),
   NATIVE_METHOD(VMRuntime, getCurrentInstructionSet, "()Ljava/lang/String;"),
   NATIVE_METHOD(VMRuntime, didPruneDalvikCache, "()Z"),
@@ -772,6 +825,9 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, setDedupeHiddenApiWarnings, "(Z)V"),
   NATIVE_METHOD(VMRuntime, setProcessPackageName, "(Ljava/lang/String;)V"),
   NATIVE_METHOD(VMRuntime, setProcessDataDirectory, "(Ljava/lang/String;)V"),
+  NATIVE_METHOD(VMRuntime, bootCompleted, "()V"),
+  NATIVE_METHOD(VMRuntime, resetJitCounters, "()V"),
+  NATIVE_METHOD(VMRuntime, isValidClassLoaderContext, "(Ljava/lang/String;)Z"),
 };
 
 void register_dalvik_system_VMRuntime(JNIEnv* env) {

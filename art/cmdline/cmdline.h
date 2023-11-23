@@ -221,7 +221,7 @@ struct CmdlineArgs {
         "               (specifies /system/framework/<arch>/boot.art as the image file)\n"
         "\n";
     usage += android::base::StringPrintf(  // Optional.
-        "  --instruction-set=(arm|arm64|mips|mips64|x86|x86_64): for locating the image\n"
+        "  --instruction-set=(arm|arm64|x86|x86_64): for locating the image\n"
         "      file based on the image location set.\n"
         "      Example: --instruction-set=x86\n"
         "      Default: %s\n"
@@ -269,6 +269,10 @@ struct CmdlineArgs {
     // Checks for --boot-image location.
     {
       std::string boot_image_location = boot_image_location_;
+      size_t separator_pos = boot_image_location.find(':');
+      if (separator_pos != std::string::npos) {
+        boot_image_location = boot_image_location.substr(/*pos*/ 0u, /*size*/ separator_pos);
+      }
       size_t file_name_idx = boot_image_location.rfind('/');
       if (file_name_idx == std::string::npos) {  // Prevent a InsertIsaDirectory check failure.
         *error_msg = "Boot image location must have a / in it";

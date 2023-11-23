@@ -728,14 +728,15 @@ public class MagnifierTest {
         WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, () -> {
             mActivity.setContentView(R.layout.magnifier_activity_centered_surfaceview_layout);
         }, false /* forceLayout */);
-        final View view = mActivity.findViewById(R.id.magnifier_centered_view);
-        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, view, () -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, () -> {
             // Draw something in the SurfaceView for the Magnifier to copy.
+            final View view = mActivity.findViewById(R.id.magnifier_centered_view);
             final SurfaceHolder surfaceHolder = ((SurfaceView) view).getHolder();
             final Canvas canvas = surfaceHolder.lockHardwareCanvas();
             canvas.drawColor(Color.BLUE);
             surfaceHolder.unlockCanvasAndPost(canvas);
-        });
+        }, false /* forceLayout */);
+        final View view = mActivity.findViewById(R.id.magnifier_centered_view);
         final Magnifier.Builder builder = new Magnifier.Builder(view)
                 .setSize(100, 100)
                 .setInitialZoom(5f) /* 20x20 source size */

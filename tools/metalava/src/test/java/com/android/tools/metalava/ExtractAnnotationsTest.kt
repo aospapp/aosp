@@ -76,8 +76,8 @@ class ExtractAnnotationsTest : DriverTest() {
         check(
             includeSourceRetentionAnnotations = false,
             format = FileFormat.V2,
-            sourceFiles = *sourceFiles1,
-            warnings = "src/test/pkg/IntDefTest.java:11: error: This typedef annotation class should have @Retention(RetentionPolicy.SOURCE) [AnnotationExtraction]",
+            sourceFiles = sourceFiles1,
+            expectedIssues = "src/test/pkg/IntDefTest.java:11: error: This typedef annotation class should have @Retention(RetentionPolicy.SOURCE) [AnnotationExtraction]",
             extractAnnotations = mapOf(
                 "test.pkg" to """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -109,7 +109,7 @@ class ExtractAnnotationsTest : DriverTest() {
     fun `Check Kotlin and referencing hidden constants from typedef`() {
         check(
             includeSourceRetentionAnnotations = false,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 kotlin(
                     """
                     @file:Suppress("unused", "UseExpressionBody")
@@ -155,7 +155,7 @@ class ExtractAnnotationsTest : DriverTest() {
                 ).indented(),
                 longDefAnnotationSource
             ),
-            warnings = "src/test/pkg/LongDefTest.kt:12: error: Typedef class references hidden field field LongDefTestKt.HIDDEN: removed from typedef metadata [HiddenTypedefConstant]",
+            expectedIssues = "src/test/pkg/LongDefTest.kt:12: error: Typedef class references hidden field field LongDefTestKt.HIDDEN: removed from typedef metadata [HiddenTypedefConstant]",
             extractAnnotations = mapOf(
                 "test.pkg" to """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -187,7 +187,7 @@ class ExtractAnnotationsTest : DriverTest() {
     fun `Check including only class retention annotations other than typedefs`() {
         check(
             includeSourceRetentionAnnotations = true,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 kotlin(
                     """
                     @file:Suppress("unused", "UseExpressionBody")
@@ -233,7 +233,7 @@ class ExtractAnnotationsTest : DriverTest() {
                 ).indented(),
                 longDefAnnotationSource
             ),
-            warnings = "src/test/pkg/LongDefTest.kt:12: error: Typedef class references hidden field field LongDefTestKt.HIDDEN: removed from typedef metadata [HiddenTypedefConstant]",
+            expectedIssues = "src/test/pkg/LongDefTest.kt:12: error: Typedef class references hidden field field LongDefTestKt.HIDDEN: removed from typedef metadata [HiddenTypedefConstant]",
             extractAnnotations = mapOf(
                 "test.pkg" to """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -265,7 +265,7 @@ class ExtractAnnotationsTest : DriverTest() {
     fun `Extract permission annotations`() {
         check(
             includeSourceRetentionAnnotations = false,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -338,8 +338,8 @@ class ExtractAnnotationsTest : DriverTest() {
             outputKotlinStyleNulls = false,
             includeSystemApiAnnotations = false,
             omitCommonPackages = false,
-            warnings = "error: Unexpected reference to Nonexistent.Field [InternalError]",
-            sourceFiles = *arrayOf(
+            expectedIssues = "error: Unexpected reference to Nonexistent.Field [InternalError]",
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -392,8 +392,7 @@ class ExtractAnnotationsTest : DriverTest() {
             outputKotlinStyleNulls = false,
             includeSystemApiAnnotations = false,
             omitCommonPackages = false,
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -414,9 +413,6 @@ class ExtractAnnotationsTest : DriverTest() {
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
                 public class Test {
                 public Test() { throw new RuntimeException("Stub!"); }
-                /**
-                 * @param value Value is 10 or greater
-                 */
                 @androidx.annotation.RecentlyNullable
                 public static java.lang.String sayHello(int value) { throw new RuntimeException("Stub!"); }
                 }
@@ -441,8 +437,8 @@ class ExtractAnnotationsTest : DriverTest() {
     fun `Check warning about unexpected returns from typedef method`() {
         check(
             includeSourceRetentionAnnotations = false,
-            warnings = "src/test/pkg/IntDefTest.java:36: warning: Returning unexpected constant UNRELATED; is @DialogStyle missing this constant? Expected one of STYLE_NORMAL, STYLE_NO_TITLE, STYLE_NO_FRAME, STYLE_NO_INPUT [ReturningUnexpectedConstant]",
-            sourceFiles = *arrayOf(
+            expectedIssues = "src/test/pkg/IntDefTest.java:36: warning: Returning unexpected constant UNRELATED; is @DialogStyle missing this constant? Expected one of STYLE_NORMAL, STYLE_NO_TITLE, STYLE_NO_FRAME, STYLE_NO_INPUT [ReturningUnexpectedConstant]",
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -522,7 +518,7 @@ class ExtractAnnotationsTest : DriverTest() {
                 ARG_TYPEDEFS_IN_SIGNATURES, "none"
             ),
             format = FileFormat.V2,
-            sourceFiles = *sourceFiles1,
+            sourceFiles = sourceFiles1,
             api = """
                 // Signature format: 2.0
                 package test.pkg {
@@ -558,7 +554,7 @@ class ExtractAnnotationsTest : DriverTest() {
                 ARG_TYPEDEFS_IN_SIGNATURES, "inline"
             ),
             format = FileFormat.V2,
-            sourceFiles = *sourceFiles1,
+            sourceFiles = sourceFiles1,
             api = """
                 // Signature format: 2.0
                 package test.pkg {
@@ -594,7 +590,7 @@ class ExtractAnnotationsTest : DriverTest() {
                 ARG_TYPEDEFS_IN_SIGNATURES, "ref"
             ),
             format = FileFormat.V2,
-            sourceFiles = *sourceFiles1,
+            sourceFiles = sourceFiles1,
             api = """
                 // Signature format: 2.0
                 package test.pkg {

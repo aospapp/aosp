@@ -18,6 +18,9 @@
           package="android.telecom.cts.screeningtestapp">
     <permission android:name="android.telecom.cts.screeningtestapp.CTS_SERVICE_PERMISSION"
                 android.protectionLevel="signature"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.REVOKE_RUNTIME_PERMISSIONS" />
+    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" />
     <application android:label="CTSCSTest">
         <service android:name=".CtsCallScreeningService"
                  android:permission="android.permission.BIND_SCREENING_SERVICE">
@@ -30,5 +33,12 @@
                 <action android:name="android.telecom.cts.screeningtestapp.ACTION_CONTROL_CALL_SCREENING_SERVICE" />
             </intent-filter>
         </service>
+        <activity android:name=".CtsPostCallActivity"
+                  android:label="CtsPostCallActivity">
+            <intent-filter>
+                <action android:name="android.telecom.action.POST_CALL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

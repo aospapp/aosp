@@ -20,10 +20,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.build.AppBuildInfo;
-import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.StubTargetPreparer;
 
 import org.junit.Before;
@@ -42,6 +43,7 @@ public class NoApkTestSkipperTest {
     private ITestDevice mMockDevice;
     private AppBuildInfo mAppBuildInfo;
     private IConfiguration mConfig;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
@@ -49,17 +51,16 @@ public class NoApkTestSkipperTest {
         mMockDevice = Mockito.mock(ITestDevice.class);
         mAppBuildInfo = new AppBuildInfo("buildid", "buildname");
         mConfig = new Configuration("name", "desc");
-    }
-
-    @Test
-    public void testNotAppBuild() throws Exception {
-        mSkipper.setUp(mMockDevice, new BuildInfo());
+        InvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mMockDevice);
+        context.addDeviceBuildInfo("device", mAppBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     @Test
     public void testApksPresent() throws Exception {
         mAppBuildInfo.addAppPackageFile(new File("fakepackage"), "v2");
-        mSkipper.setUp(mMockDevice, mAppBuildInfo);
+        mSkipper.setUp(mTestInfo);
     }
 
     @Test
@@ -70,7 +71,7 @@ public class NoApkTestSkipperTest {
         assertEquals(1, mConfig.getTests().size());
 
         mSkipper.setConfiguration(mConfig);
-        mSkipper.setUp(mMockDevice, mAppBuildInfo);
+        mSkipper.setUp(mTestInfo);
         // Verify preparer is disabled
         assertTrue(preparer.isDisabled());
         assertTrue(mConfig.getTests().isEmpty());

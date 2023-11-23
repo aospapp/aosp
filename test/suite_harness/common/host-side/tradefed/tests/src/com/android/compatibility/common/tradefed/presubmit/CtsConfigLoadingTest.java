@@ -27,6 +27,8 @@ import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.invoker.ExecutionFiles.FilesKey;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.shard.token.TokenProperty;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.testtype.AndroidJUnitTest;
@@ -58,44 +60,47 @@ import java.util.Set;
 public class CtsConfigLoadingTest {
 
     private static final String METADATA_COMPONENT = "component";
-    private static final Set<String> KNOWN_COMPONENTS = new HashSet<>(Arrays.asList(
-            // modifications to the list below must be reviewed
-            "abuse",
-            "art",
-            "auth",
-            "auto",
-            "autofill",
-            "backup",
-            "bionic",
-            "bluetooth",
-            "camera",
-            "contentcapture",
-            "deviceinfo",
-            "deqp",
-            "devtools",
-            "framework",
-            "graphics",
-            "inputmethod",
-            "libcore",
-            "location",
-            "media",
-            "metrics",
-            "misc",
-            "mocking",
-            "networking",
-            "neuralnetworks",
-            "print",
-            "renderscript",
-            "security",
-            "statsd",
-            "systems",
-            "sysui",
-            "telecom",
-            "tv",
-            "uitoolkit",
-            "vr",
-            "webview"
-    ));
+    private static final Set<String> KNOWN_COMPONENTS =
+            new HashSet<>(
+                    Arrays.asList(
+                            // modifications to the list below must be reviewed
+                            "abuse",
+                            "art",
+                            "auth",
+                            "auto",
+                            "autofill",
+                            "backup",
+                            "bionic",
+                            "bluetooth",
+                            "camera",
+                            "contentcapture",
+                            "deviceinfo",
+                            "deqp",
+                            "devtools",
+                            "framework",
+                            "graphics",
+                            "hdmi",
+                            "inputmethod",
+                            "libcore",
+                            "location",
+                            "media",
+                            "metrics",
+                            "misc",
+                            "mocking",
+                            "networking",
+                            "neuralnetworks",
+                            "print",
+                            "renderscript",
+                            "security",
+                            "statsd",
+                            "systems",
+                            "sysui",
+                            "telecom",
+                            "tv",
+                            "uitoolkit",
+                            "vr",
+                            "webview",
+                            "wifi"));
     private static final Set<String> KNOWN_MISC_MODULES =
             new HashSet<>(
                     Arrays.asList(
@@ -158,6 +163,7 @@ public class CtsConfigLoadingTest {
     static {
         MANDATORY_PARAMETERS_FAMILY.add(ModuleParameters.INSTANT_APP_FAMILY);
         MANDATORY_PARAMETERS_FAMILY.add(ModuleParameters.MULTI_ABI_FAMILY);
+        MANDATORY_PARAMETERS_FAMILY.add(ModuleParameters.SECONDARY_USER_FAMILY);
     }
 
     /**
@@ -167,15 +173,28 @@ public class CtsConfigLoadingTest {
     private static final Set<String> WHITELIST_MODULE_PARAMETERS = new HashSet<>();
 
     static {
-        WHITELIST_MODULE_PARAMETERS.add("CtsWidgetTestCases.config");
-        WHITELIST_MODULE_PARAMETERS.add("CtsSimpleCpuTestCases.config");
-        WHITELIST_MODULE_PARAMETERS.add("CtsAppSecurityHostTestCases.config");
-        WHITELIST_MODULE_PARAMETERS.add("CtsMediaStressTestCases.config");
-        WHITELIST_MODULE_PARAMETERS.add("CtsTelephonySdk28TestCases.config");
-        WHITELIST_MODULE_PARAMETERS.add("CtsHardwareTestCases.config");
-        WHITELIST_MODULE_PARAMETERS.add("CtsGestureTestCases.config");
-        WHITELIST_MODULE_PARAMETERS.add("CtsNetTestCases.config");
-        WHITELIST_MODULE_PARAMETERS.add("CtsPermissionTestCasesSdk28.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsAccessibilityServiceTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsActivityManagerBackgroundActivityTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsAppOpsTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsCarrierApiTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsContentCaptureServiceTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsDeqpTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsHiddenApiKillswitchDebugClassTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsHiddenApiKillswitchWhitelistTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsHiddenApiKillswitchWildcardTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsLocationTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsLocation2TestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsMediaTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsMediaV2TestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsOpenGlPerfTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsOsTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsPermission2TestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsPermissionTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsProviderUiTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsRsBlasTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsSkQPTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsWrapNoWrapTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsWrapWrapDebugMallocDebugTestCases.config");
     }
 
     /**
@@ -206,6 +225,9 @@ public class CtsConfigLoadingTest {
         stubFolder.setRootDir(new File(ctsRoot));
         stubFolder.addBuildAttribute(CompatibilityBuildHelper.SUITE_NAME, "CTS");
         stubFolder.addBuildAttribute("ROOT_DIR", ctsRoot);
+        TestInformation stubTestInfo = TestInformation.newBuilder().build();
+        stubTestInfo.executionFiles().put(FilesKey.TESTS_DIRECTORY, new File(ctsRoot));
+
         List<String> missingMandatoryParameters = new ArrayList<>();
         // We expect to be able to load every single config in testcases/
         for (File config : listConfig) {
@@ -233,13 +255,16 @@ public class CtsConfigLoadingTest {
                 // Check that all the tests runners are well supported.
                 if (!SUPPORTED_CTS_TEST_TYPE.contains(test.getClass().getCanonicalName())) {
                     throw new ConfigurationException(
-                            String.format("testtype %s is not officially supported by CTS.",
-                                    test.getClass().getCanonicalName()));
+                            String.format(
+                                    "testtype %s is not officially supported by CTS. "
+                                            + "The supported ones are: %s",
+                                    test.getClass().getCanonicalName(), SUPPORTED_CTS_TEST_TYPE));
                 }
                 if (test instanceof HostTest) {
                     HostTest hostTest = (HostTest) test;
                     // We inject a made up folder so that it can find the tests.
                     hostTest.setBuild(stubFolder);
+                    hostTest.setTestInformation(stubTestInfo);
                     int testCount = hostTest.countTestCases();
                     if (testCount == 0) {
                         throw new ConfigurationException(
@@ -334,7 +359,8 @@ public class CtsConfigLoadingTest {
                     String.format(
                             "The following %s modules are missing some of the mandatory "
                                     + "parameters [instant_app, not_instant_app, "
-                                    + "multi_abi, not_multi_abi]: '%s'",
+                                    + "multi_abi, not_multi_abi, "
+                                    + "secondary_user, not_secondary_user]: '%s'",
                             missingMandatoryParameters.size(), missingMandatoryParameters);
             throw new ConfigurationException(msg);
         }

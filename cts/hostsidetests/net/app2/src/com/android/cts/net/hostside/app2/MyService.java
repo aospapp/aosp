@@ -127,6 +127,16 @@ public class MyService extends Service {
                         unregisterNetworkCallback();
                     }
                 }
+
+                @Override
+                public void onCapabilitiesChanged(Network network, NetworkCapabilities cap) {
+                    try {
+                        cb.onCapabilitiesChanged(network, cap);
+                    } catch (RemoteException e) {
+                        Log.d(TAG, "Cannot send onCapabilitiesChanged: " + e);
+                        unregisterNetworkCallback();
+                    }
+                }
             };
             mCm.registerNetworkCallback(makeWifiNetworkRequest(), mNetworkCallback);
             try {
@@ -135,17 +145,21 @@ public class MyService extends Service {
                 unregisterNetworkCallback();
             }
         }
-      };
 
-    private void unregisterNetworkCallback() {
-        Log.d(TAG, "unregistering network callback");
-        mCm.unregisterNetworkCallback(mNetworkCallback);
-        mNetworkCallback = null;
-    }
+        @Override
+        public void unregisterNetworkCallback() {
+            Log.d(TAG, "unregistering network callback");
+            if (mNetworkCallback != null) {
+                mCm.unregisterNetworkCallback(mNetworkCallback);
+                mNetworkCallback = null;
+            }
+        }
+      };
 
     private NetworkRequest makeWifiNetworkRequest() {
         return new NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build();
     }
 

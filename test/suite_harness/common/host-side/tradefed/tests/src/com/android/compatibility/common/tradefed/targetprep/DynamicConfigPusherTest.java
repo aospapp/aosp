@@ -29,6 +29,7 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.FileUtil;
 
@@ -58,6 +59,7 @@ public class DynamicConfigPusherTest {
     private CompatibilityBuildHelper mMockBuildHelper;
     private IBuildInfo mMockBuildInfo;
     private IInvocationContext mModuleContext;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
@@ -68,6 +70,9 @@ public class DynamicConfigPusherTest {
         mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
         mMockBuildHelper = new CompatibilityBuildHelper(mMockBuildInfo);
         EasyMock.expect(mMockDevice.getDeviceDescriptor()).andStubReturn(null);
+        mModuleContext.addDeviceBuildInfo("device", mMockBuildInfo);
+        mModuleContext.addAllocatedDevice("device", mMockDevice);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(mModuleContext).build();
     }
 
     /**
@@ -166,7 +171,8 @@ public class DynamicConfigPusherTest {
             fail("Should have thrown an exception.");
         } catch (TargetSetupError expected) {
             // expected
-            assertEquals("Cannot get local dynamic config file from test directory null",
+            assertEquals(
+                    "Cannot get local dynamic config file from test directory",
                     expected.getMessage());
         }
         EasyMock.verify(mMockDevice, mMockBuildInfo);
@@ -186,8 +192,9 @@ public class DynamicConfigPusherTest {
             fail("Should have thrown an exception.");
         } catch (TargetSetupError expected) {
             // expected
-            assertEquals("Fail to unpack 'not-an-existing-resource-name.dynamic' from resources "
-                    + "null", expected.getMessage());
+            assertEquals(
+                    "Fail to unpack 'not-an-existing-resource-name.dynamic' from resources",
+                    expected.getMessage());
         }
         EasyMock.verify(mMockDevice, mMockBuildInfo);
     }
@@ -266,7 +273,7 @@ public class DynamicConfigPusherTest {
 
         mPreparer.setInvocationContext(mModuleContext);
         EasyMock.replay(mMockDevice, mMockBuildInfo);
-        mPreparer.setUp(mMockDevice, mMockBuildInfo);
+        mPreparer.setUp(mTestInfo);
         EasyMock.verify(mMockDevice, mMockBuildInfo);
         assertNotNull(localConfig[0]);
         // Ensure that the extracted file was deleted.

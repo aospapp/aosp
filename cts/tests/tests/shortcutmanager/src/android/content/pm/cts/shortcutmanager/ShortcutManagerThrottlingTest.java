@@ -18,7 +18,7 @@ package android.content.pm.cts.shortcutmanager;
 
 import static android.content.pm.cts.shortcutmanager.common.Constants.INLINE_REPLY_REMOTE_INPUT_CAPTION;
 
-import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.resetThrottling;
+import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.resetAllThrottling;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.runCommandForNoOutput;
 
 import android.content.ComponentName;
@@ -64,7 +64,7 @@ public class ShortcutManagerThrottlingTest extends ShortcutManagerCtsTestsBase {
     protected void setUp() throws Exception {
         super.setUp();
 
-        resetThrottling(getInstrumentation());
+        resetAllThrottling(getInstrumentation());
 
         UiDevice.getInstance(getInstrumentation()).pressHome();
 

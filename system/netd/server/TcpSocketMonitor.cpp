@@ -70,9 +70,10 @@ constexpr const char* getTcpStateName(int t) {
 
 // Helper macro for reading fields into struct tcp_info and handling different struct tcp_info
 // versions in the kernel.
-#define TCPINFO_GET(ptr, fld, len, zero) \
-        (((ptr) != nullptr && (offsetof(struct tcp_info, fld) + sizeof((ptr)->fld)) < len) ? \
-        (ptr)->fld : zero)
+#define TCPINFO_GET(ptr, fld, len, zero)                                                 \
+    (((ptr) != nullptr && (offsetof(struct tcp_info, fld) + sizeof((ptr)->fld)) < (len)) \
+             ? (ptr)->fld                                                                \
+             : (zero))
 
 static void tcpInfoPrint(DumpWriter &dw, Fwmark mark, const struct inet_diag_msg *sockinfo,
                          const struct tcp_info *tcpinfo, uint32_t tcpinfoLen) {

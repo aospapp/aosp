@@ -398,6 +398,43 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
         testInputUnbindsOnAppStop(true);
     }
 
+    private void testImeVisibilityAfterImeSwitching(boolean instant) throws Exception {
+        sendTestStartEvent(DeviceTestConstants.TEST_SWITCH_IME1_TO_IME2);
+        installPossibleInstantPackage(
+                EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
+        installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
+        installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
+        waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
+        shell(ShellCommandUtils.setCurrentImeSync(Ime1Constants.IME_ID));
+
+        assertTrue(runDeviceTestMethod(
+                DeviceTestConstants.TEST_IME_VISIBILITY_AFTER_IME_SWITCHING));
+    }
+
+    /**
+     * Test if IMEs remain to be visible after switching to other IMEs for full (non-instant) apps.
+     *
+     * <p>Regression test for Bug 152876819.</p>
+     */
+    @AppModeFull
+    @Test
+    public void testImeVisibilityAfterImeSwitchingFull() throws Exception {
+        testImeVisibilityAfterImeSwitching(false);
+    }
+
+    /**
+     * Test if IMEs remain to be visible after switching to other IMEs for instant apps.
+     *
+     * <p>Regression test for Bug 152876819.</p>
+     */
+    @AppModeInstant
+    @Test
+    public void testImeVisibilityAfterImeSwitchingInstant() throws Exception {
+        testImeVisibilityAfterImeSwitching(true);
+    }
+
     private void sendTestStartEvent(TestInfo deviceTest) throws Exception {
         final String sender = deviceTest.getTestName();
         // {@link EventType#EXTRA_EVENT_TIME} will be recorded at device side.

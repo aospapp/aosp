@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
  * Schedules jobs that look for content URI changes and ensures they are triggered correctly.
  */
 @TargetApi(23)
-public class TriggerContentTest extends ConstraintTest {
+public class TriggerContentTest extends BaseJobSchedulerTest {
     public static final int TRIGGER_CONTENT_JOB_ID = TriggerContentTest.class.hashCode();
 
     // The root URI of the media provider, to monitor for generic changes to its content.
@@ -114,10 +114,10 @@ public class TriggerContentTest extends ConstraintTest {
 
     @Override
     public void tearDown() throws Exception {
-        super.tearDown();
         for (int i=0; i<mActiveFiles.length; i++) {
             cleanupActive(i);
         }
+        super.tearDown();
     }
 
     private JobInfo makeJobInfo(Uri uri, int flags) {
@@ -133,12 +133,10 @@ public class TriggerContentTest extends ConstraintTest {
     private JobInfo makePhotosJobInfo() {
         JobInfo.Builder builder = new JobInfo.Builder(TRIGGER_CONTENT_JOB_ID,
                 kTriggerContentServiceComponent);
-        // Look for specific changes to images in the provider.
+        // Look for general reports of changes in the overall provider.
         builder.addTriggerContentUri(new JobInfo.TriggerContentUri(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                MEDIA_URI,
                 JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS));
-        // Also look for general reports of changes in the overall provider.
-        builder.addTriggerContentUri(new JobInfo.TriggerContentUri(MEDIA_URI, 0));
         // For testing purposes, react quickly.
         builder.setTriggerContentUpdateDelay(500);
         builder.setTriggerContentMaxDelay(500);

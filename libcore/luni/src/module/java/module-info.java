@@ -69,6 +69,8 @@ module java.base {
     exports javax.security.auth.x500;
     exports javax.security.cert;
     exports javax.sql;
+    exports jdk.internal.util;
+    exports jdk.internal.vm.annotation;
     exports jdk.net;
     exports sun.invoke.util;
     exports sun.misc;

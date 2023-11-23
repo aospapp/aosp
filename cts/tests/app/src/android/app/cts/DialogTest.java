@@ -60,7 +60,6 @@ import android.widget.LinearLayout;
 
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.FlakyTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
@@ -76,9 +75,6 @@ import java.lang.ref.WeakReference;
 
 @RunWith(AndroidJUnit4.class)
 public class DialogTest {
-
-    protected static final long SLEEP_TIME = 200;
-    private static final long TEST_TIMEOUT = 1000L;
 
     /**
      *  please refer to Dialog
@@ -108,6 +104,7 @@ public class DialogTest {
 
     private void startDialogActivity(int dialogNumber) {
         mActivity = DialogStubActivity.startDialogActivity(mActivityRule, dialogNumber);
+        PollingCheck.waitFor(mActivity.getDialog().getWindow().getDecorView()::hasWindowFocus);
     }
 
     @UiThreadTest
@@ -129,13 +126,12 @@ public class DialogTest {
         assertTextAppearanceStyle(ta);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testConstructor_protectedCancellable() {
         startDialogActivity(DialogStubActivity.TEST_PROTECTED_CANCELABLE);
         mActivity.onCancelListenerCalled = false;
         sendKeys(KeyEvent.KEYCODE_BACK);
-        assertTrue(mActivity.onCancelListenerCalled);
+        PollingCheck.waitFor(() -> mActivity.onCancelListenerCalled);
     }
 
     @Test
@@ -151,10 +147,10 @@ public class DialogTest {
         startDialogActivity(DialogStubActivity.TEST_PROTECTED_CANCELABLE);
         mActivity.onCancelListenerCalled = false;
         sendKeys(KeyEvent.KEYCODE_ESCAPE);
-        assertTrue(mActivity.onCancelListenerCalled);
+        PollingCheck.waitFor(() -> {
+            return mActivity.onCancelListenerCalled; });
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testConstructor_protectedNotCancellableEsc() {
         startDialogActivity(DialogStubActivity.TEST_PROTECTED_NOT_CANCELABLE);
@@ -185,7 +181,6 @@ public class DialogTest {
                 ta.getInt(R.styleable.TextAppearance_textStyle, defValue));
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testOnStartCreateStop(){
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
@@ -196,7 +191,8 @@ public class DialogTest {
 
         assertFalse(d.isOnStopCalled);
         sendKeys(KeyEvent.KEYCODE_BACK);
-        assertTrue(d.isOnStopCalled);
+        PollingCheck.waitFor(() -> {
+            return d.isOnStopCalled; });
     }
 
     @Test
@@ -209,7 +205,7 @@ public class DialogTest {
 
         assertFalse(d.isOnStopCalled);
         sendKeys(KeyEvent.KEYCODE_ESCAPE);
-        assertTrue(d.isOnStopCalled);
+        PollingCheck.waitFor(() -> d.isOnStopCalled);
     }
 
     @Test
@@ -285,7 +281,6 @@ public class DialogTest {
         TestDialog.onRestoreInstanceStateObserver.await();
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testGetCurrentFocus() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
@@ -485,7 +480,7 @@ public class DialogTest {
         d.getWindow().getDecorView().getRootView().getLocationOnScreen(dialogLocation);
 
         final int touchSlop = ViewConfiguration.get(mActivity).getScaledWindowTouchSlop();
-        final int x = dialogLocation[0] - (touchSlop + 1);
+        final int x = dialogLocation[0];
         final int y = dialogLocation[1] - (touchSlop + 1);
 
         assertNull(d.onTouchEvent);
@@ -598,7 +593,6 @@ public class DialogTest {
         assertTrue(d.isOnContentChangedCalled);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testOnWindowFocusChanged() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
@@ -612,17 +606,10 @@ public class DialogTest {
                 mActivity.showDialog(DialogStubActivity.TEST_DIALOG_WITHOUT_THEME);
             }
         });
-        mInstrumentation.waitForIdleSync();
 
-        // Wait until TestDialog#OnWindowFocusChanged() is called
-        new PollingCheck(TEST_TIMEOUT) {
-            protected boolean check() {
-                return d.isOnWindowFocusChangedCalled;
-            }
-        }.run();
+        PollingCheck.waitFor(() -> d.isOnWindowFocusChangedCalled);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testDispatchKeyEvent() {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
@@ -690,16 +677,15 @@ public class DialogTest {
                 d.openContextMenu(v);
             }
         });
-        mInstrumentation.waitForIdleSync();
-
-        assertTrue(v.isShowContextMenuCalled);
-        assertTrue(d.isOnCreateContextMenuCalled);
+        PollingCheck.waitFor(d::contextMenuHasWindowFocus);
+        PollingCheck.waitFor(() -> v.isShowContextMenuCalled);
+        PollingCheck.waitFor(() -> d.isOnCreateContextMenuCalled);
 
         assertFalse(d.isOnPanelClosedCalled);
         assertFalse(d.isOnContextMenuClosedCalled);
-        // Closed context menu
+        // Close context menu
         sendKeys(KeyEvent.KEYCODE_BACK);
-        assertTrue(d.isOnPanelClosedCalled);
+        PollingCheck.waitFor(() -> d.isOnPanelClosedCalled);
         // Here isOnContextMenuClosedCalled should be true, see bug 1716918.
         assertFalse(d.isOnContextMenuClosedCalled);
 
@@ -711,14 +697,12 @@ public class DialogTest {
                 d.unregisterForContextMenu(v);
             }
         });
-        mInstrumentation.waitForIdleSync();
 
         mActivityRule.runOnUiThread(new Runnable() {
             public void run() {
                 d.openContextMenu(v);
             }
         });
-        mInstrumentation.waitForIdleSync();
 
         assertTrue(v.isShowContextMenuCalled);
         assertFalse(d.isOnCreateContextMenuCalled);
@@ -730,7 +714,7 @@ public class DialogTest {
                 d.openContextMenu(v);
             }
         });
-        mInstrumentation.waitForIdleSync();
+        PollingCheck.waitFor(d::contextMenuHasWindowFocus);
 
         assertFalse(d.isOnContextItemSelectedCalled);
         assertFalse(d.isOnMenuItemSelectedCalled);
@@ -741,7 +725,7 @@ public class DialogTest {
         assertTrue(d.isOnMenuItemSelectedCalled);
         // Here isOnContextItemSelectedCalled should be true, see bug 1716918.
         assertFalse(d.isOnContextItemSelectedCalled);
-        assertTrue(d.isOnPanelClosedCalled);
+        PollingCheck.waitFor(() -> d.isOnPanelClosedCalled);
         // Here isOnContextMenuClosedCalled should be true, see bug 1716918.
         assertFalse(d.isOnContextMenuClosedCalled);
     }
@@ -750,7 +734,6 @@ public class DialogTest {
     public void testOnSearchRequested() {
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testTakeKeyEvents() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
@@ -776,7 +759,6 @@ public class DialogTest {
                 d.takeKeyEvents(get);
             }
         });
-        mInstrumentation.waitForIdleSync();
     }
 
     @Test
@@ -840,7 +822,6 @@ public class DialogTest {
         assertEquals(d.getWindow().getLayoutInflater(), d.getLayoutInflater());
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetCancellable_true() {
         startDialogActivity(DialogStubActivity.TEST_DIALOG_WITHOUT_THEME);
@@ -849,7 +830,7 @@ public class DialogTest {
         d.setCancelable(true);
         assertTrue(d.isShowing());
         sendKeys(KeyEvent.KEYCODE_BACK);
-        assertFalse(d.isShowing());
+        PollingCheck.waitFor(() -> !d.isShowing());
     }
 
     @Test
@@ -871,10 +852,9 @@ public class DialogTest {
         d.setCancelable(true);
         assertTrue(d.isShowing());
         sendKeys(KeyEvent.KEYCODE_ESCAPE);
-        assertFalse(d.isShowing());
+        PollingCheck.waitFor(() -> !d.isShowing());
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetCancellableEsc_false() {
         startDialogActivity(DialogStubActivity.TEST_DIALOG_WITHOUT_THEME);
@@ -924,7 +904,6 @@ public class DialogTest {
         assertFalse(mOnCancelListenerCalled);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetCancelMessage() throws Exception {
         mCalledCallback = false;
@@ -942,8 +921,8 @@ public class DialogTest {
         assertTrue(d.isShowing());
         assertFalse(mCalledCallback);
         sendKeys(KeyEvent.KEYCODE_BACK);
-        assertTrue(mCalledCallback);
-        assertFalse(d.isShowing());
+        PollingCheck.waitFor(() -> mCalledCallback);
+        PollingCheck.waitFor(() -> !d.isShowing());
 
         ht.join(100);
     }
@@ -1027,7 +1006,6 @@ public class DialogTest {
 
     private void sendKeys(int keyCode) {
         mInstrumentation.sendKeyDownUpSync(keyCode);
-        mInstrumentation.waitForIdleSync();
     }
 
     private static class MockDismissCancelHandler extends Handler {

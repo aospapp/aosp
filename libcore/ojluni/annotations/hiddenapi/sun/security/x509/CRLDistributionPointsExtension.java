@@ -100,7 +100,7 @@ public class CRLDistributionPointsExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private void encodeThis() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

@@ -29,8 +29,6 @@
 #include "register_allocator_linear_scan.h"
 #include "utils/arm/assembler_arm_vixl.h"
 #include "utils/arm/managed_register_arm.h"
-#include "utils/mips/managed_register_mips.h"
-#include "utils/mips64/managed_register_mips64.h"
 #include "utils/x86/managed_register_x86.h"
 
 #include "gtest/gtest.h"
@@ -54,12 +52,6 @@ static ::std::vector<CodegenTargetConfig> GetTargetConfigs() {
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86_64
     CodegenTargetConfig(InstructionSet::kX86_64, create_codegen_x86_64),
-#endif
-#ifdef ART_ENABLE_CODEGEN_mips
-    CodegenTargetConfig(InstructionSet::kMips, create_codegen_mips),
-#endif
-#ifdef ART_ENABLE_CODEGEN_mips64
-    CodegenTargetConfig(InstructionSet::kMips64, create_codegen_mips64)
 #endif
   };
 
@@ -834,6 +826,7 @@ TEST_F(CodegenTest, ARM64IsaVIXLFeaturesA75) {
   EXPECT_TRUE(features->Has(vixl::CPUFeatures::kCRC32));
   EXPECT_TRUE(features->Has(vixl::CPUFeatures::kDotProduct));
   EXPECT_TRUE(features->Has(vixl::CPUFeatures::kFPHalf));
+  EXPECT_TRUE(features->Has(vixl::CPUFeatures::kNEONHalf));
   EXPECT_TRUE(features->Has(vixl::CPUFeatures::kAtomics));
 }
 
@@ -847,70 +840,53 @@ TEST_F(CodegenTest, ARM64IsaVIXLFeaturesA53) {
   EXPECT_TRUE(features->Has(vixl::CPUFeatures::kCRC32));
   EXPECT_FALSE(features->Has(vixl::CPUFeatures::kDotProduct));
   EXPECT_FALSE(features->Has(vixl::CPUFeatures::kFPHalf));
+  EXPECT_FALSE(features->Has(vixl::CPUFeatures::kNEONHalf));
   EXPECT_FALSE(features->Has(vixl::CPUFeatures::kAtomics));
 }
 
-#endif
+constexpr static size_t kExpectedFPSpillSize = 8 * vixl::aarch64::kDRegSizeInBytes;
 
-#ifdef ART_ENABLE_CODEGEN_mips
-TEST_F(CodegenTest, MipsClobberRA) {
-  OverrideInstructionSetFeatures(InstructionSet::kMips, "mips32r");
-  CHECK(!instruction_set_features_->AsMipsInstructionSetFeatures()->IsR6());
-  if (!CanExecute(InstructionSet::kMips)) {
-    // HMipsComputeBaseMethodAddress and the NAL instruction behind it
-    // should only be generated on non-R6.
-    return;
-  }
-
+// The following two tests check that for both SIMD and non-SIMD graphs exactly 64-bit is
+// allocated on stack per callee-saved FP register to be preserved in the frame entry as
+// ABI states.
+TEST_F(CodegenTest, ARM64FrameSizeSIMD) {
+  OverrideInstructionSetFeatures(InstructionSet::kArm64, "default");
   HGraph* graph = CreateGraph();
+  arm64::CodeGeneratorARM64 codegen(graph, *compiler_options_);
 
-  HBasicBlock* entry_block = new (GetAllocator()) HBasicBlock(graph);
-  graph->AddBlock(entry_block);
-  graph->SetEntryBlock(entry_block);
-  entry_block->AddInstruction(new (GetAllocator()) HGoto());
+  codegen.Initialize();
+  graph->SetHasSIMD(true);
 
-  HBasicBlock* block = new (GetAllocator()) HBasicBlock(graph);
-  graph->AddBlock(block);
+  DCHECK_EQ(arm64::callee_saved_fp_registers.GetCount(), 8);
+  vixl::aarch64::CPURegList reg_list = arm64::callee_saved_fp_registers;
+  while (!reg_list.IsEmpty()) {
+    uint32_t reg_code = reg_list.PopLowestIndex().GetCode();
+    codegen.AddAllocatedRegister(Location::FpuRegisterLocation(reg_code));
+  }
+  codegen.ComputeSpillMask();
 
-  HBasicBlock* exit_block = new (GetAllocator()) HBasicBlock(graph);
-  graph->AddBlock(exit_block);
-  graph->SetExitBlock(exit_block);
-  exit_block->AddInstruction(new (GetAllocator()) HExit());
-
-  entry_block->AddSuccessor(block);
-  block->AddSuccessor(exit_block);
-
-  // To simplify matters, don't create PC-relative HLoadClass or HLoadString.
-  // Instead, generate HMipsComputeBaseMethodAddress directly.
-  HMipsComputeBaseMethodAddress* base = new (GetAllocator()) HMipsComputeBaseMethodAddress();
-  block->AddInstruction(base);
-  // HMipsComputeBaseMethodAddress is defined as int, so just make the
-  // compiled method return it.
-  block->AddInstruction(new (GetAllocator()) HReturn(base));
-
-  graph->BuildDominatorTree();
-
-  mips::CodeGeneratorMIPS codegenMIPS(graph, *compiler_options_);
-  // Since there isn't HLoadClass or HLoadString, we need to manually indicate
-  // that RA is clobbered and the method entry code should generate a stack frame
-  // and preserve RA in it. And this is what we're testing here.
-  codegenMIPS.ClobberRA();
-  // Without ClobberRA() the code would be:
-  //   nal              # Sets RA to point to the jr instruction below
-  //   move  v0, ra     # and the CPU falls into an infinite loop.
-  //   jr    ra
-  //   nop
-  // The expected code is:
-  //   addiu sp, sp, -16
-  //   sw    ra, 12(sp)
-  //   sw    a0, 0(sp)
-  //   nal              # Sets RA to point to the lw instruction below.
-  //   move  v0, ra
-  //   lw    ra, 12(sp)
-  //   jr    ra
-  //   addiu sp, sp, 16
-  RunCode(&codegenMIPS, graph, [](HGraph*) {}, false, 0);
+  EXPECT_EQ(codegen.GetFpuSpillSize(), kExpectedFPSpillSize);
 }
+
+TEST_F(CodegenTest, ARM64FrameSizeNoSIMD) {
+  OverrideInstructionSetFeatures(InstructionSet::kArm64, "default");
+  HGraph* graph = CreateGraph();
+  arm64::CodeGeneratorARM64 codegen(graph, *compiler_options_);
+
+  codegen.Initialize();
+  graph->SetHasSIMD(false);
+
+  DCHECK_EQ(arm64::callee_saved_fp_registers.GetCount(), 8);
+  vixl::aarch64::CPURegList reg_list = arm64::callee_saved_fp_registers;
+  while (!reg_list.IsEmpty()) {
+    uint32_t reg_code = reg_list.PopLowestIndex().GetCode();
+    codegen.AddAllocatedRegister(Location::FpuRegisterLocation(reg_code));
+  }
+  codegen.ComputeSpillMask();
+
+  EXPECT_EQ(codegen.GetFpuSpillSize(), kExpectedFPSpillSize);
+}
+
 #endif
 
 }  // namespace art

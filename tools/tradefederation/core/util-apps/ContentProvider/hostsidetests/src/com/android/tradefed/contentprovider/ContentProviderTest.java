@@ -75,6 +75,23 @@ public class ContentProviderTest extends BaseHostJUnit4Test {
         }
     }
 
+    /**
+     * '+' character is special in URLs as it can be decoded incorrectly as a space. Ensure it works
+     * and our encoding/decoding handles it well.
+     */
+    @Test
+    public void testPushFile_encode_plus() throws Exception {
+        // Name with '+'
+        File tmpFile = FileUtil.createTempFile("tmpFileToPush+(test)", ".txt");
+        try {
+            boolean res = mHandler.pushFile(tmpFile, "/sdcard/" + tmpFile.getName());
+            assertTrue(res);
+            assertTrue(getDevice().doesFileExist(mCurrentUserStoragePath + tmpFile.getName()));
+        } finally {
+            FileUtil.deleteFile(tmpFile);
+        }
+    }
+
     @Test
     public void testPushFile() throws Exception {
         File tmpFile = FileUtil.createTempFile("tmpFileToPush", ".txt");

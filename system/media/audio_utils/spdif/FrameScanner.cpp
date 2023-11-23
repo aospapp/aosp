@@ -36,7 +36,7 @@ FrameScanner::FrameScanner(int dataType,
  , mFormatDumpCount(0)
  , mSampleRate(0)
  , mRateMultiplier(1)
- , mFrameSizeBytes(0)
+ , mFrameSizeBytes(headerLength) // minimum
  , mDataType(dataType)
  , mDataTypeInfo(0)
 {

@@ -13,18 +13,13 @@
 // limitations under the License.
 
 sh_binary_host {
-    name: "vts-tradefed",
-    src: "vts-tradefed",
-}
-
-sh_binary_host {
     name: "vtf",
     src: "vtf",
 }
 
 sh_binary_host {
-    name: "vts-tradefed_win",
-    src: "vts-tradefed_win.bat",
+    name: "vts10-tradefed_win",
+    src: "vts10-tradefed_win.bat",
     filename_from_src: true,
 
     target: {

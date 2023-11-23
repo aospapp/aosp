@@ -34,7 +34,7 @@ import (
 // embedded structs, pointers to structs, and interfaces containing
 // pointers to structs.  Appending the zero value of a property will always be a no-op.
 func AppendProperties(dst interface{}, src interface{}, filter ExtendPropertyFilterFunc) error {
-	return extendProperties(dst, src, filter, orderAppend)
+	return extendProperties(dst, src, filter, OrderAppend)
 }
 
 // PrependProperties prepends the values of properties in the property struct src to the property
@@ -52,7 +52,7 @@ func AppendProperties(dst interface{}, src interface{}, filter ExtendPropertyFil
 // embedded structs, pointers to structs, and interfaces containing
 // pointers to structs.  Prepending the zero value of a property will always be a no-op.
 func PrependProperties(dst interface{}, src interface{}, filter ExtendPropertyFilterFunc) error {
-	return extendProperties(dst, src, filter, orderPrepend)
+	return extendProperties(dst, src, filter, OrderPrepend)
 }
 
 // AppendMatchingProperties appends the values of properties in the property struct src to the
@@ -68,12 +68,12 @@ func PrependProperties(dst interface{}, src interface{}, filter ExtendPropertyFi
 // *ExtendPropertyError, and can have the property name and error extracted from it.
 //
 // The append operation is defined as appending strings, and slices of strings normally, OR-ing bool
-// values, replacing non-nil pointers to booleans or strings, and recursing into
+// values, replacing pointers to booleans or strings whether they are nil or not, and recursing into
 // embedded structs, pointers to structs, and interfaces containing
 // pointers to structs.  Appending the zero value of a property will always be a no-op.
 func AppendMatchingProperties(dst []interface{}, src interface{},
 	filter ExtendPropertyFilterFunc) error {
-	return extendMatchingProperties(dst, src, filter, orderAppend)
+	return extendMatchingProperties(dst, src, filter, OrderAppend)
 }
 
 // PrependMatchingProperties prepends the values of properties in the property struct src to the
@@ -89,12 +89,12 @@ func AppendMatchingProperties(dst []interface{}, src interface{},
 // *ExtendPropertyError, and can have the property name and error extracted from it.
 //
 // The prepend operation is defined as prepending strings, and slices of strings normally, OR-ing
-// bool values, replacing non-nil pointers to booleans or strings, and recursing into
+// bool values, replacing nil pointers to booleans or strings, and recursing into
 // embedded structs, pointers to structs, and interfaces containing
 // pointers to structs.  Prepending the zero value of a property will always be a no-op.
 func PrependMatchingProperties(dst []interface{}, src interface{},
 	filter ExtendPropertyFilterFunc) error {
-	return extendMatchingProperties(dst, src, filter, orderPrepend)
+	return extendMatchingProperties(dst, src, filter, OrderPrepend)
 }
 
 // ExtendProperties appends or prepends the values of properties in the property struct src to the
@@ -150,6 +150,7 @@ type Order int
 const (
 	Append Order = iota
 	Prepend
+	Replace
 )
 
 type ExtendPropertyFilterFunc func(property string,
@@ -160,16 +161,22 @@ type ExtendPropertyOrderFunc func(property string,
 	dstField, srcField reflect.StructField,
 	dstValue, srcValue interface{}) (Order, error)
 
-func orderAppend(property string,
+func OrderAppend(property string,
 	dstField, srcField reflect.StructField,
 	dstValue, srcValue interface{}) (Order, error) {
 	return Append, nil
 }
 
-func orderPrepend(property string,
+func OrderPrepend(property string,
 	dstField, srcField reflect.StructField,
 	dstValue, srcValue interface{}) (Order, error) {
 	return Prepend, nil
+}
+
+func OrderReplace(property string,
+	dstField, srcField reflect.StructField,
+	dstValue, srcValue interface{}) (Order, error) {
+	return Replace, nil
 }
 
 type ExtendPropertyError struct {
@@ -267,7 +274,7 @@ func extendPropertiesRecursive(dstValues []reflect.Value, srcValue reflect.Value
 		}
 
 		// Step into source pointers to structs
-		if srcFieldValue.Kind() == reflect.Ptr && srcFieldValue.Type().Elem().Kind() == reflect.Struct {
+		if isStructPtr(srcFieldValue.Type()) {
 			if srcFieldValue.IsNil() {
 				continue
 			}
@@ -316,7 +323,7 @@ func extendPropertiesRecursive(dstValues []reflect.Value, srcValue reflect.Value
 			}
 
 			// Step into destination pointers to structs
-			if dstFieldValue.Kind() == reflect.Ptr && dstFieldValue.Type().Elem().Kind() == reflect.Struct {
+			if isStructPtr(dstFieldValue.Type()) {
 				if dstFieldValue.IsNil() {
 					dstFieldValue = reflect.New(dstFieldValue.Type().Elem())
 					origDstFieldValue.Set(dstFieldValue)
@@ -428,8 +435,11 @@ func ExtendBasicType(dstFieldValue, srcFieldValue reflect.Value, order Order) {
 		if prepend {
 			newSlice = reflect.AppendSlice(newSlice, srcFieldValue)
 			newSlice = reflect.AppendSlice(newSlice, dstFieldValue)
-		} else {
+		} else if order == Append {
 			newSlice = reflect.AppendSlice(newSlice, dstFieldValue)
+			newSlice = reflect.AppendSlice(newSlice, srcFieldValue)
+		} else {
+			// replace
 			newSlice = reflect.AppendSlice(newSlice, srcFieldValue)
 		}
 		dstFieldValue.Set(newSlice)
@@ -491,11 +501,8 @@ func getOrCreateStruct(in interface{}) (reflect.Value, error) {
 
 func getStruct(in interface{}) (reflect.Value, error) {
 	value := reflect.ValueOf(in)
-	if value.Kind() != reflect.Ptr {
-		return reflect.Value{}, fmt.Errorf("expected pointer to struct, got %T", in)
-	}
-	if value.Type().Elem().Kind() != reflect.Struct {
-		return reflect.Value{}, fmt.Errorf("expected pointer to struct, got %T", in)
+	if !isStructPtr(value.Type()) {
+		return reflect.Value{}, fmt.Errorf("expected pointer to struct, got %s", value.Type())
 	}
 	if value.IsNil() {
 		return reflect.Value{}, getStructEmptyError{}

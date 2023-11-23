@@ -20,6 +20,7 @@
 #include <string>
 
 #include <android-base/properties.h>
+#include <android/api-level.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -33,9 +34,8 @@ class KernelLoopConfigTest : public ::testing::Test {
       : first_api_level_(std::stoi(
             android::base::GetProperty("ro.product.first_api_level", "0"))) {}
   bool should_run() const {
-    // TODO replace with the proper Q constant once known, and check for
-    // APEX support as well (for upgrading devices)
-    return first_api_level_ >= 29;
+    // TODO check for APEX support (for upgrading devices)
+    return first_api_level_ >= __ANDROID_API_Q__;
   }
 };
 

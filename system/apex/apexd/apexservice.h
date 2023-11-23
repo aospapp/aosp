@@ -22,6 +22,7 @@ namespace apex {
 namespace binder {
 
 void CreateAndRegisterService();
+void AllowServiceShutdown();
 void StartThreadPool();
 void JoinThreadPool();
 

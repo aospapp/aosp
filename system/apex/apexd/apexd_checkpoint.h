@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include "status_or.h"
+#include <android-base/result.h>
 
 namespace android {
 namespace apex {
@@ -28,13 +28,14 @@ class CheckpointInterface {
  public:
   virtual ~CheckpointInterface() {}
 
-  virtual StatusOr<bool> SupportsFsCheckpoints() = 0;
+  virtual android::base::Result<bool> SupportsFsCheckpoints() = 0;
 
-  virtual StatusOr<bool> NeedsCheckpoint() = 0;
-  virtual StatusOr<bool> NeedsRollback() = 0;
-  virtual Status StartCheckpoint(int32_t numRetries) = 0;
+  virtual android::base::Result<bool> NeedsCheckpoint() = 0;
+  virtual android::base::Result<bool> NeedsRollback() = 0;
+  virtual android::base::Result<void> StartCheckpoint(int32_t numRetries) = 0;
 
-  virtual Status AbortChanges(const std::string& msg, bool retry) = 0;
+  virtual android::base::Result<void> AbortChanges(const std::string& msg,
+                                                   bool retry) = 0;
 };
 
 }  // namespace apex

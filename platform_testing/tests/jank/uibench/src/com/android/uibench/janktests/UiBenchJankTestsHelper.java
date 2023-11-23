@@ -55,7 +55,7 @@ public class UiBenchJankTestsHelper {
     private UiDevice mDevice;
     private Context mContext;
     private DisplayMetrics mDisplayMetrics;
-    protected UiObject2 mContents;
+    protected UiObject2 mContents, mNavigation;
 
     private UiBenchJankTestsHelper(Context context, UiDevice device) {
         mContext = context;
@@ -101,6 +101,13 @@ public class UiBenchJankTestsHelper {
         Assert.assertNotNull(activityName + " isn't found", mContents);
     }
 
+    private int getEdgeSensitivity() {
+        int resId =
+                mContext.getResources()
+                        .getIdentifier("config_backGestureInset", "dimen", "android");
+        return mContext.getResources().getDimensionPixelSize(resId) + 1;
+    }
+
     /**
      * To perform the fling down and up on given content for flingCount number
      * of times
@@ -111,6 +118,7 @@ public class UiBenchJankTestsHelper {
 
     public void flingUpDown(UiObject2 content, int flingCount, boolean reverse) {
         for (int count = 0; count < flingCount; count++) {
+            content.setGestureMargin(getEdgeSensitivity());
             SystemClock.sleep(SHORT_TIMEOUT);
             content.fling(reverse ? Direction.UP : Direction.DOWN);
             SystemClock.sleep(SHORT_TIMEOUT);
@@ -123,17 +131,21 @@ public class UiBenchJankTestsHelper {
      * of times
      */
     public void swipeRightLeft(UiObject2 content, int swipeCount) {
+        mNavigation = mDevice.wait(Until.findObject(By.desc("Open navigation drawer")), TIMEOUT);
+        content.setGestureMargin(getEdgeSensitivity());
         for (int count = 0; count < swipeCount; count++) {
             SystemClock.sleep(SHORT_TIMEOUT);
-            content.swipe(Direction.RIGHT, 1);
+            mNavigation.click();
             SystemClock.sleep(SHORT_TIMEOUT);
             content.swipe(Direction.LEFT, 1);
         }
     }
 
     public void slowSingleFlingDown(UiObject2 content) {
+        content.setGestureMargin(getEdgeSensitivity());
         SystemClock.sleep(SHORT_TIMEOUT);
         content.fling(Direction.DOWN, (int)(SLOW_FLING_SPEED * mDisplayMetrics.density));
+        mDevice.waitForIdle();
     }
 
     public void pressKeyCode(int keyCode) {

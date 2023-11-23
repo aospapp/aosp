@@ -334,17 +334,18 @@ public final class ImeEvent {
     /**
      * @return result value of this event.
      * @throws NullPointerException if the return value is {@code null}
-     * @throws ClassCastException if the return value is non-{@code null} object that is different
-     *                            from {@link CharSequence}
+     * @throws ClassCastException if the return value is non-{@code null} object that does not
+     *                            implement {@link CharSequence}
      */
     public CharSequence getReturnCharSequenceValue() {
         if (mReturnType == ReturnType.Null) {
             throw new NullPointerException();
         }
-        if (mReturnType != ReturnType.CharSequence) {
-            throw new ClassCastException();
+        if (mReturnType == ReturnType.CharSequence || mReturnType == ReturnType.String
+                || mReturnType == ReturnType.Parcelable) {
+            return (CharSequence) mReturnValue;
         }
-        return (CharSequence) mReturnValue;
+        throw new ClassCastException();
     }
 
     /**
@@ -383,7 +384,7 @@ public final class ImeEvent {
     /**
      * @return {@code true} when the result value is {@code null}.
      */
-    boolean isNullReturnValue() {
+    public boolean isNullReturnValue() {
         return mReturnType == ReturnType.Null;
     }
 

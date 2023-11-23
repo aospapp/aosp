@@ -23,7 +23,7 @@
 #include <utility>
 
 namespace chre {
-template<typename ElementType, size_t kSize>
+template <typename ElementType, size_t kSize>
 MemoryPool<ElementType, kSize>::MemoryPool() {
   // Initialize the free block list. The initial condition is such that each
   // block points to the next as being empty. The mFreeBlockCount is used to
@@ -34,9 +34,9 @@ MemoryPool<ElementType, kSize>::MemoryPool() {
   }
 }
 
-template<typename ElementType, size_t kSize>
-template<typename... Args>
-ElementType *MemoryPool<ElementType, kSize>::allocate(Args&&... args) {
+template <typename ElementType, size_t kSize>
+template <typename... Args>
+ElementType *MemoryPool<ElementType, kSize>::allocate(Args &&... args) {
   if (mFreeBlockCount == 0) {
     return nullptr;
   }
@@ -49,7 +49,7 @@ ElementType *MemoryPool<ElementType, kSize>::allocate(Args&&... args) {
       ElementType(std::forward<Args>(args)...);
 }
 
-template<typename ElementType, size_t kSize>
+template <typename ElementType, size_t kSize>
 void MemoryPool<ElementType, kSize>::deallocate(ElementType *element) {
   uintptr_t elementAddress = reinterpret_cast<uintptr_t>(element);
   uintptr_t baseAddress = reinterpret_cast<uintptr_t>(&blocks()[0].mElement);
@@ -61,14 +61,14 @@ void MemoryPool<ElementType, kSize>::deallocate(ElementType *element) {
   mFreeBlockCount++;
 }
 
-template<typename ElementType, size_t kSize>
+template <typename ElementType, size_t kSize>
 size_t MemoryPool<ElementType, kSize>::getFreeBlockCount() const {
   return mFreeBlockCount;
 }
 
-template<typename ElementType, size_t kSize>
-typename MemoryPool<ElementType, kSize>::MemoryPoolBlock
-    *MemoryPool<ElementType, kSize>::blocks() {
+template <typename ElementType, size_t kSize>
+typename MemoryPool<ElementType, kSize>::MemoryPoolBlock *
+MemoryPool<ElementType, kSize>::blocks() {
   return reinterpret_cast<MemoryPoolBlock *>(mBlocks);
 }
 

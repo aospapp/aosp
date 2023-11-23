@@ -87,6 +87,9 @@ class AndroidKeymaster {
     void FinishOperation(const FinishOperationRequest& request, FinishOperationResponse* response);
     void AbortOperation(const AbortOperationRequest& request, AbortOperationResponse* response);
 
+    EarlyBootEndedResponse EarlyBootEnded();
+    DeviceLockedResponse DeviceLocked(const DeviceLockedRequest& request);
+
     bool has_operation(keymaster_operation_handle_t op_handle) const;
 
   private:

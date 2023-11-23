@@ -49,12 +49,16 @@ class IRReader {
   };
 
  public:
+  static std::unique_ptr<IRReader> CreateIRReader(
+      TextFormatIR text_format,
+      const std::set<std::string> *exported_headers = nullptr);
+
   IRReader(const std::set<std::string> *exported_headers)
       : module_(new ModuleIR(exported_headers)) {}
 
   virtual ~IRReader() {}
 
-  virtual bool ReadDump(const std::string &dump_file) = 0;
+  bool ReadDump(const std::string &dump_file);
 
   ModuleIR &GetModule() {
     return *module_;
@@ -64,62 +68,10 @@ class IRReader {
     return std::move(module_);
   }
 
-  void Merge(IRReader &&addend) {
-    MergeElements(&module_->functions_, std::move(addend.module_->functions_));
-    MergeElements(&module_->global_variables_,
-                  std::move(addend.module_->global_variables_));
-    MergeElements(&module_->record_types_,
-                  std::move(addend.module_->record_types_));
-    MergeElements(&module_->enum_types_,
-                  std::move(addend.module_->enum_types_));
-    MergeElements(&module_->pointer_types_,
-                  std::move(addend.module_->pointer_types_));
-    MergeElements(&module_->lvalue_reference_types_,
-                  std::move(addend.module_->lvalue_reference_types_));
-    MergeElements(&module_->rvalue_reference_types_,
-                  std::move(addend.module_->rvalue_reference_types_));
-    MergeElements(&module_->array_types_,
-                  std::move(addend.module_->array_types_));
-    MergeElements(&module_->builtin_types_,
-                  std::move(addend.module_->builtin_types_));
-    MergeElements(&module_->qualified_types_,
-                  std::move(addend.module_->qualified_types_));
-  }
+  void MergeGraphs(const IRReader &addend);
 
-  template <typename T>
-  MergeStatus MergeReferencingTypeInternalAndUpdateParent(
-      const IRReader &addend, const T *addend_node,
-      AbiElementMap<MergeStatus> *local_to_global_type_id_map,
-      AbiElementMap<T> *parent_map, const std::string &updated_self_type_id);
-
-  MergeStatus DoesUDTypeODRViolationExist(
-      const TypeIR *ud_type, const IRReader &addend,
-      const std::string &ud_type_unique_id,
-      AbiElementMap<MergeStatus> *local_to_global_type_id_map_);
-
-  MergeStatus MergeReferencingTypeInternal(
-      const IRReader &addend, ReferencesOtherType *references_type,
-      AbiElementMap<MergeStatus> *local_to_global_type_id_map);
-
-  MergeStatus MergeReferencingType(
-      const IRReader &addend, const TypeIR *addend_node,
-      AbiElementMap<MergeStatus> *local_to_global_type_id_map,
-      const std::string &updated_self_type_id);
-
-  MergeStatus MergeGenericReferringType(
-      const IRReader &addend, const TypeIR *addend_node,
-      AbiElementMap<MergeStatus> *local_to_global_type_id_map);
-
-  template <typename T>
-  std::pair<MergeStatus, typename AbiElementMap<T>::iterator>
-  UpdateUDTypeAccounting(
-      const T *addend_node, const IRReader &addend,
-      AbiElementMap<MergeStatus> *local_to_global_type_id_map,
-      AbiElementMap<T> *specific_type_map);
-
-  MergeStatus MergeTypeInternal(
-      const TypeIR *addend_node, const IRReader &addend,
-      AbiElementMap<MergeStatus> *local_to_global_type_id_map);
+ private:
+  virtual bool ReadDumpImpl(const std::string &dump_file) = 0;
 
   void MergeCFunctionLikeDeps(
       const IRReader &addend, CFunctionLikeIR *cfunction_like_ir,
@@ -157,10 +109,6 @@ class IRReader {
       const IRReader &addend, RecordTypeIR *added_node,
       AbiElementMap<MergeStatus> *local_to_global_type_id_map);
 
-  MergeStatus IsBuiltinTypeNodePresent(
-      const BuiltinTypeIR *builtin_type, const IRReader &addend,
-      AbiElementMap<MergeStatus> *local_to_global_type_id_map);
-
   void MergeGlobalVariable(
       const GlobalVarIR *addend_node, const IRReader &addend,
       AbiElementMap<MergeStatus> *local_to_global_type_id_map);
@@ -177,13 +125,41 @@ class IRReader {
       const FunctionIR *addend_node, const IRReader &addend,
       AbiElementMap<MergeStatus> *local_to_global_type_id_map);
 
-  void MergeGraphs(const IRReader &addend);
+  template <typename T>
+  MergeStatus MergeReferencingTypeInternalAndUpdateParent(
+      const IRReader &addend, const T *addend_node,
+      AbiElementMap<MergeStatus> *local_to_global_type_id_map,
+      AbiElementMap<T> *parent_map, const std::string &updated_self_type_id);
 
-  void UpdateIRReaderTypeGraph(
-      const TypeIR *addend_node, const std::string &added_type_id,
+  MergeStatus MergeReferencingTypeInternal(
+      const IRReader &addend, ReferencesOtherType *references_type,
       AbiElementMap<MergeStatus> *local_to_global_type_id_map);
 
-  MergeStatus IsTypeNodePresent(
+  MergeStatus MergeReferencingType(
+      const IRReader &addend, const TypeIR *addend_node,
+      AbiElementMap<MergeStatus> *local_to_global_type_id_map);
+
+  template <typename T>
+  std::pair<MergeStatus, typename AbiElementMap<T>::iterator>
+  UpdateUDTypeAccounting(
+      const T *addend_node, const IRReader &addend,
+      AbiElementMap<MergeStatus> *local_to_global_type_id_map,
+      AbiElementMap<T> *specific_type_map);
+
+  MergeStatus MergeBuiltinType(
+      const BuiltinTypeIR *builtin_type, const IRReader &addend,
+      AbiElementMap<MergeStatus> *local_to_global_type_id_map);
+
+  MergeStatus LookupUserDefinedType(
+      const TypeIR *ud_type, const IRReader &addend,
+      const std::string &ud_type_unique_id,
+      AbiElementMap<MergeStatus> *local_to_global_type_id_map_);
+
+  MergeStatus LookupType(
+      const TypeIR *addend_node, const IRReader &addend,
+      AbiElementMap<MergeStatus> *local_to_global_type_id_map);
+
+  MergeStatus MergeTypeInternal(
       const TypeIR *addend_node, const IRReader &addend,
       AbiElementMap<MergeStatus> *local_to_global_type_id_map);
 
@@ -191,19 +167,10 @@ class IRReader {
       const TypeIR *addend_type, const IRReader &addend,
       AbiElementMap<MergeStatus> *merged_types_cache);
 
-  std::string AllocateNewTypeId();
-
-  static std::unique_ptr<IRReader> CreateIRReader(
-      TextFormatIR text_format,
-      const std::set<std::string> *exported_headers = nullptr);
+  std::string AllocateNewTypeId(const std::string &addend_type_id,
+                                const ModuleIR &addend_module);
 
  protected:
-  template <typename Augend, typename Addend>
-  inline void MergeElements(Augend *augend, Addend &&addend) {
-    augend->insert(std::make_move_iterator(addend.begin()),
-                   std::make_move_iterator(addend.end()));
-  }
-
   std::unique_ptr<ModuleIR> module_;
 
   uint64_t max_type_id_ = 0;

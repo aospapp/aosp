@@ -18,11 +18,11 @@ package com.android.cts.readexternalstorageapp;
 
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_NONE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_READ;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_WRITE;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadOnlyAccess;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileNoAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadWriteAccess;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificGiftPaths;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificNoGiftPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readInt;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.writeInt;
 
 import android.test.AndroidTestCase;
 
@@ -30,26 +30,28 @@ import java.io.File;
 import java.util.List;
 
 public class ReadGiftTest extends AndroidTestCase {
+    public void testStageNonGifts() throws Exception {
+        final List<File> readList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_READ);
+        for (File read : readList) {
+            read.getParentFile().mkdirs();
+            assertTrue(read.createNewFile());
+            writeInt(read, 101);
+        }
+    }
+
     /**
-     * Verify we can read all gifts.
+     * Verify we can read & write only our gifts.
      */
-    public void testGifts() throws Exception {
-        final List<File> noneList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_NONE);
+    public void testNoGifts() throws Exception {
+        final List<File> noneList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_NONE);
         for (File none : noneList) {
-            assertFileReadOnlyAccess(none);
-            assertEquals(100, readInt(none));
+            assertFileNoAccess(none);
         }
 
-        final List<File> readList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_READ);
+        final List<File> readList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_READ);
         for (File read : readList) {
             assertFileReadWriteAccess(read);
             assertEquals(101, readInt(read));
-        }
-
-        final List<File> writeList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_WRITE);
-        for (File write : writeList) {
-            assertFileReadOnlyAccess(write);
-            assertEquals(102, readInt(write));
         }
     }
 }

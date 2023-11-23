@@ -1214,7 +1214,7 @@ public class MethodHandleCombinersTest extends TestCase {
 
         Object ret = handle.invokeWithArguments(new Object[]{"a", "b", "c"});
         assertEquals(42, (int) ret);
-        ret = handle.invokeWithArguments(new String[]{"a", "b", "c"});
+        ret = handle.invokeWithArguments((Object[]) new String[]{"a", "b", "c"});
         assertEquals(42, (int) ret);
 
         // Also test the versions that take a List<?> instead of an array.

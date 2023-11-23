@@ -15,14 +15,9 @@
 package android.accessibilityservice.cts;
 
 import android.accessibility.cts.common.InstrumentedAccessibilityService;
-import android.app.Instrumentation;
 
 /**
  * A stub accessibility service to install for testing gesture dispatch
  */
 public class StubFingerprintGestureService extends InstrumentedAccessibilityService {
-    public static StubFingerprintGestureService enableSelf(Instrumentation instrumentation) {
-        return InstrumentedAccessibilityService.enableService(
-                instrumentation, StubFingerprintGestureService.class);
-    }
 }

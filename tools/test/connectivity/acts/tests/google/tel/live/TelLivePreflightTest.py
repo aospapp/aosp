@@ -49,8 +49,8 @@ from acts.test_utils.tel.tel_voice_utils import phone_setup_iwlan_cellular_prefe
 
 
 class TelLivePreflightTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.user_params["telephony_auto_rerun"] = 0
 
     def _check_wfc_enabled(self, ad):

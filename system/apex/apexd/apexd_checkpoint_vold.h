@@ -22,7 +22,8 @@
 #include <utils/StrongPointer.h>
 
 #include "apexd_checkpoint.h"
-#include "status_or.h"
+
+#include <android-base/result.h>
 
 namespace android {
 
@@ -36,15 +37,16 @@ class VoldCheckpointInterface : public CheckpointInterface {
  public:
   ~VoldCheckpointInterface();
 
-  StatusOr<bool> SupportsFsCheckpoints() override;
+  android::base::Result<bool> SupportsFsCheckpoints() override;
 
-  StatusOr<bool> NeedsCheckpoint() override;
-  StatusOr<bool> NeedsRollback() override;
-  Status StartCheckpoint(int32_t retry) override;
+  android::base::Result<bool> NeedsCheckpoint() override;
+  android::base::Result<bool> NeedsRollback() override;
+  android::base::Result<void> StartCheckpoint(int32_t retry) override;
 
-  Status AbortChanges(const std::string& msg, bool numRetries) override;
+  android::base::Result<void> AbortChanges(const std::string& msg,
+                                           bool numRetries) override;
 
-  static StatusOr<VoldCheckpointInterface> Create();
+  static android::base::Result<VoldCheckpointInterface> Create();
 
   VoldCheckpointInterface(VoldCheckpointInterface&& other) noexcept;
 

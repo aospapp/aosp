@@ -25,9 +25,6 @@ from acts.test_utils.wifi.aware.AwareBaseTest import AwareBaseTest
 
 
 class InfraAssociationStressTest(AwareBaseTest):
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     # Length of test in seconds
     TEST_DURATION_SECONDS = 300
 

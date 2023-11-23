@@ -17,8 +17,10 @@
 import argparse
 import logging
 import os
+import pkgutil
 import subprocess
 import sys
+import tempfile
 
 
 def RunCommand(cmd, env):
@@ -212,15 +214,20 @@ def main(argv):
     output.truncate()
 
   # run mke2fs
-  mke2fs_env = {"MKE2FS_CONFIG" : "./system/extras/ext4_utils/mke2fs.conf"}
-  if args.timestamp:
-    mke2fs_env["E2FSPROGS_FAKE_TIME"] = args.timestamp
+  with tempfile.NamedTemporaryFile() as conf_file:
+    conf_data = pkgutil.get_data('mkuserimg_mke2fs', 'mke2fs.conf')
+    conf_file.write(conf_data)
+    conf_file.flush()
+    mke2fs_env = {"MKE2FS_CONFIG" : conf_file.name}
 
-  output, ret = RunCommand(mke2fs_cmd, mke2fs_env)
-  print(output)
-  if ret != 0:
-    logging.error("Failed to run mke2fs: " + output)
-    sys.exit(4)
+    if args.timestamp:
+      mke2fs_env["E2FSPROGS_FAKE_TIME"] = args.timestamp
+
+    output, ret = RunCommand(mke2fs_cmd, mke2fs_env)
+    print(output)
+    if ret != 0:
+      logging.error("Failed to run mke2fs: " + output)
+      sys.exit(4)
 
   # run e2fsdroid
   e2fsdroid_env = {}

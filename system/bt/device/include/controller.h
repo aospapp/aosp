@@ -22,9 +22,9 @@
 #include <stdint.h>
 
 #include "device_features.h"
-#include "hci_layer.h"
-#include "hci_packet_factory.h"
-#include "hci_packet_parser.h"
+#include "hci/include/hci_layer.h"
+#include "hci/include/hci_packet_factory.h"
+#include "hci/include/hci_packet_parser.h"
 
 static const char CONTROLLER_MODULE[] = "controller_module";
 
@@ -88,6 +88,12 @@ typedef struct controller_t {
   uint8_t (*get_le_all_initiating_phys)(void);
 
 } controller_t;
+
+namespace bluetooth {
+namespace legacy {
+const controller_t* controller_get_interface();
+}  // namespace legacy
+}  // namespace bluetooth
 
 const controller_t* controller_get_interface();
 

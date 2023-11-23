@@ -65,7 +65,7 @@ public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
         checkDex2oatAccess(true);
     }
 
-    public void testNoExecuteOnly() throws IOException {
-        noExecuteOnly();
+    public void testNetworkInterface() throws Exception {
+        checkNetworkInterface_returnsHardwareAddresses();
     }
 }

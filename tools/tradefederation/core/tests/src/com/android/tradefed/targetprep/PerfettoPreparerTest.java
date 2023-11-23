@@ -91,58 +91,6 @@ public class PerfettoPreparerTest {
         EasyMock.verify(mMockDevice);
     }
 
-    /** Test if exception is thrown if the local text perfetto file doesn't exist*/
-    @Test
-    public void testLocalTextNoExist() throws Exception {
-        mOptionSetter.setOptionValue("textproto-perfetto-config", "dummy.txt");
-        EasyMock.replay(mMockDevice);
-        try {
-            // Should throw TargetSetupError and _not_ run any post-push command
-            mPreparer.setUp(mMockDevice, null);
-            fail("TargetSetupError not thrown");
-        } catch (TargetSetupError e) {
-            // expected
-        }
-        EasyMock.verify(mMockDevice);
-    }
-
-    /** Test if exception is thrown if the local invalid text perfetto file is passed*/
-    @Test
-    public void testLocalPerfettoTextNotValid() throws Exception {
-        File perfettoTextFile = createPerfettoFile(false);
-        mOptionSetter.setOptionValue("textproto-perfetto-config", perfettoTextFile.getPath());
-        EasyMock.replay(mMockDevice);
-        try {
-            // Should throw TargetSetupError and _not_ run any post-push command
-            mPreparer.setUp(mMockDevice, null);
-            fail("TargetSetupError not thrown");
-        } catch (TargetSetupError e) {
-            // expected
-        } finally {
-            perfettoTextFile.delete();
-        }
-        EasyMock.verify(mMockDevice);
-    }
-
-    /** Test no exception is thrown if the local valid text perfetto file is passed*/
-    @Test
-    public void testLocalPerfettoTextValid() throws Exception {
-        File perfettoTextFile = createPerfettoFile(true);
-        mOptionSetter.setOptionValue("textproto-perfetto-config", perfettoTextFile.getPath());
-        EasyMock.expect(
-                mMockDevice.pushFile(
-                        (File) EasyMock.anyObject(), EasyMock.eq(DEVICE_CONFIG_PATH)))
-                .andReturn(Boolean.TRUE);
-        EasyMock.replay(mMockDevice);
-        try {
-            // Should not throw any exception.
-            mPreparer.setUp(mMockDevice, null);
-        } finally {
-            perfettoTextFile.delete();
-        }
-        EasyMock.verify(mMockDevice);
-    }
-
     /**
      * Creates perfetto valid or invalid config text file.
      *

@@ -18,6 +18,7 @@ package com.android.tradefed.testtype;
 
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
@@ -58,7 +59,8 @@ public class DynamicFileStubTest implements IRemoteTest {
     private MultiMap<File, File> mFileMultiMap = new MultiMap<>();
 
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         long startTime = System.currentTimeMillis();
         listener.testRunStarted(this.getClass().getName(), 1);
         checkDynamicFile(listener);

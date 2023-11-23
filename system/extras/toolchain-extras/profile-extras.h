@@ -16,4 +16,4 @@
 
 #include <signal.h>
 
-#define GCOV_FLUSH_SIGNAL (__SIGRTMIN + 5)
+#define COVERAGE_FLUSH_SIGNAL (__SIGRTMIN + 5)

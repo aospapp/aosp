@@ -7733,10 +7733,12 @@ bool venc_dev::venc_validate_profile_level(OMX_U32 *eProfile, OMX_U32 *eLevel)
 
         profile_tbl = (unsigned int const *)h264_profile_level_table;
         if ((*eProfile != OMX_VIDEO_AVCProfileBaseline) &&
-            (*eProfile != QOMX_VIDEO_AVCProfileConstrainedBaseline) &&
+            (*eProfile != OMX_VIDEO_AVCProfileMain) &&
             (*eProfile != OMX_VIDEO_AVCProfileHigh) &&
-            (*eProfile != QOMX_VIDEO_AVCProfileConstrainedHigh) &&
-            (*eProfile != OMX_VIDEO_AVCProfileMain)) {
+            (*eProfile != OMX_VIDEO_AVCProfileConstrainedBaseline) &&
+            (*eProfile != QOMX_VIDEO_AVCProfileConstrainedBaseline) &&
+            (*eProfile != OMX_VIDEO_AVCProfileConstrainedHigh) &&
+            (*eProfile != QOMX_VIDEO_AVCProfileConstrainedHigh)) {
             DEBUG_PRINT_LOW("Unsupported AVC profile type %u", (unsigned int)*eProfile);
             return false;
         }

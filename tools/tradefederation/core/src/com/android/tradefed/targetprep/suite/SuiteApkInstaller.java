@@ -13,18 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.tradefed.targetprep.suite;
 
-import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.OptionClass;
-import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
-import com.android.tradefed.util.FileUtil;
-
-import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -36,101 +32,19 @@ import java.io.FileNotFoundException;
 @OptionClass(alias = "apk-installer")
 public class SuiteApkInstaller extends TestAppInstallSetup {
 
-    private static final String ANDROID_TARGET_TESTCASES = "ANDROID_TARGET_OUT_TESTCASES";
-    private static final String ROOT_DIR = "ROOT_DIR";
-
-    @VisibleForTesting
-    String getEnvVariable() {
-        return System.getenv(ANDROID_TARGET_TESTCASES);
-    }
-
-    /**
-     * Try to find a path for the base root tests directory.
-     *
-     * @param buildInfo the {@link IBuildInfo} describing the build.
-     * @return a {@link File} pointing to the directory of the root tests dir.
-     * @throws FileNotFoundException if no root dir is defined.
-     */
-    @VisibleForTesting
-    protected File getRootDir(IBuildInfo buildInfo) throws FileNotFoundException {
-        if (buildInfo.getBuildAttributes().get(ROOT_DIR) != null) {
-            return new File(buildInfo.getBuildAttributes().get(ROOT_DIR));
-        }
-        throw new FileNotFoundException(String.format("%s was found.", ROOT_DIR));
-    }
-
-    /** Check within $ANDROID_TARGET_OUT_TESTCASES if the apk exists. */
-    private File getApkFromVariableTestsDir(String apkFileName) {
-        String testcasesPath = getEnvVariable();
-        if (testcasesPath != null) {
-            File testCasesFile = new File(testcasesPath);
-            // Only return the variable directory if it exists
-            if (testCasesFile.isDirectory()) {
-                return FileUtil.findFile(testCasesFile, apkFileName);
-            }
-        }
-        return null;
-    }
-
-    /** Check within {@link IDeviceBuildInfo#getTestsDir()} if the apk exists. */
-    private File getApkFromBuildTestsDir(IBuildInfo buildInfo, String apkFileName) {
-        if (buildInfo instanceof IDeviceBuildInfo) {
-            IDeviceBuildInfo deviceBuildInfo = (IDeviceBuildInfo) buildInfo;
-            File testDir = deviceBuildInfo.getTestsDir();
-            if (testDir != null && testDir.isDirectory()) {
-                return FileUtil.findFile(testDir, apkFileName);
-            }
-        }
-        return null;
-    }
-
-    /** Check within the shared resouces directory if the apk can be found. */
-    private File getApkFromBuildSharedDir(IBuildInfo buildInfo, String apkFileName) {
-        File sharedDir = buildInfo.getFile(BuildInfoFileKey.SHARED_RESOURCE_DIR);
-        if (sharedDir != null && sharedDir.isDirectory()) {
-            return FileUtil.findFile(sharedDir, apkFileName);
-        }
-        return null;
-    }
-
     /** {@inheritDoc} */
     @Override
-    protected File getLocalPathForFilename(
-            IBuildInfo buildInfo, String apkFileName, ITestDevice device) throws TargetSetupError {
+    protected File getLocalPathForFilename(TestInformation testInfo, String apkFileName)
+            throws TargetSetupError {
         File apkFile = null;
         try {
-            // check in ANDROID_TARGET_OUT_TESTCASES first.
-            apkFile = getApkFromVariableTestsDir(apkFileName);
-            if (apkFile != null && apkFile.isFile()) {
-                return apkFile;
-            }
-
-            // check from IDeviceBuildInfo.
-            apkFile = getApkFromBuildTestsDir(buildInfo, apkFileName);
-            if (apkFile != null && apkFile.isFile()) {
-                return apkFile;
-            }
-
-            // Check build info directly
-            apkFile = buildInfo.getFile(apkFileName);
-            if (apkFile != null && apkFile.isFile()) {
-                return apkFile;
-            }
-
-            // Check shared resources
-            apkFile = getApkFromBuildSharedDir(buildInfo, apkFileName);
-            if (apkFile != null && apkFile.isFile()) {
-                return apkFile;
-            }
-
-            // check ROOT_DIR
-            apkFile = FileUtil.findFile(getRootDir(buildInfo), apkFileName);
-            if (apkFile == null || !apkFile.isFile()) {
-                throw new FileNotFoundException();
-            }
+            apkFile = testInfo.getDependencyFile(apkFileName, true);
         } catch (FileNotFoundException e) {
             throw new TargetSetupError(
-                    String.format("%s not found", apkFileName), e, device.getDeviceDescriptor());
+                    String.format("%s not found", apkFileName),
+                    e,
+                    testInfo.getDevice().getDeviceDescriptor(),
+                    InfraErrorIdentifier.ARTIFACT_NOT_FOUND);
         }
         return apkFile;
     }

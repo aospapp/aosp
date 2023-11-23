@@ -20,8 +20,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.doReturn;
 
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.config.ConfigurationDef;
-import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.DynamicRemoteFileResolver.FileResolverLoader;
 import com.android.tradefed.config.DynamicRemoteFileResolver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionSetter;
@@ -30,10 +31,13 @@ import com.android.tradefed.config.remote.IRemoteFileResolver;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
+
+import com.google.common.collect.ImmutableMap;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -45,6 +49,7 @@ import org.mockito.Mockito;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.Map;
 
 /** Unit tests for {@link DeviceJUnit4ClassRunner}. */
 @RunWith(JUnit4.class)
@@ -60,40 +65,24 @@ public class DeviceJUnit4ClassRunnerTest {
         }
 
         @Override
-        OptionSetter createOptionSetter(Object obj) throws ConfigurationException {
-            return new OptionSetter(obj) {
-                @Override
-                protected DynamicRemoteFileResolver createResolver() {
-                    DynamicRemoteFileResolver mResolver =
-                            new DynamicRemoteFileResolver() {
-                                @Override
-                                protected IRemoteFileResolver getResolver(String protocol) {
-                                    if (protocol.equals(GcsRemoteFileResolver.PROTOCOL)) {
-                                        IRemoteFileResolver mockResolver =
-                                                Mockito.mock(IRemoteFileResolver.class);
-                                        try {
-                                            doReturn(new File("/downloaded/somewhere"))
-                                                    .when(mockResolver)
-                                                    .resolveRemoteFiles(
-                                                            Mockito.eq(FAKE_REMOTE_FILE_PATH),
-                                                            Mockito.any());
-                                            return mockResolver;
-                                        } catch (ConfigurationException e) {
-                                            CLog.e(e);
-                                        }
-                                    }
-                                    return null;
-                                }
-
-                                @Override
-                                protected boolean updateProtocols() {
-                                    // Do not set the static variable
-                                    return false;
-                                }
-                            };
-                    return mResolver;
-                }
-            };
+        protected DynamicRemoteFileResolver createResolver() {
+            IRemoteFileResolver mockResolver = Mockito.mock(IRemoteFileResolver.class);
+            try {
+                doReturn(new File("/downloaded/somewhere"))
+                        .when(mockResolver)
+                        .resolveRemoteFiles(Mockito.eq(FAKE_REMOTE_FILE_PATH), Mockito.any());
+            } catch (BuildRetrievalError e) {
+                CLog.e(e);
+            }
+            FileResolverLoader resolverLoader =
+                    new FileResolverLoader() {
+                        @Override
+                        public IRemoteFileResolver load(String scheme, Map<String, String> config) {
+                            return ImmutableMap.of(GcsRemoteFileResolver.PROTOCOL, mockResolver)
+                                    .get(scheme);
+                        }
+                    };
+            return new DynamicRemoteFileResolver(resolverLoader);
         }
     }
 
@@ -115,6 +104,7 @@ public class DeviceJUnit4ClassRunnerTest {
     private ITestInvocationListener mListener;
     private HostTest mHostTest;
     private ITestDevice mMockDevice;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() throws Exception {
@@ -128,6 +118,7 @@ public class DeviceJUnit4ClassRunnerTest {
         OptionSetter setter = new OptionSetter(mHostTest);
         // Disable pretty logging for testing
         setter.setOptionValue("enable-pretty-logs", "false");
+        mTestInfo = TestInformation.newBuilder().build();
     }
 
     @Test
@@ -139,7 +130,7 @@ public class DeviceJUnit4ClassRunnerTest {
         mListener.testEnded(EasyMock.eq(test1), EasyMock.<HashMap<String, Metric>>anyObject());
         mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mListener);
-        mHostTest.run(mListener);
+        mHostTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 }

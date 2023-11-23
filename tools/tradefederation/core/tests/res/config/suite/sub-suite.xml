@@ -16,7 +16,7 @@
 <configuration description="Runs a TF example suite">
     <option name="log-level" value="verbose" />
     <option name="test-suite-tag" value="test-sub-suite" />
-    <test class="com.android.tradefed.testtype.suite.TfSuiteRunner">
+    <test class="com.android.tradefed.testtype.suite.TfSuiteRunnerTest$TestTfSuiteRunner">
         <option name="suite-config-prefix" value="suite" />
         <option name="run-suite-tag" value="example-suite" />
     </test>

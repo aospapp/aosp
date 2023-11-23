@@ -116,7 +116,6 @@ FN(CString,const char*)\
 FN(String16,const String16&)\
 FN(String16,const std::unique_ptr<String16>&)\
 FN(StrongBinder,const sp<IBinder>&)\
-FN(WeakBinder,const wp<IBinder>&)\
 
   template <typename F>
   static status_t writeAnyToParcel(Parcel* parcel, const F& value) {

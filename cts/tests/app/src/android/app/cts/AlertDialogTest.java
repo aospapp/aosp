@@ -29,11 +29,10 @@ import android.content.DialogInterface;
 import android.view.KeyEvent;
 import android.widget.Button;
 
-import androidx.test.InstrumentationRegistry;
-import androidx.test.filters.FlakyTest;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 
@@ -66,7 +65,8 @@ public class AlertDialogTest {
     protected void startDialogActivity(int dialogNumber) {
         mActivity = DialogStubActivity.startDialogActivity(mActivityRule, dialogNumber);
 
-        PollingCheck.waitFor(() -> mActivity.getDialog().isShowing());
+        PollingCheck.waitFor(mActivity.getDialog()::isShowing);
+        PollingCheck.waitFor(mActivity.getDialog().getWindow().getDecorView()::hasWindowFocus);
     }
 
     @Test
@@ -96,15 +96,15 @@ public class AlertDialogTest {
 
         assertFalse(mActivity.isPositiveButtonClicked);
         performClick(mPositiveButton);
-        assertTrue(mActivity.isPositiveButtonClicked);
+        PollingCheck.waitFor(() -> mActivity.isPositiveButtonClicked);
 
         assertFalse(mActivity.isNegativeButtonClicked);
         performClick(mNegativeButton);
-        assertTrue(mActivity.isNegativeButtonClicked);
+        PollingCheck.waitFor(() -> mActivity.isNegativeButtonClicked);
 
         assertFalse(mActivity.isNeutralButtonClicked);
         performClick(mNeutralButton);
-        assertTrue(mActivity.isNeutralButtonClicked);
+        PollingCheck.waitFor(() -> mActivity.isNeutralButtonClicked);
     }
 
     @Test
@@ -137,15 +137,18 @@ public class AlertDialogTest {
 
         DialogStubActivity.buttonIndex = 0;
         performClick(mPositiveButton);
-        assertEquals(DialogInterface.BUTTON_POSITIVE, DialogStubActivity.buttonIndex);
+        PollingCheck.waitFor(() ->
+                (DialogInterface.BUTTON_POSITIVE == DialogStubActivity.buttonIndex));
 
         DialogStubActivity.buttonIndex = 0;
         performClick(mNeutralButton);
-        assertEquals(DialogInterface.BUTTON_NEUTRAL, DialogStubActivity.buttonIndex);
+        PollingCheck.waitFor(() ->
+                (DialogInterface.BUTTON_NEUTRAL == DialogStubActivity.buttonIndex));
 
         DialogStubActivity.buttonIndex = 0;
         performClick(mNegativeButton);
-        assertEquals(DialogInterface.BUTTON_NEGATIVE, DialogStubActivity.buttonIndex);
+        PollingCheck.waitFor(() ->
+                (DialogInterface.BUTTON_NEGATIVE == DialogStubActivity.buttonIndex));
     }
 
     @Test
@@ -160,7 +163,6 @@ public class AlertDialogTest {
 
     private void performClick(final Button button) throws Throwable {
         mActivityRule.runOnUiThread(() -> button.performClick());
-        mInstrumentation.waitForIdleSync();
     }
 
     @Test
@@ -175,37 +177,34 @@ public class AlertDialogTest {
         assertTrue(mActivity.getDialog().isShowing());
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testCallback() {
         startDialogActivity(DialogStubActivity.TEST_ALERTDIALOG_CALLBACK);
         assertTrue(mActivity.onCreateCalled);
 
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_0);
+        mInstrumentation.sendKeySync(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_0));
         assertTrue(mActivity.onKeyDownCalled);
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_0);
+        mInstrumentation.sendKeySync(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_0));
         assertTrue(mActivity.onKeyUpCalled);
     }
 
     @Test
-    public void testAlertDialogTheme() throws Exception {
+    public void testAlertDialogTheme() {
         startDialogActivity(DialogStubActivity.TEST_ALERTDIALOG_THEME);
         assertTrue(mActivity.getDialog().isShowing());
     }
 
     @Test
-    public void testAlertDialogCancelable() throws Exception {
+    public void testAlertDialogCancelable() {
         startDialogActivity(DialogStubActivity.TEST_ALERTDIALOG_CANCELABLE);
         assertTrue(mActivity.getDialog().isShowing());
         assertFalse(mActivity.onCancelCalled);
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
-        mInstrumentation.waitForIdleSync();
-        assertTrue(mActivity.onCancelCalled);
+        PollingCheck.waitFor(() -> mActivity.onCancelCalled);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
-    public void testAlertDialogNotCancelable() throws Exception {
+    public void testAlertDialogNotCancelable() {
         startDialogActivity(DialogStubActivity.TEST_ALERTDIALOG_NOT_CANCELABLE);
         assertTrue(mActivity.getDialog().isShowing());
         assertFalse(mActivity.onCancelCalled);

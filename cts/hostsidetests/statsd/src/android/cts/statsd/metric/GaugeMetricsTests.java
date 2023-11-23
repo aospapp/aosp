@@ -47,9 +47,6 @@ public class GaugeMetricsTests extends DeviceAtomTestCase {
   private static final int APP_BREADCRUMB_REPORTED_B_MATCH_START_ID = 2;
 
   public void testGaugeMetric() throws Exception {
-      if (statsdDisabled()) {
-        return;
-      }
       // Add AtomMatcher's.
       AtomMatcher startAtomMatcher =
           MetricsUtils.startAtomMatcher(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID);
@@ -122,36 +119,33 @@ public class GaugeMetricsTests extends DeviceAtomTestCase {
 
       StatsLogReport metricReport = getStatsLogReport();
       LogUtil.CLog.d("Got the following gauge metric data: " + metricReport.toString());
-      assertEquals(MetricsUtils.GAUGE_METRIC_ID, metricReport.getMetricId());
-      assertTrue(metricReport.hasGaugeMetrics());
+      assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.GAUGE_METRIC_ID);
+      assertThat(metricReport.hasGaugeMetrics()).isTrue();
       StatsLogReport.GaugeMetricDataWrapper gaugeData = metricReport.getGaugeMetrics();
-      assertEquals(gaugeData.getDataCount(), 1);
+      assertThat(gaugeData.getDataCount()).isEqualTo(1);
 
       int bucketCount = gaugeData.getData(0).getBucketInfoCount();
       GaugeMetricData data = gaugeData.getData(0);
-      assertTrue(bucketCount > 2);
+      assertThat(bucketCount).isGreaterThan(2);
       MetricsUtils.assertBucketTimePresent(data.getBucketInfo(0));
-      assertEquals(data.getBucketInfo(0).getAtomCount(), 1);
-      assertEquals(data.getBucketInfo(0).getAtom(0).getAppBreadcrumbReported().getLabel(), 0);
-      assertEquals(data.getBucketInfo(0).getAtom(0).getAppBreadcrumbReported().getState(),
-          AppBreadcrumbReported.State.START);
+      assertThat(data.getBucketInfo(0).getAtomCount()).isEqualTo(1);
+      assertThat(data.getBucketInfo(0).getAtom(0).getAppBreadcrumbReported().getLabel())
+              .isEqualTo(0);
+      assertThat(data.getBucketInfo(0).getAtom(0).getAppBreadcrumbReported().getState())
+              .isEqualTo(AppBreadcrumbReported.State.START);
 
       MetricsUtils.assertBucketTimePresent(data.getBucketInfo(1));
-      assertEquals(data.getBucketInfo(1).getAtomCount(), 1);
+      assertThat(data.getBucketInfo(1).getAtomCount()).isEqualTo(1);
 
       MetricsUtils.assertBucketTimePresent(data.getBucketInfo(bucketCount-1));
-      assertEquals(data.getBucketInfo(bucketCount - 1).getAtomCount(), 1);
-      assertEquals(
-          data.getBucketInfo(bucketCount - 1).getAtom(0).getAppBreadcrumbReported().getLabel(), 2);
-      assertEquals(
-          data.getBucketInfo(bucketCount - 1).getAtom(0).getAppBreadcrumbReported().getState(),
-          AppBreadcrumbReported.State.STOP);
+      assertThat(data.getBucketInfo(bucketCount-1).getAtomCount()).isEqualTo(1);
+      assertThat(data.getBucketInfo(bucketCount-1).getAtom(0).getAppBreadcrumbReported().getLabel())
+              .isEqualTo(2);
+      assertThat(data.getBucketInfo(bucketCount-1).getAtom(0).getAppBreadcrumbReported().getState())
+              .isEqualTo(AppBreadcrumbReported.State.STOP);
   }
 
   public void testPulledGaugeMetricWithActivation() throws Exception {
-      if (statsdDisabled()) {
-        return;
-      }
       // Add AtomMatcher's.
       int activationAtomMatcherId = 1;
       int activationAtomMatcherLabel = 1;
@@ -197,15 +191,11 @@ public class GaugeMetricsTests extends DeviceAtomTestCase {
 
       StatsLogReport metricReport = getStatsLogReport();
       LogUtil.CLog.d("Got the following gauge metric data: " + metricReport.toString());
-      assertEquals(MetricsUtils.GAUGE_METRIC_ID, metricReport.getMetricId());
-      assertFalse(metricReport.hasGaugeMetrics());
+      assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.GAUGE_METRIC_ID);
+      assertThat(metricReport.hasGaugeMetrics()).isFalse();
   }
 
     public void testPulledGaugeMetricWithConditionAndActivation() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
-
         final int conditionLabel = 2;
         final int activationMatcherId = 5;
         final int activationMatcherLabel = 5;

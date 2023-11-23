@@ -28,11 +28,11 @@ class DummyRequest {
 
   DummyRequest(int priority) : mPriority(priority) {}
 
-  bool isEquivalentTo(const DummyRequest& request) const {
+  bool isEquivalentTo(const DummyRequest &request) const {
     return (mPriority == request.mPriority);
   }
 
-  bool mergeWith(const DummyRequest& request) {
+  bool mergeWith(const DummyRequest &request) {
     bool newMaximal = false;
     if (request.mPriority > mPriority) {
       mPriority = request.mPriority;
@@ -77,8 +77,8 @@ TEST(RequestMultiplexer, NewLowerPriorityRequestDoesNotCauseNewMaximal) {
   {
     DummyRequest request(10);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
   }
@@ -86,8 +86,8 @@ TEST(RequestMultiplexer, NewLowerPriorityRequestDoesNotCauseNewMaximal) {
   {
     DummyRequest request(5);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_FALSE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
   }
@@ -106,8 +106,8 @@ TEST(RequestMultiplexer, AddOneRemoveMaximal) {
   DummyRequest defaultRequest;
   multiplexer.removeRequest(0, &maximalRequestChanged);
   EXPECT_TRUE(maximalRequestChanged);
-  EXPECT_TRUE(multiplexer.getCurrentMaximalRequest()
-      .isEquivalentTo(defaultRequest));
+  EXPECT_TRUE(
+      multiplexer.getCurrentMaximalRequest().isEquivalentTo(defaultRequest));
   EXPECT_TRUE(multiplexer.getRequests().empty());
 }
 
@@ -118,8 +118,8 @@ TEST(RequestMultiplexer, AddManyRemoveMaximal) {
   {
     DummyRequest request(10);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -128,8 +128,8 @@ TEST(RequestMultiplexer, AddManyRemoveMaximal) {
   {
     DummyRequest request(5);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_FALSE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 5);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -138,8 +138,8 @@ TEST(RequestMultiplexer, AddManyRemoveMaximal) {
   {
     DummyRequest request(10);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_FALSE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -160,8 +160,8 @@ TEST(RequestMultiplexer, AddManyRemoveBeforeMaximalThenRemoveMaximal) {
   {
     DummyRequest request(1);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 1);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 1);
@@ -170,8 +170,8 @@ TEST(RequestMultiplexer, AddManyRemoveBeforeMaximalThenRemoveMaximal) {
   {
     DummyRequest request(5);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 5);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 5);
@@ -180,8 +180,8 @@ TEST(RequestMultiplexer, AddManyRemoveBeforeMaximalThenRemoveMaximal) {
   {
     DummyRequest request(10);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -207,8 +207,8 @@ TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
   {
     DummyRequest request(1);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 1);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 1);
@@ -217,8 +217,8 @@ TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
   {
     DummyRequest request(5);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 5);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 5);
@@ -227,8 +227,8 @@ TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
   {
     DummyRequest request(10);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -237,8 +237,8 @@ TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
   {
     DummyRequest request(5);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_FALSE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 5);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -266,8 +266,8 @@ TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
   {
     DummyRequest request(1);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 1);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 1);
@@ -276,8 +276,8 @@ TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
   {
     DummyRequest request(5);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 5);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 5);
@@ -286,8 +286,8 @@ TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
   {
     DummyRequest request(10);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -310,8 +310,8 @@ TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
   {
     DummyRequest request(1);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 1);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 1);
@@ -320,8 +320,8 @@ TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
   {
     DummyRequest request(5);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 5);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 5);
@@ -330,8 +330,8 @@ TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
   {
     DummyRequest request(10);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -354,8 +354,8 @@ TEST(RequestMultiplexer, AddManyUpdateNewMaximal) {
   {
     DummyRequest request(1);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 1);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 1);
@@ -364,8 +364,8 @@ TEST(RequestMultiplexer, AddManyUpdateNewMaximal) {
   {
     DummyRequest request(5);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 5);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 5);
@@ -374,8 +374,8 @@ TEST(RequestMultiplexer, AddManyUpdateNewMaximal) {
   {
     DummyRequest request(10);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
     EXPECT_TRUE(maximalRequestChanged);
     EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
     EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
@@ -408,8 +408,8 @@ TEST(RequestMultiplexer, RemoveAllRequestsNonEmpty) {
   {
     DummyRequest request(1);
     bool maximalRequestChanged;
-    ASSERT_TRUE(multiplexer.addRequest(request, &index,
-                                       &maximalRequestChanged));
+    ASSERT_TRUE(
+        multiplexer.addRequest(request, &index, &maximalRequestChanged));
   }
 
   bool maximalRequestChanged;

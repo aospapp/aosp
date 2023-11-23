@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 NXP Semiconductors
+ * Copyright (C) 2012-2019 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,10 @@ using android::hardware::nfc::V1_1::NfcEvent;
 #define PN547C2_CLOCK_SETTING
 #define CORE_RES_STATUS_BYTE 3
 
+bool bEnableMfcExtns = false;
+bool bEnableMfcReader = false;
+bool bDisableLegacyMfcExtns = true;
+
 /* Processing of ISO 15693 EOF */
 extern uint8_t icode_send_eof;
 extern uint8_t icode_detected;
@@ -51,7 +55,6 @@ static uint8_t fw_download_success = 0;
 static uint8_t config_access = false;
 static uint8_t config_success = true;
 
-static bool persist_uicc_enabled =false;
 static ThreadMutex sHalFnLock;
 
 /* NCI HAL Control structure */
@@ -77,6 +80,10 @@ static uint8_t Rx_data[NCI_MAX_DATA_LEN];
 extern int phPalEse_spi_ioctl(phPalEse_ControlCode_t eControlCode,void *pDevHandle, long level);
 uint32_t timeoutTimerId = 0;
 bool nfc_debug_enabled = true;
+
+/*  Used to send Callback Transceive data during Mifare Write.
+ *  If this flag is enabled, no need to send response to Upper layer */
+bool sendRspToUpperLayer = true;
 
 phNxpNciHal_Sem_t config_data;
 
@@ -114,15 +121,16 @@ NFCSTATUS phNxpNciHal_check_clock_config(void);
 NFCSTATUS phNxpNciHal_china_tianjin_rf_setting(void);
 static void phNxpNciHal_gpio_restore(phNxpNciHal_GpioInfoState state);
 static void phNxpNciHal_initialize_debug_enabled_flag();
+static void phNxpNciHal_initialize_mifare_flag();
 NFCSTATUS phNxpNciHal_nfcc_core_reset_init();
 NFCSTATUS phNxpNciHal_getChipInfoInFwDnldMode(void);
 static NFCSTATUS phNxpNciHalRFConfigCmdRecSequence();
 static NFCSTATUS phNxpNciHal_CheckRFCmdRespStatus();
-static void phNxpNciHal_getPersistUiccSetting();
 int check_config_parameter();
-void phNxpNciHal_phase_tirm_offset_sign_update();
+#ifdef FactoryOTA
 void phNxpNciHal_isFactoryOTAModeActive();
 static NFCSTATUS phNxpNciHal_disableFactoryOTAMode(void);
+#endif
 /******************************************************************************
  * Function         phNxpNciHal_initialize_debug_enabled_flag
  *
@@ -571,6 +579,9 @@ int phNxpNciHal_MinOpen (){
   /* initialize trace level */
   phNxpLog_InitializeLogLevel();
 
+  /* initialize Mifare flags*/
+  phNxpNciHal_initialize_mifare_flag();
+
   /*Create the timer for extns write response*/
   timeoutTimerId = phOsalNfc_Timer_Create();
 
@@ -587,7 +598,8 @@ int phNxpNciHal_MinOpen (){
 
   /*Init binary semaphore for Spi Nfc synchronization*/
   if (0 != sem_init(&nxpncihal_ctrl.syncSpiNfc, 0, 1)) {
-    wConfigStatus = NFCSTATUS_FAILED;
+    NXPLOG_NCIHAL_E("sem_init() FAiled, errno = 0x%02X", errno);
+    goto clean_and_return;
   }
 
   /* By default HAL status is HAL_STATUS_OPEN */
@@ -603,11 +615,11 @@ int phNxpNciHal_MinOpen (){
     NXPLOG_NCIHAL_D("malloc of nfc_dev_node failed ");
     goto clean_and_return;
   } else if (!GetNxpStrValue(NAME_NXP_NFC_DEV_NODE, nfc_dev_node,
-                             sizeof(nfc_dev_node))) {
+                             max_len)) {
     NXPLOG_NCIHAL_D(
         "Invalid nfc device node name keeping the default device node "
         "/dev/pn54x");
-    strcpy(nfc_dev_node, "/dev/pn54x");
+    strlcpy(nfc_dev_node, "/dev/pn54x", (max_len * sizeof(char)));
   }
 
   /* Configure hardware link */
@@ -709,6 +721,9 @@ init_retry:
   phNxpNciHal_enable_i2c_fragmentation();
   /*Get FW version from device*/
   status = phDnldNfc_InitImgInfo();
+  if (status != NFCSTATUS_SUCCESS) {
+    NXPLOG_NCIHAL_E("Image information extraction Failed!!");
+  }
   NXPLOG_NCIHAL_D("FW version for FW file = 0x%x", wFwVer);
   NXPLOG_NCIHAL_D("FW version from device = 0x%x", wFwVerRsp);
   if ((wFwVerRsp & 0x0000FFFF) == wFwVer) {
@@ -886,6 +901,25 @@ static void phNxpNciHal_open_complete(NFCSTATUS status) {
  *
  ******************************************************************************/
 int phNxpNciHal_write(uint16_t data_len, const uint8_t* p_data) {
+  if (bDisableLegacyMfcExtns && bEnableMfcExtns && p_data[0] == 0x00) {
+    return NxpMfcReaderInstance.Write(data_len, p_data);
+  }
+  return phNxpNciHal_write_internal(data_len, p_data);
+}
+
+/******************************************************************************
+ * Function         phNxpNciHal_write_internal
+ *
+ * Description      This function write the data to NFCC through physical
+ *                  interface (e.g. I2C) using the PN54X driver interface.
+ *                  Before sending the data to NFCC, phNxpNciHal_write_ext
+ *                  is called to check if there is any extension processing
+ *                  is required for the NCI packet being sent out.
+ *
+ * Returns          It returns number of bytes successfully written to NFCC.
+ *
+ ******************************************************************************/
+int phNxpNciHal_write_internal(uint16_t data_len, const uint8_t* p_data) {
   NFCSTATUS status = NFCSTATUS_FAILED;
   static phLibNfc_Message_t msg;
   if (nxpncihal_ctrl.halStatus != HAL_STATUS_OPEN) {
@@ -901,7 +935,10 @@ int phNxpNciHal_write(uint16_t data_len, const uint8_t* p_data) {
   nxpncihal_ctrl.cmd_len = data_len;
 #ifdef P2P_PRIO_LOGIC_HAL_IMP
   /* Specific logic to block RF disable when P2P priority logic is busy */
-  if (p_data[0] == 0x21 && p_data[1] == 0x06 && p_data[2] == 0x01 &&
+  if (data_len < NORMAL_MODE_HEADER_LEN) {
+  /* Avoid OOB Read */
+    android_errorWriteLog(0x534e4554, "128530069");
+  } else if (p_data[0] == 0x21 && p_data[1] == 0x06 && p_data[2] == 0x01 &&
       EnableP2P_PrioLogic == true) {
     NXPLOG_NCIHAL_D("P2P priority logic busy: Disable it.");
     phNxpNciHal_clean_P2P_Prio();
@@ -931,7 +968,10 @@ int phNxpNciHal_write(uint16_t data_len, const uint8_t* p_data) {
   if (icode_send_eof == 1) {
     usleep(10000);
     icode_send_eof = 2;
-    phNxpNciHal_send_ext_cmd(3, cmd_icode_eof);
+    status = phNxpNciHal_send_ext_cmd(3, cmd_icode_eof);
+    if (status != NFCSTATUS_SUCCESS) {
+      NXPLOG_NCIHAL_E("ICODE end of frame command failed");
+    }
   }
 
 clean_and_return:
@@ -1135,6 +1175,13 @@ static void phNxpNciHal_read_complete(void* pContext,
       /* Unlock semaphore waiting for only  ntf*/
       SEM_POST(&(nxpncihal_ctrl.ext_cb_data));
       nxpncihal_ctrl.nci_info.wait_for_ntf = FALSE;
+    } else if (bDisableLegacyMfcExtns && !sendRspToUpperLayer &&
+               (nxpncihal_ctrl.p_rx_data[0x00] == 0x00)) {
+      sendRspToUpperLayer = true;
+      NFCSTATUS mfcRspStatus = NxpMfcReaderInstance.CheckMfcResponse(
+          nxpncihal_ctrl.p_rx_data, nxpncihal_ctrl.rx_data_len);
+      NXPLOG_NCIHAL_D("Mfc Response Status = 0x%x", mfcRspStatus);
+      SEM_POST(&(nxpncihal_ctrl.ext_cb_data));
     }
     /* Read successful send the event to higher layer */
     else if ((nxpncihal_ctrl.p_nfc_stack_data_cback != NULL) &&
@@ -1393,10 +1440,6 @@ int phNxpNciHal_core_initialized(uint8_t* p_core_init_rsp_params) {
     retlen = 0;
     fw_download_success = 0;
 
-    if(GetNxpNumValue(NAME_NXP_PHASE_TIRM_OFFSET_SIGN_UPDATE, &num, sizeof(num))) {
-      if(num != 0) phNxpNciHal_phase_tirm_offset_sign_update();
-    }
-
     NXPLOG_NCIHAL_D("Performing TVDD Settings");
     isfound = GetNxpNumValue(NAME_NXP_EXT_TVDD_CFG, &num, sizeof(num));
     if (isfound > 0) {
@@ -1584,19 +1627,6 @@ int phNxpNciHal_core_initialized(uint8_t* p_core_init_rsp_params) {
       }
     }
 
-    static uint8_t cmd_set_EE[] = {0x20, 0x02, 0x09, 0x02, 0xA0, 0x0EC,
-                                0x01, 0x00, 0xA0, 0xED, 0x01, 0x01};
-    if (persist_uicc_enabled) {
-      cmd_set_EE[7] = 0x01;
-      cmd_set_EE[11] = 0x00;
-    }
-    status = phNxpNciHal_send_ext_cmd(sizeof(cmd_set_EE), cmd_set_EE);
-    if (status != NFCSTATUS_SUCCESS) {
-      NXPLOG_NCIHAL_E("NXP configure UICC/eSE failed.");
-      retry_core_init_cnt++;
-      goto retry_core_init;
-    }
-
     retlen = 0;
     config_access = false;
     isfound = GetNxpByteArrayValue(NAME_NXP_CORE_RF_FIELD, (char*)buffer,
@@ -1654,7 +1684,8 @@ int phNxpNciHal_core_initialized(uint8_t* p_core_init_rsp_params) {
     status = phNxpNciHal_china_tianjin_rf_setting();
     if (status != NFCSTATUS_SUCCESS) {
       NXPLOG_NCIHAL_E("phNxpNciHal_china_tianjin_rf_setting failed");
-      return NFCSTATUS_FAILED;
+      retry_core_init_cnt++;
+      goto retry_core_init;
     }
     // Update eeprom value
     status = phNxpNciHal_set_mw_eeprom();
@@ -1896,35 +1927,7 @@ int phNxpNciHal_core_initialized(uint8_t* p_core_init_rsp_params) {
   return NFCSTATUS_SUCCESS;
 }
 
-void phNxpNciHal_phase_tirm_offset_sign_update() {
-  uint8_t phase_tirm_offset_read[] = {0x20, 0x03, 0x03, 0x01, 0xA0, 0x17};
-  uint8_t phase_tirm_offset_write[] = {0x20, 0x02, 0x05, 0x01, 0xA0, 0x17, 0x01, 0x80};
-  NFCSTATUS status = NFCSTATUS_FAILED;
-
-  NXPLOG_NCIHAL_D("check A017 mode status");
-
-  status = phNxpNciHal_send_ext_cmd(sizeof(phase_tirm_offset_read), phase_tirm_offset_read);
-
-  if (status == NFCSTATUS_SUCCESS) {
-    if((nxpncihal_ctrl.p_rx_data[8] & 0x40) == 0x40) {
-      NXPLOG_NCIHAL_D("Set new tirm offset sing update");
-      phase_tirm_offset_write[7] |= nxpncihal_ctrl.p_rx_data[8] & 0x3F;
-      status = phNxpNciHal_send_ext_cmd(sizeof(phase_tirm_offset_write), phase_tirm_offset_write);
-      if (status == NFCSTATUS_SUCCESS) {
-        NXPLOG_NCIHAL_D("Phase tirm offset updated");
-      } else {
-        NXPLOG_NCIHAL_E("Phase tirm offset update error");
-      }
-    } else {
-      NXPLOG_NCIHAL_D("Phase tirm offset OK");
-    }
-  } else {
-    NXPLOG_NCIHAL_E("Fail to get phase tirm offset status");
-  }
-  return;
-}
-
-
+#ifdef FactoryOTA
 void phNxpNciHal_isFactoryOTAModeActive() {
   uint8_t check_factoryOTA[] = {0x20, 0x03, 0x05, 0x02, 0xA0, 0x08, 0xA0, 0x88};
   NFCSTATUS status = NFCSTATUS_FAILED;
@@ -1962,6 +1965,7 @@ NFCSTATUS phNxpNciHal_disableFactoryOTAMode() {
   }
   return status;
 }
+#endif
 
 /******************************************************************************
  * Function         phNxpNciHal_CheckRFCmdRespStatus
@@ -2117,7 +2121,7 @@ int phNxpNciHal_close(bool bShutdown) {
       NXPLOG_NCIHAL_E("CMD_VEN_DISABLE_NCI: Failed");
     }
   }
-
+#ifdef FactoryOTA
   char valueStr[PROPERTY_VALUE_MAX] = {0};
   bool factoryOTA_terminate = false;
   int len = property_get("persist.factoryota.reboot", valueStr, "normal");
@@ -2129,7 +2133,7 @@ int phNxpNciHal_close(bool bShutdown) {
     phNxpNciHal_disableFactoryOTAMode();
     phNxpNciHal_isFactoryOTAModeActive();
   }
-
+#endif
   nxpncihal_ctrl.halStatus = HAL_STATUS_CLOSE;
 
   status = phNxpNciHal_send_ext_cmd(sizeof(cmd_reset_nci), cmd_reset_nci);
@@ -2233,8 +2237,6 @@ void phNxpNciHal_getVendorConfig(android::hardware::nfc::V1_1::NfcConfig& config
   long retlen = 0;
   memset(&config, 0x00, sizeof(android::hardware::nfc::V1_1::NfcConfig));
 
-  phNxpNciHal_getPersistUiccSetting();
-
   config.nfaPollBailOutMode = true;
   if (GetNxpNumValue(NAME_ISO_DEP_MAX_TRANSCEIVE, &num, sizeof(num))) {
     config.maxIsoDepTransceiveLength = num;
@@ -2244,10 +2246,6 @@ void phNxpNciHal_getVendorConfig(android::hardware::nfc::V1_1::NfcConfig& config
   }
   if (GetNxpNumValue(NAME_DEFAULT_NFCF_ROUTE, &num, sizeof(num))) {
     config.defaultOffHostRouteFelica = num;
-  }
-  if (persist_uicc_enabled) {
-    //Overwrite Felica route to UICC
-    config.defaultOffHostRouteFelica = config.defaultOffHostRoute;
   }
   if (GetNxpNumValue(NAME_DEFAULT_SYS_CODE_ROUTE, &num, sizeof(num))) {
     config.defaultSystemCodeRoute = num;
@@ -3025,8 +3023,12 @@ void phNxpNciHal_enable_i2c_fragmentation() {
   static uint8_t cmd_init_nci2_0[] = {0x20, 0x01, 0x02, 0x00, 0x00};
   static uint8_t get_i2c_fragmentation_cmd[] = {0x20, 0x03, 0x03,
                                                 0x01, 0xA0, 0x05};
-  GetNxpNumValue(NAME_NXP_I2C_FRAGMENTATION_ENABLED, (void*)&i2c_status,
-                 sizeof(i2c_status));
+  if (GetNxpNumValue(NAME_NXP_I2C_FRAGMENTATION_ENABLED, (void*)&i2c_status,
+                 sizeof(i2c_status)) == true) {
+    NXPLOG_FWDNLD_D("I2C status : %ld",i2c_status);
+  } else {
+    NXPLOG_FWDNLD_E("I2C status read not succeeded. Default value : %ld",i2c_status);
+  }
   status = phNxpNciHal_send_ext_cmd(sizeof(get_i2c_fragmentation_cmd),
                                     get_i2c_fragmentation_cmd);
   if (status != NFCSTATUS_SUCCESS) {
@@ -3166,23 +3168,6 @@ void phNxpNciHal_configFeatureList(uint8_t* msg, uint16_t msg_len) {
 }
 
 /******************************************************************************
- * Function         phNxpNciHal_getPersistUiccSetting
- *
- * Description      This function is called to get system property for persist uicc feature.
- *
- * Returns          void.
- *
- ******************************************************************************/
-void phNxpNciHal_getPersistUiccSetting() {
-  char valueStr[PROPERTY_VALUE_MAX] = {0};
-  int len = property_get("persist.vendor.nfc.uicc_enabled", valueStr, "false");
-  if (len > 0) {
-    persist_uicc_enabled = (len == 4 && (memcmp(valueStr, "true", len) == 0)) ? true : false;
-  }
-  NXPLOG_NCIHAL_D("persist_uicc_enabled : %d", persist_uicc_enabled);
-}
-
-/******************************************************************************
  * Function         phNxpNciHal_print_res_status
  *
  * Description      This function is called to process the response status
@@ -3247,5 +3232,29 @@ static void phNxpNciHal_print_res_status(uint8_t* p_rx_data, uint16_t* p_len) {
       NXPLOG_NCIHAL_W("Invalid Data from config file.");
       config_success = false;
     }
+  }
+}
+
+/******************************************************************************
+ * Function         phNxpNciHal_initialize_mifare_flag
+ *
+ * Description      This function gets the value for Mfc flags.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void phNxpNciHal_initialize_mifare_flag() {
+  unsigned long num = 0;
+  bEnableMfcReader = false;
+  bDisableLegacyMfcExtns = true;
+  //1: Enable Mifare Classic protocol in RF Discovery.
+  //0: Remove Mifare Classic protocol in RF Discovery.
+  if(GetNxpNumValue(NAME_MIFARE_READER_ENABLE, &num, sizeof(num))) {
+    bEnableMfcReader = (num == 0) ? false : true;
+  }
+  //1: Use legacy JNI MFC extns.
+  //0: Disable legacy JNI MFC extns, use hal MFC Extns instead.
+  if(GetNxpNumValue(NAME_LEGACY_MIFARE_READER, &num, sizeof(num))) {
+    bDisableLegacyMfcExtns = (num == 0) ? true : false;
   }
 }

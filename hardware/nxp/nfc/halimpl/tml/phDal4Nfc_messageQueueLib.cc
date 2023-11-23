@@ -59,7 +59,7 @@ intptr_t phDal4Nfc_msgget(key_t key, int msgflg) {
       (phDal4Nfc_message_queue_t*)malloc(sizeof(phDal4Nfc_message_queue_t));
   if (pQueue == NULL) return -1;
   memset(pQueue, 0, sizeof(phDal4Nfc_message_queue_t));
-  if (pthread_mutex_init(&pQueue->nCriticalSectionMutex, NULL) == -1) {
+  if (pthread_mutex_init(&pQueue->nCriticalSectionMutex, NULL) != 0) {
     free(pQueue);
     return -1;
   }

@@ -18,9 +18,9 @@ package android.print.cts;
 
 import static org.junit.Assert.fail;
 
+import android.platform.helpers.exceptions.TestHelperException;
 import android.print.PrintManager;
 import android.print.test.BasePrintTest;
-import android.support.test.uiautomator.UiObjectNotFoundException;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -77,16 +77,16 @@ public class InstallBehavior extends BasePrintTest {
         try {
             selectPrinter("ExternalServicePrinter", 500);
             fail();
-        } catch (UiObjectNotFoundException expected) {
+        } catch (TestHelperException expected) {
             // expected
         }
 
         SystemUtil.runShellCommand(getInstrumentation(),
                 "pm install /data/local/tmp/cts/print/CtsExternalPrintService.apk");
 
-        selectPrinterSpinnerOpen("ExternalServicePrinter", OPERATION_TIMEOUT_MILLIS);
+        selectPrinter("ExternalServicePrinter", OPERATION_TIMEOUT_MILLIS);
 
         // Exit print preview and thereby end printing
-        getUiDevice().pressBack();
+        mPrintHelper.cancelPrinting();
     }
 }

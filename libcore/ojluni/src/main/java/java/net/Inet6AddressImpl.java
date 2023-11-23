@@ -27,7 +27,7 @@ package java.net;
 import android.system.ErrnoException;
 import android.system.GaiException;
 import android.system.StructAddrinfo;
-import android.system.StructIcmpHdr;
+import android.system.IcmpHeaders;
 
 import dalvik.system.BlockGuard;
 
@@ -258,12 +258,12 @@ class Inet6AddressImpl implements InetAddressImpl {
             byte[] packet;
 
             // ICMP is unreliable, try sending requests every second until timeout.
-            for (int to = timeout, seq = 0; to > 0; ++seq) {
+            for (int to = timeout, seq = 1; to > 0; ++seq) {
                 int sockTo = to >= 1000 ? 1000 : to;
 
                 IoBridge.setSocketOption(fd, SocketOptions.SO_TIMEOUT, sockTo);
 
-                packet = StructIcmpHdr.IcmpEchoHdr(isIPv4, seq).getBytes();
+                packet = IcmpHeaders.createIcmpEchoHdr(isIPv4, seq);
                 IoBridge.sendto(fd, packet, 0, packet.length, 0, addr, 0);
                 final int icmpId = IoBridge.getLocalInetSocketAddress(fd).getPort();
 
@@ -277,11 +277,11 @@ class Inet6AddressImpl implements InetAddressImpl {
                     if (receivedPacket.getAddress().equals(addr)
                             && received[0] == expectedType
                             && received[4] == (byte) (icmpId >> 8)
-                            && received[5] == (byte) icmpId
-                            && received[6] == (byte) (seq >> 8)
-                            && received[7] == (byte) seq) {
-                        // This is the packet we're expecting.
-                        return true;
+                            && received[5] == (byte) icmpId) {
+                        int receivedSequence = ((received[6] & 0xff) << 8) + (received[7] & 0xff);
+                        if (receivedSequence <= seq) {
+                            return true;
+                        }
                     }
                 }
                 to -= sockTo;

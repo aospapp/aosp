@@ -33,6 +33,10 @@ struct MemoryType : public Type {
 
     std::string getVtsType() const override;
 
+    std::string getJavaType(bool forInitializer) const override;
+
+    std::string getJavaSuffix() const override;
+
     void emitReaderWriter(
             Formatter &out,
             const std::string &name,
@@ -53,6 +57,26 @@ struct MemoryType : public Type {
             ErrorMode mode,
             const std::string &parentName,
             const std::string &offsetText) const override;
+
+    void emitJavaReaderWriter(Formatter& out,
+                              const std::string& parcelObj,
+                              const std::string& argName,
+                              bool isReader) const override;
+
+    void emitJavaFieldInitializer(
+            Formatter &out, const std::string &fieldName) const override;
+
+    void emitJavaFieldDefaultInitialValue(
+            Formatter &out, const std::string &declaredFieldName) const override;
+
+    void emitJavaFieldReaderWriter(
+        Formatter& out,
+        size_t depth,
+        const std::string& parcelName,
+        const std::string& blobName,
+        const std::string& fieldName,
+        const std::string& offset,
+        bool isReader) const override;
 
     bool needsEmbeddedReadWrite() const override;
     bool resultNeedsDeref() const override;

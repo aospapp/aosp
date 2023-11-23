@@ -23,7 +23,7 @@ import static android.view.KeyEvent.KEYCODE_SLEEP;
 import static android.view.KeyEvent.KEYCODE_WAKEUP;
 import static android.view.KeyEvent.KEYCODE_WINDOW;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import android.app.KeyguardManager;
 import android.graphics.Point;
@@ -66,6 +66,10 @@ public class UiDeviceUtils {
         getDevice().pressEnter();
     }
 
+    /**
+     * Simulates a pressed event of {@link KeyEvent#KEYCODE_HOME}. Note this will stop app switches
+     * for 5s (see android.permission.STOP_APP_SWITCHES).
+     */
     public static void pressHomeButton() {
         if (DEBUG) Log.d(TAG, "pressHomeButton");
         getDevice().pressHome();

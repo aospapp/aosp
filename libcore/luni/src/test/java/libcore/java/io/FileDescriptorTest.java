@@ -16,13 +16,18 @@
 
 package libcore.java.io;
 
+import android.system.Os;
+
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.ServerSocket;
 import junit.framework.TestCase;
+
+import static org.junit.Assert.assertNotEquals;
 
 public class FileDescriptorTest extends TestCase {
   public void testReadOnlyFileDescriptorSync() throws Exception {
@@ -39,5 +44,32 @@ public class FileDescriptorTest extends TestCase {
     ServerSocket s = new ServerSocket();
     assertTrue(s.getImpl().getFD$().isSocket$());
     s.close();
+  }
+
+  public void testStaticFileDescriptors() {
+    assertTrue(FileDescriptor.in.valid());
+    assertTrue(FileDescriptor.out.valid());
+    assertTrue(FileDescriptor.err.valid());
+  }
+
+  public void testFileDescriptorCloneForFork() throws Exception {
+    FileDescriptor [] sources = { FileDescriptor.in, FileDescriptor.out, FileDescriptor.err };
+    for (FileDescriptor source : sources) {
+      // Create a new file descriptor and set it's native descriptor to each of the well
+      // known descriptors in FileDescriptor.
+      FileDescriptor target = new FileDescriptor();
+      target.setInt$(source.getInt$());
+      assertEquals(target.getInt$(), source.getInt$());
+
+      // Clone file descriptor, this creates a native file descriptor.
+      target.cloneForFork();
+      assertTrue(source.valid());
+      assertTrue(target.valid());
+      assertNotEquals(target.getInt$(), source.getInt$());
+
+      // Clean-up native resource we allocated in cloneForFork. Os.close() may throw
+      // an ErrnoException.
+      Os.close(target);
+    }
   }
 }

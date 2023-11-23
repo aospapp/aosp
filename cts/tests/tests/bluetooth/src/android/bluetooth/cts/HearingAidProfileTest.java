@@ -62,15 +62,6 @@ public class HearingAidProfileTest extends AndroidTestCase {
     private BluetoothAdapter mBluetoothAdapter;
     private BroadcastReceiver mIntentReceiver;
 
-    private BroadcastReceiver mAdapterIntentReceiver;
-
-    private Condition mConditionAdapterIsEnabled;
-    private ReentrantLock mAdapterStateEnablinglock;
-
-    private Condition mConditionAdapterIsDisabled;
-    private ReentrantLock mAdapterStateDisablinglock;
-    private boolean mAdapterOffSignalReceived;
-
     private Condition mConditionProfileIsConnected;
     private ReentrantLock mProfileConnectedlock;
     private boolean mIsProfileReady;
@@ -89,22 +80,13 @@ public class HearingAidProfileTest extends AndroidTestCase {
                 Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = manager.getAdapter();
 
-        mAdapterStateEnablinglock = new ReentrantLock();
-        mConditionAdapterIsEnabled  = mAdapterStateEnablinglock.newCondition();
-        mAdapterStateDisablinglock = new ReentrantLock();
-        mConditionAdapterIsDisabled  = mAdapterStateDisablinglock.newCondition();
-        mProfileConnectedlock = new ReentrantLock();
-        mConditionProfileIsConnected  = mProfileConnectedlock.newCondition();
-
-        mAdapterIntentReceiver = new AdapterIntentReceiver();
-        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        mContext.registerReceiver(mAdapterIntentReceiver, filter);
-
-        if (!enableAdapter()) {
+        if (!BTAdapterUtils.enableAdapter(mBluetoothAdapter, mContext)) {
             Log.e(TAG, "Unable to enable Bluetooth Adapter!");
             assertTrue(mBluetoothAdapter.isEnabled());
         }
 
+        mProfileConnectedlock = new ReentrantLock();
+        mConditionProfileIsConnected  = mProfileConnectedlock.newCondition();
         mIsProfileReady = false;
         mService = null;
         mIsHearingAidSupported = mBluetoothAdapter.getProfileProxy(getContext(),
@@ -117,12 +99,10 @@ public class HearingAidProfileTest extends AndroidTestCase {
     public void tearDown() {
         if (!mIsBleSupported) return;
 
-        if (!disableAdapter()) {
+        if (!BTAdapterUtils.disableAdapter(mBluetoothAdapter, mContext)) {
             Log.e(TAG, "Unable to disable Bluetooth Adapter!");
             assertTrue(mBluetoothAdapter.isEnabled());
         }
-
-        mContext.unregisterReceiver(mAdapterIntentReceiver);
     }
 
     /**
@@ -244,10 +224,10 @@ public class HearingAidProfileTest extends AndroidTestCase {
         mContext.registerReceiver(mIntentReceiver, filter);
 
         Log.d(TAG, "test_getConnectionStateChangedIntent: disable adapter and wait");
-        assertTrue(disableAdapter());
+        assertTrue(BTAdapterUtils.disableAdapter(mBluetoothAdapter, mContext));
 
         Log.d(TAG, "test_getConnectionStateChangedIntent: enable adapter and wait");
-        assertTrue(enableAdapter());
+        assertTrue(BTAdapterUtils.enableAdapter(mBluetoothAdapter, mContext));
 
         int sanityCount = WAIT_FOR_INTENT_TIMEOUT_MS;
         while ((numDevices != mIntentCallbackDeviceList.size()) && (sanityCount > 0)) {
@@ -265,86 +245,6 @@ public class HearingAidProfileTest extends AndroidTestCase {
         for (BluetoothDevice device : mIntentCallbackDeviceList) {
             assertTrue(bondedDeviceList.contains(device));
         }
-    }
-
-    private class AdapterIntentReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(intent.getAction())) {
-                int previousState = intent.getIntExtra(BluetoothAdapter.EXTRA_PREVIOUS_STATE, -1);
-                int newState = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
-                Log.d(TAG, "Previous state: " + previousState + " New state: " + newState);
-
-                if (newState == BluetoothAdapter.STATE_ON) {
-                    mAdapterStateEnablinglock.lock();
-                    try {
-                        mConditionAdapterIsEnabled.signal();
-                    } finally {
-                        mAdapterStateEnablinglock.unlock();
-                    }
-                } else if (newState == BluetoothAdapter.STATE_OFF) {
-                    mAdapterStateDisablinglock.lock();
-                    mAdapterOffSignalReceived = true;
-                    try {
-                        mConditionAdapterIsDisabled.signal();
-                    } finally {
-                        mAdapterStateDisablinglock.unlock();
-                    }
-                }
-            }
-        }
-    }
-
-    // Enables the Bluetooth Adapter. Return true if it is already enabled or is enabled.
-    private boolean enableAdapter() {
-        if (mBluetoothAdapter.isEnabled()) return true;
-
-        mBluetoothAdapter.enable();
-        mAdapterStateEnablinglock.lock();
-        try {
-            // Wait for the Adapter to be enabled
-            while (!mBluetoothAdapter.isEnabled()) {
-                if (!mConditionAdapterIsEnabled.await(
-                    ADAPTER_ENABLE_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                    // Timeout
-                    Log.e(TAG, "Timeout while waiting for the Bluetooth Adapter enable");
-                    break;
-                } // else spurious wakeups
-            }
-        } catch(InterruptedException e) {
-            Log.e(TAG, "enableAdapter: interrrupted");
-        } finally {
-            mAdapterStateEnablinglock.unlock();
-        }
-        if (!mBluetoothAdapter.isEnabled()) {
-            return false;
-        }
-        return true;
-    }
-
-    // Disable the Bluetooth Adapter. Return true if it is already disabled or is disabled.
-    private boolean disableAdapter() {
-        // Note: !mBluetoothAdapter.isEnabled() is not an accurate indication that the
-        // BluetoothAdapter is OFF.
-        mBluetoothAdapter.disable();
-        mAdapterOffSignalReceived = false;
-        mAdapterStateDisablinglock.lock();
-        try {
-            // Wait for the Adapter to be disabled
-            while (!mAdapterOffSignalReceived) {
-                if (!mConditionAdapterIsDisabled.await(
-                    ADAPTER_DISABLE_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                    // Timeout
-                    Log.e(TAG, "Timeout while waiting for the Bluetooth Adapter disable");
-                    break;
-                } // else spurious wakeups
-            }
-        } catch(InterruptedException e) {
-            Log.e(TAG, "enableAdapter: interrrupted");
-        } finally {
-            mAdapterStateDisablinglock.unlock();
-        }
-        return mAdapterOffSignalReceived;
     }
 
     private boolean waitForProfileConnect() {

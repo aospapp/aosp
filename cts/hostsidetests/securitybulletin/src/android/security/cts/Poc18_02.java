@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,26 +17,33 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc18_02 extends SecurityTestCase {
 
     /**
      * b/68953950
      */
-     @SecurityTest(minPatchLevel = "2018-02")
-     public void testPocCVE_2017_13232() throws Exception {
-       AdbUtils.runCommandLine("logcat -c" , getDevice());
-       AdbUtils.runPocNoOutput("CVE-2017-13232", getDevice(), 60);
-       String logcatOutput = AdbUtils.runCommandLine("logcat -d", getDevice());
-       assertNotMatchesMultiLine("APM_AudioPolicyManager: getOutputForAttr\\(\\) " +
-                                 "invalid attributes: usage=.{1,15} content=.{1,15} " +
-                                 "flags=.{1,15} tags=\\[A{256,}\\]", logcatOutput);
-     }
+    @Test
+    @SecurityTest(minPatchLevel = "2018-02")
+    public void testPocCVE_2017_13232() throws Exception {
+        AdbUtils.runCommandLine("logcat -c" , getDevice());
+        AdbUtils.runPocNoOutput("CVE-2017-13232", getDevice(), 60);
+        String logcatOutput = AdbUtils.runCommandLine("logcat -d", getDevice());
+        assertNotMatchesMultiLine("APM_AudioPolicyManager: getOutputForAttr\\(\\) " +
+                                  "invalid attributes: usage=.{1,15} content=.{1,15} " +
+                                  "flags=.{1,15} tags=\\[A{256,}\\]", logcatOutput);
+    }
 
     /**
      *  b/65853158
      */
+    @Test
     @SecurityTest(minPatchLevel = "2018-02")
     public void testPocCVE_2017_13273() throws Exception {
         AdbUtils.runCommandLine("dmesg -c" ,getDevice());

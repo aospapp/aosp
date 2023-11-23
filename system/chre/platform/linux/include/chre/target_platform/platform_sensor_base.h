@@ -17,9 +17,7 @@
 #ifndef CHRE_PLATFORM_LINUX_PLATFORM_SENSOR_BASE_H_
 #define CHRE_PLATFORM_LINUX_PLATFORM_SENSOR_BASE_H_
 
-#include <cstddef>
-
-#include "chre/core/sensor_type.h"
+#include "chre_api/chre/sensor.h"
 
 namespace chre {
 
@@ -28,19 +26,36 @@ namespace chre {
  */
 class PlatformSensorBase {
  public:
-  //! The maximum size of a Linux sensor string.
-  static constexpr size_t kMaxSensorNameSize = 32;
+  /**
+   * Initializes the members of PlatformSensorBase.
+   */
+  void initBase(struct chreSensorInfo *sensorInfo, uint32_t sensorHandle) {
+    mSensorInfo = sensorInfo;
+    mSensorHandle = sensorHandle;
+  }
 
-  //! The name of this sensor for the Linux platform.
-  char sensorName[kMaxSensorNameSize];
+  //! The sensor information for this sensor.
+  struct chreSensorInfo *mSensorInfo;
+
+  //! The sensor handle for this sensor.
+  uint32_t mSensorHandle;
 
   /**
-   * Copies the supplied event to the sensor's last event and marks last event
-   * valid.
+   * Sets the sensor information of this sensor in the CHRE API format.
    *
-   * @param event The pointer to the event to copy from.
+   * @param sensorInfo Information about this sensor.
    */
-  void setLastEvent(const ChreSensorData *event);
+  void setSensorInfo(struct chreSensorInfo *sensorInfo) {
+    mSensorInfo = sensorInfo;
+  }
+
+  void setSensorHandle(uint32_t sensorHandle) {
+    mSensorHandle = sensorHandle;
+  }
+
+  uint32_t getSensorHandle() const {
+    return mSensorHandle;
+  }
 };
 
 }  // namespace chre

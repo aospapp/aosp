@@ -18,40 +18,30 @@
         ]
     },
     "initialState": {
-        "stacks": [
+        "tasks": [
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTaskActivity",
-                                "state": "RESUMED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$SingleTaskActivity",
+                        "state": "RESUMED"
                     }
-                ],
-                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTaskActivity"
+                ]
             }
         ]
     },
     "endState": {
-        "stacks": [
+        "tasks": [
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity",
-                                "state": "RESUMED"
-                            },
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTaskActivity",
-                                "state": "STOPPED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$RegularActivity",
+                        "state": "RESUMED"
+                    },
+                    {
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$SingleTaskActivity",
+                        "state": "STOPPED"
                     }
-                ],
-                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity"
+                ]
             }
         ]
     }

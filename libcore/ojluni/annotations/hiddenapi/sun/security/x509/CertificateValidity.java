@@ -35,7 +35,7 @@ public class CertificateValidity implements sun.security.x509.CertAttrSet<java.l
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateValidity(java.util.Date notBefore, java.util.Date notAfter) {
         throw new RuntimeException("Stub!");
     }

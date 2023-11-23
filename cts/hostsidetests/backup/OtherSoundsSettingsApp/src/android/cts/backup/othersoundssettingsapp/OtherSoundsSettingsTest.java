@@ -21,9 +21,13 @@ import static androidx.test.InstrumentationRegistry.getInstrumentation;
 import static com.android.compatibility.common.util.BackupUtils.LOCAL_TRANSPORT_TOKEN;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
+import android.app.UiAutomation;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.os.ParcelFileDescriptor;
+import android.os.Vibrator;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 
@@ -31,12 +35,15 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.BackupUtils;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Device side routines to be invoked by the host side OtherSoundsSettingsHostSideTest. These
@@ -48,9 +55,12 @@ import java.io.InputStream;
 public class OtherSoundsSettingsTest {
     /** The name of the package for backup */
     private static final String SETTINGS_PACKAGE_NAME = "com.android.providers.settings";
+    private static final int SETTING_ABSENT_VALUE = -1;
 
     private ContentResolver mContentResolver;
     private BackupUtils mBackupUtils;
+    private Map<String, Integer> mOriginalSettingValues;
+    private UiAutomation mUiAutomation;
 
     @Before
     public void setUp() throws Exception {
@@ -64,6 +74,15 @@ public class OtherSoundsSettingsTest {
                         return new ParcelFileDescriptor.AutoCloseInputStream(pfd);
                     }
                 };
+        mOriginalSettingValues = new HashMap<>();
+        mUiAutomation = getInstrumentation().getUiAutomation();
+        mUiAutomation.adoptShellPermissionIdentity();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        restoreOriginalSettingValues();
+        mUiAutomation.dropShellPermissionIdentity();
     }
 
     /**
@@ -78,17 +97,13 @@ public class OtherSoundsSettingsTest {
      */
     @Test
     public void testOtherSoundsSettings_dialPadTones() throws Exception {
-        int originalValue =
-                Settings.System.getInt(
-                        mContentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, -1);
+        int originalValue = prepareSystemSetting(Settings.System.DTMF_TONE_WHEN_DIALING);
         assertTrue("Dial pad tones does not exist.", originalValue != -1);
 
         mBackupUtils.backupNowAndAssertSuccess(SETTINGS_PACKAGE_NAME);
 
-        boolean ret =
-                Settings.System.putInt(
-                        mContentResolver, Settings.System.DTMF_TONE_WHEN_DIALING,
-                        1 - originalValue);
+        boolean ret = setSystemSetting(Settings.System.DTMF_TONE_WHEN_DIALING,
+                1 - originalValue);
         assertTrue("Toggle Dial pad tones fail.", ret);
 
         mBackupUtils.restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, SETTINGS_PACKAGE_NAME);
@@ -111,16 +126,13 @@ public class OtherSoundsSettingsTest {
      */
     @Test
     public void testOtherSoundsSettings_touchSounds() throws Exception {
-        int originalValue =
-                Settings.System.getInt(
-                        mContentResolver, Settings.System.SOUND_EFFECTS_ENABLED, -1);
+        int originalValue = prepareSystemSetting(Settings.System.SOUND_EFFECTS_ENABLED);
         assertTrue("Touch sounds does not exist.", originalValue != -1);
 
         mBackupUtils.backupNowAndAssertSuccess(SETTINGS_PACKAGE_NAME);
 
-        boolean ret =
-                Settings.System.putInt(
-                        mContentResolver, Settings.System.SOUND_EFFECTS_ENABLED, 1 - originalValue);
+        boolean ret = setSystemSetting(Settings.System.SOUND_EFFECTS_ENABLED,
+                1 - originalValue);
         assertTrue("Toggle Touch sounds fail.", ret);
 
         mBackupUtils.restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, SETTINGS_PACKAGE_NAME);
@@ -143,17 +155,21 @@ public class OtherSoundsSettingsTest {
      */
     @Test
     public void testOtherSoundsSettings_touchVibration() throws Exception {
-        int originalValue =
-                Settings.System.getInt(
-                        mContentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, -1);
+        Vibrator mVibrator =
+                (Vibrator)
+                        getInstrumentation()
+                                .getTargetContext()
+                                .getSystemService(Context.VIBRATOR_SERVICE);
+        assumeTrue(
+                "Device Under Test does not have a vibrator, skipping.", mVibrator.hasVibrator());
+
+        int originalValue = prepareSystemSetting(Settings.System.HAPTIC_FEEDBACK_ENABLED);
         assertTrue("Touch vibration does not exist.", originalValue != -1);
 
         mBackupUtils.backupNowAndAssertSuccess(SETTINGS_PACKAGE_NAME);
 
-        boolean ret =
-                Settings.System.putInt(
-                        mContentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED,
-                        1 - originalValue);
+        boolean ret = setSystemSetting(Settings.System.HAPTIC_FEEDBACK_ENABLED,
+                1 - originalValue);
         assertTrue("Toggle Touch vibration fail.", ret);
 
         mBackupUtils.restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, SETTINGS_PACKAGE_NAME);
@@ -162,5 +178,34 @@ public class OtherSoundsSettingsTest {
                 Settings.System.getInt(
                         mContentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, -1);
         assertTrue("Touch vibration restore fail.", originalValue == restoreValue);
+    }
+
+    private int prepareSystemSetting(String name) throws Exception {
+        int value = Settings.System.getInt(mContentResolver, name, SETTING_ABSENT_VALUE);
+        if (value == SETTING_ABSENT_VALUE) {
+            return SETTING_ABSENT_VALUE;
+        }
+
+        mOriginalSettingValues.put(name, value);
+        clearSystemSettingState(name);
+        setSystemSetting(name, value);
+
+        return value;
+    }
+
+    private boolean setSystemSetting(String name, int value) {
+        return Settings.System.putString(mContentResolver, name, String.valueOf(value),
+                /* overrideableByRestore */ true);
+    }
+
+    private void restoreOriginalSettingValues() throws Exception {
+        for (String settingName : mOriginalSettingValues.keySet()) {
+            clearSystemSettingState(settingName);
+            setSystemSetting(settingName, mOriginalSettingValues.get(settingName));
+        }
+    }
+
+    private void clearSystemSettingState(String setting) throws Exception {
+        mBackupUtils.executeShellCommandSync("settings delete system " + setting);
     }
 }

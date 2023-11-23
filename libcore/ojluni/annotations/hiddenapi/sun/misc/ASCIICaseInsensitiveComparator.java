@@ -36,7 +36,7 @@ public class ASCIICaseInsensitiveComparator implements java.util.Comparator<java
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static int lowerCaseHashCode(java.lang.String s) {
         throw new RuntimeException("Stub!");
     }
@@ -57,7 +57,7 @@ public class ASCIICaseInsensitiveComparator implements java.util.Comparator<java
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final java.util.Comparator<java.lang.String> CASE_INSENSITIVE_ORDER;
 
     static {

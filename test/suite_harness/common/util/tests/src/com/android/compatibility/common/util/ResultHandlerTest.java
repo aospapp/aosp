@@ -18,17 +18,31 @@ package com.android.compatibility.common.util;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.AbiUtils;
 
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+
 import junit.framework.TestCase;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 /**
  * Unit tests for {@link ResultHandler}
@@ -59,10 +73,14 @@ public class ResultHandlerTest extends TestCase {
     private static final String BUILD_FINGERPRINT_UNALTERED = "build_fingerprint_unaltered";
     private static final String BUILD_ID = "build_id";
     private static final String BUILD_PRODUCT = "build_product";
+    private static final String RUN_HISTORY = "run_history";
     private static final String EXAMPLE_BUILD_ID = "XYZ";
     private static final String EXAMPLE_BUILD_PRODUCT = "wolverine";
     private static final String EXAMPLE_BUILD_FINGERPRINT = "example_build_fingerprint";
     private static final String EXAMPLE_BUILD_FINGERPRINT_UNALTERED = "example_build_fingerprint_unaltered";
+    private static final String EXAMPLE_RUN_HISTORY =
+            "[{\"startTime\":10000000000000,\"endTime\":10000000000001},"
+                    + "{\"startTime\":10000000000002,\"endTime\":10000000000003}]";
 
     private static final String DEVICE_A = "device123";
     private static final String DEVICE_B = "device456";
@@ -87,9 +105,12 @@ public class ResultHandlerTest extends TestCase {
     private static final long END_MS = 1431673199000L;
     private static final String START_DISPLAY = "Fri Aug 20 15:13:03 PDT 2010";
     private static final String END_DISPLAY = "Fri Aug 20 15:13:04 PDT 2010";
+    private static final long TEST_START_MS = 1000000000011L;
+    private static final long TEST_END_MS = 1000000000012L;
+    private static final boolean TEST_IS_AUTOMATED = false;
 
-    private static final String REFERENCE_URL="http://android.com";
-    private static final String LOG_URL ="file:///path/to/logs";
+    private static final String REFERENCE_URL = "http://android.com";
+    private static final String LOG_URL = "file:///path/to/logs";
     private static final String COMMAND_LINE_ARGS = "cts -m CtsMyModuleTestCases";
     private static final String XML_BASE =
             "<?xml version='1.0' encoding='UTF-8' standalone='no' ?>" +
@@ -176,6 +197,18 @@ public class ResultHandlerTest extends TestCase {
         result.addInvocationInfo(BUILD_FINGERPRINT, EXAMPLE_BUILD_FINGERPRINT);
         result.addInvocationInfo(BUILD_ID, EXAMPLE_BUILD_ID);
         result.addInvocationInfo(BUILD_PRODUCT, EXAMPLE_BUILD_PRODUCT);
+        result.addInvocationInfo(RUN_HISTORY, EXAMPLE_RUN_HISTORY);
+        Collection<InvocationResult.RunHistory> runHistories =
+                ((InvocationResult) result).getRunHistories();
+        InvocationResult.RunHistory runHistory1 = new InvocationResult.RunHistory();
+        runHistory1.startTime = 10000000000000L;
+        runHistory1.endTime = 10000000000001L;
+        runHistories.add(runHistory1);
+        InvocationResult.RunHistory runHistory2 = new InvocationResult.RunHistory();
+        runHistory2.startTime = 10000000000002L;
+        runHistory2.endTime = 10000000000003L;
+        runHistories.add(runHistory2);
+
         // Module A: test1 passes, test2 not executed
         IModuleResult moduleA = result.getOrCreateModule(ID_A);
         moduleA.setDone(false);
@@ -207,13 +240,133 @@ public class ResultHandlerTest extends TestCase {
         ITestResult moduleBTest5 = moduleBCase.getOrCreateResult(METHOD_5);
         moduleBTest5.skipped();
 
+        Map<String, String> testAttributes = new HashMap<String, String>();
+        testAttributes.put("foo1", "bar1");
+        testAttributes.put("foo2", "bar2");
         // Serialize to file
-        ResultHandler.writeResults(SUITE_NAME, SUITE_VERSION, SUITE_PLAN, SUITE_BUILD,
-                result, resultDir, START_MS, END_MS, REFERENCE_URL, LOG_URL,
-                COMMAND_LINE_ARGS);
+        File res =
+                ResultHandler.writeResults(
+                        SUITE_NAME,
+                        SUITE_VERSION,
+                        SUITE_PLAN,
+                        SUITE_BUILD,
+                        result,
+                        resultDir,
+                        START_MS,
+                        END_MS,
+                        REFERENCE_URL,
+                        LOG_URL,
+                        COMMAND_LINE_ARGS,
+                        testAttributes);
+        String content = FileUtil.readStringFromFile(res);
+        assertXmlContainsAttribute(content, "Result", "foo1", "bar1");
+        assertXmlContainsAttribute(content, "Result", "foo2", "bar2");
+        assertXmlContainsAttribute(content, "Result/Build", "run_history", EXAMPLE_RUN_HISTORY);
+        assertXmlContainsNode(content, "Result/RunHistory");
+        assertXmlContainsAttribute(content, "Result/RunHistory/Run", "start", "10000000000000");
+        assertXmlContainsAttribute(content, "Result/RunHistory/Run", "end", "10000000000001");
+        assertXmlContainsAttribute(content, "Result/RunHistory/Run", "start", "10000000000002");
+        assertXmlContainsAttribute(content, "Result/RunHistory/Run", "end", "10000000000003");
 
         // Parse the results and assert correctness
-        checkResult(ResultHandler.getResultFromDir(resultDir), false);
+        result = ResultHandler.getResultFromDir(resultDir);
+        checkResult(result, false);
+        checkRunHistory(result);
+    }
+
+    /*
+     * Test serialization for CTS Verifier since test results with test result history is only in
+     * CTS Verifier and was not parsed by suite harness.
+     */
+    public void testSerialization_whenTestResultWithTestResultHistoryWithoutParsing()
+            throws Exception {
+        IInvocationResult result = new InvocationResult();
+        result.setStartTime(START_MS);
+        result.setTestPlan(SUITE_PLAN);
+        result.addDeviceSerial(DEVICE_A);
+        result.addDeviceSerial(DEVICE_B);
+        result.addInvocationInfo(BUILD_FINGERPRINT, EXAMPLE_BUILD_FINGERPRINT);
+        result.addInvocationInfo(BUILD_ID, EXAMPLE_BUILD_ID);
+        result.addInvocationInfo(BUILD_PRODUCT, EXAMPLE_BUILD_PRODUCT);
+
+        // Module A: test1 passes, test2 not executed
+        IModuleResult moduleA = result.getOrCreateModule(ID_A);
+        moduleA.setDone(false);
+        moduleA.addRuntime(Integer.parseInt(RUNTIME_A));
+        ICaseResult moduleACase = moduleA.getOrCreateResult(CLASS_A);
+        ITestResult moduleATest1 = moduleACase.getOrCreateResult(METHOD_1);
+        moduleATest1.setResultStatus(TestStatus.PASS);
+        // Module B: test3 fails with test result history, test4 passes with report log,
+        // test5 passes with skip
+        IModuleResult moduleB = result.getOrCreateModule(ID_B);
+        moduleB.setDone(true);
+        moduleB.addRuntime(Integer.parseInt(RUNTIME_B));
+        ICaseResult moduleBCase = moduleB.getOrCreateResult(CLASS_B);
+        Set<TestResultHistory.ExecutionRecord> executionRecords =
+                new HashSet<TestResultHistory.ExecutionRecord>();
+        executionRecords.add(
+                new TestResultHistory.ExecutionRecord(
+                        TEST_START_MS, TEST_END_MS, TEST_IS_AUTOMATED));
+
+        ITestResult moduleBTest3 = moduleBCase.getOrCreateResult(METHOD_3);
+        moduleBTest3.setResultStatus(TestStatus.FAIL);
+        moduleBTest3.setMessage(MESSAGE);
+        moduleBTest3.setStackTrace(STACK_TRACE);
+        moduleBTest3.setBugReport(BUG_REPORT);
+        moduleBTest3.setLog(LOGCAT);
+        moduleBTest3.setScreenshot(SCREENSHOT);
+        List<TestResultHistory> resultHistories = new ArrayList<TestResultHistory>();
+        TestResultHistory resultHistory = new TestResultHistory(METHOD_3, executionRecords);
+        resultHistories.add(resultHistory);
+        moduleBTest3.setTestResultHistories(resultHistories);
+        ITestResult moduleBTest4 = moduleBCase.getOrCreateResult(METHOD_4);
+        moduleBTest4.setResultStatus(TestStatus.PASS);
+        ReportLog report = new ReportLog();
+        ReportLog.Metric summary =
+                new ReportLog.Metric(
+                        SUMMARY_SOURCE,
+                        SUMMARY_MESSAGE,
+                        SUMMARY_VALUE,
+                        ResultType.HIGHER_BETTER,
+                        ResultUnit.SCORE);
+        report.setSummary(summary);
+        moduleBTest4.setReportLog(report);
+        ITestResult moduleBTest5 = moduleBCase.getOrCreateResult(METHOD_5);
+        moduleBTest5.skipped();
+
+        // Serialize to file
+        File res =
+                ResultHandler.writeResults(
+                        SUITE_NAME,
+                        SUITE_VERSION,
+                        SUITE_PLAN,
+                        SUITE_BUILD,
+                        result,
+                        resultDir,
+                        START_MS,
+                        END_MS,
+                        REFERENCE_URL,
+                        LOG_URL,
+                        COMMAND_LINE_ARGS,
+                        null);
+        String content = FileUtil.readStringFromFile(res);
+        assertXmlContainsNode(content, "Result/Module/TestCase/Test/RunHistory");
+        assertXmlContainsAttribute(
+                content,
+                "Result/Module/TestCase/Test/RunHistory/Run",
+                "start",
+                Long.toString(TEST_START_MS));
+        assertXmlContainsAttribute(
+                content,
+                "Result/Module/TestCase/Test/RunHistory/Run",
+                "end",
+                Long.toString(TEST_END_MS));
+        assertXmlContainsAttribute(
+                content,
+                "Result/Module/TestCase/Test/RunHistory/Run",
+                "isAutomated",
+                Boolean.toString(TEST_IS_AUTOMATED));
+        checkResult(result, EXAMPLE_BUILD_FINGERPRINT, false, false);
     }
 
     public void testParsing() throws Exception {
@@ -236,14 +389,16 @@ public class ResultHandlerTest extends TestCase {
         checkResult(
                 ResultHandler.getResultFromDir(resultDir),
                 EXAMPLE_BUILD_FINGERPRINT_UNALTERED,
-                false);
+                false,
+                true);
     }
 
     public void testParsing_whenUnalteredBuildFingerprintIsEmpty_usesRegularBuildFingerprint() throws Exception {
         String buildInfo = String.format(XML_BUILD_INFO_WITH_UNALTERED_BUILD_FINGERPRINT,
                 EXAMPLE_BUILD_FINGERPRINT, "", EXAMPLE_BUILD_ID, EXAMPLE_BUILD_PRODUCT);
         File resultDir = writeResultDir(resultsDir, buildInfo, false);
-        checkResult(ResultHandler.getResultFromDir(resultDir), EXAMPLE_BUILD_FINGERPRINT, false);
+        checkResult(
+                ResultHandler.getResultFromDir(resultDir), EXAMPLE_BUILD_FINGERPRINT, false, true);
     }
 
     public void testGetLightResults() throws Exception {
@@ -347,12 +502,17 @@ public class ResultHandlerTest extends TestCase {
     }
 
     static void checkResult(IInvocationResult result, boolean newTestFormat) throws Exception {
-        checkResult(result, EXAMPLE_BUILD_FINGERPRINT, newTestFormat);
+        checkResult(result, EXAMPLE_BUILD_FINGERPRINT, newTestFormat, true);
+    }
+
+    static void checkRunHistory(IInvocationResult result) {
+        Map<String, String> buildInfo = result.getInvocationInfo();
+        assertEquals("Incorrect run history", EXAMPLE_RUN_HISTORY, buildInfo.get(RUN_HISTORY));
     }
 
     static void checkResult(
-            IInvocationResult result, String expectedBuildFingerprint, boolean newTestFormat)
-            throws Exception {
+            IInvocationResult result, String expectedBuildFingerprint, boolean newTestFormat,
+            boolean checkResultHistories) throws Exception {
         assertEquals("Expected 3 passes", 3, result.countResults(TestStatus.PASS));
         assertEquals("Expected 1 failure", 1, result.countResults(TestStatus.FAIL));
 
@@ -418,6 +578,30 @@ public class ResultHandlerTest extends TestCase {
         assertEquals("Incorrect message", MESSAGE, moduleBTest3.getMessage());
         assertEquals("Incorrect stack trace", STACK_TRACE, moduleBTest3.getStackTrace());
         assertNull("Unexpected report", moduleBTest3.getReportLog());
+        List<TestResultHistory> resultHistories = moduleBTest3.getTestResultHistories();
+        // Check if unit tests do parsing result, because tests for CTS Verifier do not parse it.
+        if (checkResultHistories) {
+            // For xTS except CTS Verifier.
+            assertNull("Unexpected test result history list", resultHistories);
+        } else {
+            // For CTS Verifier.
+            assertNotNull("Expected test result history list", resultHistories);
+            assertEquals("Expected 1 test result history", 1, resultHistories.size());
+            for (TestResultHistory resultHistory : resultHistories) {
+                assertNotNull("Expected test result history", resultHistory);
+                assertEquals("Incorrect test name", METHOD_3, resultHistory.getTestName());
+                for (TestResultHistory.ExecutionRecord execRecord :
+                        resultHistory.getExecutionRecords()) {
+                    assertEquals(
+                            "Incorrect test start time", TEST_START_MS, execRecord.getStartTime());
+                    assertEquals("Incorrect test end time", TEST_END_MS, execRecord.getEndTime());
+                    assertEquals(
+                            "Incorrect test is automated",
+                            TEST_IS_AUTOMATED,
+                            execRecord.getIsAutomated());
+                }
+            }
+        }
         ITestResult moduleBTest4 = moduleBResults.get(1);
         assertEquals("Incorrect name", METHOD_4, moduleBTest4.getName());
         assertEquals("Incorrect result", TestStatus.PASS, moduleBTest4.getResultStatus());
@@ -449,5 +633,56 @@ public class ResultHandlerTest extends TestCase {
         assertNull("Unexpected message", moduleBTest5.getMessage());
         assertNull("Unexpected stack trace", moduleBTest5.getStackTrace());
         assertNull("Unexpected report", moduleBTest5.getReportLog());
+    }
+
+    /** Return all XML nodes that match the given xPathExpression. */
+    private NodeList getXmlNodes(String xml, String xPathExpression)
+            throws XPathExpressionException {
+
+        InputSource inputSource = new InputSource(new StringReader(xml));
+        XPath xpath = XPathFactory.newInstance().newXPath();
+        return (NodeList) xpath.evaluate(xPathExpression, inputSource, XPathConstants.NODESET);
+    }
+
+    /** Assert that the XML contains a node matching the given xPathExpression. */
+    private NodeList assertXmlContainsNode(String xml, String xPathExpression)
+            throws XPathExpressionException {
+        NodeList nodes = getXmlNodes(xml, xPathExpression);
+        assertNotNull(
+                String.format("XML '%s' returned null for xpath '%s'.", xml, xPathExpression),
+                nodes);
+        assertTrue(
+                String.format(
+                        "XML '%s' should have returned at least 1 node for xpath '%s', "
+                                + "but returned %s nodes instead.",
+                        xml, xPathExpression, nodes.getLength()),
+                nodes.getLength() >= 1);
+        return nodes;
+    }
+
+    /**
+     * Assert that the XML contains a node matching the given xPathExpression and that the node has
+     * a given value.
+     */
+    private void assertXmlContainsAttribute(
+            String xml, String xPathExpression, String attributeName, String attributeValue)
+            throws XPathExpressionException {
+        NodeList nodes = assertXmlContainsNode(xml, xPathExpression);
+        boolean found = false;
+
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Element element = (Element) nodes.item(i);
+            String value = element.getAttribute(attributeName);
+            if (attributeValue.equals(value)) {
+                found = true;
+                break;
+            }
+        }
+
+        assertTrue(
+                String.format(
+                        "xPath '%s' should contain attribute '%s' but does not. XML: '%s'",
+                        xPathExpression, attributeName, xml),
+                found);
     }
 }

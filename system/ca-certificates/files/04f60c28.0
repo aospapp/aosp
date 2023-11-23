@@ -19,7 +19,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             5c:8b:99:c5:5a:94:c5:d2:71:56:de:cd:89:80:cc:26
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: C=US, ST=New Jersey, L=Jersey City, O=The USERTRUST Network, CN=USERTrust ECC Certification Authority
         Validity
             Not Before: Feb  1 00:00:00 2010 GMT

@@ -20,13 +20,13 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/strings.h>
+#include <android/frameworks/stats/1.0/IStats.h>
 #include <batteryservice/BatteryService.h>
 #include <math.h>
 #include <time.h>
 #include <utils/Timers.h>
-#include <string>
 
-#include <android/frameworks/stats/1.0/IStats.h>
+#include <string>
 
 namespace hardware {
 namespace google {
@@ -40,7 +40,8 @@ using android::frameworks::stats::V1_0::IStats;
 class BatteryMetricsLogger {
   public:
     BatteryMetricsLogger(const char *const batt_res, const char *const batt_ocv,
-                         int sample_period = TEN_MINUTES_SEC, int upload_period = ONE_DAY_SEC);
+                         const char *const batt_avg_res = "", int sample_period = TEN_MINUTES_SEC,
+                         int upload_period = ONE_DAY_SEC);
     void logBatteryProperties(struct android::BatteryProperties *props);
 
   private:
@@ -67,6 +68,7 @@ class BatteryMetricsLogger {
 
     const char *const kBatteryResistance;
     const char *const kBatteryOCV;
+    const char *const kBatteryAvgResistance;
     const int kSamplePeriod;
     const int kUploadPeriod;
     const int kMaxSamples;
@@ -78,16 +80,16 @@ class BatteryMetricsLogger {
     // min[TYPE][TYPE] is the reading of that type at that minimum event
     int32_t min_[NUM_FIELDS][NUM_FIELDS];
     int32_t max_[NUM_FIELDS][NUM_FIELDS];
-    int32_t num_res_samples_;   // number of res samples since last upload
-    int32_t num_samples_;       // number of min/max samples since last upload
-    int64_t accum_resistance_;  // accumulative resistance
-    int64_t last_sample_;       // time in seconds since boot of last sample
-    int64_t last_upload_;       // time in seconds since boot of last upload
+    int32_t num_res_samples_;  // number of res samples since last upload
+    int32_t num_samples_;      // number of min/max samples since last upload
+    int64_t last_sample_;      // time in seconds since boot of last sample
+    int64_t last_upload_;      // time in seconds since boot of last upload
 
     int64_t getTime();
     bool recordSample(struct android::BatteryProperties *props);
     bool uploadMetrics();
     bool uploadOutlierMetric(sp<IStats> stats_client, sampleType type);
+    bool uploadAverageBatteryResistance(sp<IStats> stats_client);
 };
 
 }  // namespace health

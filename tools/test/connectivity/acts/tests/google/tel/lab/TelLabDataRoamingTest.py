@@ -43,8 +43,8 @@ TIME_TO_WAIT_BEFORE_PING = 10  # Time(sec) to wait before ping
 
 
 class TelLabDataRoamingTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.ad = self.android_devices[0]
         self.ad.sim_card = getattr(self.ad, "sim_card", None)
         self.md8475a_ip_address = self.user_params[
@@ -54,10 +54,9 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         if self.ad.sim_card == "VzW12349":
             set_preferred_apn_by_adb(self.ad, "VZWINTERNET")
 
-    def setup_class(self):
         try:
-            self.anritsu = MD8475A(self.md8475a_ip_address, self.log,
-                                   self.wlan_option, self.md8475_version)
+            self.anritsu = MD8475A(self.md8475a_ip_address, self.wlan_option,
+                                   self.md8475_version)
         except AnritsuError:
             self.log.error("Error in connecting to Anritsu Simulator")
             return False

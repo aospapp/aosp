@@ -421,25 +421,27 @@ public class DateFormatSymbols implements Serializable, Cloneable {
 
     // BEGIN Android-changed: Replace getProviderInstance() with getCachedInstance().
     // Android removed support for DateFormatSymbolsProviders, but still caches DFS.
+    // App compat change for b/159514442.
     /**
      * Returns a cached DateFormatSymbols if it's found in the
      * cache. Otherwise, this method returns a newly cached instance
      * for the given locale.
      */
     private static DateFormatSymbols getCachedInstance(Locale locale) {
-        SoftReference<DateFormatSymbols> ref = cachedInstances.get(locale);
+        Locale cacheKey = LocaleData.getCompatibleLocaleForBug159514442(locale);
+        SoftReference<DateFormatSymbols> ref = cachedInstances.get(cacheKey);
         DateFormatSymbols dfs;
         if (ref == null || (dfs = ref.get()) == null) {
             dfs = new DateFormatSymbols(locale);
             ref = new SoftReference<>(dfs);
-            SoftReference<DateFormatSymbols> x = cachedInstances.putIfAbsent(locale, ref);
+            SoftReference<DateFormatSymbols> x = cachedInstances.putIfAbsent(cacheKey, ref);
             if (x != null) {
                 DateFormatSymbols y = x.get();
                 if (y != null) {
                     dfs = y;
                 } else {
                     // Replace the empty SoftReference with ref.
-                    cachedInstances.put(locale, ref);
+                    cachedInstances.put(cacheKey, ref);
                 }
             }
         }
@@ -818,7 +820,9 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * appropriate LocaleData object. Note: zoneStrings isn't initialized in this method.
      */
     private void initializeData(Locale locale) {
-        SoftReference<DateFormatSymbols> ref = cachedInstances.get(locale);
+        // Android-changed: App compat change for b/159514442.
+        Locale cacheKey = LocaleData.getCompatibleLocaleForBug159514442(locale);
+        SoftReference<DateFormatSymbols> ref = cachedInstances.get(cacheKey);
         DateFormatSymbols dfs;
         // Android-changed: invert cache presence check to simplify code flow.
         if (ref != null && (dfs = ref.get()) != null) {

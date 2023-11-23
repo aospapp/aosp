@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "car_kit"
-
 #include "car_kit.h"
 
-#include "osi/include/log.h"
-
 #include "model/setup/device_boutique.h"
+#include "os/log.h"
 
 using std::vector;
 
 namespace test_vendor_lib {
 
-bool CarKit::registered_ = DeviceBoutique::Register(LOG_TAG, &CarKit::Create);
+bool CarKit::registered_ = DeviceBoutique::Register("car_kit", &CarKit::Create);
 
 CarKit::CarKit() : Device(kCarKitPropertiesFile) {
   advertising_interval_ms_ = std::chrono::milliseconds(0);
@@ -34,17 +31,20 @@ CarKit::CarKit() : Device(kCarKitPropertiesFile) {
   page_scan_delay_ms_ = std::chrono::milliseconds(600);
 
   // Stub in packet handling for now
-  link_layer_controller_.RegisterAclChannel([](std::shared_ptr<std::vector<uint8_t>>) {});
-  link_layer_controller_.RegisterEventChannel([](std::shared_ptr<std::vector<uint8_t>>) {});
+  link_layer_controller_.RegisterAclChannel(
+      [](std::shared_ptr<bluetooth::hci::AclPacketBuilder>) {});
+  link_layer_controller_.RegisterEventChannel(
+      [](std::shared_ptr<bluetooth::hci::EventPacketBuilder>) {});
   link_layer_controller_.RegisterScoChannel([](std::shared_ptr<std::vector<uint8_t>>) {});
   link_layer_controller_.RegisterRemoteChannel(
-      [this](std::shared_ptr<packets::LinkLayerPacketBuilder> packet, Phy::Type phy_type) {
+      [this](std::shared_ptr<model::packets::LinkLayerPacketBuilder> packet,
+             Phy::Type phy_type) {
         CarKit::SendLinkLayerPacket(packet, phy_type);
       });
 
   properties_.SetPageScanRepetitionMode(0);
   properties_.SetClassOfDevice(0x600420);
-  properties_.SetSupportedFeatures(0x8779ff9bfe8defff);
+  properties_.SetExtendedFeatures(0x8779ff9bfe8defff, 0);
   properties_.SetExtendedInquiryData({
       16,  // length
       9,   // Type: Device Name
@@ -82,7 +82,7 @@ void CarKit::Initialize(const vector<std::string>& args) {
 
   Address addr;
   if (Address::FromString(args[1], addr)) properties_.SetAddress(addr);
-  LOG_INFO(LOG_TAG, "%s SetAddress %s", ToString().c_str(), addr.ToString().c_str());
+  LOG_INFO("%s SetAddress %s", ToString().c_str(), addr.ToString().c_str());
 
   if (args.size() < 3) return;
 
@@ -93,8 +93,8 @@ void CarKit::TimerTick() {
   link_layer_controller_.TimerTick();
 }
 
-void CarKit::IncomingPacket(packets::LinkLayerPacketView packet) {
-  LOG_WARN(LOG_TAG, "Incoming Packet");
+void CarKit::IncomingPacket(model::packets::LinkLayerPacketView packet) {
+  LOG_WARN("Incoming Packet");
   link_layer_controller_.IncomingPacket(packet);
 }
 

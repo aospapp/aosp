@@ -6,6 +6,10 @@
 # LOCAL_MODULE_PATH_32 and LOCAL_MODULE_PATH_64 or LOCAL_MODULE_STEM_32 and
 # LOCAL_MODULE_STEM_64
 
+ifdef LOCAL_IS_HOST_MODULE
+  $(call pretty-error,BUILD_EXECUTABLE is incompatible with LOCAL_IS_HOST_MODULE. Use BUILD_HOST_EXECUTABLE instead.)
+endif
+
 my_skip_this_target :=
 ifneq ($(filter address,$(SANITIZE_TARGET)),)
   ifeq (true,$(LOCAL_FORCE_STATIC_EXECUTABLE))
@@ -19,15 +23,6 @@ endif
 
 ifneq (true,$(my_skip_this_target))
 $(call record-module-type,EXECUTABLE)
-
-ifeq ($(TARGET_TRANSLATE_2ND_ARCH),true)
-# If a native test explicity specifies to build only for the translation arch,
-# we'll still need LOCAL_MULTILIB=both and let module_arch_supported.mk choose
-# to build only for TARGET_2ND_ARCH.
-ifneq (1,$(words $(LOCAL_MODULE_TARGET_ARCH)))
-LOCAL_MULTILIB := first
-endif
-endif
 
 my_prefix := TARGET_
 include $(BUILD_SYSTEM)/multilib.mk

@@ -30,6 +30,7 @@
 #include "dexopt_test.h"
 #include "gc/space/image_space.h"
 #include "hidden_api.h"
+#include "oat.h"
 
 namespace art {
 void DexoptTest::SetUp() {
@@ -68,15 +69,34 @@ bool DexoptTest::Dex2Oat(const std::vector<std::string>& args, std::string* erro
   return Exec(argv, error_msg);
 }
 
+std::string DexoptTest::GenerateAlternateImage(const std::string& scratch_dir) {
+  std::vector<std::string> libcore_dex_files = GetLibCoreDexFileNames();
+  std::vector<std::string> libcore_dex_locations = GetLibCoreDexLocations();
+
+  std::string image_dir = scratch_dir + GetInstructionSetString(kRuntimeISA);
+  int mkdir_result = mkdir(image_dir.c_str(), 0700);
+  CHECK_EQ(0, mkdir_result) << image_dir.c_str();
+
+  std::vector<std::string> extra_args {
+    "--compiler-filter=verify",
+    android::base::StringPrintf("--base=0x%08x", ART_BASE_ADDRESS),
+  };
+  std::string filename_prefix = image_dir + "/boot-interpreter";
+  ArrayRef<const std::string> dex_files(libcore_dex_files);
+  ArrayRef<const std::string> dex_locations(libcore_dex_locations);
+  std::string error_msg;
+  bool ok = CompileBootImage(extra_args, filename_prefix, dex_files, dex_locations, &error_msg);
+  EXPECT_TRUE(ok) << error_msg;
+
+  return scratch_dir + "boot-interpreter.art";
+}
+
 void DexoptTest::GenerateOatForTest(const std::string& dex_location,
                                     const std::string& oat_location,
                                     CompilerFilter::Filter filter,
                                     bool with_alternate_image,
                                     const char* compilation_reason,
                                     const std::vector<std::string>& extra_args) {
-  std::string dalvik_cache = GetDalvikCache(GetInstructionSetString(kRuntimeISA));
-  std::string dalvik_cache_tmp = dalvik_cache + ".redirected";
-
   std::vector<std::string> args;
   args.push_back("--dex-file=" + dex_location);
   args.push_back("--oat-file=" + oat_location);
@@ -94,8 +114,11 @@ void DexoptTest::GenerateOatForTest(const std::string& dex_location,
   }
 
   std::string image_location = GetImageLocation();
+  std::optional<ScratchDir> scratch;
   if (with_alternate_image) {
-    args.push_back("--boot-image=" + GetImageLocation2());
+    scratch.emplace();  // Create the scratch directory for the generated boot image.
+    std::string alternate_image_location = GenerateAlternateImage(scratch->GetPath());
+    args.push_back("--boot-image=" + alternate_image_location);
   }
 
   if (compilation_reason != nullptr) {
@@ -113,30 +136,29 @@ void DexoptTest::GenerateOatForTest(const std::string& dex_location,
                                                    oat_location.c_str(),
                                                    /*executable=*/ false,
                                                    /*low_4gb=*/ false,
-                                                   dex_location.c_str(),
-                                                   /*reservation=*/ nullptr,
+                                                   dex_location,
                                                    &error_msg));
   ASSERT_TRUE(odex_file.get() != nullptr) << error_msg;
   EXPECT_EQ(filter, odex_file->GetCompilerFilter());
 
-  std::string boot_image_checksums = gc::space::ImageSpace::GetBootClassPathChecksums(
-      ArrayRef<const std::string>(Runtime::Current()->GetBootClassPath()),
-      image_location,
-      kRuntimeISA,
-      gc::space::ImageSpaceLoadingOrder::kSystemFirst,
-      &error_msg);
-  ASSERT_FALSE(boot_image_checksums.empty()) << error_msg;
-
-  const OatHeader& oat_header = odex_file->GetOatHeader();
-
   if (CompilerFilter::DependsOnImageChecksum(filter)) {
+    const OatHeader& oat_header = odex_file->GetOatHeader();
+    const char* oat_bcp = oat_header.GetStoreValueByKey(OatHeader::kBootClassPathKey);
+    ASSERT_TRUE(oat_bcp != nullptr);
+    ASSERT_EQ(oat_bcp, android::base::Join(Runtime::Current()->GetBootClassPathLocations(), ':'));
     const char* checksums = oat_header.GetStoreValueByKey(OatHeader::kBootClassPathChecksumsKey);
     ASSERT_TRUE(checksums != nullptr);
-    if (with_alternate_image) {
-      EXPECT_NE(boot_image_checksums, checksums);
-    } else {
-      EXPECT_EQ(boot_image_checksums, checksums);
-    }
+
+    bool match = gc::space::ImageSpace::VerifyBootClassPathChecksums(
+        checksums,
+        oat_bcp,
+        image_location,
+        ArrayRef<const std::string>(Runtime::Current()->GetBootClassPathLocations()),
+        ArrayRef<const std::string>(Runtime::Current()->GetBootClassPath()),
+        kRuntimeISA,
+        gc::space::ImageSpaceLoadingOrder::kSystemFirst,
+        &error_msg);
+    ASSERT_EQ(!with_alternate_image, match) << error_msg;
   }
 }
 
@@ -174,8 +196,6 @@ void DexoptTest::ReserveImageSpace() {
   MemMap::Init();
 
   // Ensure a chunk of memory is reserved for the image space.
-  // The reservation_end includes room for the main space that has to come
-  // right after the image in case of the GSS collector.
   uint64_t reservation_start = ART_BASE_ADDRESS;
   uint64_t reservation_end = ART_BASE_ADDRESS + 384 * MB;
 

@@ -43,22 +43,21 @@ from acts.test_utils.bt.bt_test_utils import scan_and_verify_n_advertisements
 
 class ConcurrentBleAdvertisementDiscoveryTest(BluetoothBaseTest):
     default_timeout = 10
+    droid_list = []
     max_advertisements = -1
     advertise_callback_list = []
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
-        self.droid_list = get_advanced_droid_list(self.android_devices)
+    def setup_class(self):
+        super().setup_class()
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
+        self.droid_list = get_advanced_droid_list(self.android_devices)
         self.max_advertisements = self.droid_list[1]['max_advertisements']
 
     def setup_test(self):
-        return reset_bluetooth(self.android_devices)
-
-    def setup_test(self):
-        super(BluetoothBaseTest, self).setup_test()
+        super().setup_test()
         self.log.info("Setting up advertisements")
+        reset_bluetooth(self.android_devices)
         try:
             self.advertise_callback_list = setup_n_advertisements(
                 self.adv_ad, self.max_advertisements)

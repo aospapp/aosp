@@ -31,13 +31,17 @@ public interface IBuildProvider {
 
     /**
      * Mark the given build as untested.
-     * <p/>
-     * Called in cases where TradeFederation has failed to complete testing on the build due to an
-     * environment problem.
+     *
+     * <p>Called in cases where TradeFederation has failed to complete testing on the build due to
+     * an environment problem.
      *
      * @param info the {@link IBuildInfo} to reset
+     * @deprecated Doesn't have any use cases anymore
      */
-    public void buildNotTested(IBuildInfo info);
+    @Deprecated
+    public default void buildNotTested(IBuildInfo info) {
+        // Do nothing
+    }
 
     /**
      * Clean up any temporary build files.

@@ -37,6 +37,12 @@ using chre::Nanoseconds;
 //! The number of frequencies to generate an FFT over.
 constexpr size_t kNumFrequencies = 128;
 
+//! True if audio has successfully been requested.
+bool gAudioRequested = false;
+
+//! The requested audio handle.
+uint32_t gAudioHandle;
+
 //! State for Kiss FFT and logging.
 uint8_t gKissFftBuffer[4096];
 kiss_fftr_cfg gKissFftConfig;
@@ -73,14 +79,14 @@ char getFftCharForValue(uint16_t value) {
  */
 void initKissFft() {
   size_t kissFftBufferSize = sizeof(gKissFftBuffer);
-  gKissFftConfig = kiss_fftr_alloc(kNumFrequencies, false,
-                                   gKissFftBuffer, &kissFftBufferSize);
+  gKissFftConfig = kiss_fftr_alloc(kNumFrequencies, false, gKissFftBuffer,
+                                   &kissFftBufferSize);
   if (gKissFftConfig == NULL) {
     LOGE("Failed to init Kiss FFT, needs minimum %zu buffer size",
          kissFftBufferSize);
   } else {
-    LOGI("Initialized Kiss FFT, using %zu/%zu of the buffer",
-         kissFftBufferSize, sizeof(gKissFftBuffer));
+    LOGI("Initialized Kiss FFT, using %zu/%zu of the buffer", kissFftBufferSize,
+         sizeof(gKissFftBuffer));
   }
 }
 
@@ -97,8 +103,8 @@ void handleAudioDataEvent(const struct chreAudioDataEvent *event) {
   fftStr[ARRAY_SIZE(gKissFftOutput)] = '\0';
 
   for (size_t i = 0; i < ARRAY_SIZE(gKissFftOutput); i++) {
-    float value = sqrtf(powf(gKissFftOutput[i].r, 2)
-        + powf(gKissFftOutput[i].i, 2));
+    float value =
+        sqrtf(powf(gKissFftOutput[i].r, 2) + powf(gKissFftOutput[i].i, 2));
     fftStr[i] = getFftCharForValue(static_cast<uint16_t>(value));
   }
 
@@ -123,16 +129,18 @@ bool nanoappStart() {
 
   struct chreAudioSource audioSource;
   for (uint32_t i = 0; chreAudioGetSource(i, &audioSource); i++) {
-    LOGI("Found audio source '%s' with %" PRIu32 "Hz %s data",
-         audioSource.name, audioSource.sampleRate,
+    LOGI("Found audio source '%s' with %" PRIu32 "Hz %s data", audioSource.name,
+         audioSource.sampleRate,
          chre::getChreAudioFormatString(audioSource.format));
     LOGI("  buffer duration: [%" PRIu64 "ns, %" PRIu64 "ns]",
-        audioSource.minBufferDuration, audioSource.maxBufferDuration);
+         audioSource.minBufferDuration, audioSource.maxBufferDuration);
 
     if (i == 0) {
       // Only request audio data from the first source, but continue discovery.
-      if (chreAudioConfigureSource(i, true,
-          audioSource.minBufferDuration, audioSource.minBufferDuration)) {
+      if (chreAudioConfigureSource(i, true, audioSource.minBufferDuration,
+                                   audioSource.minBufferDuration)) {
+        gAudioRequested = true;
+        gAudioHandle = i;
         LOGI("Requested audio from handle %" PRIu32 " successfully", i);
       } else {
         LOGE("Failed to request audio from handle %" PRIu32, i);
@@ -144,8 +152,7 @@ bool nanoappStart() {
   return true;
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
   switch (eventType) {
     case CHRE_EVENT_AUDIO_DATA:
@@ -163,6 +170,10 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
 }
 
 void nanoappEnd() {
+  if (gAudioRequested) {
+    chreAudioConfigureSource(gAudioHandle, false /* enable */,
+                             0 /* bufferDuration */, 0 /* deliveryInterval */);
+  }
   LOGI("Stopped");
 }
 
@@ -170,8 +181,8 @@ void nanoappEnd() {
 }  // anonymous namespace
 }  // namespace chre
 
-#include "chre/util/nanoapp/app_id.h"
 #include "chre/platform/static_nanoapp_init.h"
+#include "chre/util/nanoapp/app_id.h"
 
 CHRE_STATIC_NANOAPP_INIT(AudioWorld, chre::kAudioWorldAppId, 0);
 #endif  // CHRE_NANOAPP_INTERNAL

@@ -26,3 +26,13 @@ python_binary_host {
         },
     }
 }
+
+// TODO(b/150663999): Replace with gensrcs when the build system is able to
+//                    process the large file group.
+genrule {
+    name: "vts_vndk_abi_dump_zip",
+    tools: ["extract_lsdump"],
+    cmd: "$(location extract_lsdump) $(in) $(out)",
+    srcs: [":vndk_abi_dump_zip"],
+    out: ["vts/testcases/vndk/abi_dump.zip"],
+}

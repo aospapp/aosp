@@ -18,9 +18,9 @@ package com.android.androidtv.janktests;
 
 import android.os.Bundle;
 import android.platform.test.utils.DPadUtil;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
@@ -41,8 +41,9 @@ public class SystemUiJankTests extends JankTestBase {
 
     private static final String TAG = SystemUiJankTests.class.getSimpleName();
     private static final int SHORT_TIMEOUT = 1000;
-    private static final int INNER_LOOP = 4;
+    private static final int INNER_LOOP = 8;
     private static final int INNER_LOOP_SETTINGS = 8;
+    private static final int LOOP_SETTINGS_PREFERENCE = 4;
     private static final String TVLAUNCHER_PACKAGE = "com.google.android.tvlauncher";
     private static final String SETTINGS_PACKAGE = "com.android.tv.settings";
     private static final BySelector SELECTOR_TOP_ROW = By.res(TVLAUNCHER_PACKAGE, "top_row");
@@ -107,7 +108,7 @@ public class SystemUiJankTests extends JankTestBase {
             afterTest="afterTestSettings")
     @GfxMonitor(processName=SETTINGS_PACKAGE)
     public void testNavigateToSettings() throws UiObjectNotFoundException {
-        for (int i = 0; i < INNER_LOOP * 10; i++) {
+        for (int i = 0; i < INNER_LOOP * 5; i++) {
             // Press DPad center button to navigate to settings.
             mDPadUtil.pressDPadCenter();
             mDevice.wait(Until.hasObject(
@@ -135,15 +136,20 @@ public class SystemUiJankTests extends JankTestBase {
     public void testSettingsScreenNavigation() throws UiObjectNotFoundException {
         navigateDownAndUpCurrentScreen(INNER_LOOP_SETTINGS);
     }
-
+    
+    /*Increased the loop count to LOOP_SETTINGS_PREFERENCE
+     *since there is fewer Options in Settings Panel screen
+     */
     public void navigateDownAndUpCurrentScreen(int iterations) {
-        for (int i = 0; i < iterations; i++) {
+        for(int j = 0; j < LOOP_SETTINGS_PREFERENCE; j++){
+            for (int i = 0; i < iterations; i++) {
             // Press DPad button down eight times in succession
             mDPadUtil.pressDPadDown();
-        }
-        for (int i = 0; i < iterations; i++) {
+            }
+            for (int i = 0; i < iterations; i++) {
             // Press DPad button up eight times in succession.
             mDPadUtil.pressDPadUp();
+            }
         }
     }
 

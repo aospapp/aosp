@@ -34,16 +34,49 @@ del _path
 # pylint: disable=wrong-import-position
 import rh.shell
 import rh.signals
+from rh.sixish import string_types
 
 
-class CommandResult(object):
-    """An object to store various attributes of a child process."""
+def timedelta_str(delta):
+    """A less noisy timedelta.__str__.
 
-    def __init__(self, cmd=None, error=None, output=None, returncode=None):
-        self.cmd = cmd
-        self.error = error
-        self.output = output
-        self.returncode = returncode
+    The default timedelta stringification contains a lot of leading zeros and
+    uses microsecond resolution.  This makes for noisy output.
+    """
+    total = delta.total_seconds()
+    hours, rem = divmod(total, 3600)
+    mins, secs = divmod(rem, 60)
+    ret = '%i.%03is' % (secs, delta.microseconds // 1000)
+    if mins:
+        ret = '%im%s' % (mins, ret)
+    if hours:
+        ret = '%ih%s' % (hours, ret)
+    return ret
+
+
+class CompletedProcess(getattr(subprocess, 'CompletedProcess', object)):
+    """An object to store various attributes of a child process.
+
+    This is akin to subprocess.CompletedProcess.
+    """
+
+    # The linter is confused by the getattr usage above.
+    # TODO(vapier): Drop this once we're Python 3-only and we drop getattr.
+    # pylint: disable=bad-option-value,super-on-old-class
+    def __init__(self, args=None, returncode=None, stdout=None, stderr=None):
+        if sys.version_info.major < 3:
+            self.args = args
+            self.stdout = stdout
+            self.stderr = stderr
+            self.returncode = returncode
+        else:
+            super(CompletedProcess, self).__init__(
+                args=args, returncode=returncode, stdout=stdout, stderr=stderr)
+
+    @property
+    def cmd(self):
+        """Alias to self.args to better match other subprocess APIs."""
+        return self.args
 
     @property
     def cmdstr(self):
@@ -51,116 +84,72 @@ class CommandResult(object):
         return rh.shell.cmd_to_str(self.cmd)
 
 
-class RunCommandError(Exception):
-    """Error caught in RunCommand() method."""
+class CalledProcessError(subprocess.CalledProcessError):
+    """Error caught in run() function.
 
-    def __init__(self, msg, result, exception=None):
-        self.msg, self.result, self.exception = msg, result, exception
+    This is akin to subprocess.CalledProcessError.  We do not support |output|,
+    only |stdout|.
+
+    Attributes:
+      returncode: The exit code of the process.
+      cmd: The command that triggered this exception.
+      msg: Short explanation of the error.
+      exception: The underlying Exception if available.
+    """
+
+    def __init__(self, returncode, cmd, stdout=None, stderr=None, msg=None,
+                 exception=None):
         if exception is not None and not isinstance(exception, Exception):
-            raise ValueError('exception must be an exception instance; got %r'
-                             % (exception,))
-        Exception.__init__(self, msg)
-        self.args = (msg, result, exception)
+            raise TypeError('exception must be an exception instance; got %r'
+                            % (exception,))
 
-    def stringify(self, error=True, output=True):
+        super(CalledProcessError, self).__init__(returncode, cmd, stdout)
+        # The parent class will set |output|, so delete it.
+        del self.output
+        # TODO(vapier): When we're Python 3-only, delete this assignment as the
+        # parent handles it for us.
+        self.stdout = stdout
+        # TODO(vapier): When we're Python 3-only, move stderr to the init above.
+        self.stderr = stderr
+        self.msg = msg
+        self.exception = exception
+
+    @property
+    def cmdstr(self):
+        """Return self.cmd as a well shell-quoted string for debugging."""
+        return '' if self.cmd is None else rh.shell.cmd_to_str(self.cmd)
+
+    def stringify(self, stdout=True, stderr=True):
         """Custom method for controlling what is included in stringifying this.
 
-        Each individual argument is the literal name of an attribute
-        on the result object; if False, that value is ignored for adding
-        to this string content.  If true, it'll be incorporated.
-
         Args:
-          error: See comment about individual arguments above.
-          output: See comment about individual arguments above.
+          stdout: Whether to include captured stdout in the return value.
+          stderr: Whether to include captured stderr in the return value.
+
+        Returns:
+          A summary string for this result.
         """
         items = [
-            'return code: %s; command: %s' % (
-                self.result.returncode, self.result.cmdstr),
+            'return code: %s; command: %s' % (self.returncode, self.cmdstr),
         ]
-        if error and self.result.error:
-            items.append(self.result.error)
-        if output and self.result.output:
-            items.append(self.result.output)
+        if stderr and self.stderr:
+            items.append(self.stderr)
+        if stdout and self.stdout:
+            items.append(self.stdout)
         if self.msg:
             items.append(self.msg)
         return '\n'.join(items)
 
     def __str__(self):
-        # __str__ needs to return ascii, thus force a conversion to be safe.
-        return self.stringify().decode('utf-8', 'replace').encode(
-            'ascii', 'xmlcharrefreplace')
-
-    def __eq__(self, other):
-        return (type(self) == type(other) and
-                self.args == other.args)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
+        return self.stringify()
 
 
-class TerminateRunCommandError(RunCommandError):
+class TerminateCalledProcessError(CalledProcessError):
     """We were signaled to shutdown while running a command.
 
     Client code shouldn't generally know, nor care about this class.  It's
     used internally to suppress retry attempts when we're signaled to die.
     """
-
-
-def sudo_run_command(cmd, user='root', **kwargs):
-    """Run a command via sudo.
-
-    Client code must use this rather than coming up with their own RunCommand
-    invocation that jams sudo in- this function is used to enforce certain
-    rules in our code about sudo usage, and as a potential auditing point.
-
-    Args:
-      cmd: The command to run.  See RunCommand for rules of this argument-
-          SudoRunCommand purely prefixes it with sudo.
-      user: The user to run the command as.
-      kwargs: See RunCommand options, it's a direct pass thru to it.
-          Note that this supports a 'strict' keyword that defaults to True.
-          If set to False, it'll suppress strict sudo behavior.
-
-    Returns:
-      See RunCommand documentation.
-
-    Raises:
-      This function may immediately raise RunCommandError if we're operating
-      in a strict sudo context and the API is being misused.
-      Barring that, see RunCommand's documentation- it can raise the same things
-      RunCommand does.
-    """
-    sudo_cmd = ['sudo']
-
-    if user == 'root' and os.geteuid() == 0:
-        return run_command(cmd, **kwargs)
-
-    if user != 'root':
-        sudo_cmd += ['-u', user]
-
-    # Pass these values down into the sudo environment, since sudo will
-    # just strip them normally.
-    extra_env = kwargs.pop('extra_env', None)
-    extra_env = {} if extra_env is None else extra_env.copy()
-
-    sudo_cmd.extend('%s=%s' % (k, v) for k, v in extra_env.iteritems())
-
-    # Finally, block people from passing options to sudo.
-    sudo_cmd.append('--')
-
-    if isinstance(cmd, basestring):
-        # We need to handle shell ourselves so the order is correct:
-        #  $ sudo [sudo args] -- bash -c '[shell command]'
-        # If we let RunCommand take care of it, we'd end up with:
-        #  $ bash -c 'sudo [sudo args] -- [shell command]'
-        shell = kwargs.pop('shell', False)
-        if not shell:
-            raise Exception('Cannot run a string command without a shell')
-        sudo_cmd.extend(['/bin/bash', '-c', cmd])
-    else:
-        sudo_cmd.extend(cmd)
-
-    return run_command(sudo_cmd, **kwargs)
 
 
 def _kill_child_process(proc, int_timeout, kill_timeout, cmd, original_handler,
@@ -182,16 +171,16 @@ def _kill_child_process(proc, int_timeout, kill_timeout, cmd, original_handler,
     # where the Popen instance was created, but no process was generated.
     if proc.returncode is None and proc.pid is not None:
         try:
-            while proc.poll() is None and int_timeout >= 0:
+            while proc.poll_lock_breaker() is None and int_timeout >= 0:
                 time.sleep(0.1)
                 int_timeout -= 0.1
 
             proc.terminate()
-            while proc.poll() is None and kill_timeout >= 0:
+            while proc.poll_lock_breaker() is None and kill_timeout >= 0:
                 time.sleep(0.1)
                 kill_timeout -= 0.1
 
-            if proc.poll() is None:
+            if proc.poll_lock_breaker() is None:
                 # Still doesn't want to die.  Too bad, so sad, time to die.
                 proc.kill()
         except EnvironmentError as e:
@@ -199,13 +188,16 @@ def _kill_child_process(proc, int_timeout, kill_timeout, cmd, original_handler,
                   file=sys.stderr)
 
         # Ensure our child process has been reaped.
-        proc.wait()
+        kwargs = {}
+        if sys.version_info.major >= 3:
+            # ... but don't wait forever.
+            kwargs['timeout'] = 60
+        proc.wait_lock_breaker(**kwargs)
 
     if not rh.signals.relay_signal(original_handler, signum, frame):
         # Mock up our own, matching exit code for signaling.
-        cmd_result = CommandResult(cmd=cmd, returncode=signum << 8)
-        raise TerminateRunCommandError('Received signal %i' % signum,
-                                       cmd_result)
+        raise TerminateCalledProcessError(
+            signum << 8, cmd, msg='Received signal %i' % signum)
 
 
 class _Popen(subprocess.Popen):
@@ -221,6 +213,7 @@ class _Popen(subprocess.Popen):
     process has knowingly been waitpid'd already.
     """
 
+    # pylint: disable=arguments-differ
     def send_signal(self, signum):
         if self.returncode is not None:
             # The original implementation in Popen allows signaling whatever
@@ -233,21 +226,7 @@ class _Popen(subprocess.Popen):
         try:
             os.kill(self.pid, signum)
         except EnvironmentError as e:
-            if e.errno == errno.EPERM:
-                # Kill returns either 0 (signal delivered), or 1 (signal wasn't
-                # delivered).  This isn't particularly informative, but we still
-                # need that info to decide what to do, thus error_code_ok=True.
-                ret = sudo_run_command(['kill', '-%i' % signum, str(self.pid)],
-                                       redirect_stdout=True,
-                                       redirect_stderr=True, error_code_ok=True)
-                if ret.returncode == 1:
-                    # The kill binary doesn't distinguish between permission
-                    # denied and the pid is missing.  Denied can only occur
-                    # under weird grsec/selinux policies.  We ignore that
-                    # potential and just assume the pid was already dead and
-                    # try to reap it.
-                    self.poll()
-            elif e.errno == errno.ESRCH:
+            if e.errno == errno.ESRCH:
                 # Since we know the process is dead, reap it now.
                 # Normally Popen would throw this error- we suppress it since
                 # frankly that's a misfeature and we're already overriding
@@ -256,22 +235,44 @@ class _Popen(subprocess.Popen):
             else:
                 raise
 
+    def _lock_breaker(self, func, *args, **kwargs):
+        """Helper to manage the waitpid lock.
 
-# pylint: disable=redefined-builtin
-def run_command(cmd, error_message=None, redirect_stdout=False,
-                redirect_stderr=False, cwd=None, input=None,
-                shell=False, env=None, extra_env=None, ignore_sigint=False,
-                combine_stdout_stderr=False, log_stdout_to_file=None,
-                error_code_ok=False, int_timeout=1, kill_timeout=1,
-                stdout_to_pipe=False, capture_output=False,
-                quiet=False, close_fds=True):
+        Workaround https://bugs.python.org/issue25960.
+        """
+        # If the lock doesn't exist, or is not locked, call the func directly.
+        lock = getattr(self, '_waitpid_lock', None)
+        if lock is not None and lock.locked():
+            try:
+                lock.release()
+                return func(*args, **kwargs)
+            finally:
+                if not lock.locked():
+                    lock.acquire()
+        else:
+            return func(*args, **kwargs)
+
+    def poll_lock_breaker(self, *args, **kwargs):
+        """Wrapper around poll() to break locks if needed."""
+        return self._lock_breaker(self.poll, *args, **kwargs)
+
+    def wait_lock_breaker(self, *args, **kwargs):
+        """Wrapper around wait() to break locks if needed."""
+        return self._lock_breaker(self.wait, *args, **kwargs)
+
+
+# We use the keyword arg |input| which trips up pylint checks.
+# pylint: disable=redefined-builtin,input-builtin
+def run(cmd, redirect_stdout=False, redirect_stderr=False, cwd=None, input=None,
+        shell=False, env=None, extra_env=None, combine_stdout_stderr=False,
+        check=True, int_timeout=1, kill_timeout=1, capture_output=False,
+        close_fds=True):
     """Runs a command.
 
     Args:
       cmd: cmd to run.  Should be input to subprocess.Popen.  If a string, shell
           must be true.  Otherwise the command must be an array of arguments,
           and shell must be false.
-      error_message: Prints out this message when an error occurs.
       redirect_stdout: Returns the stdout.
       redirect_stderr: Holds stderr output until input is communicated.
       cwd: The working directory to run this cmd.
@@ -282,51 +283,44 @@ def run_command(cmd, error_message=None, redirect_stdout=False,
       env: If non-None, this is the environment for the new process.
       extra_env: If set, this is added to the environment for the new process.
           This dictionary is not used to clear any entries though.
-      ignore_sigint: If True, we'll ignore signal.SIGINT before calling the
-          child.  This is the desired behavior if we know our child will handle
-          Ctrl-C.  If we don't do this, I think we and the child will both get
-          Ctrl-C at the same time, which means we'll forcefully kill the child.
       combine_stdout_stderr: Combines stdout and stderr streams into stdout.
-      log_stdout_to_file: If set, redirects stdout to file specified by this
-          path.  If |combine_stdout_stderr| is set to True, then stderr will
-          also be logged to the specified file.
-      error_code_ok: Does not raise an exception when command returns a non-zero
-          exit code.  Instead, returns the CommandResult object containing the
-          exit code.
+      check: Whether to raise an exception when command returns a non-zero exit
+          code, or return the CompletedProcess object containing the exit code.
+          Note: will still raise an exception if the cmd file does not exist.
       int_timeout: If we're interrupted, how long (in seconds) should we give
           the invoked process to clean up before we send a SIGTERM.
       kill_timeout: If we're interrupted, how long (in seconds) should we give
           the invoked process to shutdown from a SIGTERM before we SIGKILL it.
-      stdout_to_pipe: Redirect stdout to pipe.
       capture_output: Set |redirect_stdout| and |redirect_stderr| to True.
-      quiet: Set |stdout_to_pipe| and |combine_stdout_stderr| to True.
       close_fds: Whether to close all fds before running |cmd|.
 
     Returns:
-      A CommandResult object.
+      A CompletedProcess object.
 
     Raises:
-      RunCommandError: Raises exception on error with optional error_message.
+      CalledProcessError: Raises exception on error.
     """
     if capture_output:
         redirect_stdout, redirect_stderr = True, True
 
-    if quiet:
-        stdout_to_pipe, combine_stdout_stderr = True, True
-
     # Set default for variables.
-    stdout = None
-    stderr = None
+    popen_stdout = None
+    popen_stderr = None
     stdin = None
-    cmd_result = CommandResult()
+    result = CompletedProcess()
 
     # Force the timeout to float; in the process, if it's not convertible,
     # a self-explanatory exception will be thrown.
     kill_timeout = float(kill_timeout)
 
     def _get_tempfile():
+        kwargs = {}
+        if sys.version_info.major < 3:
+            kwargs['bufsize'] = 0
+        else:
+            kwargs['buffering'] = 0
         try:
-            return tempfile.TemporaryFile(bufsize=0)
+            return tempfile.TemporaryFile(**kwargs)
         except EnvironmentError as e:
             if e.errno != errno.ENOENT:
                 raise
@@ -335,7 +329,7 @@ def run_command(cmd, error_message=None, redirect_stdout=False,
             # issue in this particular case since our usage gurantees deletion,
             # and since this is primarily triggered during hard cgroups
             # shutdown.
-            return tempfile.TemporaryFile(bufsize=0, dir='/tmp')
+            return tempfile.TemporaryFile(dir='/tmp', **kwargs)
 
     # Modify defaults based on parameters.
     # Note that tempfiles must be unbuffered else attempts to read
@@ -343,34 +337,31 @@ def run_command(cmd, error_message=None, redirect_stdout=False,
     # view of the file.
     # The Popen API accepts either an int or a file handle for stdout/stderr.
     # pylint: disable=redefined-variable-type
-    if log_stdout_to_file:
-        stdout = open(log_stdout_to_file, 'w+')
-    elif stdout_to_pipe:
-        stdout = subprocess.PIPE
-    elif redirect_stdout:
-        stdout = _get_tempfile()
+    if redirect_stdout:
+        popen_stdout = _get_tempfile()
 
     if combine_stdout_stderr:
-        stderr = subprocess.STDOUT
+        popen_stderr = subprocess.STDOUT
     elif redirect_stderr:
-        stderr = _get_tempfile()
+        popen_stderr = _get_tempfile()
     # pylint: enable=redefined-variable-type
 
     # If subprocesses have direct access to stdout or stderr, they can bypass
     # our buffers, so we need to flush to ensure that output is not interleaved.
-    if stdout is None or stderr is None:
+    if popen_stdout is None or popen_stderr is None:
         sys.stdout.flush()
         sys.stderr.flush()
 
     # If input is a string, we'll create a pipe and send it through that.
     # Otherwise we assume it's a file object that can be read from directly.
-    if isinstance(input, basestring):
+    if isinstance(input, string_types):
         stdin = subprocess.PIPE
+        input = input.encode('utf-8')
     elif input is not None:
         stdin = input
         input = None
 
-    if isinstance(cmd, basestring):
+    if isinstance(cmd, string_types):
         if not shell:
             raise Exception('Cannot run a string command without a shell')
         cmd = ['/bin/bash', '-c', cmd]
@@ -383,134 +374,77 @@ def run_command(cmd, error_message=None, redirect_stdout=False,
     env = env.copy() if env is not None else os.environ.copy()
     env.update(extra_env if extra_env else {})
 
-    cmd_result.cmd = cmd
+    result.args = cmd
 
     proc = None
-    # Verify that the signals modules is actually usable, and won't segfault
-    # upon invocation of getsignal.  See signals.SignalModuleUsable for the
-    # details and upstream python bug.
-    use_signals = rh.signals.signal_module_usable()
     try:
-        proc = _Popen(cmd, cwd=cwd, stdin=stdin, stdout=stdout,
-                      stderr=stderr, shell=False, env=env,
+        proc = _Popen(cmd, cwd=cwd, stdin=stdin, stdout=popen_stdout,
+                      stderr=popen_stderr, shell=False, env=env,
                       close_fds=close_fds)
 
-        if use_signals:
-            old_sigint = signal.getsignal(signal.SIGINT)
-            if ignore_sigint:
-                handler = signal.SIG_IGN
-            else:
-                handler = functools.partial(
-                    _kill_child_process, proc, int_timeout, kill_timeout, cmd,
-                    old_sigint)
-            signal.signal(signal.SIGINT, handler)
+        old_sigint = signal.getsignal(signal.SIGINT)
+        handler = functools.partial(_kill_child_process, proc, int_timeout,
+                                    kill_timeout, cmd, old_sigint)
+        signal.signal(signal.SIGINT, handler)
 
-            old_sigterm = signal.getsignal(signal.SIGTERM)
-            handler = functools.partial(_kill_child_process, proc, int_timeout,
-                                        kill_timeout, cmd, old_sigterm)
-            signal.signal(signal.SIGTERM, handler)
+        old_sigterm = signal.getsignal(signal.SIGTERM)
+        handler = functools.partial(_kill_child_process, proc, int_timeout,
+                                    kill_timeout, cmd, old_sigterm)
+        signal.signal(signal.SIGTERM, handler)
 
         try:
-            (cmd_result.output, cmd_result.error) = proc.communicate(input)
+            (result.stdout, result.stderr) = proc.communicate(input)
         finally:
-            if use_signals:
-                signal.signal(signal.SIGINT, old_sigint)
-                signal.signal(signal.SIGTERM, old_sigterm)
+            signal.signal(signal.SIGINT, old_sigint)
+            signal.signal(signal.SIGTERM, old_sigterm)
 
-            if stdout and not log_stdout_to_file and not stdout_to_pipe:
+            if popen_stdout:
                 # The linter is confused by how stdout is a file & an int.
                 # pylint: disable=maybe-no-member,no-member
-                stdout.seek(0)
-                cmd_result.output = stdout.read()
-                stdout.close()
+                popen_stdout.seek(0)
+                result.stdout = popen_stdout.read()
+                popen_stdout.close()
 
-            if stderr and stderr != subprocess.STDOUT:
+            if popen_stderr and popen_stderr != subprocess.STDOUT:
                 # The linter is confused by how stderr is a file & an int.
                 # pylint: disable=maybe-no-member,no-member
-                stderr.seek(0)
-                cmd_result.error = stderr.read()
-                stderr.close()
+                popen_stderr.seek(0)
+                result.stderr = popen_stderr.read()
+                popen_stderr.close()
 
-        cmd_result.returncode = proc.returncode
+        result.returncode = proc.returncode
 
-        if not error_code_ok and proc.returncode:
+        if check and proc.returncode:
             msg = 'cwd=%s' % cwd
             if extra_env:
                 msg += ', extra env=%s' % extra_env
-            if error_message:
-                msg += '\n%s' % error_message
-            raise RunCommandError(msg, cmd_result)
+            raise CalledProcessError(
+                result.returncode, result.cmd, stdout=result.stdout,
+                stderr=result.stderr, msg=msg)
     except OSError as e:
         estr = str(e)
         if e.errno == errno.EACCES:
             estr += '; does the program need `chmod a+x`?'
-        if error_code_ok:
-            cmd_result = CommandResult(cmd=cmd, error=estr, returncode=255)
+        if not check:
+            result = CompletedProcess(
+                args=cmd, stderr=estr.encode('utf-8'), returncode=255)
         else:
-            raise RunCommandError(estr, CommandResult(cmd=cmd), exception=e)
+            raise CalledProcessError(
+                result.returncode, result.cmd, stdout=result.stdout,
+                stderr=result.stderr, msg=estr, exception=e)
     finally:
         if proc is not None:
             # Ensure the process is dead.
+            # Some pylint3 versions are confused here.
+            # pylint: disable=too-many-function-args
             _kill_child_process(proc, int_timeout, kill_timeout, cmd, None,
                                 None, None)
 
-    return cmd_result
-# pylint: enable=redefined-builtin
+    # Make sure output is returned as a string rather than bytes.
+    if result.stdout is not None:
+        result.stdout = result.stdout.decode('utf-8', 'replace')
+    if result.stderr is not None:
+        result.stderr = result.stderr.decode('utf-8', 'replace')
 
-
-def collection(classname, **kwargs):
-    """Create a new class with mutable named members.
-
-    This is like collections.namedtuple, but mutable.  Also similar to the
-    python 3.3 types.SimpleNamespace.
-
-    Example:
-      # Declare default values for this new class.
-      Foo = collection('Foo', a=0, b=10)
-      # Create a new class but set b to 4.
-      foo = Foo(b=4)
-      # Print out a (will be the default 0) and b (will be 4).
-      print('a = %i, b = %i' % (foo.a, foo.b))
-    """
-
-    def sn_init(self, **kwargs):
-        """The new class's __init__ function."""
-        # First verify the kwargs don't have excess settings.
-        valid_keys = set(self.__slots__[1:])
-        these_keys = set(kwargs.keys())
-        invalid_keys = these_keys - valid_keys
-        if invalid_keys:
-            raise TypeError('invalid keyword arguments for this object: %r' %
-                            invalid_keys)
-
-        # Now initialize this object.
-        for k in valid_keys:
-            setattr(self, k, kwargs.get(k, self.__defaults__[k]))
-
-    def sn_repr(self):
-        """The new class's __repr__ function."""
-        return '%s(%s)' % (classname, ', '.join(
-            '%s=%r' % (k, getattr(self, k)) for k in self.__slots__[1:]))
-
-    # Give the new class a unique name and then generate the code for it.
-    classname = 'Collection_%s' % classname
-    expr = '\n'.join((
-        'class %(classname)s(object):',
-        '  __slots__ = ["__defaults__", "%(slots)s"]',
-        '  __defaults__ = {}',
-    )) % {
-        'classname': classname,
-        'slots': '", "'.join(sorted(str(k) for k in kwargs)),
-    }
-
-    # Create the class in a local namespace as exec requires.
-    namespace = {}
-    exec expr in namespace  # pylint: disable=exec-used
-    new_class = namespace[classname]
-
-    # Bind the helpers.
-    new_class.__defaults__ = kwargs.copy()
-    new_class.__init__ = sn_init
-    new_class.__repr__ = sn_repr
-
-    return new_class
+    return result
+# pylint: enable=redefined-builtin,input-builtin

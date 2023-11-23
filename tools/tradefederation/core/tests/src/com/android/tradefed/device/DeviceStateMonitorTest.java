@@ -28,6 +28,7 @@ import org.easymock.EasyMock;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * Unit tests for {@link DeviceStateMonitorTest}.
@@ -510,20 +511,26 @@ public class DeviceStateMonitorTest extends TestCase {
      */
     public void testWaitForStoreMount_PermDenied() throws Exception {
         mMockDevice = EasyMock.createMock(IDevice.class);
-        EasyMock.expect(mMockDevice.getState()).andReturn(DeviceState.ONLINE);
+        EasyMock.expect(mMockDevice.getState()).andReturn(DeviceState.ONLINE).anyTimes();
         EasyMock.expect(mMockDevice.getSerialNumber()).andReturn(SERIAL_NUMBER).anyTimes();
         mMockDevice.executeShellCommand((String) EasyMock.anyObject(),
                 (CollectingOutputReceiver)EasyMock.anyObject(), EasyMock.anyInt(),
                 EasyMock.eq(TimeUnit.MILLISECONDS));
         EasyMock.expectLastCall().anyTimes();
         EasyMock.replay(mMockDevice);
-        mMonitor = new DeviceStateMonitor(mMockMgr, mMockDevice, true) {
+
+        Function<Integer, DeviceStateMonitor> creator =
+                (Integer count) -> new DeviceStateMonitor(mMockMgr, mMockDevice, true) {
+            private int mCount = count;
             @Override
             protected CollectingOutputReceiver createOutputReceiver() {
+                String output = --mCount >= 0
+                        ? "/system/bin/sh: cat: /sdcard/1459376318045: Permission denied"
+                        : "number 10 one";
                 return new CollectingOutputReceiver() {
                     @Override
                     public String getOutput() {
-                        return "/system/bin/sh: cat: /sdcard/1459376318045: Permission denied";
+                        return output;
                     }
                 };
             }
@@ -532,12 +539,27 @@ public class DeviceStateMonitorTest extends TestCase {
                 return 10;
             }
             @Override
+            protected long getCheckPollTime() {
+                // Set retry interval to 0 so #waitForStoreMount won't fail due to timeout
+                return 0;
+            }
+            @Override
             public String getMountPoint(String mountName) {
                 return "";
             }
         };
-        boolean res = mMonitor.waitForStoreMount(WAIT_TIMEOUT_NOT_REACHED_MS);
-        assertFalse(res);
+
+        // 'Permission denied' is never returned. #waitForStoreMount should return true.
+        mMonitor = creator.apply(0);
+        assertTrue(mMonitor.waitForStoreMount(WAIT_TIMEOUT_NOT_REACHED_MS));
+        // 'Permission denied' is returned once. #waitForStoreMount should return true
+        // since we retry once when 'Permission denied' is returned.
+        mMonitor = creator.apply(1);
+        assertTrue(mMonitor.waitForStoreMount(WAIT_TIMEOUT_NOT_REACHED_MS));
+        // 'Permission denied' is returned twice. #waitForStoreMount should return false
+        // since the 2nd retry on 'Permission denied' still fails.
+        mMonitor = creator.apply(2);
+        assertFalse(mMonitor.waitForStoreMount(WAIT_TIMEOUT_NOT_REACHED_MS));
     }
 
     /**
@@ -789,5 +811,15 @@ public class DeviceStateMonitorTest extends TestCase {
             }
         };
         assertNull(mMonitor.waitForDeviceAvailable(WAIT_TIMEOUT_REACHED_MS));
+    }
+
+    /** Test {@link DeviceStateMonitor#waitForDeviceInSideload(long)} */
+    public void testWaitForDeviceInSideload() throws Exception {
+        mMockDevice = EasyMock.createMock(IDevice.class);
+        EasyMock.expect(mMockDevice.getState()).andReturn(DeviceState.SIDELOAD).anyTimes();
+        EasyMock.expect(mMockDevice.getSerialNumber()).andReturn(SERIAL_NUMBER).anyTimes();
+        EasyMock.replay(mMockDevice);
+        mMonitor = new DeviceStateMonitor(mMockMgr, mMockDevice, true);
+        assertTrue(mMonitor.waitForDeviceInSideload(WAIT_TIMEOUT_NOT_REACHED_MS));
     }
 }

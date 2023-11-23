@@ -17,17 +17,13 @@
 android_test {
     name: "CtsPermission2TestCases",
     defaults: ["cts_defaults"],
-
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
-        "cts_instant",
     ],
-
     libs: ["android.test.base.stubs"],
-
     static_libs: [
         "androidx.test.core",
         "compatibility-device-util-axt",
@@ -37,8 +33,29 @@ android_test {
         "truth-prebuilt",
         "permission-test-util-lib"
     ],
-
-    srcs: ["src/**/*.java"],
-
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt"
+    ],
     sdk_version: "test_current",
+    data: [
+        ":CtsLocationPermissionsUserSdk22",
+        ":CtsLocationPermissionsUserSdk29",
+        ":CtsSMSCallLogPermissionsUserSdk22",
+        ":CtsSMSCallLogPermissionsUserSdk29",
+        ":CtsStoragePermissionsUserDefaultSdk22",
+        ":CtsStoragePermissionsUserDefaultSdk28",
+        ":CtsStoragePermissionsUserDefaultSdk29",
+        ":CtsStoragePermissionsUserOptInSdk22",
+        ":CtsStoragePermissionsUserOptInSdk28",
+        ":CtsStoragePermissionsUserOptOutSdk29",
+        ":CtsStoragePermissionsPreservedUserOptOutSdk30",
+        ":CtsLegacyStorageNotIsolatedWithSharedUid",
+        ":CtsLegacyStorageIsolatedWithSharedUid",
+        ":CtsLegacyStorageRestrictedWithSharedUid",
+        ":CtsLegacyStorageRestrictedSdk28WithSharedUid",
+        ":CtsStoragePermissionsUserOptOutSdk30",
+        ":CtsSMSRestrictedWithSharedUid",
+        ":CtsSMSNotRestrictedWithSharedUid",
+    ],
 }

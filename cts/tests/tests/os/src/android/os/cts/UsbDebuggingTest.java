@@ -18,11 +18,13 @@ package android.os.cts;
 
 import android.os.Build;
 import android.os.SystemProperties;
+import android.platform.test.annotations.RestrictedBuildTest;
 import android.test.AndroidTestCase;
 import java.io.File;
 
 public class UsbDebuggingTest extends AndroidTestCase {
 
+    @RestrictedBuildTest
     public void testUsbDebugging() {
         // Secure USB debugging must be enabled
         assertEquals("1", SystemProperties.get("ro.adb.secure"));

@@ -17,6 +17,7 @@
 LOCAL_ERROR_PRONE_FLAGS:= -XDandroidCompatible=false \
                           -Xep:ArrayToString:ERROR \
                           -Xep:BoxedPrimitiveConstructor:ERROR \
+                          -Xep:CatchFail:ERROR \
                           -Xep:ConstantField:ERROR \
                           -Xep:DeadException:ERROR \
                           -Xep:EqualsIncompatibleType:ERROR \
@@ -25,6 +26,7 @@ LOCAL_ERROR_PRONE_FLAGS:= -XDandroidCompatible=false \
                           -Xep:GetClassOnClass:ERROR \
                           -Xep:IdentityBinaryExpression:ERROR \
                           -Xep:JUnit3TestNotRun:ERROR \
+                          -Xep:JUnit4TestNotRun:ERROR \
                           -Xep:JUnit4ClassUsedInJUnit3:ERROR \
                           -Xep:JUnitAmbiguousTestClass:ERROR \
                           -Xep:MissingFail:ERROR \
@@ -39,5 +41,7 @@ LOCAL_ERROR_PRONE_FLAGS:= -XDandroidCompatible=false \
                           -Xep:ReturnValueIgnored:ERROR \
                           -Xep:SelfEquals:ERROR \
                           -Xep:SizeGreaterThanOrEqualsZero:ERROR \
-                          -Xep:TryFailThrowable:ERROR
+                          -Xep:TryFailThrowable:ERROR \
+                          -Xep:UnnecessaryParentheses:ERROR \
+                          -Xep:UseCorrectAssertInTests:ERROR
 

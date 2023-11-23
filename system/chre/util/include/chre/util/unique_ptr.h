@@ -28,13 +28,13 @@ namespace chre {
  * memory. The goal is to be similar to std::unique_ptr, but we do not support
  * custom deleters - deletion is always done via memoryFree().
  */
-template<typename ObjectType>
+template <typename ObjectType>
 class UniquePtr : public NonCopyable {
  public:
   /**
    * Pointer type of ObjectType.
    */
-  typedef ObjectType* pointer;
+  typedef ObjectType *pointer;
 
   /**
    * Construct a UniquePtr instance that does not own any object.
@@ -56,7 +56,7 @@ class UniquePtr : public NonCopyable {
    *
    * @param other UniquePtr instance to move into this object
    */
-  UniquePtr(UniquePtr<ObjectType>&& other);
+  UniquePtr(UniquePtr<ObjectType> &&other);
 
   /**
    * Constructs a new UniquePtr via moving the Object from another UniquePtr.
@@ -65,8 +65,8 @@ class UniquePtr : public NonCopyable {
    *
    * @param other UniquePtr instance to move and convert into this object.
    */
-  template<typename OtherObjectType>
-  UniquePtr(UniquePtr<OtherObjectType>&& other);
+  template <typename OtherObjectType>
+  UniquePtr(UniquePtr<OtherObjectType> &&other);
 
   /**
    * Deconstructs the object (if necessary) and releases associated memory.
@@ -120,13 +120,13 @@ class UniquePtr : public NonCopyable {
   /**
    * @return A reference to the underlying object.
    */
-  ObjectType& operator*() const;
+  ObjectType &operator*() const;
 
   /**
    * @param index The index of an object in the underlying array object.
    * @return A reference to the underlying object at an index.
    */
-  ObjectType& operator[](size_t index) const;
+  ObjectType &operator[](size_t index) const;
 
   /**
    * Move assignment operator. Ownership of this object is transferred and the
@@ -135,7 +135,7 @@ class UniquePtr : public NonCopyable {
    * @param other The other object being moved.
    * @return A reference to the newly moved object.
    */
-  UniquePtr<ObjectType>& operator=(UniquePtr<ObjectType>&& other);
+  UniquePtr<ObjectType> &operator=(UniquePtr<ObjectType> &&other);
 
   /**
    * Two unique_ptr compare equal (==) if their stored pointers compare equal,
@@ -160,7 +160,7 @@ class UniquePtr : public NonCopyable {
  private:
   // Befriend this class to itself to allow the templated conversion constructor
   // permission to access mObject below.
-  template<typename OtherObjectType>
+  template <typename OtherObjectType>
   friend class UniquePtr;
 
   //! A pointer to the underlying storage for this object.
@@ -174,15 +174,15 @@ class UniquePtr : public NonCopyable {
  *
  * @param args The arguments to pass to the object's constructor.
  */
-template<typename ObjectType, typename... Args>
-UniquePtr<ObjectType> MakeUnique(Args&&... args);
+template <typename ObjectType, typename... Args>
+UniquePtr<ObjectType> MakeUnique(Args &&... args);
 
 /**
  * Just like MakeUnique(), except it zeros out any allocated memory. Intended to
  * be used for creating objects that have trivial constructors (e.g. C structs)
  * but should start with a known state.
  */
-template<typename ObjectType>
+template <typename ObjectType>
 UniquePtr<ObjectType> MakeUniqueZeroFill();
 
 }  // namespace chre

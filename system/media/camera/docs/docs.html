@@ -193,6 +193,10 @@
             ><a href="#controls_android.control.postRawSensitivityBoost">android.control.postRawSensitivityBoost</a></li>
             <li
             ><a href="#controls_android.control.enableZsl">android.control.enableZsl</a></li>
+            <li
+            ><a href="#controls_android.control.extendedSceneMode">android.control.extendedSceneMode</a></li>
+            <li
+            ><a href="#controls_android.control.zoomRatio">android.control.zoomRatio</a></li>
           </ul>
         </li>
         <li>
@@ -238,6 +242,14 @@
             ><a href="#static_android.control.availableModes">android.control.availableModes</a></li>
             <li
             ><a href="#static_android.control.postRawSensitivityBoostRange">android.control.postRawSensitivityBoostRange</a></li>
+            <li
+            ><a href="#static_android.control.availableExtendedSceneModeMaxSizes">android.control.availableExtendedSceneModeMaxSizes</a></li>
+            <li
+            ><a href="#static_android.control.availableExtendedSceneModeZoomRatioRanges">android.control.availableExtendedSceneModeZoomRatioRanges</a></li>
+            <li
+            ><a href="#static_android.control.availableExtendedSceneModeCapabilities">android.control.availableExtendedSceneModeCapabilities</a></li>
+            <li
+            ><a href="#static_android.control.zoomRatioRange">android.control.zoomRatioRange</a></li>
           </ul>
         </li>
         <li>
@@ -297,6 +309,10 @@
             ><a href="#dynamic_android.control.enableZsl">android.control.enableZsl</a></li>
             <li
             ><a href="#dynamic_android.control.afSceneChange">android.control.afSceneChange</a></li>
+            <li
+            ><a href="#dynamic_android.control.extendedSceneMode">android.control.extendedSceneMode</a></li>
+            <li
+            ><a href="#dynamic_android.control.zoomRatio">android.control.zoomRatio</a></li>
           </ul>
         </li>
       </ul> <!-- toc_section -->
@@ -702,6 +718,8 @@
           <ul class="toc_section">
             <li
             ><a href="#controls_android.scaler.cropRegion">android.scaler.cropRegion</a></li>
+            <li
+            ><a href="#controls_android.scaler.rotateAndCrop">android.scaler.rotateAndCrop</a></li>
           </ul>
         </li>
         <li>
@@ -748,6 +766,10 @@
             ><a href="#static_android.scaler.availableRecommendedInputOutputFormatsMap">android.scaler.availableRecommendedInputOutputFormatsMap</a></li>
             <li
             ><a href="#static_android.scaler.mandatoryStreamCombinations">android.scaler.mandatoryStreamCombinations</a></li>
+            <li
+            ><a href="#static_android.scaler.mandatoryConcurrentStreamCombinations">android.scaler.mandatoryConcurrentStreamCombinations</a></li>
+            <li
+            ><a href="#static_android.scaler.availableRotateAndCropModes">android.scaler.availableRotateAndCropModes</a></li>
           </ul>
         </li>
         <li>
@@ -755,6 +777,8 @@
           <ul class="toc_section">
             <li
             ><a href="#dynamic_android.scaler.cropRegion">android.scaler.cropRegion</a></li>
+            <li
+            ><a href="#dynamic_android.scaler.rotateAndCrop">android.scaler.rotateAndCrop</a></li>
           </ul>
         </li>
       </ul> <!-- toc_section -->
@@ -1385,7 +1409,7 @@ control is overridden by the AWB routine.<wbr/> When AWB is disabled,<wbr/> the
 application controls how the color mapping is performed.<wbr/></p>
 <p>We define the expected processing pipeline below.<wbr/> For consistency
 across devices,<wbr/> this is always the case with TRANSFORM_<wbr/>MATRIX.<wbr/></p>
-<p>When either FULL or HIGH_<wbr/>QUALITY is used,<wbr/> the camera device may
+<p>When either FAST or HIGH_<wbr/>QUALITY is used,<wbr/> the camera device may
 do additional processing but <a href="#controls_android.colorCorrection.gains">android.<wbr/>color<wbr/>Correction.<wbr/>gains</a> and
 <a href="#controls_android.colorCorrection.transform">android.<wbr/>color<wbr/>Correction.<wbr/>transform</a> will still be provided by the
 camera device (in the results) and be roughly correct.<wbr/></p>
@@ -1770,7 +1794,7 @@ control is overridden by the AWB routine.<wbr/> When AWB is disabled,<wbr/> the
 application controls how the color mapping is performed.<wbr/></p>
 <p>We define the expected processing pipeline below.<wbr/> For consistency
 across devices,<wbr/> this is always the case with TRANSFORM_<wbr/>MATRIX.<wbr/></p>
-<p>When either FULL or HIGH_<wbr/>QUALITY is used,<wbr/> the camera device may
+<p>When either FAST or HIGH_<wbr/>QUALITY is used,<wbr/> the camera device may
 do additional processing but <a href="#controls_android.colorCorrection.gains">android.<wbr/>color<wbr/>Correction.<wbr/>gains</a> and
 <a href="#controls_android.colorCorrection.transform">android.<wbr/>color<wbr/>Correction.<wbr/>transform</a> will still be provided by the
 camera device (in the results) and be roughly correct.<wbr/></p>
@@ -2719,6 +2743,16 @@ capture result metadata,<wbr/> the camera device will ignore the sections outsid
 region and output only the intersection rectangle as the metering region in the result
 metadata.<wbr/>  If the region is entirely outside the crop region,<wbr/> it will be ignored and
 not reported in the result metadata.<wbr/></p>
+<p>Starting from API level 30,<wbr/> the coordinate system of activeArraySize or
+preCorrectionActiveArraySize is used to represent post-zoomRatio field of view,<wbr/> not
+pre-zoom field of view.<wbr/> This means that the same aeRegions values at different
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> represent different parts of the scene.<wbr/> The aeRegions
+coordinates are relative to the activeArray/<wbr/>preCorrectionActiveArray representing the
+zoomed field of view.<wbr/> If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to 1.<wbr/>0 (default),<wbr/> the same
+aeRegions at different <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> still represent the same parts of the
+scene as they do before.<wbr/> See <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/> Whether to use
+activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
+mode.<wbr/></p>
             </td>
           </tr>
 
@@ -3201,6 +3235,16 @@ capture result metadata,<wbr/> the camera device will ignore the sections outsid
 region and output only the intersection rectangle as the metering region in the result
 metadata.<wbr/> If the region is entirely outside the crop region,<wbr/> it will be ignored and
 not reported in the result metadata.<wbr/></p>
+<p>Starting from API level 30,<wbr/> the coordinate system of activeArraySize or
+preCorrectionActiveArraySize is used to represent post-zoomRatio field of view,<wbr/> not
+pre-zoom field of view.<wbr/> This means that the same afRegions values at different
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> represent different parts of the scene.<wbr/> The afRegions
+coordinates are relative to the activeArray/<wbr/>preCorrectionActiveArray representing the
+zoomed field of view.<wbr/> If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to 1.<wbr/>0 (default),<wbr/> the same
+afRegions at different <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> still represent the same parts of the
+scene as they do before.<wbr/> See <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/> Whether to use
+activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
+mode.<wbr/></p>
             </td>
           </tr>
 
@@ -3681,6 +3725,16 @@ capture result metadata,<wbr/> the camera device will ignore the sections outsid
 region and output only the intersection rectangle as the metering region in the result
 metadata.<wbr/>  If the region is entirely outside the crop region,<wbr/> it will be ignored and
 not reported in the result metadata.<wbr/></p>
+<p>Starting from API level 30,<wbr/> the coordinate system of activeArraySize or
+preCorrectionActiveArraySize is used to represent post-zoomRatio field of view,<wbr/> not
+pre-zoom field of view.<wbr/> This means that the same awbRegions values at different
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> represent different parts of the scene.<wbr/> The awbRegions
+coordinates are relative to the activeArray/<wbr/>preCorrectionActiveArray representing the
+zoomed field of view.<wbr/> If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to 1.<wbr/>0 (default),<wbr/> the same
+awbRegions at different <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> still represent the same parts of
+the scene as they do before.<wbr/> See <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/> Whether to use
+activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
+mode.<wbr/></p>
             </td>
           </tr>
 
@@ -3986,7 +4040,8 @@ those settings while USE_<wbr/>SCENE_<wbr/>MODE is active (except for
 FACE_<wbr/>PRIORITY scene mode).<wbr/> Other control entries are still active.<wbr/>
 This setting can only be used if scene mode is supported (i.<wbr/>e.<wbr/>
 <a href="#static_android.control.availableSceneModes">android.<wbr/>control.<wbr/>available<wbr/>Scene<wbr/>Modes</a>
-contain some modes other than DISABLED).<wbr/></p></span>
+contain some modes other than DISABLED).<wbr/></p>
+<p>For extended scene modes such as BOKEH,<wbr/> please use USE_<wbr/>EXTENDED_<wbr/>SCENE_<wbr/>MODE instead.<wbr/></p></span>
                   </li>
                   <li>
                     <span class="entry_type_enum_name">OFF_KEEP_STATE (v3.2)</span>
@@ -3999,6 +4054,18 @@ values set from a request with AUTO,<wbr/> OFF,<wbr/> or
 USE_<wbr/>SCENE_<wbr/>MODE,<wbr/> and any statistics or state updates
 collected from manual captures with OFF_<wbr/>KEEP_<wbr/>STATE will be
 discarded by the camera device.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">USE_EXTENDED_SCENE_MODE (v3.5)</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_notes"><p>Use a specific extended scene mode.<wbr/></p>
+<p>When extended scene mode is on,<wbr/> the camera device may override certain control
+parameters,<wbr/> such as targetFpsRange,<wbr/> AE,<wbr/> AWB,<wbr/> and AF modes,<wbr/> to achieve best power and
+quality tradeoffs.<wbr/> Only the mandatory stream combinations of LIMITED hardware level
+are guaranteed.<wbr/></p>
+<p>This setting can only be used if extended scene mode is supported (i.<wbr/>e.<wbr/>
+android.<wbr/>control.<wbr/>available<wbr/>Extended<wbr/>Scene<wbr/>Modes
+contains some modes other than DISABLED).<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -4037,10 +4104,10 @@ by the camera device is disabled.<wbr/> The application must set the fields for
 capture parameters itself.<wbr/></p>
 <p>When set to AUTO,<wbr/> the individual algorithm controls in
 android.<wbr/>control.<wbr/>* are in effect,<wbr/> such as <a href="#controls_android.control.afMode">android.<wbr/>control.<wbr/>af<wbr/>Mode</a>.<wbr/></p>
-<p>When set to USE_<wbr/>SCENE_<wbr/>MODE,<wbr/> the individual controls in
+<p>When set to USE_<wbr/>SCENE_<wbr/>MODE or USE_<wbr/>EXTENDED_<wbr/>SCENE_<wbr/>MODE,<wbr/> the individual controls in
 android.<wbr/>control.<wbr/>* are mostly disabled,<wbr/> and the camera device
-implements one of the scene mode settings (such as ACTION,<wbr/>
-SUNSET,<wbr/> or PARTY) as it wishes.<wbr/> The camera device scene mode
+implements one of the scene mode or extended scene mode settings (such as ACTION,<wbr/>
+SUNSET,<wbr/> PARTY,<wbr/> or BOKEH) as it wishes.<wbr/> The camera device scene mode
 3A settings are provided by <a href="https://developer.android.com/reference/android/hardware/camera2/CaptureResult.html">capture results</a>.<wbr/></p>
 <p>When set to OFF_<wbr/>KEEP_<wbr/>STATE,<wbr/> it is similar to OFF mode,<wbr/> the only difference
 is that this frame will not be used by camera device background 3A statistics
@@ -4203,6 +4270,7 @@ android.<wbr/>control.<wbr/>* fields continue to work,<wbr/> such as</p>
 <li><a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a></li>
 <li><a href="#controls_android.control.afTrigger">android.<wbr/>control.<wbr/>af<wbr/>Trigger</a></li>
 <li><a href="#controls_android.control.aePrecaptureTrigger">android.<wbr/>control.<wbr/>ae<wbr/>Precapture<wbr/>Trigger</a></li>
+<li><a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a></li>
 </ul>
 <p>Outside of android.<wbr/>control.<wbr/>*,<wbr/> the following controls will work:</p>
 <ul>
@@ -4640,6 +4708,234 @@ capture intent.<wbr/></p>
           <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
            <!-- end of entry -->
         
+                
+          <tr class="entry" id="controls_android.control.extendedSceneMode">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>control.<wbr/>extended<wbr/>Scene<wbr/>Mode
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name entry_type_name_enum">byte</span>
+
+              <span class="entry_type_visibility"> [public]</span>
+
+
+
+
+
+                <ul class="entry_type_enum">
+                  <li>
+                    <span class="entry_type_enum_name">DISABLED (v3.5)</span>
+                    <span class="entry_type_enum_value">0</span>
+                    <span class="entry_type_enum_notes"><p>Extended scene mode is disabled.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">BOKEH_STILL_CAPTURE (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>High quality bokeh mode is enabled for all non-raw streams (including YUV,<wbr/>
+JPEG,<wbr/> and IMPLEMENTATION_<wbr/>DEFINED) when capture intent is STILL_<wbr/>CAPTURE.<wbr/> Due to the
+extra image processing,<wbr/> this mode may introduce additional stall to non-raw streams.<wbr/>
+This mode should be used in high quality still capture use case.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">BOKEH_CONTINUOUS (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>Bokeh effect must not slow down capture rate relative to sensor raw output,<wbr/>
+and the effect is applied to all processed streams no larger than the maximum
+streaming dimension.<wbr/> This mode should be used if performance and power are a
+priority,<wbr/> such as video recording.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">VENDOR_START (v3.5)</span>
+                    <span class="entry_type_enum_hidden">[hidden]</span>
+                    <span class="entry_type_enum_value">0x40</span>
+                    <span class="entry_type_enum_notes"><p>Vendor defined extended scene modes.<wbr/> These depend on vendor implementation.<wbr/></p></span>
+                  </li>
+                </ul>
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Whether extended scene mode is enabled for a particular capture request.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>With bokeh mode,<wbr/> the camera device may blur out the parts of scene that are not in
+focus,<wbr/> creating a bokeh (or shallow depth of field) effect for people or objects.<wbr/></p>
+<p>When set to BOKEH_<wbr/>STILL_<wbr/>CAPTURE mode with STILL_<wbr/>CAPTURE capture intent,<wbr/> due to the extra
+processing needed for high quality bokeh effect,<wbr/> the stall may be longer than when
+capture intent is not STILL_<wbr/>CAPTURE.<wbr/></p>
+<p>When set to BOKEH_<wbr/>STILL_<wbr/>CAPTURE mode with PREVIEW capture intent,<wbr/></p>
+<ul>
+<li>If the camera device has BURST_<wbr/>CAPTURE capability,<wbr/> the frame rate requirement of
+BURST_<wbr/>CAPTURE must still be met.<wbr/></li>
+<li>All streams not larger than the maximum streaming dimension for BOKEH_<wbr/>STILL_<wbr/>CAPTURE mode
+(queried via <a href="https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES">Camera<wbr/>Characteristics#CONTROL_<wbr/>AVAILABLE_<wbr/>EXTENDED_<wbr/>SCENE_<wbr/>MODE_<wbr/>CAPABILITIES</a>)
+will have preview bokeh effect applied.<wbr/></li>
+</ul>
+<p>When set to BOKEH_<wbr/>CONTINUOUS mode,<wbr/> configured streams dimension should not exceed this mode's
+maximum streaming dimension in order to have bokeh effect applied.<wbr/> Bokeh effect may not
+be available for streams larger than the maximum streaming dimension.<wbr/></p>
+<p>Switching between different extended scene modes may involve reconfiguration of the camera
+pipeline,<wbr/> resulting in long latency.<wbr/> The application should check this key against the
+available session keys queried via
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#getAvailableSessionKeys">CameraCharacteristics#getAvailableSessionKeys</a>.<wbr/></p>
+<p>For a logical multi-camera,<wbr/> bokeh may be implemented by stereo vision from sub-cameras
+with different field of view.<wbr/> As a result,<wbr/> when bokeh mode is enabled,<wbr/> the camera device
+may override <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> or <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> and the field of
+view may be smaller than when bokeh mode is off.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="controls_android.control.zoomRatio">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>control.<wbr/>zoom<wbr/>Ratio
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">float</span>
+
+              <span class="entry_type_visibility"> [public]</span>
+
+
+              <span class="entry_type_hwlevel">[limited] </span>
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>The desired zoom ratio</p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+              <p><a href="#static_android.control.zoomRatioRange">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio<wbr/>Range</a></p>
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>Instead of using <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> with dual purposes of crop and zoom,<wbr/> the
+application can now choose to use this tag to specify the desired zoom level.<wbr/> The
+<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> can still be used to specify the horizontal or vertical
+crop to achieve aspect ratios different than the native camera sensor.<wbr/></p>
+<p>By using this control,<wbr/> the application gains a simpler way to control zoom,<wbr/> which can
+be a combination of optical and digital zoom.<wbr/> For example,<wbr/> a multi-camera system may
+contain more than one lens with different focal lengths,<wbr/> and the user can use optical
+zoom by switching between lenses.<wbr/> Using zoomRatio has benefits in the scenarios below:</p>
+<ul>
+<li>Zooming in from a wide-angle lens to a telephoto lens: A floating-point ratio provides
+  better precision compared to an integer value of <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>.<wbr/></li>
+<li>Zooming out from a wide lens to an ultrawide lens: zoomRatio supports zoom-out whereas
+  <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> doesn't.<wbr/></li>
+</ul>
+<p>To illustrate,<wbr/> here are several scenarios of different zoom ratios,<wbr/> crop regions,<wbr/>
+and output streams,<wbr/> for a hypothetical camera device with an active array of size
+<code>(2000,<wbr/>1500)</code>.<wbr/></p>
+<ul>
+<li>Camera Configuration:<ul>
+<li>Active array size: <code>2000x1500</code> (3 MP,<wbr/> 4:3 aspect ratio)</li>
+<li>Output stream #1: <code>640x480</code> (VGA,<wbr/> 4:3 aspect ratio)</li>
+<li>Output stream #2: <code>1280x720</code> (720p,<wbr/> 16:9 aspect ratio)</li>
+</ul>
+</li>
+<li>Case #1: 4:3 crop region with 2.<wbr/>0x zoom ratio<ul>
+<li>Zoomed field of view: 1/<wbr/>4 of original field of view</li>
+<li>Crop region: <code>Rect(0,<wbr/> 0,<wbr/> 2000,<wbr/> 1500) //<wbr/> (left,<wbr/> top,<wbr/> right,<wbr/> bottom)</code> (post zoom)</li>
+</ul>
+</li>
+<li><img alt="4:3 aspect ratio crop diagram" src="images/camera2/metadata/android.control.zoomRatio/zoom-ratio-2-crop-43.png"/><ul>
+<li><code>640x480</code> stream source area: <code>(0,<wbr/> 0,<wbr/> 2000,<wbr/> 1500)</code> (equal to crop region)</li>
+<li><code>1280x720</code> stream source area: <code>(0,<wbr/> 187,<wbr/> 2000,<wbr/> 1312)</code> (letterboxed)</li>
+</ul>
+</li>
+<li>Case #2: 16:9 crop region with 2.<wbr/>0x zoom.<wbr/><ul>
+<li>Zoomed field of view: 1/<wbr/>4 of original field of view</li>
+<li>Crop region: <code>Rect(0,<wbr/> 187,<wbr/> 2000,<wbr/> 1312)</code></li>
+<li><img alt="16:9 aspect ratio crop diagram" src="images/camera2/metadata/android.control.zoomRatio/zoom-ratio-2-crop-169.png"/></li>
+<li><code>640x480</code> stream source area: <code>(250,<wbr/> 187,<wbr/> 1750,<wbr/> 1312)</code> (pillarboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(0,<wbr/> 187,<wbr/> 2000,<wbr/> 1312)</code> (equal to crop region)</li>
+</ul>
+</li>
+<li>Case #3: 1:1 crop region with 0.<wbr/>5x zoom out to ultrawide lens.<wbr/><ul>
+<li>Zoomed field of view: 4x of original field of view (switched from wide lens to ultrawide lens)</li>
+<li>Crop region: <code>Rect(250,<wbr/> 0,<wbr/> 1750,<wbr/> 1500)</code></li>
+<li><img alt="1:1 aspect ratio crop diagram" src="images/camera2/metadata/android.control.zoomRatio/zoom-ratio-0.5-crop-11.png"/></li>
+<li><code>640x480</code> stream source area: <code>(250,<wbr/> 187,<wbr/> 1750,<wbr/> 1312)</code> (letterboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(250,<wbr/> 328,<wbr/> 1750,<wbr/> 1172)</code> (letterboxed)</li>
+</ul>
+</li>
+</ul>
+<p>As seen from the graphs above,<wbr/> the coordinate system of cropRegion now changes to the
+effective after-zoom field-of-view,<wbr/> and is represented by the rectangle of (0,<wbr/> 0,<wbr/>
+activeArrayWith,<wbr/> activeArrayHeight).<wbr/> The same applies to AE/<wbr/>AWB/<wbr/>AF regions,<wbr/> and faces.<wbr/>
+This coordinate system change isn't applicable to RAW capture and its related
+metadata such as intrinsicCalibration and lensShadingMap.<wbr/></p>
+<p>Using the same hypothetical example above,<wbr/> and assuming output stream #1 (640x480) is
+the viewfinder stream,<wbr/> the application can achieve 2.<wbr/>0x zoom in one of two ways:</p>
+<ul>
+<li>zoomRatio = 2.<wbr/>0,<wbr/> scaler.<wbr/>cropRegion = (0,<wbr/> 0,<wbr/> 2000,<wbr/> 1500)</li>
+<li>zoomRatio = 1.<wbr/>0 (default),<wbr/> scaler.<wbr/>cropRegion = (500,<wbr/> 375,<wbr/> 1500,<wbr/> 1125)</li>
+</ul>
+<p>If the application intends to set aeRegions to be top-left quarter of the viewfinder
+field-of-view,<wbr/> the <a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a> should be set to (0,<wbr/> 0,<wbr/> 1000,<wbr/> 750) with
+zoomRatio set to 2.<wbr/>0.<wbr/> Alternatively,<wbr/> the application can set aeRegions to the equivalent
+region of (500,<wbr/> 375,<wbr/> 1000,<wbr/> 750) for zoomRatio of 1.<wbr/>0.<wbr/> If the application doesn't
+explicitly set <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> its value defaults to 1.<wbr/>0.<wbr/></p>
+<p>One limitation of controlling zoom using zoomRatio is that the <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>
+must only be used for letterboxing or pillarboxing of the sensor active array,<wbr/> and no
+FREEFORM cropping can be used with <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> other than 1.<wbr/>0.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>For all capture request templates,<wbr/> this field must be set to 1.<wbr/>0 in order to have
+consistent field of views between different modes.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
         
 
       <!-- end of kind -->
@@ -4878,8 +5174,13 @@ normal <a href="https://developer.android.com/reference/android/media/CamcorderP
 </ul>
 <p>For devices at the LIMITED level or above:</p>
 <ul>
-<li>For YUV_<wbr/>420_<wbr/>888 burst capture use case,<wbr/> this list will always include (<code>min</code>,<wbr/> <code>max</code>)
-and (<code>max</code>,<wbr/> <code>max</code>) where <code>min</code> &lt;= 15 and <code>max</code> = the maximum output frame rate of the
+<li>For devices that advertise NIR color filter arrangement in
+<a href="#static_android.sensor.info.colorFilterArrangement">android.<wbr/>sensor.<wbr/>info.<wbr/>color<wbr/>Filter<wbr/>Arrangement</a>,<wbr/> this list will always include
+(<code>max</code>,<wbr/> <code>max</code>) where <code>max</code> = the maximum output frame rate of the maximum YUV_<wbr/>420_<wbr/>888
+output size.<wbr/></li>
+<li>For devices advertising any color filter arrangement other than NIR,<wbr/> or devices not
+advertising color filter arrangement,<wbr/> this list will always include (<code>min</code>,<wbr/> <code>max</code>) and
+(<code>max</code>,<wbr/> <code>max</code>) where <code>min</code> &lt;= 15 and <code>max</code> = the maximum output frame rate of the
 maximum YUV_<wbr/>420_<wbr/>888 output size.<wbr/></li>
 </ul>
             </td>
@@ -5370,7 +5671,7 @@ mode camera devices.<wbr/></p>
             <td class="entry_description">
               <p>List of the maximum number of regions that can be used for metering in
 auto-exposure (AE),<wbr/> auto-white balance (AWB),<wbr/> and auto-focus (AF);
-this corresponds to the the maximum number of elements in
+this corresponds to the maximum number of elements in
 <a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a>,<wbr/> <a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a>,<wbr/>
 and <a href="#controls_android.control.afRegions">android.<wbr/>control.<wbr/>af<wbr/>Regions</a>.<wbr/></p>
             </td>
@@ -5446,7 +5747,7 @@ value will be &gt;= 1.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="6">
-              <p>This corresponds to the the maximum allowed number of elements in
+              <p>This corresponds to the maximum allowed number of elements in
 <a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a>.<wbr/></p>
             </td>
           </tr>
@@ -5509,7 +5810,7 @@ routine.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="6">
-              <p>This corresponds to the the maximum allowed number of elements in
+              <p>This corresponds to the maximum allowed number of elements in
 <a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a>.<wbr/></p>
             </td>
           </tr>
@@ -5572,7 +5873,7 @@ value will be &gt;= 1.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="6">
-              <p>This corresponds to the the maximum allowed number of elements in
+              <p>This corresponds to the maximum allowed number of elements in
 <a href="#controls_android.control.afRegions">android.<wbr/>control.<wbr/>af<wbr/>Regions</a>.<wbr/></p>
             </td>
           </tr>
@@ -6052,6 +6353,299 @@ list <code>(100,<wbr/> 100)</code> in this key.<wbr/></p>
 framework will generate this key as <code>(100,<wbr/> 100)</code> if device supports any of RAW output
 formats.<wbr/>  All legacy HAL3.<wbr/>4 and above devices should list this key if device supports
 any of RAW output formats.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.control.availableExtendedSceneModeMaxSizes">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>control.<wbr/>available<wbr/>Extended<wbr/>Scene<wbr/>Mode<wbr/>Max<wbr/>Sizes
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  3 x n
+                </span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
+
+
+              <span class="entry_type_hwlevel">[limited] </span>
+
+
+                <div class="entry_type_notes">List of extended scene modes and the corresponding max streaming sizes.<wbr/></div>
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>The list of extended scene modes for <a href="#controls_android.control.extendedSceneMode">android.<wbr/>control.<wbr/>extended<wbr/>Scene<wbr/>Mode</a> that are supported
+by this camera device,<wbr/> and each extended scene mode's maximum streaming (non-stall) size
+with  effect.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+              (mode,<wbr/> width,<wbr/> height)
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>For DISABLED mode,<wbr/> the camera behaves normally with no extended scene mode enabled.<wbr/></p>
+<p>For BOKEH_<wbr/>STILL_<wbr/>CAPTURE mode,<wbr/> the maximum streaming dimension specifies the limit
+under which bokeh is effective when capture intent is PREVIEW.<wbr/> Note that when capture
+intent is PREVIEW,<wbr/> the bokeh effect may not be as high in quality compared to
+STILL_<wbr/>CAPTURE intent in order to maintain reasonable frame rate.<wbr/> The maximum streaming
+dimension must be one of the YUV_<wbr/>420_<wbr/>888 or PRIVATE resolutions in
+availableStreamConfigurations,<wbr/> or (0,<wbr/> 0) if preview bokeh is not supported.<wbr/> If the
+application configures a stream larger than the maximum streaming dimension,<wbr/> bokeh
+effect may not be applied for this stream for PREVIEW intent.<wbr/></p>
+<p>For BOKEH_<wbr/>CONTINUOUS mode,<wbr/> the maximum streaming dimension specifies the limit under
+which bokeh is effective.<wbr/> This dimension must be one of the YUV_<wbr/>420_<wbr/>888 or PRIVATE
+resolutions in availableStreamConfigurations,<wbr/> and if the sensor maximum resolution is
+larger than or equal to 1080p,<wbr/> the maximum streaming dimension must be at least 1080p.<wbr/>
+If the application configures a stream with larger dimension,<wbr/> the stream may not have
+bokeh effect applied.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>For available extended scene modes,<wbr/> DISABLED will always be listed.<wbr/></p>
+<p>HAL must support at list one non-OFF extended scene mode if extendedSceneMode control is
+available on the camera device.<wbr/> For DISABLED mode,<wbr/> the maximum streaming resolution must
+be set to (0,<wbr/> 0).<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.control.availableExtendedSceneModeZoomRatioRanges">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>control.<wbr/>available<wbr/>Extended<wbr/>Scene<wbr/>Mode<wbr/>Zoom<wbr/>Ratio<wbr/>Ranges
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">float</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  2 x n
+                </span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
+
+
+              <span class="entry_type_hwlevel">[limited] </span>
+
+
+                <div class="entry_type_notes">Zoom ranges for all supported non-OFF extended scene modes.<wbr/></div>
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>The ranges of supported zoom ratio for non-DISABLED <a href="#controls_android.control.extendedSceneMode">android.<wbr/>control.<wbr/>extended<wbr/>Scene<wbr/>Mode</a>.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+              (minZoom,<wbr/> maxZoom)
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>When extended scene mode is set,<wbr/> the camera device may have limited range of zoom ratios
+compared to when extended scene mode is DISABLED.<wbr/> This tag lists the zoom ratio ranges
+for all supported non-DISABLED extended scene modes,<wbr/> in the same order as in
+android.<wbr/>control.<wbr/>available<wbr/>Extended.<wbr/></p>
+<p>Range [1.<wbr/>0,<wbr/> 1.<wbr/>0] means that no zoom (optical or digital) is supported.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.control.availableExtendedSceneModeCapabilities">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>control.<wbr/>available<wbr/>Extended<wbr/>Scene<wbr/>Mode<wbr/>Capabilities
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  n
+                </span>
+              <span class="entry_type_visibility"> [public as capability]</span>
+
+              <span class="entry_type_synthetic">[synthetic] </span>
+
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>The list of extended scene modes for <a href="#controls_android.control.extendedSceneMode">android.<wbr/>control.<wbr/>extended<wbr/>Scene<wbr/>Mode</a> that
+are supported by this camera device,<wbr/> and each extended scene mode's capabilities such
+as maximum streaming size,<wbr/> and supported zoom ratio ranges.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>For DISABLED mode,<wbr/> the camera behaves normally with no extended scene mdoe enabled.<wbr/></p>
+<p>For BOKEH_<wbr/>STILL_<wbr/>CAPTURE mode,<wbr/> the maximum streaming dimension specifies the limit
+under which bokeh is effective when capture intent is PREVIEW.<wbr/> Note that when capture
+intent is PREVIEW,<wbr/> the bokeh effect may not be as high quality compared to STILL_<wbr/>CAPTURE
+intent in order to maintain reasonable frame rate.<wbr/> The maximum streaming dimension must
+be one of the YUV_<wbr/>420_<wbr/>888 or PRIVATE resolutions in availableStreamConfigurations,<wbr/> or
+(0,<wbr/> 0) if preview bokeh is not supported.<wbr/> If the application configures a stream
+larger than the maximum streaming dimension,<wbr/> bokeh effect may not be applied for this
+stream for PREVIEW intent.<wbr/></p>
+<p>For BOKEH_<wbr/>CONTINUOUS mode,<wbr/> the maximum streaming dimension specifies the limit under
+which bokeh is effective.<wbr/> This dimension must be one of the YUV_<wbr/>420_<wbr/>888 or PRIVATE
+resolutions in availableStreamConfigurations,<wbr/> and if the sensor maximum resolution is
+larger than or equal to 1080p,<wbr/> the maximum streaming dimension must be at least 1080p.<wbr/>
+If the application configures a stream with larger dimension,<wbr/> the stream may not have
+bokeh effect applied.<wbr/></p>
+<p>When extended scene mode is set,<wbr/> the camera device may have limited range of zoom ratios
+compared to when the mode is DISABLED.<wbr/> availableExtendedSceneModeCapabilities lists the
+zoom ranges for all supported extended modes.<wbr/> A range of (1.<wbr/>0,<wbr/> 1.<wbr/>0) means that no zoom
+(optical or digital) is supported.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.control.zoomRatioRange">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>control.<wbr/>zoom<wbr/>Ratio<wbr/>Range
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">float</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  2
+                </span>
+              <span class="entry_type_visibility"> [public as rangeFloat]</span>
+
+
+              <span class="entry_type_hwlevel">[limited] </span>
+
+
+                <div class="entry_type_notes">The range of zoom ratios that this camera device supports.<wbr/></div>
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Minimum and maximum zoom ratios supported by this camera device.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+              A pair of zoom ratio in floating-points: (minZoom,<wbr/> maxZoom)
+            </td>
+
+            <td class="entry_range">
+              <p>maxZoom &gt;= 1.<wbr/>0 &gt;= minZoom</p>
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>If the camera device supports zoom-out from 1x zoom,<wbr/> minZoom will be less than 1.<wbr/>0,<wbr/> and
+setting <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> to values less than 1.<wbr/>0 increases the camera's field
+of view.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>When the key is reported,<wbr/> the camera device must be setting
+<a href="#static_android.scaler.availableMaxDigitalZoom">android.<wbr/>scaler.<wbr/>available<wbr/>Max<wbr/>Digital<wbr/>Zoom</a> to be the same as maxZoom.<wbr/> The camera framework
+makes sure to always controls zoom via <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>.<wbr/> The
+<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> tag is only used to do horizontal or vertical cropping (but
+not both) to achieve aspect ratio different than the camera sensor's native aspect
+ratio.<wbr/></p>
+<p>For a logical multi-camera device,<wbr/> this key must either be reported for both the logical
+camera device and all its physical sub-cameras,<wbr/> or none of them.<wbr/></p>
+<p>When the key is not reported,<wbr/> camera framework derives the application-facing
+zoomRatioRange to be (1,<wbr/> <a href="#static_android.scaler.availableMaxDigitalZoom">android.<wbr/>scaler.<wbr/>available<wbr/>Max<wbr/>Digital<wbr/>Zoom</a>).<wbr/></p>
             </td>
           </tr>
 
@@ -6678,6 +7272,16 @@ capture result metadata,<wbr/> the camera device will ignore the sections outsid
 region and output only the intersection rectangle as the metering region in the result
 metadata.<wbr/>  If the region is entirely outside the crop region,<wbr/> it will be ignored and
 not reported in the result metadata.<wbr/></p>
+<p>Starting from API level 30,<wbr/> the coordinate system of activeArraySize or
+preCorrectionActiveArraySize is used to represent post-zoomRatio field of view,<wbr/> not
+pre-zoom field of view.<wbr/> This means that the same aeRegions values at different
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> represent different parts of the scene.<wbr/> The aeRegions
+coordinates are relative to the activeArray/<wbr/>preCorrectionActiveArray representing the
+zoomed field of view.<wbr/> If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to 1.<wbr/>0 (default),<wbr/> the same
+aeRegions at different <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> still represent the same parts of the
+scene as they do before.<wbr/> See <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/> Whether to use
+activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
+mode.<wbr/></p>
             </td>
           </tr>
 
@@ -7467,6 +8071,16 @@ capture result metadata,<wbr/> the camera device will ignore the sections outsid
 region and output only the intersection rectangle as the metering region in the result
 metadata.<wbr/> If the region is entirely outside the crop region,<wbr/> it will be ignored and
 not reported in the result metadata.<wbr/></p>
+<p>Starting from API level 30,<wbr/> the coordinate system of activeArraySize or
+preCorrectionActiveArraySize is used to represent post-zoomRatio field of view,<wbr/> not
+pre-zoom field of view.<wbr/> This means that the same afRegions values at different
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> represent different parts of the scene.<wbr/> The afRegions
+coordinates are relative to the activeArray/<wbr/>preCorrectionActiveArray representing the
+zoomed field of view.<wbr/> If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to 1.<wbr/>0 (default),<wbr/> the same
+afRegions at different <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> still represent the same parts of the
+scene as they do before.<wbr/> See <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/> Whether to use
+activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
+mode.<wbr/></p>
             </td>
           </tr>
 
@@ -8493,6 +9107,16 @@ capture result metadata,<wbr/> the camera device will ignore the sections outsid
 region and output only the intersection rectangle as the metering region in the result
 metadata.<wbr/>  If the region is entirely outside the crop region,<wbr/> it will be ignored and
 not reported in the result metadata.<wbr/></p>
+<p>Starting from API level 30,<wbr/> the coordinate system of activeArraySize or
+preCorrectionActiveArraySize is used to represent post-zoomRatio field of view,<wbr/> not
+pre-zoom field of view.<wbr/> This means that the same awbRegions values at different
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> represent different parts of the scene.<wbr/> The awbRegions
+coordinates are relative to the activeArray/<wbr/>preCorrectionActiveArray representing the
+zoomed field of view.<wbr/> If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to 1.<wbr/>0 (default),<wbr/> the same
+awbRegions at different <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> still represent the same parts of
+the scene as they do before.<wbr/> See <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/> Whether to use
+activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
+mode.<wbr/></p>
             </td>
           </tr>
 
@@ -8988,7 +9612,8 @@ those settings while USE_<wbr/>SCENE_<wbr/>MODE is active (except for
 FACE_<wbr/>PRIORITY scene mode).<wbr/> Other control entries are still active.<wbr/>
 This setting can only be used if scene mode is supported (i.<wbr/>e.<wbr/>
 <a href="#static_android.control.availableSceneModes">android.<wbr/>control.<wbr/>available<wbr/>Scene<wbr/>Modes</a>
-contain some modes other than DISABLED).<wbr/></p></span>
+contain some modes other than DISABLED).<wbr/></p>
+<p>For extended scene modes such as BOKEH,<wbr/> please use USE_<wbr/>EXTENDED_<wbr/>SCENE_<wbr/>MODE instead.<wbr/></p></span>
                   </li>
                   <li>
                     <span class="entry_type_enum_name">OFF_KEEP_STATE (v3.2)</span>
@@ -9001,6 +9626,18 @@ values set from a request with AUTO,<wbr/> OFF,<wbr/> or
 USE_<wbr/>SCENE_<wbr/>MODE,<wbr/> and any statistics or state updates
 collected from manual captures with OFF_<wbr/>KEEP_<wbr/>STATE will be
 discarded by the camera device.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">USE_EXTENDED_SCENE_MODE (v3.5)</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_notes"><p>Use a specific extended scene mode.<wbr/></p>
+<p>When extended scene mode is on,<wbr/> the camera device may override certain control
+parameters,<wbr/> such as targetFpsRange,<wbr/> AE,<wbr/> AWB,<wbr/> and AF modes,<wbr/> to achieve best power and
+quality tradeoffs.<wbr/> Only the mandatory stream combinations of LIMITED hardware level
+are guaranteed.<wbr/></p>
+<p>This setting can only be used if extended scene mode is supported (i.<wbr/>e.<wbr/>
+android.<wbr/>control.<wbr/>available<wbr/>Extended<wbr/>Scene<wbr/>Modes
+contains some modes other than DISABLED).<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -9039,10 +9676,10 @@ by the camera device is disabled.<wbr/> The application must set the fields for
 capture parameters itself.<wbr/></p>
 <p>When set to AUTO,<wbr/> the individual algorithm controls in
 android.<wbr/>control.<wbr/>* are in effect,<wbr/> such as <a href="#controls_android.control.afMode">android.<wbr/>control.<wbr/>af<wbr/>Mode</a>.<wbr/></p>
-<p>When set to USE_<wbr/>SCENE_<wbr/>MODE,<wbr/> the individual controls in
+<p>When set to USE_<wbr/>SCENE_<wbr/>MODE or USE_<wbr/>EXTENDED_<wbr/>SCENE_<wbr/>MODE,<wbr/> the individual controls in
 android.<wbr/>control.<wbr/>* are mostly disabled,<wbr/> and the camera device
-implements one of the scene mode settings (such as ACTION,<wbr/>
-SUNSET,<wbr/> or PARTY) as it wishes.<wbr/> The camera device scene mode
+implements one of the scene mode or extended scene mode settings (such as ACTION,<wbr/>
+SUNSET,<wbr/> PARTY,<wbr/> or BOKEH) as it wishes.<wbr/> The camera device scene mode
 3A settings are provided by <a href="https://developer.android.com/reference/android/hardware/camera2/CaptureResult.html">capture results</a>.<wbr/></p>
 <p>When set to OFF_<wbr/>KEEP_<wbr/>STATE,<wbr/> it is similar to OFF mode,<wbr/> the only difference
 is that this frame will not be used by camera device background 3A statistics
@@ -9205,6 +9842,7 @@ android.<wbr/>control.<wbr/>* fields continue to work,<wbr/> such as</p>
 <li><a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a></li>
 <li><a href="#controls_android.control.afTrigger">android.<wbr/>control.<wbr/>af<wbr/>Trigger</a></li>
 <li><a href="#controls_android.control.aePrecaptureTrigger">android.<wbr/>control.<wbr/>ae<wbr/>Precapture<wbr/>Trigger</a></li>
+<li><a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a></li>
 </ul>
 <p>Outside of android.<wbr/>control.<wbr/>*,<wbr/> the following controls will work:</p>
 <ul>
@@ -9703,6 +10341,234 @@ to what would trigger a new passive focus scan to begin in CONTINUOUS autofocus 
             </td>
           </tr>
 
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="dynamic_android.control.extendedSceneMode">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>control.<wbr/>extended<wbr/>Scene<wbr/>Mode
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name entry_type_name_enum">byte</span>
+
+              <span class="entry_type_visibility"> [public]</span>
+
+
+
+
+
+                <ul class="entry_type_enum">
+                  <li>
+                    <span class="entry_type_enum_name">DISABLED (v3.5)</span>
+                    <span class="entry_type_enum_value">0</span>
+                    <span class="entry_type_enum_notes"><p>Extended scene mode is disabled.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">BOKEH_STILL_CAPTURE (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>High quality bokeh mode is enabled for all non-raw streams (including YUV,<wbr/>
+JPEG,<wbr/> and IMPLEMENTATION_<wbr/>DEFINED) when capture intent is STILL_<wbr/>CAPTURE.<wbr/> Due to the
+extra image processing,<wbr/> this mode may introduce additional stall to non-raw streams.<wbr/>
+This mode should be used in high quality still capture use case.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">BOKEH_CONTINUOUS (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>Bokeh effect must not slow down capture rate relative to sensor raw output,<wbr/>
+and the effect is applied to all processed streams no larger than the maximum
+streaming dimension.<wbr/> This mode should be used if performance and power are a
+priority,<wbr/> such as video recording.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">VENDOR_START (v3.5)</span>
+                    <span class="entry_type_enum_hidden">[hidden]</span>
+                    <span class="entry_type_enum_value">0x40</span>
+                    <span class="entry_type_enum_notes"><p>Vendor defined extended scene modes.<wbr/> These depend on vendor implementation.<wbr/></p></span>
+                  </li>
+                </ul>
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Whether extended scene mode is enabled for a particular capture request.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>With bokeh mode,<wbr/> the camera device may blur out the parts of scene that are not in
+focus,<wbr/> creating a bokeh (or shallow depth of field) effect for people or objects.<wbr/></p>
+<p>When set to BOKEH_<wbr/>STILL_<wbr/>CAPTURE mode with STILL_<wbr/>CAPTURE capture intent,<wbr/> due to the extra
+processing needed for high quality bokeh effect,<wbr/> the stall may be longer than when
+capture intent is not STILL_<wbr/>CAPTURE.<wbr/></p>
+<p>When set to BOKEH_<wbr/>STILL_<wbr/>CAPTURE mode with PREVIEW capture intent,<wbr/></p>
+<ul>
+<li>If the camera device has BURST_<wbr/>CAPTURE capability,<wbr/> the frame rate requirement of
+BURST_<wbr/>CAPTURE must still be met.<wbr/></li>
+<li>All streams not larger than the maximum streaming dimension for BOKEH_<wbr/>STILL_<wbr/>CAPTURE mode
+(queried via <a href="https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES">Camera<wbr/>Characteristics#CONTROL_<wbr/>AVAILABLE_<wbr/>EXTENDED_<wbr/>SCENE_<wbr/>MODE_<wbr/>CAPABILITIES</a>)
+will have preview bokeh effect applied.<wbr/></li>
+</ul>
+<p>When set to BOKEH_<wbr/>CONTINUOUS mode,<wbr/> configured streams dimension should not exceed this mode's
+maximum streaming dimension in order to have bokeh effect applied.<wbr/> Bokeh effect may not
+be available for streams larger than the maximum streaming dimension.<wbr/></p>
+<p>Switching between different extended scene modes may involve reconfiguration of the camera
+pipeline,<wbr/> resulting in long latency.<wbr/> The application should check this key against the
+available session keys queried via
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#getAvailableSessionKeys">CameraCharacteristics#getAvailableSessionKeys</a>.<wbr/></p>
+<p>For a logical multi-camera,<wbr/> bokeh may be implemented by stereo vision from sub-cameras
+with different field of view.<wbr/> As a result,<wbr/> when bokeh mode is enabled,<wbr/> the camera device
+may override <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> or <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> and the field of
+view may be smaller than when bokeh mode is off.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="dynamic_android.control.zoomRatio">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>control.<wbr/>zoom<wbr/>Ratio
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">float</span>
+
+              <span class="entry_type_visibility"> [public]</span>
+
+
+              <span class="entry_type_hwlevel">[limited] </span>
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>The desired zoom ratio</p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+              <p><a href="#static_android.control.zoomRatioRange">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio<wbr/>Range</a></p>
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>Instead of using <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> with dual purposes of crop and zoom,<wbr/> the
+application can now choose to use this tag to specify the desired zoom level.<wbr/> The
+<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> can still be used to specify the horizontal or vertical
+crop to achieve aspect ratios different than the native camera sensor.<wbr/></p>
+<p>By using this control,<wbr/> the application gains a simpler way to control zoom,<wbr/> which can
+be a combination of optical and digital zoom.<wbr/> For example,<wbr/> a multi-camera system may
+contain more than one lens with different focal lengths,<wbr/> and the user can use optical
+zoom by switching between lenses.<wbr/> Using zoomRatio has benefits in the scenarios below:</p>
+<ul>
+<li>Zooming in from a wide-angle lens to a telephoto lens: A floating-point ratio provides
+  better precision compared to an integer value of <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>.<wbr/></li>
+<li>Zooming out from a wide lens to an ultrawide lens: zoomRatio supports zoom-out whereas
+  <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> doesn't.<wbr/></li>
+</ul>
+<p>To illustrate,<wbr/> here are several scenarios of different zoom ratios,<wbr/> crop regions,<wbr/>
+and output streams,<wbr/> for a hypothetical camera device with an active array of size
+<code>(2000,<wbr/>1500)</code>.<wbr/></p>
+<ul>
+<li>Camera Configuration:<ul>
+<li>Active array size: <code>2000x1500</code> (3 MP,<wbr/> 4:3 aspect ratio)</li>
+<li>Output stream #1: <code>640x480</code> (VGA,<wbr/> 4:3 aspect ratio)</li>
+<li>Output stream #2: <code>1280x720</code> (720p,<wbr/> 16:9 aspect ratio)</li>
+</ul>
+</li>
+<li>Case #1: 4:3 crop region with 2.<wbr/>0x zoom ratio<ul>
+<li>Zoomed field of view: 1/<wbr/>4 of original field of view</li>
+<li>Crop region: <code>Rect(0,<wbr/> 0,<wbr/> 2000,<wbr/> 1500) //<wbr/> (left,<wbr/> top,<wbr/> right,<wbr/> bottom)</code> (post zoom)</li>
+</ul>
+</li>
+<li><img alt="4:3 aspect ratio crop diagram" src="images/camera2/metadata/android.control.zoomRatio/zoom-ratio-2-crop-43.png"/><ul>
+<li><code>640x480</code> stream source area: <code>(0,<wbr/> 0,<wbr/> 2000,<wbr/> 1500)</code> (equal to crop region)</li>
+<li><code>1280x720</code> stream source area: <code>(0,<wbr/> 187,<wbr/> 2000,<wbr/> 1312)</code> (letterboxed)</li>
+</ul>
+</li>
+<li>Case #2: 16:9 crop region with 2.<wbr/>0x zoom.<wbr/><ul>
+<li>Zoomed field of view: 1/<wbr/>4 of original field of view</li>
+<li>Crop region: <code>Rect(0,<wbr/> 187,<wbr/> 2000,<wbr/> 1312)</code></li>
+<li><img alt="16:9 aspect ratio crop diagram" src="images/camera2/metadata/android.control.zoomRatio/zoom-ratio-2-crop-169.png"/></li>
+<li><code>640x480</code> stream source area: <code>(250,<wbr/> 187,<wbr/> 1750,<wbr/> 1312)</code> (pillarboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(0,<wbr/> 187,<wbr/> 2000,<wbr/> 1312)</code> (equal to crop region)</li>
+</ul>
+</li>
+<li>Case #3: 1:1 crop region with 0.<wbr/>5x zoom out to ultrawide lens.<wbr/><ul>
+<li>Zoomed field of view: 4x of original field of view (switched from wide lens to ultrawide lens)</li>
+<li>Crop region: <code>Rect(250,<wbr/> 0,<wbr/> 1750,<wbr/> 1500)</code></li>
+<li><img alt="1:1 aspect ratio crop diagram" src="images/camera2/metadata/android.control.zoomRatio/zoom-ratio-0.5-crop-11.png"/></li>
+<li><code>640x480</code> stream source area: <code>(250,<wbr/> 187,<wbr/> 1750,<wbr/> 1312)</code> (letterboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(250,<wbr/> 328,<wbr/> 1750,<wbr/> 1172)</code> (letterboxed)</li>
+</ul>
+</li>
+</ul>
+<p>As seen from the graphs above,<wbr/> the coordinate system of cropRegion now changes to the
+effective after-zoom field-of-view,<wbr/> and is represented by the rectangle of (0,<wbr/> 0,<wbr/>
+activeArrayWith,<wbr/> activeArrayHeight).<wbr/> The same applies to AE/<wbr/>AWB/<wbr/>AF regions,<wbr/> and faces.<wbr/>
+This coordinate system change isn't applicable to RAW capture and its related
+metadata such as intrinsicCalibration and lensShadingMap.<wbr/></p>
+<p>Using the same hypothetical example above,<wbr/> and assuming output stream #1 (640x480) is
+the viewfinder stream,<wbr/> the application can achieve 2.<wbr/>0x zoom in one of two ways:</p>
+<ul>
+<li>zoomRatio = 2.<wbr/>0,<wbr/> scaler.<wbr/>cropRegion = (0,<wbr/> 0,<wbr/> 2000,<wbr/> 1500)</li>
+<li>zoomRatio = 1.<wbr/>0 (default),<wbr/> scaler.<wbr/>cropRegion = (500,<wbr/> 375,<wbr/> 1500,<wbr/> 1125)</li>
+</ul>
+<p>If the application intends to set aeRegions to be top-left quarter of the viewfinder
+field-of-view,<wbr/> the <a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a> should be set to (0,<wbr/> 0,<wbr/> 1000,<wbr/> 750) with
+zoomRatio set to 2.<wbr/>0.<wbr/> Alternatively,<wbr/> the application can set aeRegions to the equivalent
+region of (500,<wbr/> 375,<wbr/> 1000,<wbr/> 750) for zoomRatio of 1.<wbr/>0.<wbr/> If the application doesn't
+explicitly set <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> its value defaults to 1.<wbr/>0.<wbr/></p>
+<p>One limitation of controlling zoom using zoomRatio is that the <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>
+must only be used for letterboxing or pillarboxing of the sensor active array,<wbr/> and no
+FREEFORM cropping can be used with <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> other than 1.<wbr/>0.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>For all capture request templates,<wbr/> this field must be set to 1.<wbr/>0 in order to have
+consistent field of views between different modes.<wbr/></p>
+            </td>
+          </tr>
 
           <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
            <!-- end of entry -->
@@ -12881,7 +13747,9 @@ setting won't be applied instantaneously,<wbr/> and it may take several
 frames before the lens can change to the requested focal length.<wbr/>
 While the focal length is still changing,<wbr/> <a href="#dynamic_android.lens.state">android.<wbr/>lens.<wbr/>state</a> will
 be set to MOVING.<wbr/></p>
-<p>Optical zoom will not be supported on most devices.<wbr/></p>
+<p>Optical zoom via this control will not be supported on most devices.<wbr/> Starting from API
+level 30,<wbr/> the camera device may combine optical and digital zoom through the
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> control.<wbr/></p>
             </td>
           </tr>
 
@@ -12896,6 +13764,9 @@ focalLength and cropRegion take effect in the same frame.<wbr/> This is to make 
 is no visible field-of-view jump during zoom.<wbr/> For example,<wbr/> if cropRegion is applied
 immediately,<wbr/> but focalLength takes more than 1 frame to take effect,<wbr/> the camera device
 will delay the cropRegion so that it's synchronized with focalLength.<wbr/></p>
+<p>Starting from API level 30,<wbr/> it's strongly recommended for HAL to implement the
+combination of optical and digital zoom using the new <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> API,<wbr/> in
+lieu of using <a href="#controls_android.lens.focalLength">android.<wbr/>lens.<wbr/>focal<wbr/>Length</a> and <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>.<wbr/></p>
             </td>
           </tr>
 
@@ -13764,6 +14635,9 @@ used:</p>
 <p><code>p' = Rp</code></p>
 <p>where <code>p</code> is in the device sensor coordinate system,<wbr/> and
  <code>p'</code> is in the camera-oriented coordinate system.<wbr/></p>
+<p>If <a href="#static_android.lens.poseReference">android.<wbr/>lens.<wbr/>pose<wbr/>Reference</a> is UNDEFINED,<wbr/> the quaternion rotation cannot
+ be accurately represented by the camera device,<wbr/> and will be represented by
+ default values matching its default facing.<wbr/></p>
             </td>
           </tr>
 
@@ -13846,6 +14720,8 @@ image then needs to be corrected for radial distortion before comparison or samp
 <p>When <a href="#static_android.lens.poseReference">android.<wbr/>lens.<wbr/>pose<wbr/>Reference</a> is GYROSCOPE,<wbr/> then this position is relative to
 the center of the primary gyroscope on the device.<wbr/> The axis definitions are the same as
 with PRIMARY_<wbr/>CAMERA.<wbr/></p>
+<p>When <a href="#static_android.lens.poseReference">android.<wbr/>lens.<wbr/>pose<wbr/>Reference</a> is UNDEFINED,<wbr/> this position cannot be accurately
+represented by the camera device,<wbr/> and will be represented as <code>(0,<wbr/> 0,<wbr/> 0)</code>.<wbr/></p>
             </td>
           </tr>
 
@@ -14082,12 +14958,22 @@ the largest camera device facing the same direction as this camera.<wbr/></p>
                     <span class="entry_type_enum_notes"><p>The value of <a href="#static_android.lens.poseTranslation">android.<wbr/>lens.<wbr/>pose<wbr/>Translation</a> is relative to the position of the
 primary gyroscope of this Android device.<wbr/></p></span>
                   </li>
+                  <li>
+                    <span class="entry_type_enum_name">UNDEFINED (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>The camera device cannot represent the values of <a href="#static_android.lens.poseTranslation">android.<wbr/>lens.<wbr/>pose<wbr/>Translation</a>
+and <a href="#static_android.lens.poseRotation">android.<wbr/>lens.<wbr/>pose<wbr/>Rotation</a> accurately enough.<wbr/> One such example is a camera device
+on the cover of a foldable phone: in order to measure the pose translation and rotation,<wbr/>
+some kind of hinge position sensor would be needed.<wbr/></p>
+<p>The value of <a href="#static_android.lens.poseTranslation">android.<wbr/>lens.<wbr/>pose<wbr/>Translation</a> must be all zeros,<wbr/> and
+<a href="#static_android.lens.poseRotation">android.<wbr/>lens.<wbr/>pose<wbr/>Rotation</a> must be values matching its default facing.<wbr/></p></span>
+                  </li>
                 </ul>
 
             </td> <!-- entry_type -->
 
             <td class="entry_description">
-              <p>The origin for <a href="#static_android.lens.poseTranslation">android.<wbr/>lens.<wbr/>pose<wbr/>Translation</a>.<wbr/></p>
+              <p>The origin for <a href="#static_android.lens.poseTranslation">android.<wbr/>lens.<wbr/>pose<wbr/>Translation</a>,<wbr/> and the accuracy of
+<a href="#static_android.lens.poseTranslation">android.<wbr/>lens.<wbr/>pose<wbr/>Translation</a> and <a href="#static_android.lens.poseRotation">android.<wbr/>lens.<wbr/>pose<wbr/>Rotation</a>.<wbr/></p>
             </td>
 
             <td class="entry_units">
@@ -14421,7 +15307,9 @@ setting won't be applied instantaneously,<wbr/> and it may take several
 frames before the lens can change to the requested focal length.<wbr/>
 While the focal length is still changing,<wbr/> <a href="#dynamic_android.lens.state">android.<wbr/>lens.<wbr/>state</a> will
 be set to MOVING.<wbr/></p>
-<p>Optical zoom will not be supported on most devices.<wbr/></p>
+<p>Optical zoom via this control will not be supported on most devices.<wbr/> Starting from API
+level 30,<wbr/> the camera device may combine optical and digital zoom through the
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> control.<wbr/></p>
             </td>
           </tr>
 
@@ -14436,6 +15324,9 @@ focalLength and cropRegion take effect in the same frame.<wbr/> This is to make 
 is no visible field-of-view jump during zoom.<wbr/> For example,<wbr/> if cropRegion is applied
 immediately,<wbr/> but focalLength takes more than 1 frame to take effect,<wbr/> the camera device
 will delay the cropRegion so that it's synchronized with focalLength.<wbr/></p>
+<p>Starting from API level 30,<wbr/> it's strongly recommended for HAL to implement the
+combination of optical and digital zoom using the new <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> API,<wbr/> in
+lieu of using <a href="#controls_android.lens.focalLength">android.<wbr/>lens.<wbr/>focal<wbr/>Length</a> and <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>.<wbr/></p>
             </td>
           </tr>
 
@@ -14806,6 +15697,9 @@ used:</p>
 <p><code>p' = Rp</code></p>
 <p>where <code>p</code> is in the device sensor coordinate system,<wbr/> and
  <code>p'</code> is in the camera-oriented coordinate system.<wbr/></p>
+<p>If <a href="#static_android.lens.poseReference">android.<wbr/>lens.<wbr/>pose<wbr/>Reference</a> is UNDEFINED,<wbr/> the quaternion rotation cannot
+ be accurately represented by the camera device,<wbr/> and will be represented by
+ default values matching its default facing.<wbr/></p>
             </td>
           </tr>
 
@@ -14888,6 +15782,8 @@ image then needs to be corrected for radial distortion before comparison or samp
 <p>When <a href="#static_android.lens.poseReference">android.<wbr/>lens.<wbr/>pose<wbr/>Reference</a> is GYROSCOPE,<wbr/> then this position is relative to
 the center of the primary gyroscope on the device.<wbr/> The axis definitions are the same as
 with PRIMARY_<wbr/>CAMERA.<wbr/></p>
+<p>When <a href="#static_android.lens.poseReference">android.<wbr/>lens.<wbr/>pose<wbr/>Reference</a> is UNDEFINED,<wbr/> this position cannot be accurately
+represented by the camera device,<wbr/> and will be represented as <code>(0,<wbr/> 0,<wbr/> 0)</code>.<wbr/></p>
             </td>
           </tr>
 
@@ -17354,6 +18250,7 @@ android.<wbr/>control.<wbr/>* fields continue to work,<wbr/> such as</p>
 <li><a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a></li>
 <li><a href="#controls_android.control.afTrigger">android.<wbr/>control.<wbr/>af<wbr/>Trigger</a></li>
 <li><a href="#controls_android.control.aePrecaptureTrigger">android.<wbr/>control.<wbr/>ae<wbr/>Precapture<wbr/>Trigger</a></li>
+<li><a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a></li>
 </ul>
 <p>Outside of android.<wbr/>control.<wbr/>*,<wbr/> the following controls will work:</p>
 <ul>
@@ -17404,14 +18301,20 @@ results for use cases such as image stabilization or augmented reality.<wbr/></p
                     <span class="entry_type_enum_notes"><p>The camera device is a logical camera backed by two or more physical cameras.<wbr/></p>
 <p>In API level 28,<wbr/> the physical cameras must also be exposed to the application via
 <a href="https://developer.android.com/reference/android/hardware/camera2/CameraManager.html#getCameraIdList">CameraManager#getCameraIdList</a>.<wbr/></p>
-<p>Starting from API level 29,<wbr/> some or all physical cameras may not be independently
-exposed to the application,<wbr/> in which case the physical camera IDs will not be
-available in <a href="https://developer.android.com/reference/android/hardware/camera2/CameraManager.html#getCameraIdList">CameraManager#getCameraIdList</a>.<wbr/> But the
+<p>Starting from API level 29:</p>
+<ul>
+<li>Some or all physical cameras may not be independently exposed to the application,<wbr/>
+in which case the physical camera IDs will not be available in
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraManager.html#getCameraIdList">CameraManager#getCameraIdList</a>.<wbr/> But the
 application can still query the physical cameras' characteristics by calling
-<a href="https://developer.android.com/reference/android/hardware/camera2/CameraManager.html#getCameraCharacteristics">CameraManager#getCameraCharacteristics</a>.<wbr/> Additionally,<wbr/>
-if a physical camera is hidden from camera ID list,<wbr/> the mandatory stream combinations
-for that physical camera must be supported through the logical camera using physical
-streams.<wbr/></p>
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraManager.html#getCameraCharacteristics">CameraManager#getCameraCharacteristics</a>.<wbr/></li>
+<li>If a physical camera is hidden from camera ID list,<wbr/> the mandatory stream
+combinations for that physical camera must be supported through the logical camera
+using physical streams.<wbr/> One exception is that in API level 30,<wbr/> a physical camera
+may become unavailable via
+<a href="https://developer.android.com/reference/CameraManager/AvailabilityCallback.html#onPhysicalCameraUnavailable">AvailabilityCallback#onPhysicalCameraUnavailable</a>
+callback.<wbr/></li>
+</ul>
 <p>Combinations of logical and physical streams,<wbr/> or physical streams from different
 physical cameras are not guaranteed.<wbr/> However,<wbr/> if the camera device supports
 <a href="https://developer.android.com/reference/CameraDevice.html#isSessionConfigurationSupported">CameraDevice#isSessionConfigurationSupported</a>,<wbr/>
@@ -17482,19 +18385,35 @@ physical camera.<wbr/></p>
 <li><a href="#static_android.lens.poseReference">android.<wbr/>lens.<wbr/>pose<wbr/>Reference</a></li>
 <li><a href="#static_android.lens.distortion">android.<wbr/>lens.<wbr/>distortion</a></li>
 </ul>
-<p>The field of view of all non-RAW physical streams must be the same or as close as
-possible to that of non-RAW logical streams.<wbr/> If the requested FOV is outside of the
-range supported by the physical camera,<wbr/> the physical stream for that physical camera
-will use either the maximum or minimum scaler crop region,<wbr/> depending on which one is
-closer to the requested FOV.<wbr/> For example,<wbr/> for a logical camera with wide-tele lens
-configuration where the wide lens is the default,<wbr/> if the logical camera's crop region
-is set to maximum,<wbr/> the physical stream for the tele lens will be configured to its
-maximum crop region.<wbr/> On the other hand,<wbr/> if the logical camera has a normal-wide lens
-configuration where the normal lens is the default,<wbr/> when the logical camera's crop
-region is set to maximum,<wbr/> the FOV of the logical streams will be that of the normal
-lens.<wbr/> The FOV of the physical streams for the wide lens will be the same as the
-logical stream,<wbr/> by making the crop region smaller than its active array size to
-compensate for the smaller focal length.<wbr/></p>
+<p>The field of view of non-RAW physical streams must not be smaller than that of the
+non-RAW logical streams,<wbr/> or the maximum field-of-view of the physical camera,<wbr/>
+whichever is smaller.<wbr/> The application should check the physical capture result
+metadata for how the physical streams are cropped or zoomed.<wbr/> More specifically,<wbr/> given
+the physical camera result metadata,<wbr/> the effective horizontal field-of-view of the
+physical camera is:</p>
+<pre><code>fov = 2 * atan2(cropW * sensorW /<wbr/> (2 * zoomRatio * activeArrayW),<wbr/> focalLength)
+</code></pre>
+<p>where the equation parameters are the physical camera's crop region width,<wbr/> physical
+sensor width,<wbr/> zoom ratio,<wbr/> active array width,<wbr/> and focal length respectively.<wbr/> Typically
+the physical stream of active physical camera has the same field-of-view as the
+logical streams.<wbr/> However,<wbr/> the same may not be true for physical streams from
+non-active physical cameras.<wbr/> For example,<wbr/> if the logical camera has a wide-ultrawide
+configuration where the wide lens is the default,<wbr/> when the crop region is set to the
+logical camera's active array size,<wbr/> (and the zoom ratio set to 1.<wbr/>0 starting from
+Android 11),<wbr/> a physical stream for the ultrawide camera may prefer outputing images
+with larger field-of-view than that of the wide camera for better stereo matching
+margin or more robust motion tracking.<wbr/> At the same time,<wbr/> the physical non-RAW streams'
+field of view must not be smaller than the requested crop region and zoom ratio,<wbr/> as
+long as it's within the physical lens' capability.<wbr/> For example,<wbr/> for a logical camera
+with wide-tele lens configuration where the wide lens is the default,<wbr/> if the logical
+camera's crop region is set to maximum size,<wbr/> and zoom ratio set to 1.<wbr/>0,<wbr/> the physical
+stream for the tele lens will be configured to its maximum size crop region (no zoom).<wbr/></p>
+<p><em>Deprecated:</em> Prior to Android 11,<wbr/> the field of view of all non-RAW physical streams
+cannot be larger than that of non-RAW logical streams.<wbr/> If the logical camera has a
+wide-ultrawide lens configuration where the wide lens is the default,<wbr/> when the logical
+camera's crop region is set to maximum size,<wbr/> the FOV of the physical streams for the
+ultrawide lens will be the same as the logical stream,<wbr/> by making the crop region
+smaller than its active array size to compensate for the smaller focal length.<wbr/></p>
 <p>Even if the underlying physical cameras have different RAW characteristics (such as
 size or CFA pattern),<wbr/> a logical camera can still advertise RAW capability.<wbr/> In this
 case,<wbr/> when the application configures a RAW stream,<wbr/> the camera device will make sure
@@ -17529,6 +18448,58 @@ camera will be either MONO or NIR.<wbr/></p></span>
                     <span class="entry_type_enum_notes"><p>The camera device is capable of writing image data into a region of memory
 inaccessible to Android userspace or the Android kernel,<wbr/> and only accessible to
 trusted execution environments (TEE).<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">SYSTEM_CAMERA (v3.5)</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_notes"><p>The camera device is only accessible by Android's system components and privileged
+applications.<wbr/> Processes need to have the android.<wbr/>permission.<wbr/>SYSTEM_<wbr/>CAMERA in
+addition to android.<wbr/>permission.<wbr/>CAMERA in order to connect to this camera device.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">OFFLINE_PROCESSING (v3.5)</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_notes"><p>The camera device supports the OFFLINE_<wbr/>PROCESSING use case.<wbr/></p>
+<p>With OFFLINE_<wbr/>PROCESSING capability,<wbr/> the application can switch an ongoing
+capture session to offline mode by calling the
+CameraCaptureSession#switchToOffline method and specify streams to be kept in offline
+mode.<wbr/> The camera will then stop currently active repeating requests,<wbr/> prepare for
+some requests to go into offline mode,<wbr/> and return an offline session object.<wbr/> After
+the switchToOffline call returns,<wbr/> the original capture session is in closed state as
+if the CameraCaptureSession#close method has been called.<wbr/>
+In the offline mode,<wbr/> all inflight requests will continue to be processed in the
+background,<wbr/> and the application can immediately close the camera or create a new
+capture session without losing those requests' output images and capture results.<wbr/></p>
+<p>While the camera device is processing offline requests,<wbr/> it
+might not be able to support all stream configurations it can support
+without offline requests.<wbr/> When that happens,<wbr/> the createCaptureSession
+method call will fail.<wbr/> The following stream configurations are guaranteed to work
+without hitting the resource busy exception:</p>
+<ul>
+<li>One ongoing offline session: target one output surface of YUV or
+JPEG format,<wbr/> any resolution.<wbr/></li>
+<li>The active camera capture session:<ol>
+<li>One preview surface (SurfaceView or SurfaceTexture) up to 1920 width</li>
+<li>One YUV ImageReader surface up to 1920 width</li>
+<li>One Jpeg ImageReader,<wbr/> any resolution: the camera device is
+   allowed to slow down JPEG output speed by 50% if there is any ongoing offline
+   session.<wbr/></li>
+<li>If the device supports PRIVATE_<wbr/>REPROCESSING,<wbr/> one pair of ImageWriter/<wbr/>ImageReader
+   surfaces of private format,<wbr/> with the same resolution that is larger or equal to
+   the JPEG ImageReader resolution above.<wbr/></li>
+</ol>
+</li>
+<li>Alternatively,<wbr/> the active camera session above can be replaced by an legacy
+<a href="https://developer.android.com/reference/android/hardware/Camera.html">Camera</a> with the following parameter settings:<ol>
+<li>Preview size up to 1920 width</li>
+<li>Preview callback size up to 1920 width</li>
+<li>Video size up to 1920 width</li>
+<li>Picture size,<wbr/> any resolution: the camera device is
+    allowed to slow down JPEG output speed by 50% if there is any ongoing offline
+    session.<wbr/></li>
+</ol>
+</li>
+</ul></span>
                   </li>
                 </ul>
 
@@ -17634,11 +18605,11 @@ only ID0 will be available for camera1 API to use.<wbr/></p>
 power,<wbr/> performance,<wbr/> and latency tradeoffs at the front of the camera id list.<wbr/></p>
 </li>
 <li>
-<p>Camera HAL may switch between physical cameras depending on focalLength or cropRegion.<wbr/>
-If physical cameras have different sizes,<wbr/> HAL must maintain a single logical camera
-active<wbr/>Array<wbr/>Size/<wbr/>pixel<wbr/>Array<wbr/>Size/<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size,<wbr/> and must do proper mapping
-between logical camera and underlying physical cameras for all related metadata tags,<wbr/>
-such as crop region,<wbr/> 3A regions,<wbr/> and intrinsicCalibration.<wbr/></p>
+<p>Camera HAL may switch between physical cameras depending on focalLength,<wbr/> cropRegion,<wbr/> or
+zoomRatio.<wbr/> If physical cameras have different sizes,<wbr/> HAL must maintain a single logical
+camera active<wbr/>Array<wbr/>Size/<wbr/>pixel<wbr/>Array<wbr/>Size/<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size,<wbr/> and must do proper
+mapping between logical camera and underlying physical cameras for all related metadata
+tags,<wbr/> such as crop region,<wbr/> zoomRatio,<wbr/> 3A regions,<wbr/> and intrinsicCalibration.<wbr/></p>
 </li>
 <li>
 <p>Starting from HIDL ICameraDevice version 3.<wbr/>5,<wbr/> camera HAL must support
@@ -17668,6 +18639,22 @@ CurveGreen and curveBlue are no-ops.<wbr/></p>
 </ul>
 <p>In Android API level 28,<wbr/> a MONOCHROME camera device must not have RAW capability.<wbr/> From
 API level 29,<wbr/> a camera is allowed to have both MONOCHROME and RAW capabilities.<wbr/></p>
+<p>To support the legacy API to ICameraDevice 3.<wbr/>x shim layer,<wbr/> devices advertising
+OFFLINE_<wbr/>PROCESSING capability must also support configuring an input stream of the same
+size as the picture size if:</p>
+<ul>
+<li>The device supports PRIVATE_<wbr/>REPROCESSING capability</li>
+<li>The device's maximal JPEG resolution can reach 30 FPS min frame duration</li>
+<li>The device does not support HAL based ZSL (<a href="#controls_android.control.enableZsl">android.<wbr/>control.<wbr/>enable<wbr/>Zsl</a>)</li>
+</ul>
+<p>For devices which support SYSTEM_<wbr/>CAMERA and LOGICAL_<wbr/>MULTI_<wbr/>CAMERA capabilities:</p>
+<p>Hidden physical camera ids[1] must not be be shared[2] between public camera devices
+and camera devices advertising SYSTEM_<wbr/>CAMERA capability.<wbr/></p>
+<p>[1] - Camera device ids which are advertised in the
+      ANDROID_<wbr/>LOGICAL_<wbr/>MULTI_<wbr/>CAMERA_<wbr/>PHYSICAL_<wbr/>IDS list,<wbr/> and not available through
+      ICamera<wbr/>Provider.<wbr/>get<wbr/>Camera<wbr/>Id<wbr/>List().<wbr/></p>
+<p>[2] - The ANDROID_<wbr/>LOGICAL_<wbr/>MULTI_<wbr/>CAMERA_<wbr/>PHYSICAL_<wbr/>IDS lists,<wbr/> must not have common
+      camera ids.<wbr/></p>
             </td>
           </tr>
 
@@ -18589,32 +19576,70 @@ pipeline stages were actually used.<wbr/></p>
 <p>For devices not supporting <a href="#controls_android.distortionCorrection.mode">android.<wbr/>distortion<wbr/>Correction.<wbr/>mode</a> control,<wbr/> the coordinate
 system always follows that of <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> with <code>(0,<wbr/> 0)</code> being
 the top-left pixel of the active array.<wbr/></p>
-<p>For devices supporting <a href="#controls_android.distortionCorrection.mode">android.<wbr/>distortion<wbr/>Correction.<wbr/>mode</a> control,<wbr/> the coordinate
-system depends on the mode being set.<wbr/>
-When the distortion correction mode is OFF,<wbr/> the coordinate system follows
-<a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a>,<wbr/> with
-<code>(0,<wbr/> 0)</code> being the top-left pixel of the pre-correction active array.<wbr/>
-When the distortion correction mode is not OFF,<wbr/> the coordinate system follows
-<a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> with
-<code>(0,<wbr/> 0)</code> being the top-left pixel of the active array.<wbr/></p>
-<p>Output streams use this rectangle to produce their output,<wbr/>
-cropping to a smaller region if necessary to maintain the
-stream's aspect ratio,<wbr/> then scaling the sensor input to
+<p>For devices supporting <a href="#controls_android.distortionCorrection.mode">android.<wbr/>distortion<wbr/>Correction.<wbr/>mode</a> control,<wbr/> the coordinate system
+depends on the mode being set.<wbr/>  When the distortion correction mode is OFF,<wbr/> the
+coordinate system follows <a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a>,<wbr/> with <code>(0,<wbr/>
+0)</code> being the top-left pixel of the pre-correction active array.<wbr/>  When the distortion
+correction mode is not OFF,<wbr/> the coordinate system follows
+<a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> with <code>(0,<wbr/> 0)</code> being the top-left pixel of the
+active array.<wbr/></p>
+<p>Output streams use this rectangle to produce their output,<wbr/> cropping to a smaller region
+if necessary to maintain the stream's aspect ratio,<wbr/> then scaling the sensor input to
 match the output's configured resolution.<wbr/></p>
-<p>The crop region is applied after the RAW to other color
-space (e.<wbr/>g.<wbr/> YUV) conversion.<wbr/> Since raw streams
-(e.<wbr/>g.<wbr/> RAW16) don't have the conversion stage,<wbr/> they are not
+<p>The crop region is applied after the RAW to other color space (e.<wbr/>g.<wbr/> YUV)
+conversion.<wbr/> Since raw streams (e.<wbr/>g.<wbr/> RAW16) don't have the conversion stage,<wbr/> they are not
 croppable.<wbr/> The crop region will be ignored by raw streams.<wbr/></p>
-<p>For non-raw streams,<wbr/> any additional per-stream cropping will
-be done to maximize the final pixel area of the stream.<wbr/></p>
-<p>For example,<wbr/> if the crop region is set to a 4:3 aspect
-ratio,<wbr/> then 4:3 streams will use the exact crop
-region.<wbr/> 16:9 streams will further crop vertically
-(letterbox).<wbr/></p>
-<p>Conversely,<wbr/> if the crop region is set to a 16:9,<wbr/> then 4:3
-outputs will crop horizontally (pillarbox),<wbr/> and 16:9
-streams will match exactly.<wbr/> These additional crops will
-be centered within the crop region.<wbr/></p>
+<p>For non-raw streams,<wbr/> any additional per-stream cropping will be done to maximize the
+final pixel area of the stream.<wbr/></p>
+<p>For example,<wbr/> if the crop region is set to a 4:3 aspect ratio,<wbr/> then 4:3 streams will use
+the exact crop region.<wbr/> 16:9 streams will further crop vertically (letterbox).<wbr/></p>
+<p>Conversely,<wbr/> if the crop region is set to a 16:9,<wbr/> then 4:3 outputs will crop horizontally
+(pillarbox),<wbr/> and 16:9 streams will match exactly.<wbr/> These additional crops will be
+centered within the crop region.<wbr/></p>
+<p>To illustrate,<wbr/> here are several scenarios of different crop regions and output streams,<wbr/>
+for a hypothetical camera device with an active array of size <code>(2000,<wbr/>1500)</code>.<wbr/>  Note that
+several of these examples use non-centered crop regions for ease of illustration; such
+regions are only supported on devices with FREEFORM capability
+(<a href="#static_android.scaler.croppingType">android.<wbr/>scaler.<wbr/>cropping<wbr/>Type</a> <code>== FREEFORM</code>),<wbr/> but this does not affect the way the crop
+rules work otherwise.<wbr/></p>
+<ul>
+<li>Camera Configuration:<ul>
+<li>Active array size: <code>2000x1500</code> (3 MP,<wbr/> 4:3 aspect ratio)</li>
+<li>Output stream #1: <code>640x480</code> (VGA,<wbr/> 4:3 aspect ratio)</li>
+<li>Output stream #2: <code>1280x720</code> (720p,<wbr/> 16:9 aspect ratio)</li>
+</ul>
+</li>
+<li>Case #1: 4:3 crop region with 2x digital zoom<ul>
+<li>Crop region: <code>Rect(500,<wbr/> 375,<wbr/> 1500,<wbr/> 1125) //<wbr/> (left,<wbr/> top,<wbr/> right,<wbr/> bottom)</code></li>
+<li><img alt="4:3 aspect ratio crop diagram" src="images/camera2/metadata/android.scaler.cropRegion/crop-region-43-ratio.png"/></li>
+<li><code>640x480</code> stream source area: <code>(500,<wbr/> 375,<wbr/> 1500,<wbr/> 1125)</code> (equal to crop region)</li>
+<li><code>1280x720</code> stream source area: <code>(500,<wbr/> 469,<wbr/> 1500,<wbr/> 1031)</code> (letterboxed)</li>
+</ul>
+</li>
+<li>Case #2: 16:9 crop region with ~1.<wbr/>5x digital zoom.<wbr/><ul>
+<li>Crop region: <code>Rect(500,<wbr/> 375,<wbr/> 1833,<wbr/> 1125)</code></li>
+<li><img alt="16:9 aspect ratio crop diagram" src="images/camera2/metadata/android.scaler.cropRegion/crop-region-169-ratio.png"/></li>
+<li><code>640x480</code> stream source area: <code>(666,<wbr/> 375,<wbr/> 1666,<wbr/> 1125)</code> (pillarboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(500,<wbr/> 375,<wbr/> 1833,<wbr/> 1125)</code> (equal to crop region)</li>
+</ul>
+</li>
+<li>Case #3: 1:1 crop region with ~2.<wbr/>6x digital zoom.<wbr/><ul>
+<li>Crop region: <code>Rect(500,<wbr/> 375,<wbr/> 1250,<wbr/> 1125)</code></li>
+<li><img alt="1:1 aspect ratio crop diagram" src="images/camera2/metadata/android.scaler.cropRegion/crop-region-11-ratio.png"/></li>
+<li><code>640x480</code> stream source area: <code>(500,<wbr/> 469,<wbr/> 1250,<wbr/> 1031)</code> (letterboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(500,<wbr/> 543,<wbr/> 1250,<wbr/> 957)</code> (letterboxed)</li>
+</ul>
+</li>
+<li>Case #4: Replace <code>640x480</code> stream with <code>1024x1024</code> stream,<wbr/> with 4:3 crop region:<ul>
+<li>Crop region: <code>Rect(500,<wbr/> 375,<wbr/> 1500,<wbr/> 1125)</code></li>
+<li><img alt="Square output, 4:3 aspect ratio crop diagram" src="images/camera2/metadata/android.scaler.cropRegion/crop-region-43-square-ratio.png"/></li>
+<li><code>1024x1024</code> stream source area: <code>(625,<wbr/> 375,<wbr/> 1375,<wbr/> 1125)</code> (pillarboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(500,<wbr/> 469,<wbr/> 1500,<wbr/> 1031)</code> (letterboxed)</li>
+<li>Note that in this case,<wbr/> neither of the two outputs is a subset of the other,<wbr/> with
+  each containing image data the other doesn't have.<wbr/></li>
+</ul>
+</li>
+</ul>
 <p>If the coordinate system is <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> the width and height
 of the crop region cannot be set to be smaller than
 <code>floor( activeArraySize.<wbr/>width /<wbr/> <a href="#static_android.scaler.availableMaxDigitalZoom">android.<wbr/>scaler.<wbr/>available<wbr/>Max<wbr/>Digital<wbr/>Zoom</a> )</code> and
@@ -18625,10 +19650,16 @@ and height of the crop region cannot be set to be smaller than
 and
 <code>floor( preCorrectionActiveArraySize.<wbr/>height /<wbr/> <a href="#static_android.scaler.availableMaxDigitalZoom">android.<wbr/>scaler.<wbr/>available<wbr/>Max<wbr/>Digital<wbr/>Zoom</a> )</code>,<wbr/>
 respectively.<wbr/></p>
-<p>The camera device may adjust the crop region to account
-for rounding and other hardware requirements; the final
-crop region used will be included in the output capture
-result.<wbr/></p>
+<p>The camera device may adjust the crop region to account for rounding and other hardware
+requirements; the final crop region used will be included in the output capture result.<wbr/></p>
+<p>Starting from API level 30,<wbr/> it's strongly recommended to use <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>
+to take advantage of better support for zoom with logical multi-camera.<wbr/> The benefits
+include better precision with optical-digital zoom combination,<wbr/> and ability to do
+zoom-out from 1.<wbr/>0x.<wbr/> When using <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for zoom,<wbr/> the crop region in
+the capture request must be either letterboxing or pillarboxing (but not both).<wbr/> The
+coordinate system is post-zoom,<wbr/> meaning that the activeArraySize or
+preCorrectionActiveArraySize covers the camera device's field of view "after" zoom.<wbr/>  See
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/></p>
             </td>
           </tr>
 
@@ -18649,11 +19680,18 @@ possible.<wbr/></p>
 size than pre-correction active array size,<wbr/> the HAL need follow below cropping rules:</p>
 <ul>
 <li>
-<p>The HAL need handle the cropRegion as if the sensor crop size is the effective
+<p>The HAL need to handle the cropRegion as if the sensor crop size is the effective
 pre-correction active array size.<wbr/> More specifically,<wbr/> the HAL must transform the request
 cropRegion from <a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a> to the sensor cropped
 pixel area size in this way:</p>
 <ol>
+<li>If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to value x,<wbr/> scale the requested cropRegion
+with 1.<wbr/>0/<wbr/>x in relation to its center as the origin.<wbr/> For example,<wbr/> say the requested
+cropRegion is (crX,<wbr/> crY,<wbr/> crWidth,<wbr/> crHeight),<wbr/> override it with
+    <code>crX' = crX + crWidth * (1.<wbr/>0 - 1.<wbr/>0 /<wbr/> x) /<wbr/> 2</code>,<wbr/>
+    <code>crY' = crY + crHeight * (1.<wbr/>0 - 1.<wbr/>0 /<wbr/> x) /<wbr/> 2</code>,<wbr/>
+    <code>crWidth' = crWidth /<wbr/> x</code>,<wbr/> and
+    <code>crHeight' = crHeight /<wbr/> x</code>.<wbr/></li>
 <li>Translate the requested cropRegion w.<wbr/>r.<wbr/>t.,<wbr/> the left top corner of the sensor
 cropped pixel area by (tx,<wbr/> ty),<wbr/>
 where <code>ty = sensorCrop.<wbr/>top * (sensorCrop.<wbr/>height /<wbr/> preCorrectionActiveArraySize.<wbr/>height)</code>
@@ -18677,7 +19715,176 @@ cropRegion since the HAL may adjust the crop region to account for rounding,<wbr
 error,<wbr/> or other hardware limitations.<wbr/></p>
 </li>
 </ul>
+<p>If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is supported by the HAL,<wbr/> the HAL must report the zoom
+ratio via <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> and change the coordinate system such that
+<a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a> or <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>(depending on whether <a href="#controls_android.distortionCorrection.mode">android.<wbr/>distortion<wbr/>Correction.<wbr/>mode</a> is supported) is used to
+represent the camera field-of-view after zoom.<wbr/> see <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for
+details.<wbr/></p>
 <p>HAL2.<wbr/>x uses only (x,<wbr/> y,<wbr/> width)</p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="controls_android.scaler.rotateAndCrop">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>scaler.<wbr/>rotate<wbr/>And<wbr/>Crop
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name entry_type_name_enum">byte</span>
+
+              <span class="entry_type_visibility"> [hidden]</span>
+
+
+
+
+
+                <ul class="entry_type_enum">
+                  <li>
+                    <span class="entry_type_enum_name">NONE (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>No rotate and crop is applied.<wbr/> Processed outputs are in the sensor orientation.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">90 (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>Processed images are rotated by 90 degrees clockwise,<wbr/> and then cropped
+to the original aspect ratio.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">180 (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>Processed images are rotated by 180 degrees.<wbr/>  Since the aspect ratio does not
+change,<wbr/> no cropping is performed.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">270 (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>Processed images are rotated by 270 degrees clockwise,<wbr/> and then cropped
+to the original aspect ratio.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">AUTO (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>The camera API automatically selects the best concrete value for
+rotate-and-crop based on the application's support for resizability and the current
+multi-window mode.<wbr/></p>
+<p>If the application does not support resizing but the display mode for its main
+Activity is not in a typical orientation,<wbr/> the camera API will set <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code>
+or some other supported rotation value,<wbr/> depending on device configuration,<wbr/>
+to ensure preview and captured images are correctly shown to the user.<wbr/> Otherwise,<wbr/>
+<code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>NONE</code> will be selected.<wbr/></p>
+<p>When a value other than NONE is selected,<wbr/> several metadata fields will also be parsed
+differently to ensure that coordinates are correctly handled for features like drawing
+face detection boxes or passing in tap-to-focus coordinates.<wbr/>  The camera API will
+convert positions in the active array coordinate system to/<wbr/>from the cropped-and-rotated
+coordinate system to make the operation transparent for applications.<wbr/></p>
+<p>No coordinate mapping will be done when the application selects a non-AUTO mode.<wbr/></p></span>
+                  </li>
+                </ul>
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Whether a rotation-and-crop operation is applied to processed
+outputs from the camera.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+              <p><a href="#static_android.scaler.availableRotateAndCropModes">android.<wbr/>scaler.<wbr/>available<wbr/>Rotate<wbr/>And<wbr/>Crop<wbr/>Modes</a></p>
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>This control is primarily intended to help camera applications with no support for
+multi-window modes to work correctly on devices where multi-window scenarios are
+unavoidable,<wbr/> such as foldables or other devices with variable display geometry or more
+free-form window placement (such as laptops,<wbr/> which often place portrait-orientation apps
+in landscape with pillarboxing).<wbr/></p>
+<p>If supported,<wbr/> the default value is <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO</code>,<wbr/> which allows the camera API
+to enable backwards-compatibility support for applications that do not support resizing
+/<wbr/> multi-window modes,<wbr/> when the device is in fact in a multi-window mode (such as inset
+portrait on laptops,<wbr/> or on a foldable device in some fold states).<wbr/>  In addition,<wbr/>
+<code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>NONE</code> and <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code> will always be available if this control
+is supported by the device.<wbr/>  If not supported,<wbr/> devices API level 30 or higher will always
+list only <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>NONE</code>.<wbr/></p>
+<p>When <code>CROP_<wbr/>AUTO</code> is in use,<wbr/> and the camera API activates backward-compatibility mode,<wbr/>
+several metadata fields will also be parsed differently to ensure that coordinates are
+correctly handled for features like drawing face detection boxes or passing in
+tap-to-focus coordinates.<wbr/>  The camera API will convert positions in the active array
+coordinate system to/<wbr/>from the cropped-and-rotated coordinate system to make the
+operation transparent for applications.<wbr/>  The following controls are affected:</p>
+<ul>
+<li><a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a></li>
+<li><a href="#controls_android.control.afRegions">android.<wbr/>control.<wbr/>af<wbr/>Regions</a></li>
+<li><a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a></li>
+<li><a href="#dynamic_android.statistics.faces">android.<wbr/>statistics.<wbr/>faces</a></li>
+</ul>
+<p>Capture results will contain the actual value selected by the API;
+<code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO</code> will never be seen in a capture result.<wbr/></p>
+<p>Applications can also select their preferred cropping mode,<wbr/> either to opt out of the
+backwards-compatibility treatment,<wbr/> or to use the cropping feature themselves as needed.<wbr/>
+In this case,<wbr/> no coordinate translation will be done automatically,<wbr/> and all controls
+will continue to use the normal active array coordinates.<wbr/></p>
+<p>Cropping and rotating is done after the application of digital zoom (via either
+<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> or <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>),<wbr/> but before each individual
+output is further cropped and scaled.<wbr/> It only affects processed outputs such as
+YUV,<wbr/> PRIVATE,<wbr/> and JPEG.<wbr/>  It has no effect on RAW outputs.<wbr/></p>
+<p>When <code>CROP_<wbr/>90</code> or <code>CROP_<wbr/>270</code> are selected,<wbr/> there is a significant loss to the field of
+view.<wbr/> For example,<wbr/> with a 4:3 aspect ratio output of 1600x1200,<wbr/> <code>CROP_<wbr/>90</code> will still
+produce 1600x1200 output,<wbr/> but these buffers are cropped from a vertical 3:4 slice at the
+center of the 4:3 area,<wbr/> then rotated to be 4:3,<wbr/> and then upscaled to 1600x1200.<wbr/>  Only
+56.<wbr/>25% of the original FOV is still visible.<wbr/>  In general,<wbr/> for an aspect ratio of <code>w:h</code>,<wbr/>
+the crop and rotate operation leaves <code>(h/<wbr/>w)^2</code> of the field of view visible.<wbr/> For 16:9,<wbr/>
+this is ~31.<wbr/>6%.<wbr/></p>
+<p>As a visual example,<wbr/> the figure below shows the effect of <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code> on the
+outputs for the following parameters:</p>
+<ul>
+<li>Sensor active array: <code>2000x1500</code></li>
+<li>Crop region: top-left: <code>(500,<wbr/> 375)</code>,<wbr/> size: <code>(1000,<wbr/> 750)</code> (4:3 aspect ratio)</li>
+<li>Output streams: YUV <code>640x480</code> and YUV <code>1280x720</code></li>
+<li><code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code></li>
+</ul>
+<p><img alt="Effect of ROTATE_AND_CROP_90" src="images/camera2/metadata/android.scaler.rotateAndCrop/crop-region-rotate-90-43-ratio.png"/></p>
+<p>With these settings,<wbr/> the regions of the active array covered by the output streams are:</p>
+<ul>
+<li>640x480 stream crop: top-left: <code>(219,<wbr/> 375)</code>,<wbr/> size: <code>(562,<wbr/> 750)</code></li>
+<li>1280x720 stream crop: top-left: <code>(289,<wbr/> 375)</code>,<wbr/> size: <code>(422,<wbr/> 750)</code></li>
+</ul>
+<p>Since the buffers are rotated,<wbr/> the buffers as seen by the application are:</p>
+<ul>
+<li>640x480 stream: top-left: <code>(781,<wbr/> 375)</code> on active array,<wbr/> size: <code>(640,<wbr/> 480)</code>,<wbr/> downscaled 1.<wbr/>17x from sensor pixels</li>
+<li>1280x720 stream: top-left: <code>(711,<wbr/> 375)</code> on active array,<wbr/> size: <code>(1280,<wbr/> 720)</code>,<wbr/> upscaled 1.<wbr/>71x from sensor pixels</li>
+</ul>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>Not ready for use in Android 11.<wbr/></p>
+<p>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO will never be sent to the HAL,<wbr/> though it must be set as the default
+value in all the capture request templates by the HAL.<wbr/>  The camera service will
+translate AUTO to a specific rotation value based on the current application's
+multi-window state and its support of resizability.<wbr/></p>
+<p>The HAL also does not need to consider coordinate transforms for ROTATE_<wbr/>AND_<wbr/>CROP - all
+capture request and result fields should be kept in the active array coordinate frame.<wbr/>
+Any translation required to implement ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO will be handled by the camera
+service.<wbr/></p>
             </td>
           </tr>
 
@@ -19033,7 +20240,7 @@ and should include half/<wbr/>quarter of sensor maximum resolution.<wbr/></p>
                 
           <tr class="entry" id="static_android.scaler.availableMaxDigitalZoom">
             <td class="entry_name
-             " rowspan="3">
+             " rowspan="5">
               android.<wbr/>scaler.<wbr/>available<wbr/>Max<wbr/>Digital<wbr/>Zoom
             </td>
             <td class="entry_type">
@@ -19085,9 +20292,21 @@ window size.<wbr/></p>
 <p>Crop regions that have a width or height that is smaller
 than this ratio allows will be rounded up to the minimum
 allowed size by the camera device.<wbr/></p>
+<p>Starting from API level 30,<wbr/> when using <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> to zoom in or out,<wbr/>
+the application must use <a href="#static_android.control.zoomRatioRange">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio<wbr/>Range</a> to query both the minimum and
+maximum zoom ratio.<wbr/></p>
             </td>
           </tr>
 
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>If the HAL supports <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> this value must be equal to the maximum
+supported zoomRatio specified in <a href="#static_android.control.zoomRatioRange">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio<wbr/>Range</a>.<wbr/></p>
+            </td>
+          </tr>
 
           <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
            <!-- end of entry -->
@@ -20114,7 +21333,7 @@ YUV_<wbr/>420_<wbr/>888 must also be available for IMPLEMENTATION_<wbr/>DEFINED.
                 
           <tr class="entry" id="static_android.scaler.croppingType">
             <td class="entry_name
-             " rowspan="3">
+             " rowspan="5">
               android.<wbr/>scaler.<wbr/>cropping<wbr/>Type
             </td>
             <td class="entry_type">
@@ -20171,10 +21390,33 @@ final used crop region in metadata result <a href="#controls_android.scaler.crop
 <p>Camera devices that support FREEFORM cropping will support any crop region that
 is inside of the active array.<wbr/> The camera device will apply the same crop region and
 return the final used crop region in capture result metadata <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>.<wbr/></p>
+<p>Starting from API level 30,<wbr/></p>
+<ul>
+<li>If the camera device supports FREEFORM cropping,<wbr/> in order to do FREEFORM cropping,<wbr/> the
+application must set <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> to 1.<wbr/>0,<wbr/> and use <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>
+for zoom.<wbr/></li>
+<li>To do CENTER_<wbr/>ONLY zoom,<wbr/> the application has below 2 options:<ol>
+<li>Set <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> to 1.<wbr/>0; adjust zoom by <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>.<wbr/></li>
+<li>Adjust zoom by <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>; use <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> to crop
+the field of view vertically (letterboxing) or horizontally (pillarboxing),<wbr/> but not
+windowboxing.<wbr/></li>
+</ol>
+</li>
+<li>Setting <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> to values different than 1.<wbr/>0 and
+<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> to be windowboxing at the same time is undefined behavior.<wbr/></li>
+</ul>
 <p>LEGACY capability devices will only support CENTER_<wbr/>ONLY cropping.<wbr/></p>
             </td>
           </tr>
 
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>If the HAL supports <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> this tag must be set to CENTER_<wbr/>ONLY.<wbr/></p>
+            </td>
+          </tr>
 
           <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
            <!-- end of entry -->
@@ -20488,6 +21730,139 @@ backward compatible.<wbr/></p>
           <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
            <!-- end of entry -->
         
+                
+          <tr class="entry" id="static_android.scaler.mandatoryConcurrentStreamCombinations">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>scaler.<wbr/>mandatory<wbr/>Concurrent<wbr/>Stream<wbr/>Combinations
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  n
+                </span>
+              <span class="entry_type_visibility"> [java_public as mandatoryStreamCombination]</span>
+
+              <span class="entry_type_synthetic">[synthetic] </span>
+
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>An array of mandatory concurrent stream combinations.<wbr/>
+This is an app-readable conversion of the concurrent mandatory stream combination
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraDevice.html#createCaptureSession">tables</a>.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>2</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>The array of
+<a href="https://developer.android.com/reference/android/hardware/camera2/params/MandatoryStreamCombination.html">combinations</a> is
+generated according to the documented
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraDevice.html#createCaptureSession">guideline</a> for each
+device which has its Id present in the set returned by
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraManager.html#getConcurrentCameraIds">CameraManager#getConcurrentCameraIds</a>.<wbr/>
+Clients can use the array as a quick reference to find an appropriate camera stream
+combination.<wbr/>
+The mandatory stream combination array will be {@code null} in case the device is not a
+part of at least one set of combinations returned by
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraManager.html#getConcurrentCameraIds">CameraManager#getConcurrentCameraIds</a>.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>Do not set this property directly
+(it is synthetic and will not be available at the HAL layer).<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.scaler.availableRotateAndCropModes">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>scaler.<wbr/>available<wbr/>Rotate<wbr/>And<wbr/>Crop<wbr/>Modes
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">byte</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  n
+                </span>
+              <span class="entry_type_visibility"> [hidden as enumList]</span>
+
+
+
+
+                <div class="entry_type_notes">list of enums</div>
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>List of rotate-and-crop modes for <a href="#controls_android.scaler.rotateAndCrop">android.<wbr/>scaler.<wbr/>rotate<wbr/>And<wbr/>Crop</a> that are supported by this camera device.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+              <p>Any value listed in <a href="#controls_android.scaler.rotateAndCrop">android.<wbr/>scaler.<wbr/>rotate<wbr/>And<wbr/>Crop</a></p>
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>This entry lists the valid modes for <a href="#controls_android.scaler.rotateAndCrop">android.<wbr/>scaler.<wbr/>rotate<wbr/>And<wbr/>Crop</a> for this camera device.<wbr/></p>
+<p>Starting at some future API level,<wbr/> all devices will list at least <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>NONE</code>.<wbr/>
+Devices with support for rotate-and-crop will additionally list at least
+<code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO</code> and <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code>.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
         
 
       <!-- end of kind -->
@@ -20573,32 +21948,70 @@ backward compatible.<wbr/></p>
 <p>For devices not supporting <a href="#controls_android.distortionCorrection.mode">android.<wbr/>distortion<wbr/>Correction.<wbr/>mode</a> control,<wbr/> the coordinate
 system always follows that of <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> with <code>(0,<wbr/> 0)</code> being
 the top-left pixel of the active array.<wbr/></p>
-<p>For devices supporting <a href="#controls_android.distortionCorrection.mode">android.<wbr/>distortion<wbr/>Correction.<wbr/>mode</a> control,<wbr/> the coordinate
-system depends on the mode being set.<wbr/>
-When the distortion correction mode is OFF,<wbr/> the coordinate system follows
-<a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a>,<wbr/> with
-<code>(0,<wbr/> 0)</code> being the top-left pixel of the pre-correction active array.<wbr/>
-When the distortion correction mode is not OFF,<wbr/> the coordinate system follows
-<a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> with
-<code>(0,<wbr/> 0)</code> being the top-left pixel of the active array.<wbr/></p>
-<p>Output streams use this rectangle to produce their output,<wbr/>
-cropping to a smaller region if necessary to maintain the
-stream's aspect ratio,<wbr/> then scaling the sensor input to
+<p>For devices supporting <a href="#controls_android.distortionCorrection.mode">android.<wbr/>distortion<wbr/>Correction.<wbr/>mode</a> control,<wbr/> the coordinate system
+depends on the mode being set.<wbr/>  When the distortion correction mode is OFF,<wbr/> the
+coordinate system follows <a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a>,<wbr/> with <code>(0,<wbr/>
+0)</code> being the top-left pixel of the pre-correction active array.<wbr/>  When the distortion
+correction mode is not OFF,<wbr/> the coordinate system follows
+<a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> with <code>(0,<wbr/> 0)</code> being the top-left pixel of the
+active array.<wbr/></p>
+<p>Output streams use this rectangle to produce their output,<wbr/> cropping to a smaller region
+if necessary to maintain the stream's aspect ratio,<wbr/> then scaling the sensor input to
 match the output's configured resolution.<wbr/></p>
-<p>The crop region is applied after the RAW to other color
-space (e.<wbr/>g.<wbr/> YUV) conversion.<wbr/> Since raw streams
-(e.<wbr/>g.<wbr/> RAW16) don't have the conversion stage,<wbr/> they are not
+<p>The crop region is applied after the RAW to other color space (e.<wbr/>g.<wbr/> YUV)
+conversion.<wbr/> Since raw streams (e.<wbr/>g.<wbr/> RAW16) don't have the conversion stage,<wbr/> they are not
 croppable.<wbr/> The crop region will be ignored by raw streams.<wbr/></p>
-<p>For non-raw streams,<wbr/> any additional per-stream cropping will
-be done to maximize the final pixel area of the stream.<wbr/></p>
-<p>For example,<wbr/> if the crop region is set to a 4:3 aspect
-ratio,<wbr/> then 4:3 streams will use the exact crop
-region.<wbr/> 16:9 streams will further crop vertically
-(letterbox).<wbr/></p>
-<p>Conversely,<wbr/> if the crop region is set to a 16:9,<wbr/> then 4:3
-outputs will crop horizontally (pillarbox),<wbr/> and 16:9
-streams will match exactly.<wbr/> These additional crops will
-be centered within the crop region.<wbr/></p>
+<p>For non-raw streams,<wbr/> any additional per-stream cropping will be done to maximize the
+final pixel area of the stream.<wbr/></p>
+<p>For example,<wbr/> if the crop region is set to a 4:3 aspect ratio,<wbr/> then 4:3 streams will use
+the exact crop region.<wbr/> 16:9 streams will further crop vertically (letterbox).<wbr/></p>
+<p>Conversely,<wbr/> if the crop region is set to a 16:9,<wbr/> then 4:3 outputs will crop horizontally
+(pillarbox),<wbr/> and 16:9 streams will match exactly.<wbr/> These additional crops will be
+centered within the crop region.<wbr/></p>
+<p>To illustrate,<wbr/> here are several scenarios of different crop regions and output streams,<wbr/>
+for a hypothetical camera device with an active array of size <code>(2000,<wbr/>1500)</code>.<wbr/>  Note that
+several of these examples use non-centered crop regions for ease of illustration; such
+regions are only supported on devices with FREEFORM capability
+(<a href="#static_android.scaler.croppingType">android.<wbr/>scaler.<wbr/>cropping<wbr/>Type</a> <code>== FREEFORM</code>),<wbr/> but this does not affect the way the crop
+rules work otherwise.<wbr/></p>
+<ul>
+<li>Camera Configuration:<ul>
+<li>Active array size: <code>2000x1500</code> (3 MP,<wbr/> 4:3 aspect ratio)</li>
+<li>Output stream #1: <code>640x480</code> (VGA,<wbr/> 4:3 aspect ratio)</li>
+<li>Output stream #2: <code>1280x720</code> (720p,<wbr/> 16:9 aspect ratio)</li>
+</ul>
+</li>
+<li>Case #1: 4:3 crop region with 2x digital zoom<ul>
+<li>Crop region: <code>Rect(500,<wbr/> 375,<wbr/> 1500,<wbr/> 1125) //<wbr/> (left,<wbr/> top,<wbr/> right,<wbr/> bottom)</code></li>
+<li><img alt="4:3 aspect ratio crop diagram" src="images/camera2/metadata/android.scaler.cropRegion/crop-region-43-ratio.png"/></li>
+<li><code>640x480</code> stream source area: <code>(500,<wbr/> 375,<wbr/> 1500,<wbr/> 1125)</code> (equal to crop region)</li>
+<li><code>1280x720</code> stream source area: <code>(500,<wbr/> 469,<wbr/> 1500,<wbr/> 1031)</code> (letterboxed)</li>
+</ul>
+</li>
+<li>Case #2: 16:9 crop region with ~1.<wbr/>5x digital zoom.<wbr/><ul>
+<li>Crop region: <code>Rect(500,<wbr/> 375,<wbr/> 1833,<wbr/> 1125)</code></li>
+<li><img alt="16:9 aspect ratio crop diagram" src="images/camera2/metadata/android.scaler.cropRegion/crop-region-169-ratio.png"/></li>
+<li><code>640x480</code> stream source area: <code>(666,<wbr/> 375,<wbr/> 1666,<wbr/> 1125)</code> (pillarboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(500,<wbr/> 375,<wbr/> 1833,<wbr/> 1125)</code> (equal to crop region)</li>
+</ul>
+</li>
+<li>Case #3: 1:1 crop region with ~2.<wbr/>6x digital zoom.<wbr/><ul>
+<li>Crop region: <code>Rect(500,<wbr/> 375,<wbr/> 1250,<wbr/> 1125)</code></li>
+<li><img alt="1:1 aspect ratio crop diagram" src="images/camera2/metadata/android.scaler.cropRegion/crop-region-11-ratio.png"/></li>
+<li><code>640x480</code> stream source area: <code>(500,<wbr/> 469,<wbr/> 1250,<wbr/> 1031)</code> (letterboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(500,<wbr/> 543,<wbr/> 1250,<wbr/> 957)</code> (letterboxed)</li>
+</ul>
+</li>
+<li>Case #4: Replace <code>640x480</code> stream with <code>1024x1024</code> stream,<wbr/> with 4:3 crop region:<ul>
+<li>Crop region: <code>Rect(500,<wbr/> 375,<wbr/> 1500,<wbr/> 1125)</code></li>
+<li><img alt="Square output, 4:3 aspect ratio crop diagram" src="images/camera2/metadata/android.scaler.cropRegion/crop-region-43-square-ratio.png"/></li>
+<li><code>1024x1024</code> stream source area: <code>(625,<wbr/> 375,<wbr/> 1375,<wbr/> 1125)</code> (pillarboxed)</li>
+<li><code>1280x720</code> stream source area: <code>(500,<wbr/> 469,<wbr/> 1500,<wbr/> 1031)</code> (letterboxed)</li>
+<li>Note that in this case,<wbr/> neither of the two outputs is a subset of the other,<wbr/> with
+  each containing image data the other doesn't have.<wbr/></li>
+</ul>
+</li>
+</ul>
 <p>If the coordinate system is <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> the width and height
 of the crop region cannot be set to be smaller than
 <code>floor( activeArraySize.<wbr/>width /<wbr/> <a href="#static_android.scaler.availableMaxDigitalZoom">android.<wbr/>scaler.<wbr/>available<wbr/>Max<wbr/>Digital<wbr/>Zoom</a> )</code> and
@@ -20609,10 +22022,16 @@ and height of the crop region cannot be set to be smaller than
 and
 <code>floor( preCorrectionActiveArraySize.<wbr/>height /<wbr/> <a href="#static_android.scaler.availableMaxDigitalZoom">android.<wbr/>scaler.<wbr/>available<wbr/>Max<wbr/>Digital<wbr/>Zoom</a> )</code>,<wbr/>
 respectively.<wbr/></p>
-<p>The camera device may adjust the crop region to account
-for rounding and other hardware requirements; the final
-crop region used will be included in the output capture
-result.<wbr/></p>
+<p>The camera device may adjust the crop region to account for rounding and other hardware
+requirements; the final crop region used will be included in the output capture result.<wbr/></p>
+<p>Starting from API level 30,<wbr/> it's strongly recommended to use <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>
+to take advantage of better support for zoom with logical multi-camera.<wbr/> The benefits
+include better precision with optical-digital zoom combination,<wbr/> and ability to do
+zoom-out from 1.<wbr/>0x.<wbr/> When using <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for zoom,<wbr/> the crop region in
+the capture request must be either letterboxing or pillarboxing (but not both).<wbr/> The
+coordinate system is post-zoom,<wbr/> meaning that the activeArraySize or
+preCorrectionActiveArraySize covers the camera device's field of view "after" zoom.<wbr/>  See
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/></p>
             </td>
           </tr>
 
@@ -20633,11 +22052,18 @@ possible.<wbr/></p>
 size than pre-correction active array size,<wbr/> the HAL need follow below cropping rules:</p>
 <ul>
 <li>
-<p>The HAL need handle the cropRegion as if the sensor crop size is the effective
+<p>The HAL need to handle the cropRegion as if the sensor crop size is the effective
 pre-correction active array size.<wbr/> More specifically,<wbr/> the HAL must transform the request
 cropRegion from <a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a> to the sensor cropped
 pixel area size in this way:</p>
 <ol>
+<li>If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to value x,<wbr/> scale the requested cropRegion
+with 1.<wbr/>0/<wbr/>x in relation to its center as the origin.<wbr/> For example,<wbr/> say the requested
+cropRegion is (crX,<wbr/> crY,<wbr/> crWidth,<wbr/> crHeight),<wbr/> override it with
+    <code>crX' = crX + crWidth * (1.<wbr/>0 - 1.<wbr/>0 /<wbr/> x) /<wbr/> 2</code>,<wbr/>
+    <code>crY' = crY + crHeight * (1.<wbr/>0 - 1.<wbr/>0 /<wbr/> x) /<wbr/> 2</code>,<wbr/>
+    <code>crWidth' = crWidth /<wbr/> x</code>,<wbr/> and
+    <code>crHeight' = crHeight /<wbr/> x</code>.<wbr/></li>
 <li>Translate the requested cropRegion w.<wbr/>r.<wbr/>t.,<wbr/> the left top corner of the sensor
 cropped pixel area by (tx,<wbr/> ty),<wbr/>
 where <code>ty = sensorCrop.<wbr/>top * (sensorCrop.<wbr/>height /<wbr/> preCorrectionActiveArraySize.<wbr/>height)</code>
@@ -20661,7 +22087,176 @@ cropRegion since the HAL may adjust the crop region to account for rounding,<wbr
 error,<wbr/> or other hardware limitations.<wbr/></p>
 </li>
 </ul>
+<p>If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is supported by the HAL,<wbr/> the HAL must report the zoom
+ratio via <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> and change the coordinate system such that
+<a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a> or <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>(depending on whether <a href="#controls_android.distortionCorrection.mode">android.<wbr/>distortion<wbr/>Correction.<wbr/>mode</a> is supported) is used to
+represent the camera field-of-view after zoom.<wbr/> see <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for
+details.<wbr/></p>
 <p>HAL2.<wbr/>x uses only (x,<wbr/> y,<wbr/> width)</p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="dynamic_android.scaler.rotateAndCrop">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>scaler.<wbr/>rotate<wbr/>And<wbr/>Crop
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name entry_type_name_enum">byte</span>
+
+              <span class="entry_type_visibility"> [hidden]</span>
+
+
+
+
+
+                <ul class="entry_type_enum">
+                  <li>
+                    <span class="entry_type_enum_name">NONE (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>No rotate and crop is applied.<wbr/> Processed outputs are in the sensor orientation.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">90 (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>Processed images are rotated by 90 degrees clockwise,<wbr/> and then cropped
+to the original aspect ratio.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">180 (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>Processed images are rotated by 180 degrees.<wbr/>  Since the aspect ratio does not
+change,<wbr/> no cropping is performed.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">270 (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>Processed images are rotated by 270 degrees clockwise,<wbr/> and then cropped
+to the original aspect ratio.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">AUTO (v3.5)</span>
+                    <span class="entry_type_enum_notes"><p>The camera API automatically selects the best concrete value for
+rotate-and-crop based on the application's support for resizability and the current
+multi-window mode.<wbr/></p>
+<p>If the application does not support resizing but the display mode for its main
+Activity is not in a typical orientation,<wbr/> the camera API will set <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code>
+or some other supported rotation value,<wbr/> depending on device configuration,<wbr/>
+to ensure preview and captured images are correctly shown to the user.<wbr/> Otherwise,<wbr/>
+<code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>NONE</code> will be selected.<wbr/></p>
+<p>When a value other than NONE is selected,<wbr/> several metadata fields will also be parsed
+differently to ensure that coordinates are correctly handled for features like drawing
+face detection boxes or passing in tap-to-focus coordinates.<wbr/>  The camera API will
+convert positions in the active array coordinate system to/<wbr/>from the cropped-and-rotated
+coordinate system to make the operation transparent for applications.<wbr/></p>
+<p>No coordinate mapping will be done when the application selects a non-AUTO mode.<wbr/></p></span>
+                  </li>
+                </ul>
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Whether a rotation-and-crop operation is applied to processed
+outputs from the camera.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+              <p><a href="#static_android.scaler.availableRotateAndCropModes">android.<wbr/>scaler.<wbr/>available<wbr/>Rotate<wbr/>And<wbr/>Crop<wbr/>Modes</a></p>
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>5</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>This control is primarily intended to help camera applications with no support for
+multi-window modes to work correctly on devices where multi-window scenarios are
+unavoidable,<wbr/> such as foldables or other devices with variable display geometry or more
+free-form window placement (such as laptops,<wbr/> which often place portrait-orientation apps
+in landscape with pillarboxing).<wbr/></p>
+<p>If supported,<wbr/> the default value is <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO</code>,<wbr/> which allows the camera API
+to enable backwards-compatibility support for applications that do not support resizing
+/<wbr/> multi-window modes,<wbr/> when the device is in fact in a multi-window mode (such as inset
+portrait on laptops,<wbr/> or on a foldable device in some fold states).<wbr/>  In addition,<wbr/>
+<code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>NONE</code> and <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code> will always be available if this control
+is supported by the device.<wbr/>  If not supported,<wbr/> devices API level 30 or higher will always
+list only <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>NONE</code>.<wbr/></p>
+<p>When <code>CROP_<wbr/>AUTO</code> is in use,<wbr/> and the camera API activates backward-compatibility mode,<wbr/>
+several metadata fields will also be parsed differently to ensure that coordinates are
+correctly handled for features like drawing face detection boxes or passing in
+tap-to-focus coordinates.<wbr/>  The camera API will convert positions in the active array
+coordinate system to/<wbr/>from the cropped-and-rotated coordinate system to make the
+operation transparent for applications.<wbr/>  The following controls are affected:</p>
+<ul>
+<li><a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a></li>
+<li><a href="#controls_android.control.afRegions">android.<wbr/>control.<wbr/>af<wbr/>Regions</a></li>
+<li><a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a></li>
+<li><a href="#dynamic_android.statistics.faces">android.<wbr/>statistics.<wbr/>faces</a></li>
+</ul>
+<p>Capture results will contain the actual value selected by the API;
+<code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO</code> will never be seen in a capture result.<wbr/></p>
+<p>Applications can also select their preferred cropping mode,<wbr/> either to opt out of the
+backwards-compatibility treatment,<wbr/> or to use the cropping feature themselves as needed.<wbr/>
+In this case,<wbr/> no coordinate translation will be done automatically,<wbr/> and all controls
+will continue to use the normal active array coordinates.<wbr/></p>
+<p>Cropping and rotating is done after the application of digital zoom (via either
+<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> or <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>),<wbr/> but before each individual
+output is further cropped and scaled.<wbr/> It only affects processed outputs such as
+YUV,<wbr/> PRIVATE,<wbr/> and JPEG.<wbr/>  It has no effect on RAW outputs.<wbr/></p>
+<p>When <code>CROP_<wbr/>90</code> or <code>CROP_<wbr/>270</code> are selected,<wbr/> there is a significant loss to the field of
+view.<wbr/> For example,<wbr/> with a 4:3 aspect ratio output of 1600x1200,<wbr/> <code>CROP_<wbr/>90</code> will still
+produce 1600x1200 output,<wbr/> but these buffers are cropped from a vertical 3:4 slice at the
+center of the 4:3 area,<wbr/> then rotated to be 4:3,<wbr/> and then upscaled to 1600x1200.<wbr/>  Only
+56.<wbr/>25% of the original FOV is still visible.<wbr/>  In general,<wbr/> for an aspect ratio of <code>w:h</code>,<wbr/>
+the crop and rotate operation leaves <code>(h/<wbr/>w)^2</code> of the field of view visible.<wbr/> For 16:9,<wbr/>
+this is ~31.<wbr/>6%.<wbr/></p>
+<p>As a visual example,<wbr/> the figure below shows the effect of <code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code> on the
+outputs for the following parameters:</p>
+<ul>
+<li>Sensor active array: <code>2000x1500</code></li>
+<li>Crop region: top-left: <code>(500,<wbr/> 375)</code>,<wbr/> size: <code>(1000,<wbr/> 750)</code> (4:3 aspect ratio)</li>
+<li>Output streams: YUV <code>640x480</code> and YUV <code>1280x720</code></li>
+<li><code>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>90</code></li>
+</ul>
+<p><img alt="Effect of ROTATE_AND_CROP_90" src="images/camera2/metadata/android.scaler.rotateAndCrop/crop-region-rotate-90-43-ratio.png"/></p>
+<p>With these settings,<wbr/> the regions of the active array covered by the output streams are:</p>
+<ul>
+<li>640x480 stream crop: top-left: <code>(219,<wbr/> 375)</code>,<wbr/> size: <code>(562,<wbr/> 750)</code></li>
+<li>1280x720 stream crop: top-left: <code>(289,<wbr/> 375)</code>,<wbr/> size: <code>(422,<wbr/> 750)</code></li>
+</ul>
+<p>Since the buffers are rotated,<wbr/> the buffers as seen by the application are:</p>
+<ul>
+<li>640x480 stream: top-left: <code>(781,<wbr/> 375)</code> on active array,<wbr/> size: <code>(640,<wbr/> 480)</code>,<wbr/> downscaled 1.<wbr/>17x from sensor pixels</li>
+<li>1280x720 stream: top-left: <code>(711,<wbr/> 375)</code> on active array,<wbr/> size: <code>(1280,<wbr/> 720)</code>,<wbr/> upscaled 1.<wbr/>71x from sensor pixels</li>
+</ul>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>Not ready for use in Android 11.<wbr/></p>
+<p>ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO will never be sent to the HAL,<wbr/> though it must be set as the default
+value in all the capture request templates by the HAL.<wbr/>  The camera service will
+translate AUTO to a specific rotation value based on the current application's
+multi-window state and its support of resizability.<wbr/></p>
+<p>The HAL also does not need to consider coordinate transforms for ROTATE_<wbr/>AND_<wbr/>CROP - all
+capture request and result fields should be kept in the active array coordinate frame.<wbr/>
+Any translation required to implement ROTATE_<wbr/>AND_<wbr/>CROP_<wbr/>AUTO will be handled by the camera
+service.<wbr/></p>
             </td>
           </tr>
 
@@ -20945,6 +22540,12 @@ value.<wbr/> The final sensitivity used will be available in the
 output capture result.<wbr/></p>
 <p>This control is only effective if <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> is set to
 OFF; otherwise the auto-exposure algorithm will override this value.<wbr/></p>
+<p>Note that for devices supporting postRawSensitivityBoost,<wbr/> the total sensitivity applied
+to the final processed image is the combination of <a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a> and
+<a href="#controls_android.control.postRawSensitivityBoost">android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost</a>.<wbr/> In case the application uses the sensor
+sensitivity from last capture result of an auto request for a manual request,<wbr/> in order
+to achieve the same brightness in the output image,<wbr/> the application should also
+set postRawSensitivityBoost.<wbr/></p>
             </td>
           </tr>
 
@@ -21843,18 +23444,30 @@ than maximum raw value supported,<wbr/> i.<wbr/>e.<wbr/> 2^(sensor bits per pixe
                 <ul class="entry_type_enum">
                   <li>
                     <span class="entry_type_enum_name">UNKNOWN (v3.2)</span>
-                    <span class="entry_type_enum_notes"><p>Timestamps from <a href="#dynamic_android.sensor.timestamp">android.<wbr/>sensor.<wbr/>timestamp</a> are in nanoseconds and monotonic,<wbr/>
-but can not be compared to timestamps from other subsystems
-(e.<wbr/>g.<wbr/> accelerometer,<wbr/> gyro etc.<wbr/>),<wbr/> or other instances of the same or different
-camera devices in the same system.<wbr/> Timestamps between streams and results for
-a single camera instance are comparable,<wbr/> and the timestamps for all buffers
-and the result metadata generated by a single capture are identical.<wbr/></p></span>
+                    <span class="entry_type_enum_notes"><p>Timestamps from <a href="#dynamic_android.sensor.timestamp">android.<wbr/>sensor.<wbr/>timestamp</a> are in nanoseconds and monotonic,<wbr/> but can
+not be compared to timestamps from other subsystems (e.<wbr/>g.<wbr/> accelerometer,<wbr/> gyro etc.<wbr/>),<wbr/>
+or other instances of the same or different camera devices in the same system with
+accuracy.<wbr/> However,<wbr/> the timestamps are roughly in the same timebase as
+<a href="https://developer.android.com/reference/android/os/SystemClock.html#uptimeMillis">SystemClock#uptimeMillis</a>.<wbr/>  The accuracy is sufficient for tasks
+like A/<wbr/>V synchronization for video recording,<wbr/> at least,<wbr/> and the timestamps can be
+directly used together with timestamps from the audio subsystem for that task.<wbr/></p>
+<p>Timestamps between streams and results for a single camera instance are comparable,<wbr/>
+and the timestamps for all buffers and the result metadata generated by a single
+capture are identical.<wbr/></p></span>
                   </li>
                   <li>
                     <span class="entry_type_enum_name">REALTIME (v3.2)</span>
                     <span class="entry_type_enum_notes"><p>Timestamps from <a href="#dynamic_android.sensor.timestamp">android.<wbr/>sensor.<wbr/>timestamp</a> are in the same timebase as
 <a href="https://developer.android.com/reference/android/os/SystemClock.html#elapsedRealtimeNanos">SystemClock#elapsedRealtimeNanos</a>,<wbr/>
-and they can be compared to other timestamps using that base.<wbr/></p></span>
+and they can be compared to other timestamps using that base.<wbr/></p>
+<p>When buffers from a REALTIME device are passed directly to a video encoder from the
+camera,<wbr/> automatic compensation is done to account for differing timebases of the
+audio and camera subsystems.<wbr/>  If the application is receiving buffers and then later
+sending them to a video encoder or other application where they are compared with
+audio subsystem timestamps or similar,<wbr/> this compensation is not present.<wbr/>  In those
+cases,<wbr/> applications need to adjust the timestamps themselves.<wbr/>  Since <a href="https://developer.android.com/reference/android/os/SystemClock.html#elapsedRealtimeNanos">SystemClock#elapsedRealtimeNanos</a> and <a href="https://developer.android.com/reference/android/os/SystemClock.html#uptimeMillis">SystemClock#uptimeMillis</a> only diverge while the device is asleep,<wbr/> an
+offset between the two sources can be measured once per active session and applied
+to timestamps for sufficient accuracy for A/<wbr/>V sync.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -23554,6 +25167,12 @@ value.<wbr/> The final sensitivity used will be available in the
 output capture result.<wbr/></p>
 <p>This control is only effective if <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> is set to
 OFF; otherwise the auto-exposure algorithm will override this value.<wbr/></p>
+<p>Note that for devices supporting postRawSensitivityBoost,<wbr/> the total sensitivity applied
+to the final processed image is the combination of <a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a> and
+<a href="#controls_android.control.postRawSensitivityBoost">android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost</a>.<wbr/> In case the application uses the sensor
+sensitivity from last capture result of an auto request for a manual request,<wbr/> in order
+to achieve the same brightness in the output image,<wbr/> the application should also
+set postRawSensitivityBoost.<wbr/></p>
             </td>
           </tr>
 
@@ -24333,8 +25952,8 @@ sensor interconnect bus (such as CSI2) or memory.<wbr/></p>
             </td> <!-- entry_type -->
 
             <td class="entry_description">
-              <p>Duration between the start of first row exposure
-and the start of last row exposure.<wbr/></p>
+              <p>Duration between the start of exposure for the first row of the image sensor,<wbr/>
+and the start of exposure for one past the last row of the image sensor.<wbr/></p>
             </td>
 
             <td class="entry_units">
@@ -24362,12 +25981,22 @@ and the start of last row exposure.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="6">
-              <p>This is the exposure time skew between the first and last
-row exposure start times.<wbr/> The first row and the last row are
-the first and last rows inside of the
+              <p>This is the exposure time skew between the first and <code>(last+1)</code> row exposure start times.<wbr/> The
+first row and the last row are the first and last rows inside of the
 <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>.<wbr/></p>
-<p>For typical camera sensors that use rolling shutters,<wbr/> this is also equivalent
-to the frame readout time.<wbr/></p>
+<p>For typical camera sensors that use rolling shutters,<wbr/> this is also equivalent to the frame
+readout time.<wbr/></p>
+<p>If the image sensor is operating in a binned or cropped mode due to the current output
+target resolutions,<wbr/> it's possible this skew is reported to be larger than the exposure
+time,<wbr/> for example,<wbr/> since it is based on the full array even if a partial array is read
+out.<wbr/> Be sure to scale the number to cover the section of the sensor actually being used
+for the outputs you care about.<wbr/> So if your output covers N rows of the active array of
+height H,<wbr/> scale this value by N/<wbr/>H to get the total skew for that viewport.<wbr/></p>
+<p><em>Note:</em> Prior to Android 11,<wbr/> this field was described as measuring duration from
+first to last row of the image sensor,<wbr/> which is not equal to the frame readout time for a
+rolling shutter sensor.<wbr/> Implementations generally reported the latter value,<wbr/> so to resolve
+the inconsistency,<wbr/> the description has been updated to range from (first,<wbr/> last+1) row
+exposure start,<wbr/> instead.<wbr/></p>
             </td>
           </tr>
 
@@ -26098,7 +27727,16 @@ When the distortion correction mode is OFF,<wbr/> the coordinate system follows
 When the distortion correction mode is not OFF,<wbr/> the coordinate system follows
 <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> with
 <code>(0,<wbr/> 0)</code> being the top-left pixel of the active array.<wbr/></p>
-<p>Only available if <a href="#controls_android.statistics.faceDetectMode">android.<wbr/>statistics.<wbr/>face<wbr/>Detect<wbr/>Mode</a> == FULL</p>
+<p>Only available if <a href="#controls_android.statistics.faceDetectMode">android.<wbr/>statistics.<wbr/>face<wbr/>Detect<wbr/>Mode</a> == FULL.<wbr/></p>
+<p>Starting from API level 30,<wbr/> the coordinate system of activeArraySize or
+preCorrectionActiveArraySize is used to represent post-zoomRatio field of view,<wbr/> not
+pre-zoomRatio field of view.<wbr/> This means that if the relative position of faces and
+the camera device doesn't change,<wbr/> when zooming in by increasing
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> the face landmarks move farther away from the center of the
+activeArray or preCorrectionActiveArray.<wbr/> If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> is set to 1.<wbr/>0
+(default),<wbr/> the face landmarks coordinates won't change as <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>
+changes.<wbr/> See <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/> Whether to use activeArraySize or
+preCorrectionActiveArraySize still depends on distortion correction mode.<wbr/></p>
             </td>
           </tr>
 
@@ -26177,7 +27815,16 @@ When the distortion correction mode is OFF,<wbr/> the coordinate system follows
 When the distortion correction mode is not OFF,<wbr/> the coordinate system follows
 <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>,<wbr/> with
 <code>(0,<wbr/> 0)</code> being the top-left pixel of the active array.<wbr/></p>
-<p>Only available if <a href="#controls_android.statistics.faceDetectMode">android.<wbr/>statistics.<wbr/>face<wbr/>Detect<wbr/>Mode</a> != OFF</p>
+<p>Only available if <a href="#controls_android.statistics.faceDetectMode">android.<wbr/>statistics.<wbr/>face<wbr/>Detect<wbr/>Mode</a> != OFF.<wbr/></p>
+<p>Starting from API level 30,<wbr/> the coordinate system of activeArraySize or
+preCorrectionActiveArraySize is used to represent post-zoomRatio field of view,<wbr/> not
+pre-zoomRatio field of view.<wbr/> This means that if the relative position of faces and
+the camera device doesn't change,<wbr/> when zooming in by increasing
+<a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>,<wbr/> the face rectangles grow larger and move farther away from
+the center of the activeArray or preCorrectionActiveArray.<wbr/> If <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a>
+is set to 1.<wbr/>0 (default),<wbr/> the face rectangles won't change as <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>
+changes.<wbr/> See <a href="#controls_android.control.zoomRatio">android.<wbr/>control.<wbr/>zoom<wbr/>Ratio</a> for details.<wbr/> Whether to use activeArraySize or
+preCorrectionActiveArraySize still depends on distortion correction mode.<wbr/></p>
             </td>
           </tr>
 
@@ -31251,10 +32898,11 @@ start-of-exposure time.<wbr/></p></span>
           <tr class="entry_cont">
             <td class="entry_details" colspan="6">
               <p>The accuracy of the frame timestamp synchronization determines the physical cameras'
-ability to start exposure at the same time.<wbr/> If the sensorSyncType is CALIBRATED,<wbr/>
-the physical camera sensors usually run in master-slave mode so that their shutter
-time is synchronized.<wbr/> For APPROXIMATE sensorSyncType,<wbr/> the camera sensors usually run in
-master-master mode,<wbr/> and there could be offset between their start of exposure.<wbr/></p>
+ability to start exposure at the same time.<wbr/> If the sensorSyncType is CALIBRATED,<wbr/> the
+physical camera sensors usually run in leader/<wbr/>follower mode where one sensor generates a
+timing signal for the other,<wbr/> so that their shutter time is synchronized.<wbr/> For APPROXIMATE
+sensorSyncType,<wbr/> the camera sensors usually run in leader/<wbr/>leader mode,<wbr/> where both sensors
+use their own timing generator,<wbr/> and there could be offset between their start of exposure.<wbr/></p>
 <p>In both cases,<wbr/> all images generated for a particular capture request still carry the same
 timestamps,<wbr/> so that they can be used to look up the matching frame number and
 onCaptureStarted callback.<wbr/></p>

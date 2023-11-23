@@ -35,12 +35,14 @@ import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.media.MediaSyncEvent;
+import android.media.MicrophoneDirection;
 import android.media.MicrophoneInfo;
 import android.media.cts.AudioRecordingConfigurationTest.MyAudioRecordingCallback;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.PersistableBundle;
+import android.os.Process;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.util.Log;
@@ -67,6 +69,7 @@ import java.util.concurrent.Executor;
 import java.util.List;
 
 
+@NonMediaMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class AudioRecordTest {
     private final static String TAG = "AudioRecordTest";
@@ -573,7 +576,8 @@ public class AudioRecordTest {
                 // For 16 bit data, use shorts
                 final short[] shortData = new short[BUFFER_SAMPLES];
                 final AudioHelper.TimestampVerifier tsVerifier =
-                        new AudioHelper.TimestampVerifier(TAG, RECORD_SAMPLE_RATE);
+                        new AudioHelper.TimestampVerifier(TAG, RECORD_SAMPLE_RATE,
+                                isProAudioDevice());
 
                 while (samplesRead < targetSamples) {
                     final int amount = samplesRead == 0 ? numChannels :
@@ -630,12 +634,14 @@ public class AudioRecordTest {
         }
 
         AudioRecord recorder = null;
+        String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
+        int currentUserId = Process.myUserHandle().getIdentifier();
 
         // We will record audio for 20 sec from active and idle state expecting
         // the recording from active state to have data while from idle silence.
         try {
             // Ensure no race and UID active
-            makeMyUidStateActive();
+            makeMyUidStateActive(packageName, currentUserId);
 
             // Setup a recorder
             final AudioRecord candidateRecorder = new AudioRecord.Builder()
@@ -669,7 +675,7 @@ public class AudioRecordTest {
             // Start clean
             buffer.clear();
             // Force idle the package
-            makeMyUidStateIdle();
+            makeMyUidStateIdle(packageName, currentUserId);
             // Read five seconds of data
             readDataTimed(recorder, 5000, buffer);
             // Ensure we read empty bytes
@@ -678,7 +684,7 @@ public class AudioRecordTest {
             // Start clean
             buffer.clear();
             // Reset to active
-            makeMyUidStateActive();
+            makeMyUidStateActive(packageName, currentUserId);
             // Read five seconds of data
             readDataTimed(recorder, 5000, buffer);
             // Ensure we read non-empty bytes
@@ -688,7 +694,7 @@ public class AudioRecordTest {
                 recorder.stop();
                 recorder.release();
             }
-            resetMyUidState();
+            resetMyUidState(packageName, currentUserId);
         }
     }
 
@@ -832,30 +838,50 @@ public class AudioRecordTest {
     }
 
     @Test
-    public void testVoiceCallAudioSourcePermissions() throws Exception {
-        if (!hasMicrophone()) {
-            return;
-        }
-
-        // Make sure that VOICE_CALL, VOICE_DOWNLINK and VOICE_UPLINK audio sources cannot
-        // be used by apps that don't have the CAPTURE_AUDIO_OUTPUT permissions
-        final int[] voiceCallAudioSources = new int [] {MediaRecorder.AudioSource.VOICE_CALL,
+    public void testRestrictedAudioSourcePermissions() throws Exception {
+        // Make sure that the following audio sources cannot be used by apps that
+        // don't have the CAPTURE_AUDIO_OUTPUT permissions:
+        // - VOICE_CALL,
+        // - VOICE_DOWNLINK
+        // - VOICE_UPLINK
+        // - REMOTE_SUBMIX
+        // - ECHO_REFERENCE  - 1997
+        // - RADIO_TUNER - 1998
+        // - HOTWORD - 1999
+        // The attempt to build an AudioRecord with those sources should throw either
+        // UnsupportedOperationException or IllegalArgumentException exception.
+        final int[] restrictedAudioSources = new int [] {
+            MediaRecorder.AudioSource.VOICE_CALL,
             MediaRecorder.AudioSource.VOICE_DOWNLINK,
-            MediaRecorder.AudioSource.VOICE_UPLINK};
+            MediaRecorder.AudioSource.VOICE_UPLINK,
+            MediaRecorder.AudioSource.REMOTE_SUBMIX,
+            1997,
+            1998,
+            1999
+        };
 
-        for (int source : voiceCallAudioSources) {
+        for (int source : restrictedAudioSources) {
             // AudioRecord.Builder should fail when trying to use
             // one of the voice call audio sources.
-            assertThrows(UnsupportedOperationException.class,
-                            () -> {
-                                new AudioRecord.Builder()
-                                 .setAudioSource(source)
-                                 .setAudioFormat(new AudioFormat.Builder()
-                                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                                         .setSampleRate(8000)
-                                         .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
-                                         .build())
-                                 .build(); });
+            try {
+                AudioRecord ar = new AudioRecord.Builder()
+                 .setAudioSource(source)
+                 .setAudioFormat(new AudioFormat.Builder()
+                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                         .setSampleRate(8000)
+                         .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                         .build())
+                 .build();
+                fail("testRestrictedAudioSourcePermissions: no exception thrown for source: "
+                        + source);
+            } catch (Exception e) {
+                Log.i(TAG, "Exception: " + e);
+                if (!UnsupportedOperationException.class.isInstance(e)
+                        && !IllegalArgumentException.class.isInstance(e)) {
+                    fail("testRestrictedAudioSourcePermissions: no exception thrown for source: "
+                        + source + " Exception:" + e);
+                }
+            }
         }
     }
 
@@ -938,7 +964,7 @@ public class AudioRecordTest {
         Log.i(TAG, "******");
     }
 
-    @CddTest(requirement="5.4.4/C-4-1")
+    @CddTest(requirement="5.4.1/C-1-4")
     @Test
     public void testGetActiveMicrophones() throws Exception {
         if (!hasMicrophone()) {
@@ -1575,6 +1601,11 @@ public class AudioRecordTest {
                 PackageManager.FEATURE_AUDIO_LOW_LATENCY);
     }
 
+    private boolean isProAudioDevice() {
+        return getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUDIO_PRO);
+    }
+
     private void verifyContinuousTimestamps(
             AudioTimestamp startTs, AudioTimestamp stopTs, int sampleRate)
             throws Exception {
@@ -1628,25 +1659,117 @@ public class AudioRecordTest {
         return totalSilenceCount > valueCount / 2;
     }
 
-    private static void makeMyUidStateActive() throws IOException {
-        final String command = "cmd media.audio_policy set-uid-state "
-                + InstrumentationRegistry.getTargetContext().getPackageName() + " active";
+    private static void makeMyUidStateActive(String packageName, int userId) throws IOException {
+        final String command = String.format(
+                "cmd media.audio_policy set-uid-state %s active --user %d", packageName, userId);
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 
-    private static void makeMyUidStateIdle() throws IOException {
-        final String command = "cmd media.audio_policy set-uid-state "
-                + InstrumentationRegistry.getTargetContext().getPackageName() + " idle";
+    private static void makeMyUidStateIdle(String packageName, int userId) throws IOException {
+        final String command = String.format(
+                "cmd media.audio_policy set-uid-state %s idle --user %d", packageName, userId);
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 
-    private static void resetMyUidState() throws IOException {
-        final String command = "cmd media.audio_policy reset-uid-state "
-                +  InstrumentationRegistry.getTargetContext().getPackageName();
+    private static void resetMyUidState(String packageName, int userId) throws IOException {
+        final String command = String.format(
+                "cmd media.audio_policy reset-uid-state %s --user %d", packageName, userId);
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 
     private static Context getContext() {
         return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    /*
+     * Microphone Direction API tests
+     */
+    @Test
+    public void testSetPreferredMicrophoneDirection() {
+        if (!hasMicrophone()) {
+            return;
+        }
+
+        try {
+            boolean success =
+                    mAudioRecord.setPreferredMicrophoneDirection(
+                            MicrophoneDirection.MIC_DIRECTION_TOWARDS_USER);
+
+            // Can't actually test this as HAL may not have implemented it
+            // Just verify that it doesn't crash or throw an exception
+            // assertTrue(success);
+        } catch (Exception ex) {
+            Log.e(TAG, "testSetPreferredMicrophoneDirection() exception:" + ex);
+            assertTrue(false);
+        }
+        return;
+    }
+
+    @Test
+    public void testSetPreferredMicrophoneFieldDimension() {
+        if (!hasMicrophone()) {
+            return;
+        }
+
+        try {
+            boolean success = mAudioRecord.setPreferredMicrophoneFieldDimension(1.0f);
+
+            // Can't actually test this as HAL may not have implemented it
+            // Just verify that it doesn't crash or throw an exception
+            // assertTrue(success);
+        } catch (Exception ex) {
+            Log.e(TAG, "testSetPreferredMicrophoneFieldDimension() exception:" + ex);
+            assertTrue(false);
+        }
+        return;
+    }
+
+    @Test
+    public void testPrivacySensitiveBuilder() throws Exception {
+        if (!hasMicrophone()) {
+            return;
+        }
+
+        for (final boolean privacyOn : new boolean[] { false, true} ) {
+            AudioRecord record = new AudioRecord.Builder()
+            .setAudioFormat(new AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(8000)
+                    .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                    .build())
+            .setPrivacySensitive(privacyOn)
+            .build();
+            assertEquals(privacyOn, record.isPrivacySensitive());
+            record.release();
+        }
+    }
+
+    @Test
+    public void testPrivacySensitiveDefaults() throws Exception {
+        if (!hasMicrophone()) {
+            return;
+        }
+
+        AudioRecord record = new AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.MIC)
+            .setAudioFormat(new AudioFormat.Builder()
+                 .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                 .setSampleRate(8000)
+                 .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                 .build())
+            .build();
+        assertFalse(record.isPrivacySensitive());
+        record.release();
+
+        record = new AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
+            .setAudioFormat(new AudioFormat.Builder()
+                 .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                 .setSampleRate(8000)
+                 .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                 .build())
+            .build();
+        assertTrue(record.isPrivacySensitive());
+        record.release();
     }
 }

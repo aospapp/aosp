@@ -19,7 +19,6 @@ import logging
 import math
 import os
 import re
-import subprocess
 import time
 
 from acts import asserts
@@ -29,7 +28,7 @@ from acts.controllers.ap_lib import hostapd_security
 from acts.controllers.utils_lib.ssh import connection
 from acts.controllers.utils_lib.ssh import settings
 from acts.controllers.iperf_server import IPerfResult
-from acts.test_utils.bt import BtEnum
+from acts.libs.proc import job
 from acts.test_utils.bt.bt_constants import (
     bluetooth_profile_connection_state_changed)
 from acts.test_utils.bt.bt_constants import bt_default_timeout
@@ -57,11 +56,12 @@ from acts.test_utils.tel.tel_test_utils import run_multithread_func
 from acts.test_utils.tel.tel_test_utils import setup_droid_properties
 from acts.test_utils.tel.tel_test_utils import wait_and_answer_call
 from acts.test_utils.wifi.wifi_power_test_utils import bokeh_plot
+from acts.test_utils.wifi.wifi_power_test_utils import get_phone_ip
 from acts.test_utils.wifi.wifi_test_utils import reset_wifi
 from acts.test_utils.wifi.wifi_test_utils import wifi_connect
 from acts.test_utils.wifi.wifi_test_utils import wifi_test_device_init
 from acts.test_utils.wifi.wifi_test_utils import wifi_toggle_state
-from acts.utils import exe_cmd, create_dir
+from acts.utils import exe_cmd
 from bokeh.layouts import column
 from bokeh.models import tools as bokeh_tools
 from bokeh.plotting import figure, output_file, save
@@ -73,41 +73,38 @@ BLUETOOTH_WAIT_TIME = 2
 AVRCP_WAIT_TIME = 3
 
 
-def avrcp_actions(pri_ad, audio_receiver):
+def avrcp_actions(pri_ad, bt_device):
     """Performs avrcp controls like volume up, volume down, skip next and
     skip previous.
 
     Args:
         pri_ad: Android device.
-        audio_receiver: Relay instance.
+        bt_device: bt device instance.
 
     Returns:
         True if successful, otherwise False.
     """
-    if "Volume_up" and "Volume_down" in (audio_receiver.relays.keys()):
-        current_volume = pri_ad.droid.getMediaVolume()
-        audio_receiver.press_volume_up()
+    current_volume = pri_ad.droid.getMediaVolume()
+    for _ in range(5):
+        bt_device.volume_up()
         time.sleep(AVRCP_WAIT_TIME)
-        if current_volume == pri_ad.droid.getMediaVolume():
-            pri_ad.log.error("Increase volume failed")
-            return False
+    if current_volume == pri_ad.droid.getMediaVolume():
+        pri_ad.log.error("Increase volume failed")
+        return False
+    time.sleep(AVRCP_WAIT_TIME)
+    current_volume = pri_ad.droid.getMediaVolume()
+    for _ in range(5):
+        bt_device.volume_down()
         time.sleep(AVRCP_WAIT_TIME)
-        current_volume = pri_ad.droid.getMediaVolume()
-        audio_receiver.press_volume_down()
-        time.sleep(AVRCP_WAIT_TIME)
-        if current_volume == pri_ad.droid.getMediaVolume():
-            pri_ad.log.error("Decrease volume failed")
-            return False
-    else:
-        pri_ad.log.warning("No volume control pins specfied in relay config.")
+    if current_volume == pri_ad.droid.getMediaVolume():
+        pri_ad.log.error("Decrease volume failed")
+        return False
 
-    if "Next" and "Previous" in audio_receiver.relays.keys():
-        audio_receiver.press_next()
-        time.sleep(AVRCP_WAIT_TIME)
-        audio_receiver.press_previous()
-        time.sleep(AVRCP_WAIT_TIME)
-    else:
-        pri_ad.log.warning("No track change pins specfied in relay config.")
+    #TODO: (sairamganesh) validate next and previous calls.
+    bt_device.next()
+    time.sleep(AVRCP_WAIT_TIME)
+    bt_device.previous()
+    time.sleep(AVRCP_WAIT_TIME)
     return True
 
 
@@ -154,7 +151,7 @@ def collect_bluetooth_manager_dumpsys_logs(pri_ad, test_name):
     """
     dump_counter = 0
     dumpsys_path = os.path.join(pri_ad.log_path, test_name, "BluetoothDumpsys")
-    create_dir(dumpsys_path)
+    os.makedirs(dumpsys_path, exist_ok=True)
     while os.path.exists(
             os.path.join(dumpsys_path,
                          "bluetooth_dumpsys_%s.txt" % dump_counter)):
@@ -537,7 +534,7 @@ def initiate_disconnect_call_dut(pri_ad, sec_ad, duration, callee_number):
     return flag
 
 
-def check_wifi_status(pri_ad, network, ssh_config):
+def check_wifi_status(pri_ad, network, ssh_config=None):
     """Function to check existence of wifi connection.
 
     Args:
@@ -546,12 +543,12 @@ def check_wifi_status(pri_ad, network, ssh_config):
         ssh_config: ssh config for iperf client.
     """
     time.sleep(5)
-    proc = subprocess.Popen("pgrep -f 'iperf3 -c'", stdout=subprocess.PIPE, shell=True)
-    pid_list = proc.communicate()[0].decode('utf-8').split()
+    proc = job.run("pgrep -f 'iperf3 -c'")
+    pid_list = proc.stdout.split()
 
     while True:
-        p = subprocess.Popen(["pgrep", "-f", "iperf3"], stdout=subprocess.PIPE)
-        process_list = p.communicate()[0].decode('utf-8').split()
+        iperf_proc = job.run(["pgrep", "-f", "iperf3"])
+        process_list = iperf_proc.stdout.split()
         if not wifi_connection_check(pri_ad, network["SSID"]):
             pri_ad.adb.shell("killall iperf3")
             if ssh_config:
@@ -562,12 +559,13 @@ def check_wifi_status(pri_ad, network, ssh_config):
                 res = result.stdout.split("\n")
                 for pid in res:
                     try:
-                        ssh_session.run("kill -9 %s" %pid)
+                        ssh_session.run("kill -9 %s" % pid)
                     except Exception as e:
-                        logging.warning("No such process: %s" %e)
+                        logging.warning("No such process: %s" % e)
                 for pid in pid_list[:-1]:
-                    subprocess.Popen("kill -9 {}".format(pid),
-                                 stdout=subprocess.PIPE, shell=True)
+                    job.run(["kill", " -9", " %s" % pid], ignore_status=True)
+            else:
+                job.run(["killall", " iperf3"], ignore_status=True)
             break
         elif pid_list[0] not in process_list:
             break
@@ -716,20 +714,8 @@ def music_play_and_check_via_app(pri_ad, headset_mac_address, duration=5):
         return True
 
 
-def get_phone_ip(ad):
-    """Get the WiFi IP address of the phone.
-
-    Args:
-        ad: the android device under test
-
-    Returns:
-        Ip address of the phone for WiFi, as a string
-    """
-    return ad.droid.connectivityGetIPv4Addresses('wlan0')[0]
-
-
 def pair_dev_to_headset(pri_ad, dev_to_pair):
-    """Pairs pri droid to secondary droid.
+    """Pairs primary android device with headset.
 
     Args:
         pri_ad: Android device initiating connection
@@ -742,12 +728,13 @@ def pair_dev_to_headset(pri_ad, dev_to_pair):
     bonded_devices = pri_ad.droid.bluetoothGetBondedDevices()
     for d in bonded_devices:
         if d['address'] == dev_to_pair:
-            pri_ad.log.info("Successfully bonded to device".format(dev_to_pair))
+            pri_ad.log.info("Successfully bonded to device {}".format(
+                dev_to_pair))
             return True
     pri_ad.droid.bluetoothStartDiscovery()
-    time.sleep(10)  #Wait until device gets discovered
+    time.sleep(10)  # Wait until device gets discovered
     pri_ad.droid.bluetoothCancelDiscovery()
-    pri_ad.log.debug("discovered devices = {}".format(
+    pri_ad.log.debug("Discovered bluetooth devices: {}".format(
         pri_ad.droid.bluetoothGetDiscoveredDevices()))
     for device in pri_ad.droid.bluetoothGetDiscoveredDevices():
         if device['address'] == dev_to_pair:
@@ -755,17 +742,18 @@ def pair_dev_to_headset(pri_ad, dev_to_pair):
             result = pri_ad.droid.bluetoothDiscoverAndBond(dev_to_pair)
             pri_ad.log.info(result)
             end_time = time.time() + bt_default_timeout
-            pri_ad.log.info("Verifying devices are bonded")
-            time.sleep(5)  #Wait time until device gets paired.
+            pri_ad.log.info("Verifying if device bonded with {}".format(
+                dev_to_pair))
+            time.sleep(5)  # Wait time until device gets paired.
             while time.time() < end_time:
                 bonded_devices = pri_ad.droid.bluetoothGetBondedDevices()
-                bonded = False
                 for d in bonded_devices:
                     if d['address'] == dev_to_pair:
                         pri_ad.log.info(
-                            "Successfully bonded to device".format(dev_to_pair))
+                            "Successfully bonded to device {}".format(
+                                dev_to_pair))
                         return True
-    pri_ad.log.info("Failed to bond devices.")
+    pri_ad.log.error("Failed to bond with {}".format(dev_to_pair))
     return False
 
 
@@ -779,28 +767,30 @@ def pair_and_connect_headset(pri_ad, headset_mac_address, profile_to_connect, re
         retry: Number of times pair and connection should happen.
 
     Returns:
-        True if pair and connect to headset successful, False otherwise.
+        True if pair and connect to headset successful, or raises exception
+        on failure.
     """
 
     paired = False
-    for _ in range(retry):
+    for i in range(1, retry):
         if pair_dev_to_headset(pri_ad, headset_mac_address):
             paired = True
             break
         else:
-            pri_ad.log.error("Could not pair to headset. Retrying.")
-
-    time.sleep(2)  # Wait until pairing gets over.
+            pri_ad.log.error("Attempt {} out of {}, Failed to pair, "
+                             "Retrying.".format(i, retry))
 
     if paired:
-        for _ in range(retry):
+        for i in range(1, retry):
             if connect_dev_to_headset(pri_ad, headset_mac_address,
                                       profile_to_connect):
                 return True
             else:
-                pri_ad.log.error("Could not connect to headset. Retrying.")
+                pri_ad.log.error("Attempt {} out of {}, Failed to connect, "
+                                 "Retrying.".format(i, retry))
     else:
-        asserts.fail("Failed to pair and connect to headset")
+        asserts.fail("Failed to pair and connect with {}".format(
+            headset_mac_address))
 
 
 def perform_classic_discovery(pri_ad, duration, file_name, dev_list=None):
@@ -951,7 +941,7 @@ def start_fping(pri_ad, duration, fping_params):
     """
     counter = 0
     fping_path = ''.join((pri_ad.log_path, "/Fping"))
-    create_dir(fping_path)
+    os.makedirs(fping_path, exist_ok=True)
     while os.path.isfile(fping_path + "/fping_%s.txt" % counter):
         counter += 1
     out_file_name = "{}".format("fping_%s.txt" % counter)
@@ -973,7 +963,7 @@ def start_fping(pri_ad, duration, fping_params):
     else:
         cmd = cmd.split()
         with open(full_out_path, "w") as f:
-            subprocess.call(cmd, stderr=f, stdout=f)
+            job.run(cmd)
     result = parse_fping_results(fping_params["fping_drop_tolerance"],
                                  full_out_path)
     return bool(result)

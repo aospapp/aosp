@@ -19,9 +19,7 @@
 
 #include <dirent.h>
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
+#include <android-base/file.h>
 
 namespace android {
 namespace vintf {
@@ -29,43 +27,40 @@ namespace details {
 
 status_t FileSystemImpl::fetch(const std::string& path, std::string* fetched,
                                std::string* error) const {
-    std::ifstream in;
-
-    errno = 0;
-    in.open(path);
-    if (!in || errno != 0) {
+    if (!android::base::ReadFileToString(path, fetched, true /* follow_symlinks */)) {
+        int saved_errno = errno;
         if (error) {
-            *error = "Cannot open " + path + ": " + strerror(errno);
+            *error = "Cannot read " + path + ": " + strerror(saved_errno);
         }
-        return -errno;
+        return saved_errno == 0 ? UNKNOWN_ERROR : -saved_errno;
     }
-
-    std::stringstream ss;
-    ss << in.rdbuf();
-    *fetched = ss.str();
-
-    return -errno;
+    return OK;
 }
 
 status_t FileSystemImpl::listFiles(const std::string& path, std::vector<std::string>* out,
                                    std::string* error) const {
-    errno = 0;
-    DIR* dirp = opendir(path.c_str());
-    if (!dirp || errno != 0) {
+    std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(path.c_str()), closedir);
+    if (!dir) {
+        int saved_errno = errno;
         if (error) {
-            *error = "Cannot open " + path + ": " + strerror(errno);
+            *error = "Cannot open " + path + ": " + strerror(saved_errno);
         }
-        return -errno;
+        return saved_errno == 0 ? UNKNOWN_ERROR : -saved_errno;
     }
 
-    std::unique_ptr<DIR, decltype(&closedir)> dir(dirp, closedir);
     dirent* dp;
-    while ((dp = readdir(dir.get())) != nullptr) {
+    while (errno = 0, dp = readdir(dir.get()), dp != nullptr) {
         if (dp->d_type != DT_DIR) {
             out->push_back(dp->d_name);
         }
     }
-    return -errno;
+    int saved_errno = errno;
+    if (saved_errno != 0) {
+        if (error) {
+            *error = "Failed while reading directory " + path + ": " + strerror(saved_errno);
+        }
+    }
+    return -saved_errno;
 }
 
 status_t FileSystemNoOp::fetch(const std::string&, std::string*, std::string*) const {

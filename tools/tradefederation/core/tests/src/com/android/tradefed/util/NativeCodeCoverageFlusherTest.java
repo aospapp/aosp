@@ -34,7 +34,6 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.lang.IllegalStateException;
 import java.util.List;
 
 @RunWith(JUnit4.class)
@@ -48,15 +47,14 @@ public final class NativeCodeCoverageFlusherTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-
-        mFlusher = new NativeCodeCoverageFlusher(mMockDevice);
     }
 
     @Test
     public void testClearCoverageMeasurements_rmCommandCalled() throws DeviceNotAvailableException {
         doReturn(true).when(mMockDevice).isAdbRoot();
 
-        mFlusher.clearCoverageMeasurements();
+        mFlusher = new NativeCodeCoverageFlusher(mMockDevice, ImmutableList.of());
+        mFlusher.resetCoverage();
 
         // Verify that the rm command was executed.
         verify(mMockDevice).executeShellCommand("rm -rf /data/misc/trace/*");
@@ -67,7 +65,8 @@ public final class NativeCodeCoverageFlusherTest {
         doReturn(false).when(mMockDevice).isAdbRoot();
 
         try {
-            mFlusher.clearCoverageMeasurements();
+            mFlusher = new NativeCodeCoverageFlusher(mMockDevice, ImmutableList.of());
+            mFlusher.resetCoverage();
             fail("Should have thrown an exception");
         } catch (IllegalStateException e) {
             // Expected
@@ -82,7 +81,8 @@ public final class NativeCodeCoverageFlusherTest {
             throws DeviceNotAvailableException {
         doReturn(true).when(mMockDevice).isAdbRoot();
 
-        mFlusher.forceCoverageFlush(ImmutableList.of());
+        mFlusher = new NativeCodeCoverageFlusher(mMockDevice, ImmutableList.of());
+        mFlusher.forceCoverageFlush();
 
         // Verify that the flush command for all processes was called.
         verify(mMockDevice).executeShellCommand("kill -37 -1");
@@ -97,7 +97,8 @@ public final class NativeCodeCoverageFlusherTest {
         doReturn("12").when(mMockDevice).getProcessPid(processes.get(0));
         doReturn("789").when(mMockDevice).getProcessPid(processes.get(1));
 
-        mFlusher.forceCoverageFlush(processes);
+        mFlusher = new NativeCodeCoverageFlusher(mMockDevice, processes);
+        mFlusher.forceCoverageFlush();
 
         // Verify that the flush command for the specific processes was called.
         verify(mMockDevice).executeShellCommand("kill -37 12 789");
@@ -108,7 +109,8 @@ public final class NativeCodeCoverageFlusherTest {
         doReturn(false).when(mMockDevice).isAdbRoot();
 
         try {
-            mFlusher.forceCoverageFlush(ImmutableList.of("mediaserver"));
+            mFlusher = new NativeCodeCoverageFlusher(mMockDevice, ImmutableList.of("mediaserver"));
+            mFlusher.forceCoverageFlush();
             fail("Should have thrown an exception");
         } catch (IllegalStateException e) {
             // Expected

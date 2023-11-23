@@ -16,7 +16,7 @@
 
 package sun.security.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 class MemoryCache<K, V> extends sun.security.util.Cache<K, V> {

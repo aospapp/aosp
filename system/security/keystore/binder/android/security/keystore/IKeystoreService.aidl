@@ -19,6 +19,7 @@ package android.security.keystore;
 import android.security.keymaster.KeymasterArguments;
 import android.security.keymaster.KeymasterBlob;
 import android.security.keymaster.OperationResult;
+import android.security.keystore.ICredstoreTokenCallback;
 import android.security.keystore.IKeystoreResponseCallback;
 import android.security.keystore.IKeystoreKeyCharacteristicsCallback;
 import android.security.keystore.IKeystoreExportKeyCallback;
@@ -29,21 +30,29 @@ import android.security.keystore.IKeystoreCertificateChainCallback;
  * @hide
  */
 interface IKeystoreService {
+    @UnsupportedAppUsage
     int getState(int userId);
+    @UnsupportedAppUsage
     byte[] get(String name, int uid);
+    @UnsupportedAppUsage
     int insert(String name, in byte[] item, int uid, int flags);
+    @UnsupportedAppUsage
     int del(String name, int uid);
+    @UnsupportedAppUsage
     int exist(String name, int uid);
+    @UnsupportedAppUsage
     String[] list(String namePrefix, int uid);
-    int reset();
     int onUserPasswordChanged(int userId, String newPassword);
     int lock(int userId);
     int unlock(int userId, String userPassword);
     int isEmpty(int userId);
     String grant(String name, int granteeUid);
+    @UnsupportedAppUsage
     int ungrant(String name, int granteeUid);
     long getmtime(String name, int uid);
+    @UnsupportedAppUsage
     int is_hardware_backed(String string);
+    @UnsupportedAppUsage
     int clear_uid(long uid);
 
     int addRngEntropy(IKeystoreResponseCallback cb, in byte[] data, int flags);
@@ -58,7 +67,7 @@ interface IKeystoreService {
     int begin(in IKeystoreOperationResultCallback cb, IBinder appToken, String alias, int purpose, boolean pruneable,
         in KeymasterArguments params, in byte[] entropy, int uid);
     int update(in IKeystoreOperationResultCallback cb, IBinder token, in KeymasterArguments params, in byte[] input);
-    int finish(in IKeystoreOperationResultCallback cb, IBinder token, in KeymasterArguments params, in byte[] signature,
+    int finish(in IKeystoreOperationResultCallback cb, IBinder token, in KeymasterArguments params, in byte[] input, in byte[] signature,
         in byte[] entropy);
     int abort(in IKeystoreResponseCallback cb, IBinder token);
     int addAuthToken(in byte[] authToken);
@@ -76,4 +85,8 @@ interface IKeystoreService {
     boolean isConfirmationPromptSupported();
     int onKeyguardVisibilityChanged(in boolean isShowing, in int userId);
     int listUidsOfAuthBoundKeys(out @utf8InCpp List<String> uids);
+
+    // Called by credstore (and only credstore).
+    void getTokensForCredstore(in long challenge, in long secureUserId, in int authTokenMaxAgeMillis,
+                               in ICredstoreTokenCallback cb);
 }

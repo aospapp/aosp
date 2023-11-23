@@ -1312,12 +1312,6 @@
   ]
 },
 {
-  description: "Known failure in MathTest 1^NAN should be NAN",
-  bug: 11669804,
-  result: EXEC_FAILED,
-  name: "org.apache.harmony.tests.java.lang.MathTest#test_powDD"
-},
-{
   description: "Known failures in URLTest and URLDecoderTest",
   bug: 11686814,
   names: [
@@ -1336,80 +1330,63 @@
   description: "external/apache-harmony tests for java.sql are broken for various reasons. java.sql is not a high enough priority to fix.",
   bug: 17342415,
   names: [
-    "com.android.org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetDataSize",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetIndex",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetParameter",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetRead",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetTransferSize",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testDataTruncationintbooleanbooleanintint",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DateTest#test_valueOf_IllegalArgumentException",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testDeregisterDriver",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testGetConnectionString",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testGetConnectionStringProperties",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testGetConnectionStringStringString",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testGetDriver",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testGetDrivers",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testGetLogStream",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testGetLogWriter",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testGetLoginTimeout",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testPrintln",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testRegisterDriver",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testSetLogStream",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testSetLogWriter",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#testSetLoginTimeout",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#test_getConnection_LStringLProperties",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#test_initClass",
-    "com.android.org.apache.harmony.sql.tests.java.sql.DriverManagerTest#test_registerDriver_MultiTimes",
-    "com.android.org.apache.harmony.sql.tests.java.sql.TimestampTest#testCompareToDate",
-    "com.android.org.apache.harmony.sql.tests.java.sql.TimestampTest#testOverridingTimestamp"
+    "org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetDataSize",
+    "org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetIndex",
+    "org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetParameter",
+    "org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetRead",
+    "org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testGetTransferSize",
+    "org.apache.harmony.sql.tests.java.sql.DataTruncationTest#testDataTruncationintbooleanbooleanintint",
+    "org.apache.harmony.sql.tests.java.sql.DateTest#test_valueOf_IllegalArgumentException",
+    "org.apache.harmony.sql.tests.java.sql.TimestampTest#testCompareToDate",
+    "org.apache.harmony.sql.tests.java.sql.TimestampTest#testOverridingTimestamp"
   ]
 },
 {
   description: "java.util.logging: Android introduced config fallback behavior in LogManager.readConfiguration()",
   bug: 13882147,
   names: [
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.LogManagerTest#testNotExistConfigFile",
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.LoggerTest#testGetLogger_Empty",
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.LoggerTest#testGetLogger_Null",
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.LoggerTest#testGetLoggerWithRes_InvalidRes",
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.LoggerTest#testGetLoggerWithRes_Empty"
+    "org.apache.harmony.logging.tests.java.util.logging.LogManagerTest#testNotExistConfigFile",
+    "org.apache.harmony.logging.tests.java.util.logging.LoggerTest#testGetLogger_Empty",
+    "org.apache.harmony.logging.tests.java.util.logging.LoggerTest#testGetLogger_Null",
+    "org.apache.harmony.logging.tests.java.util.logging.LoggerTest#testGetLoggerWithRes_InvalidRes",
+    "org.apache.harmony.logging.tests.java.util.logging.LoggerTest#testGetLoggerWithRes_Empty"
   ]
 },
 {
   description: "java.util.logging: Android's user.home system property cannot be cleared",
   bug: 13882147,
   names: [
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.FileHandlerTest#testConstructor_NoUsrHome",
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.FileHandlerTest#testConstructor_NoTmpDir_NoUsrHome"
+    "org.apache.harmony.logging.tests.java.util.logging.FileHandlerTest#testConstructor_NoUsrHome",
+    "org.apache.harmony.logging.tests.java.util.logging.FileHandlerTest#testConstructor_NoTmpDir_NoUsrHome"
   ]
 },
 {
   description: "java.util.logging: Android's user.home system property points to root (/) dir",
   bug: 13882147,
-  name: "com.android.org.apache.harmony.logging.tests.java.util.logging.FileHandlerTest#testConstructor_NoTmpDir"
+  name: "org.apache.harmony.logging.tests.java.util.logging.FileHandlerTest#testConstructor_NoTmpDir"
 },
 {
   description: "java.util.logging: The defaults for FileHandler don't work on Android because they try to write to the read-only user.home dir",
   bug: 13882147,
-  name: "com.android.org.apache.harmony.logging.tests.java.util.logging.FileHandlerTest#testDefaultValue"
+  name: "org.apache.harmony.logging.tests.java.util.logging.FileHandlerTest#testDefaultValue"
 },
 {
   description: "java.util.logging: Android's classes have been stubbed in places.",
   bug: 13882147,
   names: [
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.LogManagerTest#testGetLoggingMXBean"
+    "org.apache.harmony.logging.tests.java.util.logging.LogManagerTest#testGetLoggingMXBean"
   ]
 },
 {
-  description: "java.util.logging: the serialized form references org.apache not com.android.org.apache",
+  description: "java.util.logging: the serialized form references org.apache not org.apache",
   bug: 13882147,
-  name: "com.android.org.apache.harmony.logging.tests.java.util.logging.LevelTest#testSerializationCompatibility"
+  name: "org.apache.harmony.logging.tests.java.util.logging.LevelTest#testSerializationCompatibility"
 },
 {
-  description: "java.util.beans: the serialized form references org.apache not com.android.org.apache",
+  description: "java.util.beans: the serialized form references org.apache not org.apache",
   bug: 17394106,
   names: [
-    "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testSerializationCompatibility"
+    "org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testSerializationCompatibility"
   ]
 },
 {
@@ -1423,6 +1400,13 @@
   names: [
     "com.squareup.okhttp.internal.framed.Http2Test#tooLargeDataFrame",
     "com.squareup.okhttp.internal.framed.Spdy3Test#tooLargeDataFrame"
+  ]
+},
+{
+  description: "OkHttp flaky test of functionality that's not used on Android",
+  bug: 138134183,
+  names: [
+    "com.squareup.okhttp.internal.framed.Spdy3ConnectionTest#serverSendsSettingsToClient"
   ]
 },
 {
@@ -1506,7 +1490,7 @@
   bug: 28536847,
   result: EXEC_FAILED,
   names: [
-    "com.android.org.apache.harmony.luni.tests.java.net.UnixNetworkInterfaceTest"
+    "org.apache.harmony.luni.tests.java.net.UnixNetworkInterfaceTest"
   ]
 },
 {
@@ -1514,7 +1498,7 @@
   bug: 28535349,
   result: EXEC_FAILED,
   names: [
-    "com.android.org.apache.harmony.luni.tests.java.net.URLClassLoaderImplTest#test_Constructor$Ljava_net_URLLjava_lang_ClassLoaderLjava_net_URLStreamHandlerFactory"
+    "org.apache.harmony.luni.tests.java.net.URLClassLoaderImplTest#test_Constructor$Ljava_net_URLLjava_lang_ClassLoaderLjava_net_URLStreamHandlerFactory"
   ]
 },
 {
@@ -1714,7 +1698,7 @@
   description: "Some tests (ExcludedProxyTest) connect to a public webserver to check that the HTTP client works",
   result: EXEC_FAILED,
   names: [
-    "com.android.org.apache.harmony.luni.tests.java.net.ExcludedProxyTest"
+    "org.apache.harmony.luni.tests.java.net.ExcludedProxyTest"
   ]
 },
 {
@@ -1739,14 +1723,6 @@
   result: EXEC_FAILED,
   names: [
       "org.apache.harmony.tests.java.nio.channels.ServerSocketChannelTest#test_bind_explicitPort"
-  ]
-},
-{
-  description: "The ResourceBundle code under test is probably not used much on Android and needs a lot of attention.",
-  modes: [device],
-  bug: 13747957,
-  names: [
-      "org.apache.harmony.tests.java.util.ControlTest#test_needsReload_LStringLLocaleLStringLClassLoaderResourceBundleJ"
   ]
 },
 {
@@ -1807,15 +1783,7 @@
   bug: 28535961,
   result: EXEC_FAILED,
   names: [
-      "com.android.org.apache.harmony.luni.tests.java.net.URLClassLoaderTest"
-  ]
-},
-{
-  description: "Unable to execute Support_AvailTest",
-  result: EXEC_FAILED,
-  bug: 28535603,
-  names: [
-      "com.android.org.apache.harmony.luni.tests.internal.process.SystemProcessTest#test_interrupt"
+      "org.apache.harmony.luni.tests.java.net.URLClassLoaderTest"
   ]
 },
 {

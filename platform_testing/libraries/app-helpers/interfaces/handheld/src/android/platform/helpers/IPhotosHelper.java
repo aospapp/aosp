@@ -112,22 +112,22 @@ public interface IPhotosHelper extends IAppHelper {
     public void openPicture(int index);
 
     /**
-     * Setup expectations: Photos is open and a picture album is open.
+     * Setup expectations: Photos is open and a picture is open.
      *
-     * This method will scroll the picture album in the specified direction.
+     * <p>This method will scroll to next or previous picture in the specified direction.
      *
      * @param direction The direction to scroll, must be LEFT or RIGHT.
-     * @return Returns whether album can be still scrolled in the given direction
+     * @return Returns whether picture can be still scrolled in the given direction
      */
-    public boolean scrollAlbum(Direction direction);
+    public boolean scrollPicture(Direction direction);
 
     /**
-     * Setup expectations: Photos is open and a picture folder is open.
+     * Setup expectations: Photos is open and a page contains pictures or albums is open.
      *
-     * This method will scroll the Photos grid view in the specified direction.
+     * <p>This method will scroll the page in the specified direction.
      *
      * @param direction The direction of the scroll, must be UP or DOWN.
      * @return Returns whether the object can still scroll in the given direction
      */
-    public boolean scrollGridView(Direction direction);
+    public boolean scrollPage(Direction direction);
 }

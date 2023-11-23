@@ -25,12 +25,13 @@ import numpy
 CHART_FILE = os.path.join(os.environ['CAMERA_ITS_TOP'], 'pymodules', 'its',
                           'test_images', 'ISO12233.png')
 CHART_HEIGHT = 13.5  # cm
-CHART_DISTANCE_RFOV = 30.0  # cm
+CHART_DISTANCE_RFOV = 31.0  # cm
 CHART_DISTANCE_WFOV = 22.0  # cm
 CHART_SCALE_START = 0.65
 CHART_SCALE_STOP = 1.35
 CHART_SCALE_STEP = 0.025
 
+FOV_THRESH_SUPER_TELE = 45
 FOV_THRESH_TELE = 60
 FOV_THRESH_WFOV = 90
 
@@ -283,11 +284,11 @@ def get_angle(input_img):
     # Find all contours
     contours = []
     cv2_version = cv2.__version__
-    if cv2_version.startswith('2.4.'):
-        contours, _ = cv2.findContours(
-                thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    elif cv2_version.startswith('3.2.'):
+    if cv2_version.startswith('3.'): # OpenCV 3.x
         _, contours, _ = cv2.findContours(
+                thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    else: # OpenCV 2.x and 4.x
+        contours, _ = cv2.findContours(
                 thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # Filter contours to squares only.
@@ -416,6 +417,35 @@ class __UnitTest(unittest.TestCase):
                     abs(get_angle(normal_img)), angle, 2.0)
             assert numpy.isclose(
                     abs(get_angle(wide_img)), angle, 2.0)
+
+
+def component_shape(contour):
+    """Measure the shape of a connected component.
+
+    Args:
+        contour: return from cv2.findContours. A list of pixel coordinates of
+        the contour.
+
+    Returns:
+        The most left, right, top, bottom pixel location, height, width, and
+        the center pixel location of the contour.
+    """
+    shape = {'left': numpy.inf, 'right': 0, 'top': numpy.inf, 'bottom': 0,
+             'width': 0, 'height': 0, 'ctx': 0, 'cty': 0}
+    for pt in contour:
+        if pt[0][0] < shape['left']:
+            shape['left'] = pt[0][0]
+        if pt[0][0] > shape['right']:
+            shape['right'] = pt[0][0]
+        if pt[0][1] < shape['top']:
+            shape['top'] = pt[0][1]
+        if pt[0][1] > shape['bottom']:
+            shape['bottom'] = pt[0][1]
+    shape['width'] = shape['right'] - shape['left'] + 1
+    shape['height'] = shape['bottom'] - shape['top'] + 1
+    shape['ctx'] = (shape['left'] + shape['right']) / 2
+    shape['cty'] = (shape['top'] + shape['bottom']) / 2
+    return shape
 
 
 if __name__ == '__main__':

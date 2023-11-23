@@ -23,10 +23,15 @@ import android.app.IntentService;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.ResultReceiver;
 import android.util.Log;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A service to handle interactions with the BlockedNumberProvider. The BlockedNumberProvider
@@ -41,11 +46,14 @@ public class BlockedNumberService extends IntentService {
     static final String PHONE_NUMBER_EXTRA = "number";
     static final String URI_EXTRA = "uri";
     static final String ROWS_EXTRA = "rows";
+    static final String FAIL_EXTRA = "fail";
     static final String RESULT_RECEIVER_EXTRA = "resultReceiver";
 
     private static final String TAG = "CtsBlockNumberSvc";
+    private static final int ASYNC_TIMEOUT = 10000;
 
     private ContentResolver mContentResolver;
+    private Handler mHandler = new Handler();
 
     public BlockedNumberService() {
         super(BlockedNumberService.class.getName());
@@ -77,12 +85,39 @@ public class BlockedNumberService extends IntentService {
     private Bundle insertBlockedNumber(String number) {
         Log.i(TAG, "insertBlockedNumber: " + number);
 
+        CountDownLatch blockedNumberLatch = getBlockedNumberLatch();
         ContentValues cv = new ContentValues();
         cv.put(COLUMN_ORIGINAL_NUMBER, number);
         Uri uri = mContentResolver.insert(CONTENT_URI, cv);
         Bundle bundle = new Bundle();
         bundle.putString(URI_EXTRA, uri.toString());
+
+        // Wait for the content provider to be updated.
+        try {
+            if (!blockedNumberLatch.await(ASYNC_TIMEOUT, TimeUnit.MILLISECONDS)) {
+                Log.e(TAG, "Timed out waiting for blocked number update");
+                bundle.putBoolean(FAIL_EXTRA, true);
+            }
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Interrupted while waiting for blocked number update");
+            bundle.putBoolean(FAIL_EXTRA, true);
+        }
         return bundle;
+    }
+
+    private CountDownLatch getBlockedNumberLatch() {
+        CountDownLatch changeLatch = new CountDownLatch(1);
+        getContentResolver().registerContentObserver(
+                CONTENT_URI, true,
+                    new ContentObserver(mHandler) {
+                        @Override
+                        public void onChange(boolean selfChange, Uri uri) {
+                            getContentResolver().unregisterContentObserver(this);
+                            changeLatch.countDown();
+                            super.onChange(selfChange);
+                        }
+                    });
+        return changeLatch;
     }
 
     private Bundle deleteBlockedNumber(Uri uri) {

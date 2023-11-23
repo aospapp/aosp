@@ -17,6 +17,7 @@
 #ifndef ANDROID_VINTF_LEVEL_H
 #define ANDROID_VINTF_LEVEL_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 namespace android {
@@ -34,6 +35,9 @@ enum Level : size_t {
     // Actual values starts from 1. Following are some historic values for convenience.
     O = 1,
     O_MR1 = 2,
+    P = 3,
+    Q = 4,
+    R = 5,
     // For older manifests and compatibility matrices, "level" is not specified.
     UNSPECIFIED = SIZE_MAX,
 };

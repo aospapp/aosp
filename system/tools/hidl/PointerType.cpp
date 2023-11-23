@@ -21,7 +21,7 @@
 
 namespace android {
 
-PointerType::PointerType(Scope* parent) : Type(parent) {}
+PointerType::PointerType(Scope* parent) : Type(parent, "pointer") {}
 
 bool PointerType::isPointer() const {
     return true;
@@ -50,9 +50,12 @@ void PointerType::emitReaderWriter(
         const std::string& /*parcelObj*/,
         bool /*parcelObjIsPointer*/,
         bool /*isReader*/,
-        ErrorMode /*mode*/) const {
+        ErrorMode mode) const {
     out << "(void)" << name << ";\n";
     out << "LOG_ALWAYS_FATAL(\"Pointer is only supported in passthrough mode\");\n\n";
+
+    // always use label if mode is goto
+    handleError(out, mode);
 }
 
 void PointerType::emitReaderWriterEmbedded(

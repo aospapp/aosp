@@ -35,7 +35,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             1f:9d:59:5a:d7:2f:c2:06:44:a5:80:08:69:e3:5e:f6
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=TW, O=Government Root Certification Authority
         Validity
             Not Before: Dec  5 13:23:33 2002 GMT
@@ -43,7 +43,7 @@ Certificate:
         Subject: C=TW, O=Government Root Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:9a:25:b8:ec:cc:a2:75:a8:7b:f7:ce:5b:59:8a:
                     c9:d1:86:12:08:54:ec:9c:f2:e7:46:f6:88:f3:7c:

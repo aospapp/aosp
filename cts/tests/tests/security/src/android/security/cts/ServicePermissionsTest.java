@@ -79,6 +79,8 @@ public class ServicePermissionsTest extends AndroidTestCase {
             return;
         }
 
+        final ArrayList<String> failures = new ArrayList<>();
+
         for (String service : services) {
             mTempFile.delete();
 
@@ -105,14 +107,18 @@ public class ServicePermissionsTest extends AndroidTestCase {
             } catch (SecurityException e) {
                 String msg = e.getMessage();
                 if ((msg == null) || msg.contains("android.permission.DUMP")) {
+                    Log.d(TAG, "Service " + service + " correctly checked permission");
                     // Service correctly checked for DUMP permission, yay
                 } else {
                     // Service is throwing about something else; they're
                     // probably not checking for DUMP.
-                    throw e;
+                    failures.add("Service " + service + " threw exception: " + e);
+                    continue;
                 }
             } catch (TransactionTooLargeException | DeadObjectException e) {
-                // SELinux likely prevented the dump - assume safe
+                // SELinux likely prevented the dump - assume safe, but log anywasy
+                // (as the exception might happens in some devices but not on others)
+                Log.w(TAG, "Service " + service + " threw exception: " + e);
                 continue;
             } finally {
                 out.close();
@@ -133,19 +139,29 @@ public class ServicePermissionsTest extends AndroidTestCase {
             }
 
             if (lines.size() > 1) {
-                fail("dump() for " + service + " produced several lines of output; this "
+                failures.add("dump() for " + service + " produced several lines of output; this "
                         + "may be leaking sensitive data.  At most, services should emit a "
                         + "single line when the caller doesn't have DUMP permission.");
+                continue;
             }
 
             if (lines.size() == 1) {
                 String message = lines.get(0);
                 if (!message.contains("Permission Denial") &&
                         !message.contains("android.permission.DUMP")) {
-                    fail("dump() for " + service + " produced a single line which didn't "
+                    failures.add("dump() for " + service + " produced a single line which didn't "
                             + "reference a permission; it may be leaking sensitive data.");
+                    continue;
                 }
             }
+        }
+
+        if (!failures.isEmpty()) {
+            StringBuilder msg = new StringBuilder(failures.size() + " services failed:\n");
+            for (String failure: failures) {
+                msg.append(failure).append('\n');
+            }
+            fail(msg.toString());
         }
     }
 }

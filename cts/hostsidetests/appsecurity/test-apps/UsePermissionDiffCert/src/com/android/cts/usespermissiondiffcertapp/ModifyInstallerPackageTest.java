@@ -16,16 +16,29 @@
 
 package com.android.cts.usespermissiondiffcertapp;
 
-import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_SET_INSTALLER_PACKAGE_NAME;
-import static com.android.cts.permissiondeclareapp.UtilsProvider.EXTRA_INSTALLER_PACKAGE_NAME;
-import static com.android.cts.permissiondeclareapp.UtilsProvider.EXTRA_PACKAGE_NAME;
+import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
+
+import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.InstallSourceInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.SigningInfo;
 import android.os.Bundle;
-import android.test.AndroidTestCase;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.cts.permissiondeclareapp.UtilsProvider;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Tests that one application can and can not modify the installer package
@@ -33,42 +46,72 @@ import com.android.cts.permissiondeclareapp.UtilsProvider;
  *
  * Accesses app cts/tests/appsecurity-tests/test-apps/PermissionDeclareApp/...
  */
-public class ModifyInstallerPackageTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class ModifyInstallerPackageTest {
     static final String OTHER_PACKAGE = "com.android.cts.permissiondeclareapp";
     static final String MY_PACKAGE = "com.android.cts.usespermissiondiffcertapp";
 
-    PackageManager getPackageManager() {
-        return getContext().getPackageManager();
+    static void assertPackageInstallerAndInitiator(String packageName,
+            String expectedInstaller, String expectedInitiator, PackageManager packageManager)
+            throws Exception {
+        assertEquals(expectedInstaller, packageManager.getInstallerPackageName(packageName));
+        final InstallSourceInfo installSourceInfo =
+                packageManager.getInstallSourceInfo(packageName);
+        assertEquals(expectedInstaller, installSourceInfo.getInstallingPackageName());
+        assertEquals(expectedInitiator, installSourceInfo.getInitiatingPackageName());
+
+        // We should get the initiator's signature iff we have an initiator.
+        if (expectedInitiator == null) {
+            assertNull(installSourceInfo.getInitiatingPackageSigningInfo());
+        } else {
+            final SigningInfo expectedSigning = packageManager.getPackageInfo(expectedInitiator,
+                    PackageManager.GET_SIGNING_CERTIFICATES).signingInfo;
+            final SigningInfo actualSigning = installSourceInfo.getInitiatingPackageSigningInfo();
+            assertThat(actualSigning.getApkContentsSigners()).asList()
+                    .containsExactlyElementsIn(expectedSigning.getApkContentsSigners());
+        }
     }
 
-    private void call(Intent intent) {
-        final Bundle extras = new Bundle();
-        extras.putParcelable(Intent.EXTRA_INTENT, intent);
-        getContext().getContentResolver().call(UtilsProvider.URI, "", "", extras);
+    private Context context = InstrumentationRegistry.getContext();
+
+    private PackageManager mPM = context.getPackageManager();
+
+    @BeforeClass
+    public static void adoptPermissions() {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.INSTALL_PACKAGES);
+    }
+
+    @AfterClass
+    public static void dropPermissions() {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
     }
 
     /**
-     * Test that we can set the installer package name.
+     * Test that we can set the installer package name (but not the initiating package name).
      */
-    public void testSetInstallPackage() {
+    @Test
+    public void setInstallPackage() throws Exception {
         // Pre-condition.
-        assertEquals(null, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
+        assertPackageInstallerAndInitiator(OTHER_PACKAGE, null, null, mPM);
 
-        getPackageManager().setInstallerPackageName(OTHER_PACKAGE, MY_PACKAGE);
-        assertEquals(MY_PACKAGE, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
+        mPM.setInstallerPackageName(OTHER_PACKAGE, MY_PACKAGE);
+        assertPackageInstallerAndInitiator(OTHER_PACKAGE, MY_PACKAGE, null, mPM);
 
         // Clean up.
-        getPackageManager().setInstallerPackageName(OTHER_PACKAGE, null);
-        assertEquals(null, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
+        mPM.setInstallerPackageName(OTHER_PACKAGE, null);
+        assertPackageInstallerAndInitiator(OTHER_PACKAGE, null, null, mPM);
     }
 
     /**
      * Test that we fail if trying to set an installer package with an unknown
      * target package name.
      */
-    public void testSetInstallPackageBadTarget() {
+    @Test
+    public void setInstallPackageBadTarget() throws Exception {
         try {
-            getPackageManager().setInstallerPackageName("thisdoesnotexistihope!", MY_PACKAGE);
+            mPM.setInstallerPackageName("thisdoesnotexistihope!", MY_PACKAGE);
             fail("setInstallerPackageName did not throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // That's what we want!
@@ -79,66 +122,39 @@ public class ModifyInstallerPackageTest extends AndroidTestCase {
      * Test that we fail if trying to set an installer package with an unknown
      * installer package name.
      */
-    public void testSetInstallPackageBadInstaller() {
+    @Test
+    public void setInstallPackageBadInstaller() throws Exception {
         try {
-            getPackageManager().setInstallerPackageName(OTHER_PACKAGE, "thisdoesnotexistihope!");
+            mPM.setInstallerPackageName(OTHER_PACKAGE, "thisdoesnotexistihope!");
             fail("setInstallerPackageName did not throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // That's what we want!
         }
-        assertEquals(null, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
+        assertPackageInstallerAndInitiator(OTHER_PACKAGE, null, null, mPM);
     }
 
     /**
      * Test that we fail if trying to set an installer package that is not
      * signed with our cert.
      */
-    public void testSetInstallPackageWrongCertificate() {
+    @Test
+    public void setInstallPackageWrongCertificate() throws Exception {
         // Pre-condition.
-        assertEquals(null, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
+        assertPackageInstallerAndInitiator(OTHER_PACKAGE, null, null, mPM);
 
         try {
-            getPackageManager().setInstallerPackageName(OTHER_PACKAGE, OTHER_PACKAGE);
+            mPM.setInstallerPackageName(OTHER_PACKAGE, OTHER_PACKAGE);
             fail("setInstallerPackageName did not throw SecurityException");
         } catch (SecurityException e) {
             // That's what we want!
         }
 
-        assertEquals(null, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
+        assertPackageInstallerAndInitiator(OTHER_PACKAGE, null, null, mPM);
     }
 
-    /**
-     * Test that we fail if trying to set an installer package that is not
-     * signed with the same cert as the currently set installer.
-     */
-    public void testSetInstallPackageConflictingInstaller() {
-        // Pre-condition.
-        assertEquals(null, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
-
-        // Have the other package set the installer, under its cert.
-        Intent intent = new Intent();
-        intent.setAction(ACTION_SET_INSTALLER_PACKAGE_NAME);
-        intent.putExtra(EXTRA_PACKAGE_NAME, OTHER_PACKAGE);
-        intent.putExtra(EXTRA_INSTALLER_PACKAGE_NAME, OTHER_PACKAGE);
-        call(intent);
-
-        assertEquals(OTHER_PACKAGE, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
-
-        try {
-            getPackageManager().setInstallerPackageName(OTHER_PACKAGE, MY_PACKAGE);
-            fail("setInstallerPackageName did not throw SecurityException");
-        } catch (SecurityException e) {
-            // That's what we want!
-        }
-
-        assertEquals(OTHER_PACKAGE, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
-
-        // Now clear the installer
-        intent.setAction(ACTION_SET_INSTALLER_PACKAGE_NAME);
-        intent.putExtra(EXTRA_PACKAGE_NAME, OTHER_PACKAGE);
-        intent.putExtra(EXTRA_INSTALLER_PACKAGE_NAME, (String)null);
-        call(intent);
-
-        assertEquals(null, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
+    private void call(Intent intent) {
+        final Bundle extras = new Bundle();
+        extras.putParcelable(Intent.EXTRA_INTENT, intent);
+        context.getContentResolver().call(UtilsProvider.URI, "", "", extras);
     }
 }

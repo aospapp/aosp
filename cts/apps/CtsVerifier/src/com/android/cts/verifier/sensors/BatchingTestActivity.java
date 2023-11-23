@@ -16,6 +16,7 @@
 
 package com.android.cts.verifier.sensors;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.sensors.base.SensorCtsVerifierTestActivity;
 
@@ -24,6 +25,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
+import android.hardware.cts.helpers.sensorverification.EventBasicVerification;
 
 import java.util.concurrent.TimeUnit;
 
@@ -36,8 +38,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class BatchingTestActivity extends SensorCtsVerifierTestActivity {
     public BatchingTestActivity() {
-        super(BatchingTestActivity.class);
-        mEnableRetry = true;
+        super(BatchingTestActivity.class, true);
     }
 
     private static final int SENSOR_BATCHING_RATE_US = SensorManager.SENSOR_DELAY_FASTEST;
@@ -82,26 +83,22 @@ public class BatchingTestActivity extends SensorCtsVerifierTestActivity {
                 R.string.snsr_batching_walking_needed);
     }
 
+    @CddTest(requirement="7.3.8/C-1-1,C-1-2")
     @SuppressWarnings("unused")
     public String testProximity_batching() throws Throwable {
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_SENSOR_PROXIMITY)) {
-            return null;
-        }
         return runBatchTest(
                 Sensor.TYPE_PROXIMITY,
                 REPORT_LATENCY_10_SEC,
-                R.string.snsr_interaction_needed);
+                R.string.snsr_interaction_needed_prox);
     }
 
+    @CddTest(requirement="7.3.8/C-1-1,C-1-2")
     @SuppressWarnings("unused")
     public String testProximity_flush() throws Throwable {
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_SENSOR_PROXIMITY)) {
-            return null;
-        }
         return runFlushTest(
                 Sensor.TYPE_PROXIMITY,
                 REPORT_LATENCY_10_SEC,
-                R.string.snsr_interaction_needed);
+                R.string.snsr_interaction_needed_prox);
     }
 
     @SuppressWarnings("unused")
@@ -122,10 +119,8 @@ public class BatchingTestActivity extends SensorCtsVerifierTestActivity {
 
     private String runBatchTest(int sensorType, int maxBatchReportLatencySec, int instructionsResId)
             throws Throwable {
-        if (!mShouldRetry) {
-            getTestLogger().logInstructions(instructionsResId);
-            waitForUserToBegin();
-        }
+
+        setFirstExecutionInstruction(instructionsResId);
 
         int maxBatchReportLatencyUs = (int) TimeUnit.SECONDS.toMicros(maxBatchReportLatencySec);
         TestSensorEnvironment environment = new TestSensorEnvironment(
@@ -137,15 +132,20 @@ public class BatchingTestActivity extends SensorCtsVerifierTestActivity {
         int testDurationSec = maxBatchReportLatencySec + BATCHING_PADDING_TIME_S;
         TestSensorOperation operation =
                 TestSensorOperation.createOperation(environment, testDurationSec,TimeUnit.SECONDS);
+
+        // Expect at least 2 events (for on-change: initial value + changed value; for step sensors
+        // multiple values for walking).
+        EventBasicVerification verification =
+                new EventBasicVerification(2 /* expectedMinNumEvent */, environment.getSensor());
+        operation.addVerification(verification);
+
         return executeTest(operation);
     }
 
     private String runFlushTest(int sensorType, int maxBatchReportLatencySec, int instructionsResId)
             throws Throwable {
-        if (!mShouldRetry) {
-            getTestLogger().logInstructions(instructionsResId);
-            waitForUserToBegin();
-        }
+
+        setFirstExecutionInstruction(instructionsResId);
 
         int maxBatchReportLatencyUs = (int) TimeUnit.SECONDS.toMicros(maxBatchReportLatencySec);
         TestSensorEnvironment environment = new TestSensorEnvironment(

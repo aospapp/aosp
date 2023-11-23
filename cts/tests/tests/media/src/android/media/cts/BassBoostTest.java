@@ -24,6 +24,7 @@ import android.os.Looper;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+@NonMediaMainlineTest
 public class BassBoostTest extends PostProcTestBase {
 
     private String TAG = "BassBoostTest";

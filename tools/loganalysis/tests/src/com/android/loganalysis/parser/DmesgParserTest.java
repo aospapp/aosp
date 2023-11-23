@@ -215,22 +215,15 @@ public class DmesgParserTest extends TestCase {
 
     private static List<DmesgActionInfoItem> getExpectedActionInfoItems() {
         return Arrays.asList(
-                new DmesgActionInfoItem("early-init", (long) (Double.parseDouble("44942.872"))),
-                new DmesgActionInfoItem(
-                        "set_mmap_rnd_bits", (long) (Double.parseDouble("47233.446"))),
-                new DmesgActionInfoItem(
-                        "set_kptr_restrict", (long) (Double.parseDouble("47240.083"))),
-                new DmesgActionInfoItem("keychord_init", (long) (Double.parseDouble("47245.778"))),
-                new DmesgActionInfoItem(
-                        "persist.sys.usb.config=* boot", (long) (Double.parseDouble("52361.049"))),
-                new DmesgActionInfoItem(
-                        "enable_property_trigger", (long) (Double.parseDouble("52361.108"))),
-                new DmesgActionInfoItem(
-                        "security.perf_harden=1", (long) (Double.parseDouble("52361.313"))),
-                new DmesgActionInfoItem(
-                        "ro.debuggable=1", (long) (Double.parseDouble("52361.495"))),
-                new DmesgActionInfoItem(
-                        "sys.boot_completed=1", (long) (Double.parseDouble("58298.293"))));
+                new DmesgActionInfoItem("/init.rc:13", "early-init", 44942L),
+                new DmesgActionInfoItem("<Builtin Action>:0", "set_mmap_rnd_bits", 47233L),
+                new DmesgActionInfoItem("<Builtin Action>:0", "set_kptr_restrict", 47240L),
+                new DmesgActionInfoItem("<Builtin Action>:0", "keychord_init", 47245L),
+                new DmesgActionInfoItem("<Builtin Action>:0", "persist.sys.usb.config=* boot", 52361L),
+                new DmesgActionInfoItem("<Builtin Action>:0", "enable_property_trigger", 52361L),
+                new DmesgActionInfoItem("/init.rc:677", "security.perf_harden=1", 52361L),
+                new DmesgActionInfoItem("/init.rc:700", "ro.debuggable=1", 52361L),
+                new DmesgActionInfoItem(null, "sys.boot_completed=1", 58298L));
     }
 
     private static List<DmesgStageInfoItem> getExpectedStageInfoItems() {

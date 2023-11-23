@@ -30,7 +30,7 @@ import java.io.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class DerValue {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DerValue(java.lang.String value) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -39,7 +39,7 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DerValue(byte tag, byte[] data) {
         throw new RuntimeException("Stub!");
     }
@@ -49,17 +49,17 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DerValue(byte[] buf) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DerValue(byte[] buf, int offset, int len) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DerValue(java.io.InputStream in) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -72,12 +72,12 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public boolean isContextSpecific() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public boolean isContextSpecific(byte cntxtTag) {
         throw new RuntimeException("Stub!");
     }
@@ -86,7 +86,7 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public boolean isConstructed() {
         throw new RuntimeException("Stub!");
     }
@@ -105,12 +105,12 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void encode(sun.security.util.DerOutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public final sun.security.util.DerInputStream getData() {
         throw new RuntimeException("Stub!");
     }
@@ -123,7 +123,7 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.util.ObjectIdentifier getOID() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -132,7 +132,7 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getOctetString() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -141,12 +141,12 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.math.BigInteger getBigInteger() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.math.BigInteger getPositiveBigInteger() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -155,17 +155,17 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getBitString() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.util.BitArray getUnalignedBitString() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String getAsString() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -179,7 +179,7 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getDataBytes() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -236,12 +236,12 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] toByteArray() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.util.DerInputStream toDerInputStream() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -250,17 +250,17 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static boolean isPrintableStringChar(char ch) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static byte createTag(byte tagClass, boolean form, byte val) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void resetTag(byte tag) {
         throw new RuntimeException("Stub!");
     }
@@ -277,9 +277,9 @@ public class DerValue {
 
     public static final byte TAG_UNIVERSAL = 0; // 0x0
 
-    @dalvik.annotation.compat.UnsupportedAppUsage protected sun.security.util.DerInputBuffer buffer;
+    @android.compat.annotation.UnsupportedAppUsage protected sun.security.util.DerInputBuffer buffer;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public final sun.security.util.DerInputStream data;
 
     {
@@ -290,7 +290,7 @@ public class DerValue {
 
     private byte[] originalEncodedForm;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage public byte tag;
+    @android.compat.annotation.UnsupportedAppUsage public byte tag;
 
     public static final byte tag_BMPString = 30; // 0x1e
 

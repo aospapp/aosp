@@ -38,7 +38,7 @@ TEST_F(RegTypeTest, ConstLoHi) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& ref_type_const_0 = cache.FromCat1Const(10, true);
   const RegType& ref_type_const_1 = cache.FromCat1Const(10, true);
   const RegType& ref_type_const_2 = cache.FromCat1Const(30, true);
@@ -62,7 +62,7 @@ TEST_F(RegTypeTest, Pairs) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   int64_t val = static_cast<int32_t>(1234);
   const RegType& precise_lo = cache.FromCat2ConstLo(static_cast<int32_t>(val), true);
   const RegType& precise_hi = cache.FromCat2ConstHi(static_cast<int32_t>(val >> 32), true);
@@ -88,7 +88,7 @@ TEST_F(RegTypeTest, Primitives) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
 
   const RegType& bool_reg_type = cache.Boolean();
   EXPECT_FALSE(bool_reg_type.IsUndefined());
@@ -363,7 +363,7 @@ TEST_F(RegTypeReferenceTest, JavalangObjectImprecise) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& imprecise_obj = cache.JavaLangObject(false);
   const RegType& precise_obj = cache.JavaLangObject(true);
   const RegType& precise_obj_2 = cache.FromDescriptor(nullptr, "Ljava/lang/Object;", true);
@@ -380,7 +380,7 @@ TEST_F(RegTypeReferenceTest, UnresolvedType) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& ref_type_0 = cache.FromDescriptor(nullptr, "Ljava/lang/DoesNotExist;", true);
   EXPECT_TRUE(ref_type_0.IsUnresolvedReference());
   EXPECT_TRUE(ref_type_0.IsNonZeroReferenceTypes());
@@ -398,7 +398,7 @@ TEST_F(RegTypeReferenceTest, UnresolvedUnintializedType) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& ref_type_0 = cache.FromDescriptor(nullptr, "Ljava/lang/DoesNotExist;", true);
   EXPECT_TRUE(ref_type_0.IsUnresolvedReference());
   const RegType& ref_type = cache.FromDescriptor(nullptr, "Ljava/lang/DoesNotExist;", true);
@@ -422,7 +422,7 @@ TEST_F(RegTypeReferenceTest, Dump) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& unresolved_ref = cache.FromDescriptor(nullptr, "Ljava/lang/DoesNotExist;", true);
   const RegType& unresolved_ref_another = cache.FromDescriptor(nullptr, "Ljava/lang/DoesNotExistEither;", true);
   const RegType& resolved_ref = cache.JavaLangString();
@@ -450,7 +450,7 @@ TEST_F(RegTypeReferenceTest, JavalangString) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& ref_type = cache.JavaLangString();
   const RegType& ref_type_2 = cache.JavaLangString();
   const RegType& ref_type_3 = cache.FromDescriptor(nullptr, "Ljava/lang/String;", true);
@@ -472,7 +472,7 @@ TEST_F(RegTypeReferenceTest, JavalangObject) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& ref_type = cache.JavaLangObject(true);
   const RegType& ref_type_2 = cache.JavaLangObject(true);
   const RegType& ref_type_3 = cache.FromDescriptor(nullptr, "Ljava/lang/Object;", true);
@@ -487,7 +487,7 @@ TEST_F(RegTypeReferenceTest, Merging) {
   ScopedObjectAccess soa(Thread::Current());
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
-  RegTypeCache cache_new(true, allocator);
+  RegTypeCache cache_new(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& string = cache_new.JavaLangString();
   const RegType& Object = cache_new.JavaLangObject(true);
   EXPECT_TRUE(string.Merge(Object, &cache_new, /* verifier= */ nullptr).IsJavaLangObject());
@@ -512,7 +512,7 @@ TEST_F(RegTypeTest, MergingFloat) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache_new(true, allocator);
+  RegTypeCache cache_new(Runtime::Current()->GetClassLinker(), true, allocator);
 
   constexpr int32_t kTestConstantValue = 10;
   const RegType& float_type = cache_new.Float();
@@ -545,7 +545,7 @@ TEST_F(RegTypeTest, MergingLong) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache_new(true, allocator);
+  RegTypeCache cache_new(Runtime::Current()->GetClassLinker(), true, allocator);
 
   constexpr int32_t kTestConstantValue = 10;
   const RegType& long_lo_type = cache_new.LongLo();
@@ -605,7 +605,7 @@ TEST_F(RegTypeTest, MergingDouble) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache_new(true, allocator);
+  RegTypeCache cache_new(Runtime::Current()->GetClassLinker(), true, allocator);
 
   constexpr int32_t kTestConstantValue = 10;
   const RegType& double_lo_type = cache_new.DoubleLo();
@@ -664,6 +664,23 @@ TEST_F(RegTypeTest, MergingDouble) {
   }
 }
 
+// Without a running MethodVerifier, the class-bearing register types may become stale as the GC
+// will not visit them. It is easiest to disable moving GC.
+//
+// For some of the tests we need (or want) a working RegTypeCache that can load classes. So it is
+// not generally possible to disable GC using ScopedGCCriticalSection (as it blocks GC and
+// suspension completely).
+struct ScopedDisableMovingGC {
+  explicit ScopedDisableMovingGC(Thread* t) : self(t) {
+    Runtime::Current()->GetHeap()->IncrementDisableMovingGC(self);
+  }
+  ~ScopedDisableMovingGC() {
+    Runtime::Current()->GetHeap()->DecrementDisableMovingGC(self);
+  }
+
+  Thread* self;
+};
+
 TEST_F(RegTypeTest, MergeSemiLatticeRef) {
   //  (Incomplete) semilattice:
   //
@@ -700,12 +717,9 @@ TEST_F(RegTypeTest, MergeSemiLatticeRef) {
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
 
-  // We cannot allow moving GC. Otherwise we'd have to ensure the reg types are updated (reference
-  // reg types store a class pointer in a GCRoot, which is normally updated through active verifiers
-  // being registered with their thread), which is unnecessarily complex.
-  Runtime::Current()->GetHeap()->IncrementDisableMovingGC(soa.Self());
+  ScopedDisableMovingGC no_gc(soa.Self());
 
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
 
   const RegType& conflict = cache.Conflict();
   const RegType& zero = cache.Zero();
@@ -1022,8 +1036,6 @@ TEST_F(RegTypeTest, MergeSemiLatticeRef) {
     check(triple.in1, triple.in2, triple.out);
     check(triple.in2, triple.in1, triple.out);
   }
-
-  Runtime::Current()->GetHeap()->DecrementDisableMovingGC(soa.Self());
 }
 
 TEST_F(RegTypeTest, ConstPrecision) {
@@ -1031,7 +1043,7 @@ TEST_F(RegTypeTest, ConstPrecision) {
   ArenaStack stack(Runtime::Current()->GetArenaPool());
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
-  RegTypeCache cache_new(true, allocator);
+  RegTypeCache cache_new(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& imprecise_const = cache_new.FromCat1Const(10, false);
   const RegType& precise_const = cache_new.FromCat1Const(10, true);
 
@@ -1060,10 +1072,7 @@ TEST_F(RegTypeOOMTest, ClassJoinOOM) {
   ScopedArenaAllocator allocator(&stack);
   ScopedObjectAccess soa(Thread::Current());
 
-  // We cannot allow moving GC. Otherwise we'd have to ensure the reg types are updated (reference
-  // reg types store a class pointer in a GCRoot, which is normally updated through active verifiers
-  // being registered with their thread), which is unnecessarily complex.
-  Runtime::Current()->GetHeap()->IncrementDisableMovingGC(soa.Self());
+  ScopedDisableMovingGC no_gc(soa.Self());
 
   // We merge nested array of primitive wrappers. These have a join type of an array of Number of
   // the same depth. We start with depth five, as we want at least two newly created classes to
@@ -1073,7 +1082,7 @@ TEST_F(RegTypeOOMTest, ClassJoinOOM) {
   constexpr const char* kNumberArrayFour = "[[[[Ljava/lang/Number;";
   constexpr const char* kNumberArrayFive = "[[[[[Ljava/lang/Number;";
 
-  RegTypeCache cache(true, allocator);
+  RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
   const RegType& int_array_array = cache.From(nullptr, kIntArrayFive, false);
   ASSERT_TRUE(int_array_array.HasClass());
   const RegType& float_array_array = cache.From(nullptr, kFloatArrayFive, false);
@@ -1090,8 +1099,51 @@ TEST_F(RegTypeOOMTest, ClassJoinOOM) {
 
   const RegType& join_type = int_array_array.Merge(float_array_array, &cache, nullptr);
   ASSERT_TRUE(join_type.IsUnresolvedReference());
+}
 
-  Runtime::Current()->GetHeap()->DecrementDisableMovingGC(soa.Self());
+class RegTypeClassJoinTest : public RegTypeTest {
+ protected:
+  void TestClassJoin(const char* in1, const char* in2, const char* out) {
+    ArenaStack stack(Runtime::Current()->GetArenaPool());
+    ScopedArenaAllocator allocator(&stack);
+
+    ScopedObjectAccess soa(Thread::Current());
+    jobject jclass_loader = LoadDex("Interfaces");
+    StackHandleScope<4> hs(soa.Self());
+    Handle<mirror::ClassLoader> class_loader(
+        hs.NewHandle(soa.Decode<mirror::ClassLoader>(jclass_loader)));
+
+    Handle<mirror::Class> c1(hs.NewHandle(
+        class_linker_->FindClass(soa.Self(), in1, class_loader)));
+    Handle<mirror::Class> c2(hs.NewHandle(
+        class_linker_->FindClass(soa.Self(), in2, class_loader)));
+    ASSERT_TRUE(c1 != nullptr);
+    ASSERT_TRUE(c2 != nullptr);
+
+    ScopedDisableMovingGC no_gc(soa.Self());
+
+    RegTypeCache cache(Runtime::Current()->GetClassLinker(), true, allocator);
+    const RegType& c1_reg_type = *cache.InsertClass(in1, c1.Get(), false);
+    const RegType& c2_reg_type = *cache.InsertClass(in2, c2.Get(), false);
+
+    const RegType& join_type = c1_reg_type.Merge(c2_reg_type, &cache, nullptr);
+    EXPECT_TRUE(join_type.HasClass());
+    EXPECT_EQ(join_type.GetDescriptor(), std::string_view(out));
+  }
+};
+
+TEST_F(RegTypeClassJoinTest, ClassJoinInterfaces) {
+  TestClassJoin("LInterfaces$K;", "LInterfaces$L;", "LInterfaces$J;");
+}
+
+TEST_F(RegTypeClassJoinTest, ClassJoinInterfaceClass) {
+  TestClassJoin("LInterfaces$B;", "LInterfaces$L;", "LInterfaces$J;");
+}
+
+TEST_F(RegTypeClassJoinTest, ClassJoinClassClass) {
+  // This test codifies that we prefer the class hierarchy over interfaces. It's a mostly
+  // arbitrary choice, optimally we'd have set types and could handle multi-inheritance precisely.
+  TestClassJoin("LInterfaces$A;", "LInterfaces$B;", "Ljava/lang/Object;");
 }
 
 }  // namespace verifier

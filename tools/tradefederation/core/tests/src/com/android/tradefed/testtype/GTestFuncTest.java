@@ -18,6 +18,7 @@ package com.android.tradefed.testtype;
 
 import com.android.ddmlib.Log;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
@@ -36,6 +37,7 @@ public class GTestFuncTest extends DeviceTestCase {
     private static final String LOG_TAG = "GTestFuncTest";
     private GTest mGTest = null;
     private ITestInvocationListener mMockListener = null;
+    private TestInformation mTestInfo;
 
     // Native test app constants
     public static final String NATIVE_TESTAPP_GTEST_CLASSNAME = "TradeFedNativeAppTest";
@@ -52,6 +54,7 @@ public class GTestFuncTest extends DeviceTestCase {
         mGTest = new GTest();
         mGTest.setDevice(getDevice());
         mMockListener = EasyMock.createMock(ITestInvocationListener.class);
+        mTestInfo = TestInformation.newBuilder().build();
     }
 
     /**
@@ -88,7 +91,7 @@ public class GTestFuncTest extends DeviceTestCase {
         mMockListener.testRunEnded(
                 EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.replay(mMockListener);
-        mGTest.run(mMockListener);
+        mGTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockListener);
     }
 
@@ -124,7 +127,7 @@ public class GTestFuncTest extends DeviceTestCase {
         // Set GTest to only run the crash test
         mGTest.addIncludeFilter(NATIVE_TESTAPP_GTEST_CRASH_METHOD);
 
-        mGTest.run(mMockListener);
+        mGTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockListener);
     }
 
@@ -161,7 +164,7 @@ public class GTestFuncTest extends DeviceTestCase {
             }
         };
         rebootThread.start();
-        mGTest.run(mMockListener);
+        mGTest.run(mTestInfo, mMockListener);
         getDevice().waitForDeviceAvailable();
         EasyMock.verify(mMockListener);
     }
@@ -182,7 +185,7 @@ public class GTestFuncTest extends DeviceTestCase {
         // Set GTest to only run the timeout test
         mGTest.addIncludeFilter(NATIVE_TESTAPP_GTEST_TIMEOUT_METHOD);
 
-        mGTest.run(mMockListener);
+        mGTest.run(mTestInfo, mMockListener);
         getDevice().waitForDeviceAvailable();
         EasyMock.verify(mMockListener);
     }

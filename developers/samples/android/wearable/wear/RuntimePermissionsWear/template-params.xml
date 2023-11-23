@@ -56,7 +56,7 @@ a wearable device and a mobile device.
 
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <!-- See http://go/sample-categories for details on the next 4 fields. -->
         <categories>Wearable, Permissions</categories>
         <technologies>Android</technologies>
@@ -96,40 +96,18 @@ a wearable device and a mobile device.
             Avoid simply rearranging the sample's title. What does this sample actually
             accomplish, and how does it do it? -->
         <description>
-A sample that shows how you can handle remote data that requires permissions both on
-a wearable device and a mobile device.
+            <![CDATA[
+Sample moved to [github.com/android/wear-os][1].
+
+[1]: https://github.com/android/wear-os
+]]>
         </description>
 
-        <!-- Multi-paragraph introduction to sample, from an educational point-of-view.
-        Makrdown formatting allowed. This will be used to generate a mini-article for the
-        sample on DAC. -->
         <intro>
-<![CDATA[
-Steps for trying out this sample:
-* Compile and install the mobile app onto your mobile device or emulator.
-* Compile and install the wearable app onto your Wear device or emulator.
-(**Note:** wearable apps are not automatically pushed from your mobile device
-unless you build a production release, see [here][3] for more info).
-* Start the mobile or wear app. Each app contains two buttons: one for showing
-local data and another for showing remote data.
-* Click either button to view the data. Both local and remote data require
-[dangerous permissions][4] to be approved before displaying the data for
-devices running 23 or above. You will be asked to approve the access if you
-do not have the proper permissions.
-* The happy icon signifies you have access to the data while the sad icon
-signifies you do or may not have access (and may be asked to approve access).
+            <![CDATA[
+This repo and all Wear OS samples have been moved to [github.com/android/wear-os][1]. Please check out the code there. Thank you!
 
-This sample demonstrates how to access data and trigger permission approval
-on remote devices. It uses [Services][5] and the [Wearable MessageApi][2] to
-communicate between devices.
-
-To find out more about wear, visit our [developer Wear page][1].
-
-[1]: http://developer.android.com/wear/
-[2]: https://developer.android.com/reference/com/google/android/gms/wearable/MessageApi.html
-[3]: https://developer.android.com/training/wearables/apps/creating.html#Install
-[4]: http://developer.android.com/guide/topics/security/permissions.html#normal-dangerous
-[5]: http://developer.android.com/guide/components/services.html
+[1]: https://github.com/android/wear-os
 ]]>
         </intro>
     </metadata>

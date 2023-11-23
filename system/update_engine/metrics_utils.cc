@@ -43,6 +43,9 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
       return metrics::AttemptResult::kUpdateSucceededNotActive;
 
     case ErrorCode::kDownloadTransferError:
+    case ErrorCode::kInternalLibCurlError:
+    case ErrorCode::kUnresolvedHostError:
+    case ErrorCode::kUnresolvedHostRecovered:
       return metrics::AttemptResult::kPayloadDownloadError;
 
     case ErrorCode::kDownloadInvalidMetadataSize:
@@ -69,6 +72,8 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
     case ErrorCode::kFilesystemCopierError:
     case ErrorCode::kFilesystemVerifierError:
     case ErrorCode::kVerityCalculationError:
+    case ErrorCode::kNotEnoughSpace:
+    case ErrorCode::kDeviceCorrupted:
       return metrics::AttemptResult::kOperationExecutionError;
 
     case ErrorCode::kDownloadMetadataSignatureMismatch:
@@ -168,6 +173,13 @@ metrics::DownloadErrorCode GetDownloadErrorCode(ErrorCode code) {
     case ErrorCode::kDownloadTransferError:
       return metrics::DownloadErrorCode::kDownloadError;
 
+    case ErrorCode::kInternalLibCurlError:
+      return metrics::DownloadErrorCode::kInternalLibCurlError;
+    case ErrorCode::kUnresolvedHostError:
+      return metrics::DownloadErrorCode::kUnresolvedHostError;
+    case ErrorCode::kUnresolvedHostRecovered:
+      return metrics::DownloadErrorCode::kUnresolvedHostRecovered;
+
     // All of these error codes are not related to downloading so break
     // out so we can warn and return InputMalformed.
     case ErrorCode::kSuccess:
@@ -226,6 +238,8 @@ metrics::DownloadErrorCode GetDownloadErrorCode(ErrorCode code) {
     case ErrorCode::kRollbackNotPossible:
     case ErrorCode::kFirstActiveOmahaPingSentPersistenceError:
     case ErrorCode::kVerityCalculationError:
+    case ErrorCode::kNotEnoughSpace:
+    case ErrorCode::kDeviceCorrupted:
       break;
 
     // Special flags. These can't happen (we mask them out above) but

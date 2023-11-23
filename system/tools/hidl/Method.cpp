@@ -18,16 +18,21 @@
 
 #include "Annotation.h"
 #include "ConstantExpression.h"
+#include "FormattingConstants.h"
+#include "Reference.h"
 #include "ScalarType.h"
 #include "Type.h"
 
 #include <android-base/logging.h>
+#include <hidl-util/FQName.h>
 #include <hidl-util/Formatter.h>
 #include <algorithm>
+#include <string>
+#include <vector>
 
 namespace android {
 
-Method::Method(const char* name, std::vector<NamedReference<Type>*>* args,
+Method::Method(const std::string& name, std::vector<NamedReference<Type>*>* args,
                std::vector<NamedReference<Type>*>* results, bool oneway,
                std::vector<Annotation*>* annotations, const Location& location)
     : mName(name),
@@ -102,23 +107,6 @@ std::vector<const Reference<Type>*> Method::getStrongReferences() const {
     return ret;
 }
 
-std::vector<ConstantExpression*> Method::getConstantExpressions() {
-    const auto& constRet = static_cast<const Method*>(this)->getConstantExpressions();
-    std::vector<ConstantExpression*> ret(constRet.size());
-    std::transform(constRet.begin(), constRet.end(), ret.begin(),
-                   [](const auto* ce) { return const_cast<ConstantExpression*>(ce); });
-    return ret;
-}
-
-std::vector<const ConstantExpression*> Method::getConstantExpressions() const {
-    std::vector<const ConstantExpression*> ret;
-    for (const auto* annotation : *mAnnotations) {
-        const auto& retAnnotation = annotation->getConstantExpressions();
-        ret.insert(ret.end(), retAnnotation.begin(), retAnnotation.end());
-    }
-    return ret;
-}
-
 void Method::cppImpl(MethodImplType type, Formatter &out) const {
     CHECK(mIsHidlReserved);
     auto it = mCppImpl.find(type);
@@ -150,7 +138,7 @@ bool Method::overridesJavaImpl(MethodImplType type) const {
 }
 
 Method* Method::copySignature() const {
-    Method* method = new Method(mName.c_str(), mArgs, mResults, mOneway, mAnnotations, location());
+    Method* method = new Method(mName, mArgs, mResults, mOneway, mAnnotations, location());
     method->setDocComment(getDocComment());
     return method;
 }
@@ -239,19 +227,74 @@ void Method::emitJavaResultSignature(Formatter &out) const {
     emitJavaArgResultSignature(out, results());
 }
 
-void Method::dumpAnnotations(Formatter &out) const {
-    if (mAnnotations->size() == 0) {
-        return;
+void Method::emitJavaSignature(Formatter& out) const {
+    const bool returnsValue = !results().empty();
+    const bool needsCallback = results().size() > 1;
+
+    if (returnsValue && !needsCallback) {
+        out << results()[0]->type().getJavaType();
+    } else {
+        out << "void";
     }
 
-    out << "// ";
-    for (size_t i = 0; i < mAnnotations->size(); ++i) {
-        if (i > 0) {
-            out << " ";
+    out << " " << name() << "(";
+    emitJavaArgSignature(out);
+
+    if (needsCallback) {
+        if (!args().empty()) {
+            out << ", ";
         }
-        mAnnotations->at(i)->dump(out);
+
+        out << name() << "Callback _hidl_cb";
     }
-    out << "\n";
+
+    out << ")";
+}
+
+static void fillHidlArgResultTokens(const std::vector<NamedReference<Type>*>& args,
+                                    WrappedOutput* wrappedOutput, const std::string& attachToLast) {
+    for (size_t i = 0; i < args.size(); i++) {
+        const NamedReference<Type>* arg = args[i];
+        std::string out = arg->localName() + " " + arg->name();
+        wrappedOutput->group([&] {
+            if (i != 0) wrappedOutput->printUnlessWrapped(" ");
+            *wrappedOutput << out;
+            if (i == args.size() - 1) {
+                if (!attachToLast.empty()) *wrappedOutput << attachToLast;
+            } else {
+                *wrappedOutput << ",";
+            }
+        });
+    }
+}
+
+void Method::emitHidlDefinition(Formatter& out) const {
+    if (getDocComment() != nullptr) getDocComment()->emit(out);
+
+    out.join(mAnnotations->begin(), mAnnotations->end(), "\n",
+             [&](auto annotation) { annotation->dump(out); });
+    if (!mAnnotations->empty()) out << "\n";
+
+    WrappedOutput wrappedOutput(MAX_LINE_LENGTH);
+
+    if (isOneway()) wrappedOutput << "oneway ";
+    wrappedOutput << name() << "(";
+
+    if (!args().empty()) {
+        fillHidlArgResultTokens(args(), &wrappedOutput, results().empty() ? ");\n" : ")");
+    } else {
+        wrappedOutput << (results().empty() ? ");\n" : ")");
+    }
+
+    if (!results().empty()) {
+        wrappedOutput.group([&] {
+            wrappedOutput.printUnlessWrapped(" ");
+            wrappedOutput << "generates (";
+            fillHidlArgResultTokens(results(), &wrappedOutput, ");\n");
+        });
+    }
+
+    out << wrappedOutput;
 }
 
 bool Method::deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const {

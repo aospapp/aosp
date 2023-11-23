@@ -26,6 +26,7 @@
 #include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <fs_mgr.h>
+#include <fs_mgr/roots.h>
 #include <fs_mgr_dm_linear.h>
 #include <liblp/builder.h>
 #include <liblp/liblp.h>
@@ -56,12 +57,20 @@ bool OpenLogicalPartition(FastbootDevice* device, const std::string& partition_n
     if (!path) {
         return false;
     }
+
+    CreateLogicalPartitionParams params = {
+            .block_device = *path,
+            .metadata_slot = slot_number,
+            .partition_name = partition_name,
+            .force_writable = true,
+            .timeout_ms = 5s,
+    };
     std::string dm_path;
-    if (!CreateLogicalPartition(path->c_str(), slot_number, partition_name, true, 5s, &dm_path)) {
+    if (!CreateLogicalPartition(params, &dm_path)) {
         LOG(ERROR) << "Could not map partition: " << partition_name;
         return false;
     }
-    auto closer = [partition_name]() -> void { DestroyLogicalPartition(partition_name, 5s); };
+    auto closer = [partition_name]() -> void { DestroyLogicalPartition(partition_name); };
     *handle = PartitionHandle(dm_path, std::move(closer));
     return true;
 }
@@ -231,4 +240,30 @@ std::string GetSuperSlotSuffix(FastbootDevice* device, const std::string& partit
         return slot_suffix;
     }
     return current_slot_suffix;
+}
+
+AutoMountMetadata::AutoMountMetadata() {
+    android::fs_mgr::Fstab proc_mounts;
+    if (!ReadFstabFromFile("/proc/mounts", &proc_mounts)) {
+        LOG(ERROR) << "Could not read /proc/mounts";
+        return;
+    }
+
+    if (GetEntryForMountPoint(&proc_mounts, "/metadata")) {
+        mounted_ = true;
+        return;
+    }
+
+    if (!ReadDefaultFstab(&fstab_)) {
+        LOG(ERROR) << "Could not read default fstab";
+        return;
+    }
+    mounted_ = EnsurePathMounted(&fstab_, "/metadata");
+    should_unmount_ = true;
+}
+
+AutoMountMetadata::~AutoMountMetadata() {
+    if (mounted_ && should_unmount_) {
+        EnsurePathUnmounted(&fstab_, "/metadata");
+    }
 }

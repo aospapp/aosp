@@ -26,7 +26,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	androidx.test.rules
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 LOCAL_SRC_FILES := $(call all-java-files-under, ../src)
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 LOCAL_SDK_VERSION := current
 
 LOCAL_PREBUILT_JNI_LIBS_arm := wrap.sh

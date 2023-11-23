@@ -21,8 +21,16 @@ import com.android.tradefed.clearcut.TerminateClearcutClient;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.device.NoDeviceException;
+import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.SerializationUtil;
 
 import com.google.common.annotations.VisibleForTesting;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.IOException;
 
 /**
  * An alternate TradeFederation entry point that will run command specified in command
@@ -36,6 +44,7 @@ public class CommandRunner {
     private ICommandScheduler mScheduler;
     private ExitCode mErrorCode = ExitCode.NO_ERROR;
 
+    public static final String EXCEPTION_KEY = "serialized_exception";
     private static final long CHECK_DEVICE_TIMEOUT = 60000;
 
     public CommandRunner() {}
@@ -63,6 +72,16 @@ public class CommandRunner {
     @VisibleForTesting
     void printStackTrace(Throwable e) {
         e.printStackTrace();
+        File serializedException = null;
+        try {
+            serializedException = SerializationUtil.serialize(e);
+            JSONObject json = new JSONObject();
+            json.put(EXCEPTION_KEY, serializedException.getAbsolutePath());
+            System.err.println(json.toString());
+        } catch (IOException | JSONException io) {
+            io.printStackTrace();
+            FileUtil.deleteFile(serializedException);
+        }
     }
 
     /** Returns the timeout after which to check for the command. */
@@ -98,7 +117,8 @@ public class CommandRunner {
             mScheduler.join(getCheckDeviceTimeout());
             // FIXME: if possible make the no_device allocated check deterministic.
             // After 1 min we check if the command was executed.
-            if (mScheduler.getReadyCommandCount() > 0) {
+            if (mScheduler.getReadyCommandCount() > 0
+                    && mScheduler.getExecutingCommandCount() == 0) {
                 printStackTrace(new NoDeviceException("No device was allocated for the command."));
                 mErrorCode = ExitCode.NO_DEVICE_ALLOCATED;
                 mScheduler.removeAllCommands();

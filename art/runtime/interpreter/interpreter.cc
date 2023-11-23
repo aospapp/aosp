@@ -275,17 +275,38 @@ static inline JValue Execute(
                                         method,
                                         0);
       if (UNLIKELY(shadow_frame.GetForcePopFrame())) {
-        // The caller will retry this invoke. Just return immediately without any value.
+        // The caller will retry this invoke or ignore the result. Just return immediately without
+        // any value.
         DCHECK(Runtime::Current()->AreNonStandardExitsEnabled());
-        DCHECK(PrevFrameWillRetry(self, shadow_frame));
-        return JValue();
+        JValue ret = JValue();
+        bool res = PerformNonStandardReturn<MonitorState::kNoMonitorsLocked>(
+            self,
+            shadow_frame,
+            ret,
+            instrumentation,
+            accessor.InsSize(),
+            0);
+        DCHECK(res) << "Expected to perform non-standard return!";
+        return ret;
       }
       if (UNLIKELY(self->IsExceptionPending())) {
         instrumentation->MethodUnwindEvent(self,
                                            shadow_frame.GetThisObject(accessor.InsSize()),
                                            method,
                                            0);
-        return JValue();
+        JValue ret = JValue();
+        if (UNLIKELY(shadow_frame.GetForcePopFrame())) {
+          DCHECK(Runtime::Current()->AreNonStandardExitsEnabled());
+          bool res = PerformNonStandardReturn<MonitorState::kNoMonitorsLocked>(
+              self,
+              shadow_frame,
+              ret,
+              instrumentation,
+              accessor.InsSize(),
+              0);
+          DCHECK(res) << "Expected to perform non-standard return!";
+        }
+        return ret;
       }
     }
 
@@ -321,6 +342,7 @@ static inline JValue Execute(
   DCHECK(!method->SkipAccessChecks() || !method->MustCountLocks());
 
   bool transaction_active = Runtime::Current()->IsActiveTransaction();
+  VLOG(interpreter) << "Interpreting " << method->PrettyMethod();
   if (LIKELY(method->SkipAccessChecks())) {
     // Enter the "without access check" interpreter.
     if (kInterpreterImplKind == kMterpImplKind) {
@@ -367,12 +389,6 @@ static inline JValue Execute(
     }
   } else {
     // Enter the "with access check" interpreter.
-
-    // The boot classpath should really not have to run access checks.
-    DCHECK(method->GetDeclaringClass()->GetClassLoader() != nullptr
-           || Runtime::Current()->IsVerificationSoftFail()
-           || Runtime::Current()->IsAotCompiler())
-        << method->PrettyMethod();
 
     if (kInterpreterImplKind == kMterpImplKind) {
       // No access check variants for Mterp.  Just use the switch version.
@@ -474,14 +490,18 @@ void EnterInterpreterFromInvoke(Thread* self,
   }
   self->EndAssertNoThreadSuspension(old_cause);
   // Do this after populating the shadow frame in case EnsureInitialized causes a GC.
-  if (method->IsStatic() && UNLIKELY(!method->GetDeclaringClass()->IsInitialized())) {
-    ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-    StackHandleScope<1> hs(self);
-    Handle<mirror::Class> h_class(hs.NewHandle(method->GetDeclaringClass()));
-    if (UNLIKELY(!class_linker->EnsureInitialized(self, h_class, true, true))) {
-      CHECK(self->IsExceptionPending());
-      self->PopShadowFrame();
-      return;
+  if (method->IsStatic()) {
+    ObjPtr<mirror::Class> declaring_class = method->GetDeclaringClass();
+    if (UNLIKELY(!declaring_class->IsVisiblyInitialized())) {
+      StackHandleScope<1> hs(self);
+      Handle<mirror::Class> h_class(hs.NewHandle(declaring_class));
+      if (UNLIKELY(!Runtime::Current()->GetClassLinker()->EnsureInitialized(
+                        self, h_class, /*can_init_fields=*/ true, /*can_init_parents=*/ true))) {
+        CHECK(self->IsExceptionPending());
+        self->PopShadowFrame();
+        return;
+      }
+      DCHECK(h_class->IsInitializing());
     }
   }
   if (LIKELY(!method->IsNative())) {
@@ -654,16 +674,16 @@ void ArtInterpreterToInterpreterBridge(Thread* self,
   const bool is_static = method->IsStatic();
   if (is_static) {
     ObjPtr<mirror::Class> declaring_class = method->GetDeclaringClass();
-    if (UNLIKELY(!declaring_class->IsInitialized())) {
+    if (UNLIKELY(!declaring_class->IsVisiblyInitialized())) {
       StackHandleScope<1> hs(self);
-      HandleWrapperObjPtr<mirror::Class> h_declaring_class(hs.NewHandleWrapper(&declaring_class));
+      Handle<mirror::Class> h_class(hs.NewHandle(declaring_class));
       if (UNLIKELY(!Runtime::Current()->GetClassLinker()->EnsureInitialized(
-          self, h_declaring_class, true, true))) {
+                        self, h_class, /*can_init_fields=*/ true, /*can_init_parents=*/ true))) {
         DCHECK(self->IsExceptionPending());
         self->PopShadowFrame();
         return;
       }
-      CHECK(h_declaring_class->IsInitializing());
+      DCHECK(h_class->IsInitializing());
     }
   }
 
@@ -683,6 +703,7 @@ void ArtInterpreterToInterpreterBridge(Thread* self,
 
 void CheckInterpreterAsmConstants() {
   CheckMterpAsmConstants();
+  CheckNterpAsmConstants();
 }
 
 void InitInterpreterTls(Thread* self) {

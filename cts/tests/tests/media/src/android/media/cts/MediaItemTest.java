@@ -23,6 +23,7 @@ import android.test.AndroidTestCase;
 /**
  * Test {@link android.media.browse.MediaBrowser.MediaItem}.
  */
+@NonMediaMainlineTest
 public class MediaItemTest extends AndroidTestCase {
     private static final String DESCRIPTION = "test_description";
     private static final String MEDIA_ID = "test_media_id";

@@ -19,9 +19,10 @@ package com.android.tradefed.util;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer;
-
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /**
  * A helper class for executing VTS python scripts.
@@ -48,20 +49,14 @@ public class VtsPythonRunnerHelper {
     }
 
     public VtsPythonRunnerHelper(File virtualEnvPath, File workingDir) {
-        mVirtualenvPath = virtualEnvPath;
-        mRunUtil = new RunUtil();
-        activateVirtualenv(mRunUtil, getPythonVirtualEnv());
-        mRunUtil.setWorkingDir(workingDir);
+        this(virtualEnvPath, workingDir, new RunUtil());
     }
 
-    /**
-     * Create a {@link ProcessHelper} from mRunUtil.
-     *
-     * @param cmd the command to run.
-     * @throws IOException if fails to start Process.
-     */
-    protected ProcessHelper createProcessHelper(String[] cmd) throws IOException {
-        return new ProcessHelper(mRunUtil.runCmdInBackground(cmd));
+    public VtsPythonRunnerHelper(File virtualEnvPath, File workingDir, IRunUtil runUtil) {
+        mVirtualenvPath = virtualEnvPath;
+        mRunUtil = runUtil;
+        activateVirtualenv(mRunUtil, getPythonVirtualEnv());
+        mRunUtil.setWorkingDir(workingDir);
     }
 
     /**
@@ -74,46 +69,46 @@ public class VtsPythonRunnerHelper {
      * interrupted by TradeFed.
      */
     public String runPythonRunner(String[] cmd, CommandResult commandResult, long timeout) {
-        ProcessHelper process;
+        OutputStream stdOut = new ByteArrayOutputStream();
+        OutputStream stdErr = new ByteArrayOutputStream();
         try {
-            process = createProcessHelper(cmd);
-        } catch (IOException e) {
-            CLog.e(e);
-            commandResult.setStatus(CommandStatus.EXCEPTION);
-            commandResult.setStdout("");
-            commandResult.setStderr("");
-            return null;
-        }
-
-        String interruptMessage;
-        try {
-            CommandStatus commandStatus;
-            try {
-                commandStatus = process.waitForProcess(timeout);
-                interruptMessage = null;
-            } catch (RunInterruptedException e) {
-                CLog.e("Python process is interrupted.");
-                commandStatus = CommandStatus.TIMED_OUT;
-                interruptMessage = (e.getMessage() != null ? e.getMessage() : "");
-            }
-            if (process.isRunning()) {
-                CLog.e("Cancel Python process and wait %d seconds.",
-                        TEST_ABORT_TIMEOUT_MSECS / 1000);
-                try {
-                    process.closeStdin();
-                    // Wait for the process to clean up and ignore the CommandStatus.
-                    // Propagate RunInterruptedException if this is interrupted again.
-                    process.waitForProcess(TEST_ABORT_TIMEOUT_MSECS);
-                } catch (IOException e) {
-                    CLog.e("Fail to cancel Python process.");
-                }
-            }
-            commandResult.setStatus(commandStatus);
+            return runPythonRunner(cmd, commandResult, timeout, stdOut, stdErr);
         } finally {
-            process.cleanUp();
+            try {
+                stdOut.close();
+                stdErr.close();
+                commandResult.setStdout(((ByteArrayOutputStream) stdOut).toString("UTF-8"));
+                commandResult.setStderr(((ByteArrayOutputStream) stdErr).toString("UTF-8"));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
-        commandResult.setStdout(process.getStdout());
-        commandResult.setStderr(process.getStderr());
+    }
+
+    /**
+     * Run VTS Python runner and handle interrupt from TradeFed.
+     *
+     * @param cmd the command to start VTS Python runner.
+     * @param commandResult the object containing the command result.
+     * @param timeout command timeout value.
+     * @return null if the command terminates or times out; a message string if the command is
+     * interrupted by TradeFed.
+     */
+    public String runPythonRunner(String[] cmd, CommandResult commandResult, long timeout,
+            OutputStream stdOut, OutputStream stdErr) {
+        String interruptMessage;
+        CommandStatus commandStatus;
+        CommandResult result;
+        try {
+            result = mRunUtil.runTimedCmd(timeout, stdOut, stdErr, cmd);
+            commandStatus = result.getStatus();
+            interruptMessage = null;
+        } catch (RunInterruptedException e) {
+            CLog.e("Python process is interrupted.");
+            commandStatus = CommandStatus.TIMED_OUT;
+            interruptMessage = (e.getMessage() != null ? e.getMessage() : "");
+        }
+        commandResult.setStatus(commandStatus);
         return interruptMessage;
     }
 

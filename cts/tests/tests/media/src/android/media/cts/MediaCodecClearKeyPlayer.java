@@ -32,6 +32,9 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+
 import android.view.Surface;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -91,6 +94,7 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
     private Uri mAudioUri;
     private Uri mVideoUri;
     private Resources mResources;
+    private Error mErrorFromThread;
 
     private static final byte[] PSSH = hexStringToByteArray(
             // BMFF box header (4 bytes size + 'pssh')
@@ -325,7 +329,17 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                     if (!Arrays.equals(sCasPrivateInfo, casInfo.getPrivateData())) {
                         throw new Error("Cas private data mismatch");
                     }
-                    mMediaCas = new MediaCas(casInfo.getSystemId());
+                    // Need MANAGE_USERS or CREATE_USERS permission to access
+                    // ActivityManager#getCurrentUse in MediaCas, then adopt it from shell.
+                    InstrumentationRegistry
+                        .getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
+                    try {
+                        mMediaCas = new MediaCas(casInfo.getSystemId());
+                    } finally {
+                        InstrumentationRegistry
+                            .getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+                    }
+
                     mMediaCas.provision(sProvisionStr);
                     extractor.setMediaCas(mMediaCas);
                     break;
@@ -603,6 +617,9 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
     }
 
     public boolean isEnded() {
+        if (mErrorFromThread != null) {
+            throw mErrorFromThread;
+        }
         for (CodecState state : mVideoCodecStates.values()) {
           if (!state.isEnded()) {
             return false;
@@ -624,10 +641,13 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                 state.doSomeWork();
             }
         } catch (MediaCodec.CryptoException e) {
-            throw new Error("Video CryptoException w/ errorCode "
+            mErrorFromThread = new Error("Video CryptoException w/ errorCode "
                     + e.getErrorCode() + ", '" + e.getMessage() + "'");
+            return;
         } catch (IllegalStateException e) {
-            throw new Error("Video CodecState.feedInputBuffer IllegalStateException " + e);
+            mErrorFromThread =
+                new Error("Video CodecState.feedInputBuffer IllegalStateException " + e);
+            return;
         }
 
         try {
@@ -635,10 +655,13 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                 state.doSomeWork();
             }
         } catch (MediaCodec.CryptoException e) {
-            throw new Error("Audio CryptoException w/ errorCode "
+            mErrorFromThread = new Error("Audio CryptoException w/ errorCode "
                     + e.getErrorCode() + ", '" + e.getMessage() + "'");
+            return;
         } catch (IllegalStateException e) {
-            throw new Error("Aduio CodecState.feedInputBuffer IllegalStateException " + e);
+            mErrorFromThread =
+                new Error("Audio CodecState.feedInputBuffer IllegalStateException " + e);
+            return;
         }
     }
 

@@ -207,31 +207,37 @@ int LogBuffer::log(log_id_t log_id, log_time realtime, uid_t uid, pid_t pid,
     // exact entry with time specified in ms or us precision.
     if ((realtime.tv_nsec % 1000) == 0) ++realtime.tv_nsec;
 
-    LogBufferElement* elem =
-        new LogBufferElement(log_id, realtime, uid, pid, tid, msg, len);
-    if (log_id != LOG_ID_SECURITY) {
-        int prio = ANDROID_LOG_INFO;
-        const char* tag = nullptr;
-        size_t tag_len = 0;
-        if (log_id == LOG_ID_EVENTS || log_id == LOG_ID_STATS) {
-            tag = tagToName(elem->getTag());
-            if (tag) {
-                tag_len = strlen(tag);
-            }
-        } else {
-            prio = *msg;
-            tag = msg + 1;
-            tag_len = strnlen(tag, len - 1);
+    LogBufferElement* elem = new LogBufferElement(log_id, realtime, uid, pid, tid, msg, len);
+
+    // b/137093665: don't coalesce security messages.
+    if (log_id == LOG_ID_SECURITY) {
+        wrlock();
+        log(elem);
+        unlock();
+
+        return len;
+    }
+
+    int prio = ANDROID_LOG_INFO;
+    const char* tag = nullptr;
+    size_t tag_len = 0;
+    if (log_id == LOG_ID_EVENTS || log_id == LOG_ID_STATS) {
+        tag = tagToName(elem->getTag());
+        if (tag) {
+            tag_len = strlen(tag);
         }
-        if (!__android_log_is_loggable_len(prio, tag, tag_len,
-                                           ANDROID_LOG_VERBOSE)) {
-            // Log traffic received to total
-            wrlock();
-            stats.addTotal(elem);
-            unlock();
-            delete elem;
-            return -EACCES;
-        }
+    } else {
+        prio = *msg;
+        tag = msg + 1;
+        tag_len = strnlen(tag, len - 1);
+    }
+    if (!__android_log_is_loggable_len(prio, tag, tag_len, ANDROID_LOG_VERBOSE)) {
+        // Log traffic received to total
+        wrlock();
+        stats.addTotal(elem);
+        unlock();
+        delete elem;
+        return -EACCES;
     }
 
     wrlock();
@@ -638,6 +644,8 @@ void LogBuffer::kickMe(LogTimeEntry* me, log_id_t id, unsigned long pruneRows) {
     if (stats.sizes(id) > (2 * log_buffer_size(id))) {  // +100%
         // A misbehaving or slow reader has its connection
         // dropped if we hit too much memory pressure.
+        android::prdebug("Kicking blocked reader, pid %d, from LogBuffer::kickMe()\n",
+                         me->mClient->getPid());
         me->release_Locked();
     } else if (me->mTimeout.tv_sec || me->mTimeout.tv_nsec) {
         // Allow a blocked WRAP timeout reader to
@@ -645,6 +653,9 @@ void LogBuffer::kickMe(LogTimeEntry* me, log_id_t id, unsigned long pruneRows) {
         me->triggerReader_Locked();
     } else {
         // tell slow reader to skip entries to catch up
+        android::prdebug(
+                "Skipping %lu entries from slow reader, pid %d, from LogBuffer::kickMe()\n",
+                pruneRows, me->mClient->getPid());
         me->triggerSkip_Locked(id, pruneRows);
     }
 }
@@ -1051,6 +1062,9 @@ bool LogBuffer::clear(log_id_t id, uid_t uid) {
                     LogTimeEntry* entry = times->get();
                     // Killer punch
                     if (entry->isWatching(id)) {
+                        android::prdebug(
+                                "Kicking blocked reader, pid %d, from LogBuffer::clear()\n",
+                                entry->mClient->getPid());
                         entry->release_Locked();
                     }
                     times++;
@@ -1185,7 +1199,7 @@ log_time LogBuffer::flushTo(SocketClient* reader, const log_time& start,
         unlock();
 
         // range locking in LastLogTimes looks after us
-        curr = element->flushTo(reader, this, privileged, sameTid);
+        curr = element->flushTo(reader, this, sameTid);
 
         if (curr == element->FLUSH_ERROR) {
             return curr;

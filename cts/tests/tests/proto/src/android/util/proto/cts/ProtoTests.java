@@ -22,6 +22,7 @@ public class ProtoTests {
     public static TestSuite suite() {
         TestSuite suite = new TestSuite(ProtoTests.class.getName());
 
+        suite.addTestSuite(DebuggingTest.class);
         suite.addTestSuite(EncodedBufferTest.class);
         suite.addTestSuite(ProtoOutputStreamTagTest.class);
         suite.addTestSuite(ProtoOutputStreamDoubleTest.class);

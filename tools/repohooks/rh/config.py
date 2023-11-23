@@ -17,7 +17,6 @@
 
 from __future__ import print_function
 
-import ConfigParser
 import functools
 import os
 import shlex
@@ -31,6 +30,7 @@ del _path
 # pylint: disable=wrong-import-position
 import rh.hooks
 import rh.shell
+from rh.sixish import configparser
 
 
 class Error(Exception):
@@ -41,7 +41,7 @@ class ValidationError(Error):
     """Config file has unknown sections/keys or other values."""
 
 
-class RawConfigParser(ConfigParser.RawConfigParser):
+class RawConfigParser(configparser.RawConfigParser):
     """Like RawConfigParser but with some default helpers."""
 
     @staticmethod
@@ -52,6 +52,9 @@ class RawConfigParser(ConfigParser.RawConfigParser):
                             (name, cnt_min, cnt_max, cnt,))
         return cnt
 
+    # pylint can't seem to grok our use of *args here.
+    # pylint: disable=arguments-differ
+
     def options(self, section, *args):
         """Return the options in |section| (with default |args|).
 
@@ -61,8 +64,8 @@ class RawConfigParser(ConfigParser.RawConfigParser):
         """
         cnt = self._check_args('options', 2, 3, args)
         try:
-            return ConfigParser.RawConfigParser.options(self, section)
-        except ConfigParser.NoSectionError:
+            return configparser.RawConfigParser.options(self, section)
+        except configparser.NoSectionError:
             if cnt == 1:
                 return args[0]
             raise
@@ -71,8 +74,8 @@ class RawConfigParser(ConfigParser.RawConfigParser):
         """Return the value for |option| in |section| (with default |args|)."""
         cnt = self._check_args('get', 3, 4, args)
         try:
-            return ConfigParser.RawConfigParser.get(self, section, option)
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+            return configparser.RawConfigParser.get(self, section, option)
+        except (configparser.NoSectionError, configparser.NoOptionError):
             if cnt == 1:
                 return args[0]
             raise
@@ -81,14 +84,14 @@ class RawConfigParser(ConfigParser.RawConfigParser):
         """Return a list of (key, value) tuples for the options in |section|."""
         cnt = self._check_args('items', 2, 3, args)
         try:
-            return ConfigParser.RawConfigParser.items(self, section)
-        except ConfigParser.NoSectionError:
+            return configparser.RawConfigParser.items(self, section)
+        except configparser.NoSectionError:
             if cnt == 1:
                 return args[0]
             raise
 
 
-class PreSubmitConfig(object):
+class PreUploadConfig(object):
     """Config file used for per-project `repo upload` hooks."""
 
     FILENAME = 'PREUPLOAD.cfg'
@@ -121,7 +124,7 @@ class PreSubmitConfig(object):
                     self.paths.append(path)
                     try:
                         config.read(path)
-                    except ConfigParser.ParsingError as e:
+                    except configparser.ParsingError as e:
                         raise ValidationError('%s: %s' % (path, e))
 
         self.paths = []

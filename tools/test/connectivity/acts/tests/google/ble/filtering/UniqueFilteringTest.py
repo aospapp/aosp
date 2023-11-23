@@ -38,8 +38,8 @@ from acts.test_utils.bt.bt_constants import scan_result
 class UniqueFilteringTest(BluetoothBaseTest):
     default_timeout = 10
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
 

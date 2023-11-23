@@ -40,10 +40,6 @@ import android.print.test.services.PrintServiceCallbacks;
 import android.print.test.services.PrinterDiscoverySessionCallbacks;
 import android.print.test.services.SecondPrintService;
 import android.print.test.services.StubbablePrinterDiscoverySession;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject;
-import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiSelector;
 import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
@@ -101,27 +97,18 @@ public class CustomPrintOptionsTest extends BasePrintTest {
      * @throws Exception If something was unexpected
      */
     private PageRange[] getPages() throws Exception {
-        if (getUiDevice().hasObject(By.text("All 3"))) {
+        String pageRange = mPrintHelper.getPageRange(3);
+        if (pageRange.equals("All 3")) {
             return PAGESS[2];
         }
 
-        try {
-            UiObject pagesEditText = getUiDevice().findObject(new UiSelector().resourceId(
-                    "com.android.printspooler:id/page_range_edittext"));
-
-            if (pagesEditText.getText().equals("2")) {
-                return PAGESS[1];
-            }
-
-            if (pagesEditText.getText().equals("1")) {
-                return PAGESS[0];
-            }
-
-            return null;
-        } catch (UiObjectNotFoundException e) {
-            dumpWindowHierarchy();
-            throw e;
+        if (pageRange.equals("2")) {
+            return PAGESS[1];
         }
+        if (pageRange.equals("1")) {
+            return PAGESS[0];
+        }
+        return null;
     }
 
     @Before
@@ -383,9 +370,9 @@ public class CustomPrintOptionsTest extends BasePrintTest {
         }
 
         // Abort printing
-        getUiDevice().pressBack();
-        getUiDevice().pressBack();
-        getUiDevice().pressBack();
+        mPrintHelper.closeCustomPrintOptions();
+        mPrintHelper.closePrintOptions();
+        mPrintHelper.cancelPrinting();
 
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
     }

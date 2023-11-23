@@ -34,8 +34,8 @@ from acts.test_utils.tel.tel_test_utils import setup_droid_properties
 class BtCmdLineTest(BluetoothBaseTest):
     target_mac_address = ""
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         if not "target_mac_address" in self.user_params.keys():
             self.log.warning("Missing user config \"target_mac_address\"!")
             self.target_mac_address = ""
@@ -55,7 +55,8 @@ class BtCmdLineTest(BluetoothBaseTest):
             # relative to the config file.
             if not os.path.isfile(sim_conf_file):
                 sim_conf_file = os.path.join(
-                    self.user_params[Config.key_config_path], sim_conf_file)
+                    self.user_params[Config.key_config_path.value],
+                    sim_conf_file)
                 if not os.path.isfile(sim_conf_file):
                     log.error("Unable to load user config " + sim_conf_file +
                               " from test config file.")
@@ -70,6 +71,7 @@ class BtCmdLineTest(BluetoothBaseTest):
             music_path = self.user_params[music_path_str]
             self._add_music_to_primary_android_device(music_path,
                                                       android_music_path)
+        return True
 
     def _add_music_to_primary_android_device(self, music_path,
                                              android_music_path):
@@ -80,9 +82,6 @@ class BtCmdLineTest(BluetoothBaseTest):
                 #TODO: Handle file paths with spaces
                 self.android_devices[0].adb.push("{} {}".format(
                     file, android_music_path))
-
-    def setup_class(self):
-        return True
 
     def test_pts_cmd_line_helper(self):
         cmd_line = CmdInput()

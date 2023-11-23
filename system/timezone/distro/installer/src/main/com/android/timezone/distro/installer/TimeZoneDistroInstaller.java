@@ -29,10 +29,12 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+
+import libcore.timezone.TelephonyLookup;
 import libcore.timezone.TzDataSetVersion;
 import libcore.timezone.TzDataSetVersion.TzDataSetException;
 import libcore.timezone.TimeZoneFinder;
-import libcore.timezone.ZoneInfoDB;
+import libcore.timezone.ZoneInfoDb;
 
 /**
  * A distro-validation / extraction class. Separate from the services code that uses it for easier
@@ -207,7 +209,7 @@ public class TimeZoneDistroInstaller {
 
             // Validate the tzdata file.
             File zoneInfoFile = new File(workingDir, TimeZoneDistro.TZDATA_FILE_NAME);
-            ZoneInfoDB.TzData tzData = ZoneInfoDB.TzData.loadTzData(zoneInfoFile.getPath());
+            ZoneInfoDb tzData = ZoneInfoDb.loadTzData(zoneInfoFile.getPath());
             if (tzData == null) {
                 Slog.i(logTag, "Update not applied: " + zoneInfoFile + " could not be loaded");
                 return INSTALL_FAIL_VALIDATION_ERROR;
@@ -233,6 +235,23 @@ public class TimeZoneDistroInstaller {
                 timeZoneFinder.validate();
             } catch (IOException e) {
                 Slog.i(logTag, "Update not applied: " + tzLookupFile + " failed validation", e);
+                return INSTALL_FAIL_VALIDATION_ERROR;
+            }
+
+            // Validate the telephonylookup.xml file.
+            File telephonyLookupFile =
+                    new File(workingDir, TimeZoneDistro.TELEPHONYLOOKUP_FILE_NAME);
+            if (!telephonyLookupFile.exists()) {
+                Slog.i(logTag, "Update not applied: " + telephonyLookupFile + " does not exist");
+                return INSTALL_FAIL_BAD_DISTRO_STRUCTURE;
+            }
+            try {
+                TelephonyLookup telephonyLookup =
+                        TelephonyLookup.createInstance(telephonyLookupFile.getPath());
+                telephonyLookup.validate();
+            } catch (IOException e) {
+                Slog.i(logTag, "Update not applied: " + telephonyLookupFile + " failed validation",
+                        e);
                 return INSTALL_FAIL_VALIDATION_ERROR;
             }
 
@@ -421,7 +440,7 @@ public class TimeZoneDistroInstaller {
         Slog.i(logTag, "Reading base time zone rules version");
         TzDataSetVersion baseVersion = readBaseVersion(baseVersionFile);
 
-        String baseRulesVersion = baseVersion.rulesVersion;
+        String baseRulesVersion = baseVersion.getRulesVersion();
         String distroRulesVersion = distroVersion.rulesVersion;
         // canApply = distroRulesVersion >= baseRulesVersion
         boolean canApply = distroRulesVersion.compareTo(baseRulesVersion) >= 0;

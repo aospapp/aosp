@@ -165,7 +165,7 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
     public void testBasicCamera2ActivityEviction() throws Throwable {
         CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         assertNotNull(manager);
-        String[] cameraIds = manager.getCameraIdList();
+        String[] cameraIds = manager.getCameraIdListNoLazy();
 
         if (cameraIds.length == 0) {
             Log.i(TAG, "Skipping testBasicCamera2ActivityEviction, device has no cameras.");
@@ -269,7 +269,7 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
         int PERMISSION_CALLBACK_TIMEOUT_MS = 2000;
         CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         assertNotNull(manager);
-        String[] cameraIds = manager.getCameraIdList();
+        String[] cameraIds = manager.getCameraIdListNoLazy();
 
         if (cameraIds.length == 0) {
             Log.i(TAG, "Skipping testCamera2AccessCallback, device has no cameras.");
@@ -305,7 +305,7 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
         int PERMISSION_CALLBACK_TIMEOUT_MS = 2000;
         CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         assertNotNull(manager);
-        String[] cameraIds = manager.getCameraIdList();
+        String[] cameraIds = manager.getCameraIdListNoLazy();
 
         if (cameraIds.length == 0) {
             Log.i(TAG, "Skipping testBasicCamera2AccessCallback, device has no cameras.");

@@ -23,13 +23,18 @@ import static org.junit.Assert.assertTrue;
 
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
+import android.platform.test.annotations.SecurityTest;
 
 import com.android.ddmlib.Log;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Set of tests that verify various security checks involving multiple apps are
@@ -107,8 +112,8 @@ public class AppSecurityTests extends BaseAppSecurityTest {
             getDevice().uninstallPackage(SIMPLE_APP_PKG);
             getDevice().uninstallPackage(SIMPLE_APP_DIFF_CERT_APK);
 
-            new InstallMultiple(instant).addApk(SIMPLE_APP_APK).run();
-            new InstallMultiple(instant).addApk(SIMPLE_APP_DIFF_CERT_APK)
+            new InstallMultiple(instant).addFile(SIMPLE_APP_APK).run();
+            new InstallMultiple(instant).addFile(SIMPLE_APP_DIFF_CERT_APK)
                     .runExpectingFailure("INSTALL_FAILED_UPDATE_INCOMPATIBLE");
         } finally {
             getDevice().uninstallPackage(SIMPLE_APP_PKG);
@@ -136,10 +141,10 @@ public class AppSecurityTests extends BaseAppSecurityTest {
             getDevice().uninstallPackage(APP_WITH_DATA_PKG);
             getDevice().uninstallPackage(APP_ACCESS_DATA_PKG);
 
-            new InstallMultiple().addApk(APP_WITH_DATA_APK).run();
+            new InstallMultiple().addFile(APP_WITH_DATA_APK).run();
             runDeviceTests(APP_WITH_DATA_PKG, APP_WITH_DATA_CLASS, APP_WITH_DATA_CREATE_METHOD);
 
-            new InstallMultiple(instant).addApk(APP_ACCESS_DATA_APK).run();
+            new InstallMultiple(instant).addFile(APP_ACCESS_DATA_APK).run();
             runDeviceTests(APP_ACCESS_DATA_PKG, null, null, instant);
         } finally {
             getDevice().uninstallPackage(APP_WITH_DATA_PKG);
@@ -165,13 +170,13 @@ public class AppSecurityTests extends BaseAppSecurityTest {
         try {
             getDevice().uninstallPackage(APP_WITH_DATA_PKG);
 
-            new InstallMultiple(instant).addApk(APP_WITH_DATA_APK).run();
+            new InstallMultiple(instant).addFile(APP_WITH_DATA_APK).run();
             runDeviceTests(
                     APP_WITH_DATA_PKG, APP_WITH_DATA_CLASS, APP_WITH_DATA_CREATE_METHOD);
 
             getDevice().uninstallPackage(APP_WITH_DATA_PKG);
 
-            new InstallMultiple(instant).addApk(APP_WITH_DATA_APK).run();
+            new InstallMultiple(instant).addFile(APP_WITH_DATA_APK).run();
             runDeviceTests(
                     APP_WITH_DATA_PKG, APP_WITH_DATA_CLASS, APP_WITH_DATA_CHECK_NOEXIST_METHOD);
         } finally {
@@ -202,8 +207,8 @@ public class AppSecurityTests extends BaseAppSecurityTest {
             getDevice().uninstallPackage(TARGET_INSTRUMENT_PKG);
             getDevice().uninstallPackage(INSTRUMENT_DIFF_CERT_PKG);
 
-            new InstallMultiple(targetInstant).addApk(TARGET_INSTRUMENT_APK).run();
-            new InstallMultiple(instrumentInstant).addApk(INSTRUMENT_DIFF_CERT_APK).run();
+            new InstallMultiple(targetInstant).addFile(TARGET_INSTRUMENT_APK).run();
+            new InstallMultiple(instrumentInstant).addFile(INSTRUMENT_DIFF_CERT_APK).run();
 
             // if we've installed either the instrumentation or target as an instant application,
             // starting an instrumentation will just fail instead of throwing a security exception
@@ -224,6 +229,7 @@ public class AppSecurityTests extends BaseAppSecurityTest {
      */
     @Test
     @AppModeFull(reason = "Only the platform can define permissions obtainable by instant applications")
+    @SecurityTest
     public void testPermissionDiffCert() throws Exception {
         Log.i(LOG_TAG, "installing app that attempts to use permission of another app");
         try {
@@ -232,10 +238,10 @@ public class AppSecurityTests extends BaseAppSecurityTest {
             getDevice().uninstallPackage(DECLARE_PERMISSION_COMPAT_PKG);
             getDevice().uninstallPackage(PERMISSION_DIFF_CERT_PKG);
 
-            new InstallMultiple().addApk(DECLARE_PERMISSION_APK).run();
-            new InstallMultiple().addApk(DECLARE_PERMISSION_COMPAT_APK).run();
+            new InstallMultiple().addFile(DECLARE_PERMISSION_APK).run();
+            new InstallMultiple().addFile(DECLARE_PERMISSION_COMPAT_APK).run();
 
-            new InstallMultiple().addApk(PERMISSION_DIFF_CERT_APK).run();
+            new InstallMultiple().addFile(PERMISSION_DIFF_CERT_APK).run();
 
             // Enable alert window permission so it can start activity in background
             enableAlertWindowAppOp(DECLARE_PERMISSION_PKG);
@@ -249,13 +255,58 @@ public class AppSecurityTests extends BaseAppSecurityTest {
     }
 
     /**
+     * Test that an app cannot set the installer package for an app with a different
+     * signature.
+     */
+    @Test
+    @AppModeFull(reason = "Only full apps can hold INSTALL_PACKAGES")
+    @SecurityTest
+    public void testCrossPackageDiffCertSetInstaller() throws Exception {
+        Log.i(LOG_TAG, "installing app that attempts to use permission of another app");
+        try {
+            // cleanup test app that might be installed from previous partial test run
+            getDevice().uninstallPackage(DECLARE_PERMISSION_PKG);
+            getDevice().uninstallPackage(DECLARE_PERMISSION_COMPAT_PKG);
+            getDevice().uninstallPackage(PERMISSION_DIFF_CERT_PKG);
+
+            new InstallMultiple().addFile(DECLARE_PERMISSION_APK).run();
+            new InstallMultiple().addFile(DECLARE_PERMISSION_COMPAT_APK).run();
+            new InstallMultiple().addFile(PERMISSION_DIFF_CERT_APK).run();
+
+            // Enable alert window permission so it can start activity in background
+            enableAlertWindowAppOp(DECLARE_PERMISSION_PKG);
+
+            runCrossPackageInstallerDeviceTest(PERMISSION_DIFF_CERT_PKG, "assertBefore");
+            runCrossPackageInstallerDeviceTest(DECLARE_PERMISSION_PKG, "takeInstaller");
+            runCrossPackageInstallerDeviceTest(PERMISSION_DIFF_CERT_PKG, "attemptTakeOver");
+            runCrossPackageInstallerDeviceTest(DECLARE_PERMISSION_PKG, "clearInstaller");
+            runCrossPackageInstallerDeviceTest(PERMISSION_DIFF_CERT_PKG, "assertAfter");
+        } finally {
+            getDevice().uninstallPackage(DECLARE_PERMISSION_PKG);
+            getDevice().uninstallPackage(DECLARE_PERMISSION_COMPAT_PKG);
+            getDevice().uninstallPackage(PERMISSION_DIFF_CERT_PKG);
+        }
+    }
+
+    /**
+     * Utility method to make actual test method easier to read.
+     */
+    private void runCrossPackageInstallerDeviceTest(String pkgName, String testMethodName)
+            throws DeviceNotAvailableException {
+        Map<String, String> arguments = new HashMap<>();
+        arguments.put("runExplicit", "true");
+        runDeviceTests(getDevice(), null, pkgName, pkgName + ".ModifyInstallerCrossPackageTest",
+                testMethodName, null, 10 * 60 * 1000L, 10 * 60 * 1000L, 0L, true, false, arguments);
+    }
+
+    /**
      * Test what happens if an app tried to take a permission away from another
      */
     @Test
     public void rebootWithDuplicatePermission() throws Exception {
         try {
-            new InstallMultiple(false).addApk(DECLARE_PERMISSION_APK).run();
-            new InstallMultiple(false).addApk(DUPLICATE_DECLARE_PERMISSION_APK).run();
+            new InstallMultiple(false).addFile(DECLARE_PERMISSION_APK).run();
+            new InstallMultiple(false).addFile(DUPLICATE_DECLARE_PERMISSION_APK).run();
 
             // Enable alert window permission so it can start activity in background
             enableAlertWindowAppOp(DECLARE_PERMISSION_PKG);

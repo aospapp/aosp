@@ -47,5 +47,5 @@ sp<IBinder> IInterface::asBinder(const sp<IInterface>& iface)
 
 // ---------------------------------------------------------------------------
 
-}; // namespace hardware
-}; // namespace android
+} // namespace hardware
+} // namespace android

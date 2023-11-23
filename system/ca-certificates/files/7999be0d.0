@@ -22,7 +22,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 144470 (0x23456)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=US, O=GeoTrust Inc., CN=GeoTrust Global CA
         Validity
             Not Before: May 21 04:00:00 2002 GMT
@@ -30,7 +30,7 @@ Certificate:
         Subject: C=US, O=GeoTrust Inc., CN=GeoTrust Global CA
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:da:cc:18:63:30:fd:f4:17:23:1a:56:7e:5b:df:
                     3c:6c:38:e4:71:b7:78:91:d4:bc:a1:d8:4c:f8:a8:

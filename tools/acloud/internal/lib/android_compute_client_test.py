@@ -15,7 +15,6 @@
 # limitations under the License.
 """Tests for android_compute_client."""
 import unittest
-import getpass
 import mock
 
 from acloud import errors
@@ -123,7 +122,6 @@ class AndroidComputeClientTest(driver_test_lib.BaseDriverTest):
             "fake_arg": "fake_value"
         }]
 
-        labels = {'created_by': getpass.getuser()}
         fake_avd_spec = mock.MagicMock()
         fake_avd_spec.avd_type = "gce"
         fake_avd_spec.hw_property = {
@@ -139,7 +137,7 @@ class AndroidComputeClientTest(driver_test_lib.BaseDriverTest):
                   instance_name, self.IMAGE, self.MACHINE_TYPE,
                   expected_metadata, self.NETWORK, self.ZONE,
                   expected_disk_args, image_project, gpu, extra_disk_name,
-                  labels=labels, extra_scopes=self.EXTRA_SCOPES)
+                  extra_scopes=self.EXTRA_SCOPES, tags=None)
 
     # pylint: disable=invalid-name
     def testCheckMachineSizeMeetsRequirement(self):

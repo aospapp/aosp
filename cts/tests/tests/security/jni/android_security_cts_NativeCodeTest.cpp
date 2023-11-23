@@ -41,12 +41,12 @@
 #define SHMEMSIZE 0x1 /* request one page */
 static jboolean android_security_cts_NativeCodeTest_doSysVipcTest(JNIEnv*, jobject)
 {
-    key_t key = 0x1a25;
-
 #if defined(__i386__) || (_MIPS_SIM == _MIPS_SIM_ABI32)
     /* system call does not exist for x86 or mips 32 */
     return true;
 #else
+    key_t key = 0x1a25;
+
     /*
      * Not supported in bionic. Must directly invoke syscall
      * Only acceptable errno is ENOSYS: shmget syscall

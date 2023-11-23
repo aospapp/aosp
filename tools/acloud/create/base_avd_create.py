@@ -81,8 +81,9 @@ class BaseAVDCreate(object):
         utils.PrintColorString("  cpu - %s" % (avd_spec.hw_property[constants.HW_ALIAS_CPUS]))
         utils.PrintColorString("  ram - %dGB" % (
             int(avd_spec.hw_property[constants.HW_ALIAS_MEMORY]) / 1024))
-        utils.PrintColorString("  disk - %dGB" % (
-            int(avd_spec.hw_property[constants.HW_ALIAS_DISK]) / 1024))
+        if constants.HW_ALIAS_DISK in avd_spec.hw_property:
+            utils.PrintColorString("  disk - %dGB" % (
+                int(avd_spec.hw_property[constants.HW_ALIAS_DISK]) / 1024))
         utils.PrintColorString(
             "  display - %sx%s (%s DPI)" %
             (avd_spec.hw_property[constants.HW_X_RES],

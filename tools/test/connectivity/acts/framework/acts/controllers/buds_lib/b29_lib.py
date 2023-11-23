@@ -28,12 +28,12 @@ fBvw0sXkgwCBkshU_l4SxWkKgAxVmk/edit for details about available operations.
 import os
 import re
 import time
-
-from acts import tracelogger
-from acts import utils
 from logging import Logger
 
-logging = tracelogger.TakoTraceLogger(Logger(__file__))
+from acts import utils
+from acts.controllers.buds_lib import tako_trace_logger
+
+logging = tako_trace_logger.TakoTraceLogger(Logger(__file__))
 DEVICE_REGEX = (
     r'_(?P<device_serial>[A-Z0-9]+)-(?P<interface>\w+)\s->\s'
     r'(\.\./){2}(?P<port>\w+)'

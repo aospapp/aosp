@@ -44,6 +44,9 @@ public final class TimeZoneDistro {
     /** The name of the file inside the distro containing time zone lookup data. */
     public static final String TZLOOKUP_FILE_NAME = "tzlookup.xml";
 
+    /** The name of the file inside the distro containing telephony lookup data. */
+    public static final String TELEPHONYLOOKUP_FILE_NAME = "telephonylookup.xml";
+
     /**
      * The name of the file inside the distro containing the distro version information.
      * The content is ASCII bytes representing a set of version numbers. See {@link DistroVersion}.

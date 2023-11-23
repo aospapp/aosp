@@ -22,6 +22,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Assume.assumeTrue
 
 import android.app.AppOpsManager.MODE_ALLOWED
 import android.app.AppOpsManager.MODE_DEFAULT
@@ -29,20 +30,17 @@ import android.app.AppOpsManager.MODE_ERRORED
 import android.app.AppOpsManager.MODE_IGNORED
 import android.app.AppOpsManager.OPSTR_READ_CALENDAR
 import android.app.AppOpsManager.OPSTR_RECORD_AUDIO
+import android.app.AppOpsManager.OPSTR_WIFI_SCAN
 import android.app.AppOpsManager.OPSTR_WRITE_CALENDAR
 
-import android.app.appops.cts.AppOpsUtils.Companion.allowedOperationLogged
-import android.app.appops.cts.AppOpsUtils.Companion.rejectedOperationLogged
-import android.app.appops.cts.AppOpsUtils.Companion.setOpMode
-
 import org.mockito.Mockito.mock
-import org.mockito.Mockito.reset
 import org.mockito.Mockito.timeout
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyZeroInteractions
 
 import android.Manifest.permission
 import android.app.AppOpsManager
+import android.app.AppOpsManager.OPSTR_FINE_LOCATION
 import android.app.AppOpsManager.OnOpChangedListener
 import android.content.Context
 import android.os.Process
@@ -50,21 +48,26 @@ import androidx.test.runner.AndroidJUnit4
 import androidx.test.InstrumentationRegistry
 
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.Mockito
 
 import java.util.HashMap
 import java.util.HashSet
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
+import java.util.concurrent.LinkedBlockingDeque
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class AppOpsTest {
     // Notifying OnOpChangedListener callbacks is an async operation, so we define a timeout.
-    private val MODE_WATCHER_TIMEOUT_MS = 5000L
+    private val TIMEOUT_MS = 5000L
 
     private lateinit var mAppOps: AppOpsManager
     private lateinit var mContext: Context
     private lateinit var mOpPackageName: String
+    private val mMyUid = Process.myUid()
 
     companion object {
         // These permissions and opStrs must map to the same op codes.
@@ -127,6 +130,8 @@ class AppOpsTest {
                     AppOpsManager.OPSTR_READ_EXTERNAL_STORAGE
             permissionToOpStr[permission.WRITE_EXTERNAL_STORAGE] =
                     AppOpsManager.OPSTR_WRITE_EXTERNAL_STORAGE
+            permissionToOpStr[permission.INTERACT_ACROSS_PROFILES] =
+                    AppOpsManager.OPSTR_INTERACT_ACROSS_PROFILES
         }
     }
 
@@ -137,7 +142,7 @@ class AppOpsTest {
         mOpPackageName = mContext.opPackageName
         assertNotNull(mAppOps)
         // Reset app ops state for this test package to the system default.
-        AppOpsUtils.reset(mOpPackageName)
+        reset(mOpPackageName)
     }
 
     @Test
@@ -223,6 +228,137 @@ class AppOpsTest {
     }
 
     @Test
+    fun overlappingActiveAttributionOps() {
+        runWithShellPermissionIdentity {
+            val gotActive = CompletableFuture<Unit>()
+            val gotInActive = CompletableFuture<Unit>()
+
+            val activeWatcher =
+                AppOpsManager.OnOpActiveChangedListener { _, _, packageName, active ->
+                    if (packageName == mOpPackageName) {
+                        if (active) {
+                            assertFalse(gotActive.isDone)
+                            gotActive.complete(Unit)
+                        } else {
+                            assertFalse(gotInActive.isDone)
+                            gotInActive.complete(Unit)
+                        }
+                    }
+                }
+
+            mAppOps.startWatchingActive(arrayOf(OPSTR_WRITE_CALENDAR), Executor { it.run() },
+                activeWatcher)
+            try {
+                mAppOps.startOp(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName, "attribution1", null)
+                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName))
+                gotActive.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+
+                mAppOps.startOp(OPSTR_WRITE_CALENDAR, Process.myUid(), mOpPackageName,
+                    "attribution2", null)
+                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName))
+                assertFalse(gotInActive.isDone)
+
+                mAppOps.finishOp(OPSTR_WRITE_CALENDAR, Process.myUid(), mOpPackageName,
+                    "attribution1")
+
+                // Allow some time for premature "watchingActive" callbacks to arrive
+                Thread.sleep(500)
+
+                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName))
+                assertFalse(gotInActive.isDone)
+
+                mAppOps.finishOp(OPSTR_WRITE_CALENDAR, Process.myUid(), mOpPackageName,
+                    "attribution2")
+                assertFalse(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName))
+                gotInActive.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            } finally {
+                mAppOps.stopWatchingActive(activeWatcher)
+            }
+        }
+    }
+
+    @Test
+    fun startOpTwiceAndVerifyChangeListener() {
+        runWithShellPermissionIdentity {
+            val receivedActiveState = LinkedBlockingDeque<Boolean>()
+            val activeWatcher =
+                    AppOpsManager.OnOpActiveChangedListener { _, _, packageName, active ->
+                        if (packageName == mOpPackageName) {
+                            receivedActiveState.push(active)
+                        }
+                    }
+
+            mAppOps.startWatchingActive(arrayOf(OPSTR_WIFI_SCAN), Executor { it.run() },
+                    activeWatcher)
+            try {
+                mAppOps.startOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null, null)
+                assertTrue(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
+
+                mAppOps.finishOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null)
+                assertFalse(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
+
+                mAppOps.startOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null, null)
+                assertTrue(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
+
+                mAppOps.finishOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null)
+                assertFalse(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
+            } finally {
+                mAppOps.stopWatchingActive(activeWatcher)
+            }
+        }
+    }
+
+    @Test
+    fun finishOpWithoutStartOp() {
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+
+        mAppOps.finishOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null)
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+    }
+
+    @Test
+    fun doubleFinishOpStartOp() {
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+
+        mAppOps.startOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null, null)
+        assertTrue(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+
+        mAppOps.finishOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null)
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+        mAppOps.finishOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null)
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+    }
+
+    @Test
+    fun doubleFinishOpAfterDoubleStartOp() {
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+
+        mAppOps.startOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null, null)
+        assertTrue(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+        mAppOps.startOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null, null)
+        assertTrue(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+
+        mAppOps.finishOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null)
+        assertTrue(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+        mAppOps.finishOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null)
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+    }
+
+    @Test
+    fun noteOpWhileOpIsActive() {
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+
+        mAppOps.startOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null, null)
+        assertTrue(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+
+        mAppOps.noteOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null, null)
+        assertTrue(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+
+        mAppOps.finishOp(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName, null)
+        assertFalse(mAppOps.isOpActive(OPSTR_FINE_LOCATION, mMyUid, mOpPackageName))
+    }
+
+    @Test
     fun testCheckPackagePassesCheck() {
         mAppOps.checkPackage(Process.myUid(), mOpPackageName)
         mAppOps.checkPackage(Process.SYSTEM_UID, "android")
@@ -261,19 +397,19 @@ class AppOpsTest {
             mAppOps.startWatchingMode(OPSTR_WRITE_CALENDAR, mOpPackageName, watcher)
 
             // Make a change to the app op's mode.
-            reset(watcher)
+            Mockito.reset(watcher)
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ERRORED)
-            verify(watcher, timeout(MODE_WATCHER_TIMEOUT_MS))
+            verify(watcher, timeout(TIMEOUT_MS))
                     .onOpChanged(OPSTR_WRITE_CALENDAR, mOpPackageName)
 
             // Make another change to the app op's mode.
-            reset(watcher)
+            Mockito.reset(watcher)
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ALLOWED)
-            verify(watcher, timeout(MODE_WATCHER_TIMEOUT_MS))
+            verify(watcher, timeout(TIMEOUT_MS))
                     .onOpChanged(OPSTR_WRITE_CALENDAR, mOpPackageName)
 
             // Set mode to the same value as before - expect no call to the listener.
-            reset(watcher)
+            Mockito.reset(watcher)
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ALLOWED)
             verifyZeroInteractions(watcher)
 
@@ -281,7 +417,7 @@ class AppOpsTest {
 
             // Make a change to the app op's mode. Since we already stopped watching the mode, the
             // listener shouldn't be called.
-            reset(watcher)
+            Mockito.reset(watcher)
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ERRORED)
             verifyZeroInteractions(watcher)
         } finally {
@@ -313,11 +449,11 @@ class AppOpsTest {
     @Test
     fun testPermissionMapping() {
         for (entry in permissionToOpStr) {
-            testPermissionMapping(entry.key, permissionToOpStr[entry.key])
+            testPermissionMapping(entry.key, entry.value)
         }
     }
 
-    private fun testPermissionMapping(permission: String, opStr: String?) {
+    private fun testPermissionMapping(permission: String, opStr: String) {
         // Do the public value => internal op code lookups.
         val mappedOpStr = AppOpsManager.permissionToOp(permission)
         assertEquals(mappedOpStr, opStr)
@@ -352,8 +488,8 @@ class AppOpsTest {
         // that other test methods in this class don't affect this test method, here we use
         // operations that are not used by any other test cases.
         val mustNotBeLogged = "Operation mustn't be logged before the test runs"
-        assertFalse(mustNotBeLogged, allowedOperationLogged(mOpPackageName, OPSTR_RECORD_AUDIO))
-        assertFalse(mustNotBeLogged, allowedOperationLogged(mOpPackageName, OPSTR_READ_CALENDAR))
+        assumeTrue(mustNotBeLogged, !allowedOperationLogged(mOpPackageName, OPSTR_RECORD_AUDIO))
+        assumeTrue(mustNotBeLogged, !allowedOperationLogged(mOpPackageName, OPSTR_READ_CALENDAR))
 
         setOpMode(mOpPackageName, OPSTR_RECORD_AUDIO, MODE_ALLOWED)
         setOpMode(mOpPackageName, OPSTR_READ_CALENDAR, MODE_ERRORED)
@@ -401,6 +537,43 @@ class AppOpsTest {
             mAppOps.setUidMode(OPSTR_RECORD_AUDIO, Process.myUid(), defaultMode)
             mAppOps.setMode(OPSTR_RECORD_AUDIO, Process.myUid(),
                     mOpPackageName, defaultMode)
+        }
+    }
+
+    @Test
+    fun noteOpForBadUid() {
+        runWithShellPermissionIdentity {
+            val mode = mAppOps.noteOpNoThrow(OPSTR_RECORD_AUDIO, Process.myUid() + 1,
+                    mOpPackageName)
+            assertEquals(mode, MODE_ERRORED)
+        }
+    }
+
+    @Test
+    fun startOpForBadUid() {
+        runWithShellPermissionIdentity {
+            val mode = mAppOps.startOpNoThrow(OPSTR_RECORD_AUDIO, Process.myUid() + 1,
+                    mOpPackageName)
+            assertEquals(mode, MODE_ERRORED)
+        }
+    }
+
+    @Test
+    fun checkOpForBadUid() {
+        val defaultMode = AppOpsManager.opToDefaultMode(OPSTR_RECORD_AUDIO)
+
+        runWithShellPermissionIdentity {
+            mAppOps.setUidMode(OPSTR_RECORD_AUDIO, Process.myUid(), MODE_ERRORED)
+            try {
+                val mode = mAppOps.unsafeCheckOpNoThrow(OPSTR_RECORD_AUDIO, Process.myUid() + 1,
+                        mOpPackageName)
+
+                // For invalid uids checkOp return the default mode
+                assertEquals(mode, defaultMode)
+            } finally {
+                // Clear the uid state
+                mAppOps.setUidMode(OPSTR_RECORD_AUDIO, Process.myUid(), defaultMode)
+            }
         }
     }
 

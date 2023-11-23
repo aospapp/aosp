@@ -22,38 +22,44 @@ import com.android.tradefed.build.StubBuildProvider;
 import com.android.tradefed.clearcut.ClearcutClient;
 import com.android.tradefed.command.CommandOptions;
 import com.android.tradefed.command.CommandRunner;
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.config.OptionCopier;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceSelectionOptions;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.device.cloud.GceAvdInfo;
 import com.android.tradefed.device.cloud.GceManager;
-import com.android.tradefed.device.cloud.LaunchCvdHelper;
 import com.android.tradefed.device.cloud.ManagedRemoteDevice;
-import com.android.tradefed.device.cloud.MultiUserSetupUtil;
 import com.android.tradefed.device.cloud.RemoteFileUtil;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.proto.FileProtoResultReporter;
 import com.android.tradefed.result.proto.ProtoResultParser;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
+import com.android.tradefed.testtype.SubprocessTfLauncher;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.SystemUtil;
 import com.android.tradefed.util.TimeUtil;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -64,7 +70,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.Semaphore;
 
 /** Implementation of {@link InvocationExecution} that drives a remote execution. */
 public class RemoteInvocationExecution extends InvocationExecution {
@@ -72,9 +77,10 @@ public class RemoteInvocationExecution extends InvocationExecution {
     public static final long PUSH_TF_TIMEOUT = 150000L;
     public static final long PULL_RESULT_TIMEOUT = 180000L;
     public static final long REMOTE_PROCESS_RUNNING_WAIT = 15000L;
-    public static final long LAUNCH_EXTRA_DEVICE = 10 * 60 * 1000L;
+    public static final long LAUNCH_EXTRA_DEVICE = 15 * 60 * 1000L;
+    public static final long SETUP_REMOTE_DIR_TIMEOUT = 10 * 60 * 1000L;
     public static final long NEW_USER_TIMEOUT = 5 * 60 * 1000L;
-    public static final String REMOTE_VM_VARIABLE = "REMOTE_VM_ENV";
+    public static final long JOIN_CLEAN_TIMEOUT_MS = 2 * 60 * 1000L;
 
     public static final String REMOTE_USER_DIR = "/home/{$USER}/";
     public static final String PROTO_RESULT_NAME = "output.pb";
@@ -82,24 +88,25 @@ public class RemoteInvocationExecution extends InvocationExecution {
     public static final String STDERR_FILE = "screen-VM_tradefed-stderr.txt";
     public static final String REMOTE_CONFIG = "configuration";
     public static final String GLOBAL_REMOTE_CONFIG = "global-remote-configuration";
-    public static final String SHARDING_DEVICE_SETUP_TIME = "sharding-device-setup-ms";
 
     private static final int MAX_CONNECTION_REFUSED_COUNT = 3;
     private static final int MAX_PUSH_TF_ATTEMPTS = 3;
-    private static final int MAX_WORKER_THREAD = 3;
+    private static final String TRADEFED_EARLY_TERMINATION =
+            "Remote Tradefed might have terminated early.\nRemote Stderr:\n%s";
 
     private String mRemoteTradefedDir = null;
     private String mRemoteAdbPath = null;
+    private ProtoResultParser mProtoParser = null;
+    private String mRemoteConsoleStdErr = null;
 
     @Override
     public boolean fetchBuild(
-            IInvocationContext context,
+            TestInformation testInfo,
             IConfiguration config,
             IRescheduler rescheduler,
             ITestInvocationListener listener)
             throws DeviceNotAvailableException, BuildRetrievalError {
         // TODO: handle multiple devices/build config
-        updateInvocationContext(context, config);
         StubBuildProvider stubProvider = new StubBuildProvider();
 
         String deviceName = config.getDeviceConfig().get(0).getDeviceName();
@@ -110,83 +117,55 @@ public class RemoteInvocationExecution extends InvocationExecution {
         if (info == null) {
             return false;
         }
-        context.addDeviceBuildInfo(deviceName, info);
+        testInfo.getContext().addDeviceBuildInfo(deviceName, info);
         updateBuild(info, config);
         return true;
     }
 
     @Override
+    protected void customizeDevicePreInvocation(IConfiguration config, IInvocationContext context) {
+        super.customizeDevicePreInvocation(config, context);
+
+        if (config.getCommandOptions().getShardCount() != null
+                && config.getCommandOptions().getShardIndex() == null) {
+            ITestDevice device = context.getDevices().get(0);
+            TestDeviceOptions options = device.getOptions();
+            // Trigger the multi-tenant start in the VM
+            options.addGceDriverParams("--num-avds-per-instance");
+            String count = config.getCommandOptions().getShardCount().toString();
+            options.addGceDriverParams(count);
+            InvocationMetricLogger.addInvocationMetrics(
+                    InvocationMetricKey.CF_INSTANCE_COUNT, count);
+        }
+    }
+
+    @Override
     public void runTests(
-            IInvocationContext context, IConfiguration config, ITestInvocationListener listener)
+            TestInformation info, IConfiguration config, ITestInvocationListener listener)
             throws Throwable {
-        ManagedRemoteDevice device = (ManagedRemoteDevice) context.getDevices().get(0);
-        GceAvdInfo info = device.getRemoteAvdInfo();
+        ManagedRemoteDevice device = (ManagedRemoteDevice) info.getDevice();
+        GceAvdInfo gceInfo = device.getRemoteAvdInfo();
 
         // Run remote TF (new tests?)
         IRunUtil runUtil = new RunUtil();
 
         TestDeviceOptions options = device.getOptions();
         String mainRemoteDir = getRemoteMainDir(options);
-        // Handle sharding
-        if (config.getCommandOptions().getShardCount() != null
-                && config.getCommandOptions().getShardIndex() == null) {
-            if (config.getCommandOptions().getShardCount() > 1) {
-                boolean parallel = config.getCommandOptions().shouldUseParallelRemoteSetup();
-                long startTime = System.currentTimeMillis();
-                // For each device after the first one we need to start a new device.
-                if (!parallel) {
-                    for (int i = 2; i < config.getCommandOptions().getShardCount() + 1; i++) {
-                        boolean res = startDevice(listener, i, info, options, runUtil, null);
-                        if (!res) {
-                            return;
-                        }
-                    }
-                } else {
-                    // Parallel setup of devices
-                    Semaphore token = new Semaphore(MAX_WORKER_THREAD);
-                    List<StartDeviceThread> threads = new ArrayList<>();
-                    for (int i = 2; i < config.getCommandOptions().getShardCount() + 1; i++) {
-                        StartDeviceThread sdt =
-                                new StartDeviceThread(listener, i, info, options, runUtil, token);
-                        threads.add(sdt);
-                        sdt.start();
-                    }
-
-                    boolean res = true;
-                    for (StartDeviceThread t : threads) {
-                        t.join();
-                        res = res & t.getFinalStatus();
-                    }
-                    if (!res) {
-                        return;
-                    }
-                }
-
-                // Log the overhead to start the device
-                long elapsedTime = System.currentTimeMillis() - startTime;
-                context.getBuildInfos()
-                        .get(0)
-                        .addBuildAttribute(SHARDING_DEVICE_SETUP_TIME, Long.toString(elapsedTime));
-            }
-        }
-
         mRemoteAdbPath = String.format("/home/%s/bin/adb", options.getInstanceUser());
-
-        String tfPath = System.getProperty("TF_JAR_DIR");
-        if (tfPath == null) {
-            listener.invocationFailed(new RuntimeException("Failed to find $TF_JAR_DIR."));
+        // Select the TF version that should be pushed to the remote VM
+        File tfToPush = getLocalTradefedPath(listener, options.getRemoteTf());
+        if (tfToPush == null) {
             return;
         }
-        File currentTf = new File(tfPath).getAbsoluteFile();
-        if (tfPath.equals(".")) {
-            currentTf = new File("").getAbsoluteFile();
-        }
+
         mRemoteTradefedDir = mainRemoteDir + "tradefed/";
         CommandResult createRemoteDir =
                 GceManager.remoteSshCommandExecution(
-                        info, options, runUtil, 120000L, "mkdir", "-p", mRemoteTradefedDir);
+                        gceInfo, options, runUtil, 120000L, "mkdir", "-p", mRemoteTradefedDir);
         if (!CommandStatus.SUCCESS.equals(createRemoteDir.getStatus())) {
-            listener.invocationFailed(new RuntimeException("Failed to create remote dir."));
+            listener.invocationFailed(
+                    createInvocationFailure(
+                            "Failed to create remote dir.", FailureStatus.INFRA_FAILURE));
             return;
         }
 
@@ -196,25 +175,27 @@ public class RemoteInvocationExecution extends InvocationExecution {
         while (!result && attempt < MAX_PUSH_TF_ATTEMPTS) {
             result =
                     RemoteFileUtil.pushFileToRemote(
-                            info,
+                            gceInfo,
                             options,
                             Arrays.asList("-r"),
                             runUtil,
                             PUSH_TF_TIMEOUT,
                             mRemoteTradefedDir,
-                            currentTf);
+                            tfToPush);
             attempt++;
         }
         if (!result) {
             CLog.e("Failed to push Tradefed.");
-            listener.invocationFailed(new RuntimeException("Failed to push Tradefed."));
+            listener.invocationFailed(
+                    createInvocationFailure(
+                            "Failed to push Tradefed.", FailureStatus.INFRA_FAILURE));
             return;
         }
 
-        mRemoteTradefedDir = mRemoteTradefedDir + currentTf.getName() + "/";
+        mRemoteTradefedDir = mRemoteTradefedDir + tfToPush.getName() + "/";
         CommandResult listRemoteDir =
                 GceManager.remoteSshCommandExecution(
-                        info, options, runUtil, 120000L, "ls", "-l", mRemoteTradefedDir);
+                        gceInfo, options, runUtil, 120000L, "ls", "-l", mRemoteTradefedDir);
         CLog.d("stdout: %s", listRemoteDir.getStdout());
         CLog.d("stderr: %s", listRemoteDir.getStderr());
 
@@ -224,7 +205,7 @@ public class RemoteInvocationExecution extends InvocationExecution {
             CLog.d("Pushing Tradefed XML configuration to remote.");
             boolean resultPush =
                     RemoteFileUtil.pushFileToRemote(
-                            info,
+                            gceInfo,
                             options,
                             null,
                             runUtil,
@@ -234,13 +215,15 @@ public class RemoteInvocationExecution extends InvocationExecution {
             if (!resultPush) {
                 CLog.e("Failed to push Tradefed Configuration.");
                 listener.invocationFailed(
-                        new RuntimeException("Failed to push Tradefed Configuration."));
+                        createInvocationFailure(
+                                "Failed to push Tradefed Configuration.",
+                                FailureStatus.INFRA_FAILURE));
                 return;
             }
 
             String[] whitelistConfigs =
                     new String[] {
-                        GlobalConfiguration.SCHEDULER_TYPE_NAME,
+                        GlobalConfiguration.SANDBOX_FACTORY_TYPE_NAME,
                         GlobalConfiguration.HOST_OPTIONS_TYPE_NAME,
                         "android-build"
                     };
@@ -249,7 +232,7 @@ public class RemoteInvocationExecution extends InvocationExecution {
                         GlobalConfiguration.getInstance()
                                 .cloneConfigWithFilter(new HashSet<>(), whitelistConfigs);
             } catch (IOException e) {
-                listener.invocationFailed(e);
+                listener.invocationFailed(createInvocationFailure(e, FailureStatus.INFRA_FAILURE));
                 return;
             }
             try (InputStreamSource source = new FileInputStreamSource(globalConfig)) {
@@ -258,7 +241,7 @@ public class RemoteInvocationExecution extends InvocationExecution {
             // Push the global configuration
             boolean resultPushGlobal =
                     RemoteFileUtil.pushFileToRemote(
-                            info,
+                            gceInfo,
                             options,
                             null,
                             runUtil,
@@ -268,13 +251,23 @@ public class RemoteInvocationExecution extends InvocationExecution {
             if (!resultPushGlobal) {
                 CLog.e("Failed to push Tradefed Global Configuration.");
                 listener.invocationFailed(
-                        new RuntimeException("Failed to push Tradefed Global Configuration."));
+                        createInvocationFailure(
+                                "Failed to push Tradefed Global Configuration.",
+                                FailureStatus.INFRA_FAILURE));
                 return;
             }
 
-            resetAdb(info, options, runUtil);
-            runRemote(listener, context, configFile, info, options, runUtil, config, globalConfig);
-            collectAdbLogs(info, options, runUtil, listener);
+            resetAdb(gceInfo, options, runUtil);
+            runRemote(
+                    listener,
+                    info.getContext(),
+                    configFile,
+                    gceInfo,
+                    options,
+                    runUtil,
+                    config,
+                    globalConfig);
+            collectAdbLogs(gceInfo, options, runUtil, listener);
         } finally {
             FileUtil.recursiveDelete(configFile);
             FileUtil.recursiveDelete(globalConfig);
@@ -282,21 +275,19 @@ public class RemoteInvocationExecution extends InvocationExecution {
     }
 
     @Override
-    public void doSetup(
-            IInvocationContext context, IConfiguration config, ITestInvocationListener listener)
+    public void doSetup(TestInformation testInfo, IConfiguration config, ITestLogger logger)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
         // Skip
     }
 
     @Override
     public void doTeardown(
-            IInvocationContext context,
+            TestInformation testInfo,
             IConfiguration config,
             ITestLogger logger,
             Throwable exception)
             throws Throwable {
-        // Only run device post invocation teardown
-        super.runDevicePostInvocationTearDown(context, config);
+            super.runDevicePostInvocationTearDown(testInfo.getContext(), config, exception);
     }
 
     @Override
@@ -329,7 +320,7 @@ public class RemoteInvocationExecution extends InvocationExecution {
         StringBuilder tfCmdBuilder =
                 new StringBuilder("TF_GLOBAL_CONFIG=" + globalConfig.getName());
         // Set an env variable to notify that this a remote environment.
-        tfCmdBuilder.append(" " + REMOTE_VM_VARIABLE + "=1");
+        tfCmdBuilder.append(" " + SystemUtil.REMOTE_VM_VARIABLE + "=1");
         // Disable clearcut in the remote
         tfCmdBuilder.append(" " + ClearcutClient.DISABLE_CLEARCUT_KEY + "=1");
         tfCmdBuilder.append(" ENTRY_CLASS=" + CommandRunner.class.getCanonicalName());
@@ -346,53 +337,71 @@ public class RemoteInvocationExecution extends InvocationExecution {
         if (!CommandStatus.SUCCESS.equals(resultRemoteExecution.getStatus())) {
             CLog.e("Error running the remote command: %s", resultRemoteExecution.getStdout());
             currentInvocationListener.invocationFailed(
-                    new RuntimeException(resultRemoteExecution.getStderr()));
+                    createInvocationFailure(
+                            resultRemoteExecution.getStderr(), FailureStatus.INFRA_FAILURE));
             return;
         }
         // Sleep a bit to let the process start
         RunUtil.getDefault().sleep(10000L);
 
+        mProtoParser = new ProtoResultParser(currentInvocationListener, context, false, "remote-");
+        // Print when parsing
+        mProtoParser.setQuiet(false);
         // Monitor the remote invocation to ensure it's completing. Block until timeout or stops
         // running.
-        boolean stillRunning =
-                isStillRunning(
-                        currentInvocationListener, configFile, info, options, runUtil, config);
-
-        // Fetch the logs
-        File stdoutFile =
-                RemoteFileUtil.fetchRemoteFile(
-                        info,
-                        options,
-                        runUtil,
-                        PULL_RESULT_TIMEOUT,
-                        mRemoteTradefedDir + STDOUT_FILE);
-        if (stdoutFile != null) {
-            try (InputStreamSource source = new FileInputStreamSource(stdoutFile, true)) {
-                currentInvocationListener.testLog(STDOUT_FILE, LogDataType.TEXT, source);
+        boolean stillRunning = true;
+        try {
+            stillRunning =
+                    isStillRunning(
+                            currentInvocationListener, configFile, info, options, runUtil, config);
+        } finally {
+            // Fetch the logs for debugging
+            File stdout =
+                    fetchRemoteAndLogFile(
+                            currentInvocationListener,
+                            STDOUT_FILE,
+                            STDOUT_FILE,
+                            info,
+                            options,
+                            runUtil);
+            FileUtil.recursiveDelete(stdout);
+            File stderr =
+                    fetchRemoteAndLogFile(
+                            currentInvocationListener,
+                            STDERR_FILE,
+                            STDERR_FILE,
+                            info,
+                            options,
+                            runUtil);
+            if (stderr != null && stderr.exists()) {
+                mRemoteConsoleStdErr = FileUtil.readStringFromFile(stderr);
+                FileUtil.recursiveDelete(stderr);
+            } else {
+                mRemoteConsoleStdErr = "Failed to fetch stderr from remote.";
             }
         }
 
-        File stderrFile =
-                RemoteFileUtil.fetchRemoteFile(
-                        info,
-                        options,
-                        runUtil,
-                        PULL_RESULT_TIMEOUT,
-                        mRemoteTradefedDir + STDERR_FILE);
-        if (stderrFile != null) {
-            try (InputStreamSource source = new FileInputStreamSource(stderrFile, true)) {
-                currentInvocationListener.testLog(STDERR_FILE, LogDataType.TEXT, source);
+        // If not result in progress are reported, parse the full results at the end.
+        if (!config.getCommandOptions().shouldReportModuleProgression()) {
+            fetchAndProcessResults(
+                    stillRunning,
+                    currentInvocationListener,
+                    info,
+                    options,
+                    runUtil,
+                    mRemoteTradefedDir);
+        } else {
+            if (!mProtoParser.invocationEndedReached()) {
+                String message =
+                        String.format(
+                                "Parsing of results protos might be incomplete: invocation ended "
+                                        + "of remote execution was not found. "
+                                        + TRADEFED_EARLY_TERMINATION,
+                                mRemoteConsoleStdErr);
+                currentInvocationListener.invocationFailed(
+                        createInvocationFailure(message, FailureStatus.INFRA_FAILURE));
             }
         }
-
-        fetchAndProcessResults(
-                stillRunning,
-                currentInvocationListener,
-                context,
-                info,
-                options,
-                runUtil,
-                mRemoteTradefedDir);
     }
 
     private boolean isStillRunning(
@@ -401,7 +410,8 @@ public class RemoteInvocationExecution extends InvocationExecution {
             GceAvdInfo info,
             TestDeviceOptions options,
             IRunUtil runUtil,
-            IConfiguration config) {
+            IConfiguration config)
+            throws IOException {
         long maxTimeout = config.getCommandOptions().getInvocationTimeout();
         Long endTime = null;
         if (maxTimeout > 0L) {
@@ -409,7 +419,44 @@ public class RemoteInvocationExecution extends InvocationExecution {
         }
         boolean stillRunning = true;
         int errorConnectCount = 0;
+        int currentIndex = 0;
+        long currentTimeOnProto = 0L;
         while (stillRunning) {
+            if (config.getCommandOptions().shouldReportModuleProgression()) {
+                File resultFile =
+                        RemoteFileUtil.fetchRemoteFile(
+                                info,
+                                options,
+                                runUtil,
+                                PULL_RESULT_TIMEOUT,
+                                mRemoteTradefedDir + PROTO_RESULT_NAME + currentIndex);
+                if (resultFile != null) {
+                    currentIndex++;
+                    currentTimeOnProto = System.currentTimeMillis();
+                    try {
+                        mProtoParser.processFileProto(resultFile);
+                    } finally {
+                        FileUtil.deleteFile(resultFile);
+                    }
+                    // Don't sleep in that case since we might have more file to process, this will
+                    // sleep next time we don't find a file to process on the remote.
+                    continue;
+                }
+            }
+            if (System.currentTimeMillis() - currentTimeOnProto > 7200000) { // 2 hours
+                // If we are stuck on waiting the same proto for over 2 hours, collect some logs
+                File stdout =
+                        fetchRemoteAndLogFile(
+                                currentInvocationListener,
+                                STDOUT_FILE,
+                                STDOUT_FILE + "-early",
+                                info,
+                                options,
+                                runUtil);
+                FileUtil.recursiveDelete(stdout);
+                currentTimeOnProto = System.currentTimeMillis();
+            }
+
             CommandResult psRes =
                     GceManager.remoteSshCommandExecution(
                             info,
@@ -435,16 +482,39 @@ public class RemoteInvocationExecution extends InvocationExecution {
                 CLog.d("still running: %s", stillRunning);
                 if (endTime != null && System.currentTimeMillis() > endTime) {
                     currentInvocationListener.invocationFailed(
-                            new RuntimeException(
+                            createInvocationFailure(
                                     String.format(
                                             "Remote invocation timeout after %s",
-                                            TimeUtil.formatElapsedTime(maxTimeout))));
+                                            TimeUtil.formatElapsedTime(maxTimeout)),
+                                    FailureStatus.TIMED_OUT));
                     break;
                 }
             }
             if (stillRunning) {
                 RunUtil.getDefault().sleep(REMOTE_PROCESS_RUNNING_WAIT);
             }
+        }
+
+        File resultFile = null;
+        if (config.getCommandOptions().shouldReportModuleProgression()) {
+            // Process all remaining proto files available
+            do {
+                resultFile =
+                        RemoteFileUtil.fetchRemoteFile(
+                                info,
+                                options,
+                                runUtil,
+                                PULL_RESULT_TIMEOUT,
+                                mRemoteTradefedDir + PROTO_RESULT_NAME + currentIndex);
+                if (resultFile != null) {
+                    currentIndex++;
+                    try {
+                        mProtoParser.processFileProto(resultFile);
+                    } finally {
+                        FileUtil.deleteFile(resultFile);
+                    }
+                }
+            } while (resultFile != null);
         }
         return stillRunning;
     }
@@ -519,11 +589,18 @@ public class RemoteInvocationExecution extends InvocationExecution {
      */
     @VisibleForTesting
     File createRemoteConfig(IConfiguration config, ITestLogger logger, String resultDirPath)
-            throws IOException {
+            throws IOException, ConfigurationException {
         // Setup the remote reporting to a proto file
         List<ITestInvocationListener> reporters = new ArrayList<>();
         FileProtoResultReporter protoReporter = new FileProtoResultReporter();
-        protoReporter.setFileOutput(new File(resultDirPath + PROTO_RESULT_NAME));
+        OptionSetter protoResSetter = new OptionSetter(protoReporter);
+        if (config.getCommandOptions().shouldReportModuleProgression()) {
+            protoResSetter.setOptionValue(
+                    FileProtoResultReporter.PERIODIC_PROTO_WRITING_OPTION, "true");
+        }
+        protoResSetter.setOptionValue(
+                FileProtoResultReporter.PROTO_OUTPUT_FILE,
+                new File(resultDirPath + PROTO_RESULT_NAME).getPath());
         reporters.add(protoReporter);
 
         config.setTestInvocationListeners(reporters);
@@ -536,19 +613,57 @@ public class RemoteInvocationExecution extends InvocationExecution {
             }
         }
 
+        if (config.getCommandOptions().getShardCount() != null
+                && config.getCommandOptions().getShardIndex() == null) {
+            config.getCommandOptions().setReplicateSetup(true);
+        }
+
+        // Mark the remote invocation as subprocess
+        config.getCommandOptions()
+                .getInvocationData()
+                .put(SubprocessTfLauncher.SUBPROCESS_TAG_NAME, "true");
+
+        // Unset remote-tf-version to avoid re-downloading from remote VM.
+        OptionSetter deviceOptions =
+                new OptionSetter(config.getDeviceConfig().get(0).getDeviceOptions());
+        deviceOptions.setOptionValue(TestDeviceOptions.REMOTE_TF_VERSION_OPTION, "");
+
         // Dump and log the configuration
         File configFile = FileUtil.createTempFile(config.getName(), ".xml");
-        config.dumpXml(new PrintWriter(configFile));
+        config.dumpXml(
+                new PrintWriter(configFile),
+                new ArrayList<String>(),
+                /* print deprecated */ true,
+                /* print unchanged*/ false);
         try (InputStreamSource source = new FileInputStreamSource(configFile)) {
             logger.testLog(REMOTE_CONFIG, LogDataType.XML, source);
         }
         return configFile;
     }
 
+    /** Returns the Tradefed version that should be pushed to the remote to drive the invocation. */
+    private File getLocalTradefedPath(ITestInvocationListener listener, File remoteTf) {
+        if (remoteTf != null && remoteTf.exists()) {
+            return remoteTf;
+        }
+
+        String tfPath = System.getProperty("TF_JAR_DIR");
+        if (tfPath == null) {
+            listener.invocationFailed(
+                    createInvocationFailure(
+                            "Failed to find $TF_JAR_DIR.", FailureStatus.INFRA_FAILURE));
+            return null;
+        }
+        File currentTf = new File(tfPath).getAbsoluteFile();
+        if (tfPath.equals(".")) {
+            currentTf = new File("").getAbsoluteFile();
+        }
+        return currentTf;
+    }
+
     private void fetchAndProcessResults(
             boolean wasStillRunning,
             ITestInvocationListener invocationListener,
-            IInvocationContext context,
             GceAvdInfo info,
             TestDeviceOptions options,
             IRunUtil runUtil,
@@ -568,165 +683,53 @@ public class RemoteInvocationExecution extends InvocationExecution {
                         resultDirPath + PROTO_RESULT_NAME);
         if (resultFile == null) {
             invocationListener.invocationFailed(
-                    new RuntimeException(
+                    createInvocationFailure(
                             String.format(
-                                    "Could not find remote result file at %s",
-                                    resultDirPath + PROTO_RESULT_NAME)));
+                                    "Could not find remote result file at %s. "
+                                            + TRADEFED_EARLY_TERMINATION,
+                                    resultDirPath + PROTO_RESULT_NAME,
+                                    mRemoteConsoleStdErr),
+                            FailureStatus.INFRA_FAILURE));
             return;
         }
         CLog.d("Fetched remote result file!");
         // Report result to listener.
         try {
-            ProtoResultParser parser =
-                    new ProtoResultParser(invocationListener, context, false, "remote-");
-            parser.processFinalizedProto(TestRecordProtoUtil.readFromFile(resultFile));
+            mProtoParser.processFinalizedProto(TestRecordProtoUtil.readFromFile(resultFile));
         } finally {
             FileUtil.deleteFile(resultFile);
         }
     }
 
-    /**
-     * Method that handles starting an extra Android Virtual Device inside a given remote VM.
-     *
-     * @param listener The invocation {@link ITestInvocationListener}.
-     * @param userId The username id to associate the device with.
-     * @param info The {@link GceAvdInfo} describing the remote VM.
-     * @param options The {@link TestDeviceOptions} of the virtual device.
-     * @param runUtil A {@link IRunUtil} to run host commands
-     * @return True if the device is started successfully, false otherwise.
-     */
-    private boolean startDevice(
-            ITestInvocationListener listener,
-            int userId,
+    private File fetchRemoteAndLogFile(
+            ITestLogger logger,
+            String fileName,
+            String logName,
             GceAvdInfo info,
             TestDeviceOptions options,
-            IRunUtil runUtil,
-            Semaphore token)
-            throws InterruptedException {
-        String useridString = MultiUserSetupUtil.getUserNumber(userId);
-        String username = String.format("vsoc-%s", useridString);
-        CommandResult userSetup =
-                MultiUserSetupUtil.prepareRemoteUser(
-                        username, info, options, runUtil, NEW_USER_TIMEOUT);
-        if (userSetup != null) {
-            String errorMsg = String.format("Failed to setup user: %s", userSetup.getStderr());
-            CLog.e(errorMsg);
-            listener.invocationFailed(new RuntimeException(errorMsg));
-            return false;
-        }
-
-        CommandResult homeDirSetup =
-                MultiUserSetupUtil.prepareRemoteHomeDir(
-                        options.getInstanceUser(),
-                        username,
-                        info,
-                        options,
-                        runUtil,
-                        NEW_USER_TIMEOUT);
-        if (homeDirSetup != null) {
-            String errorMsg =
-                    String.format("Failed to setup home dir: %s", homeDirSetup.getStderr());
-            CLog.e(errorMsg);
-            listener.invocationFailed(new RuntimeException(errorMsg));
-            return false;
-        }
-
-        // Create the cvd user if missing
-        CommandResult cvdSetup =
-                MultiUserSetupUtil.addExtraCvdUser(
-                        userId, info, options, runUtil, NEW_USER_TIMEOUT);
-        if (cvdSetup != null) {
-            String errorMsg = String.format("Failed to setup user: %s", cvdSetup.getStderr());
-            CLog.e(errorMsg);
-            listener.invocationFailed(new RuntimeException(errorMsg));
-            return false;
-        }
-
-        // Setup the tuntap interface if needed
-        CommandResult tapSetup =
-                MultiUserSetupUtil.setupNetworkInterface(
-                        userId, info, options, runUtil, NEW_USER_TIMEOUT);
-        if (tapSetup != null) {
-            String errorMsg =
-                    String.format("Failed to setup network interface: %s", tapSetup.getStderr());
-            CLog.e(errorMsg);
-            listener.invocationFailed(new RuntimeException(errorMsg));
-            return false;
-        }
-
-        List<String> startCommand = LaunchCvdHelper.createSimpleDeviceCommand(username, true);
-        if (token != null) {
-            token.acquire();
-        }
-        CommandResult startDeviceRes = null;
-        try {
-            startDeviceRes =
-                    GceManager.remoteSshCommandExecution(
-                            info,
-                            options,
-                            runUtil,
-                            LAUNCH_EXTRA_DEVICE,
-                            Joiner.on(" ").join(startCommand));
-        } finally {
-            if (token != null) {
-                token.release();
+            IRunUtil runUtil) {
+        File file =
+                RemoteFileUtil.fetchRemoteFile(
+                        info, options, runUtil, PULL_RESULT_TIMEOUT, mRemoteTradefedDir + fileName);
+        if (file != null) {
+            try (InputStreamSource source = new FileInputStreamSource(file, false)) {
+                logger.testLog(logName, LogDataType.TEXT, source);
             }
         }
-        if (!CommandStatus.SUCCESS.equals(startDeviceRes.getStatus())) {
-            String errorMsg =
-                    String.format("Failed to start %s: %s", username, startDeviceRes.getStderr());
-            CLog.e(errorMsg);
-            listener.invocationFailed(new RuntimeException(errorMsg));
-            return false;
-        }
-        return true;
+        return file;
     }
 
-    /** Thread class that allows to start a device asynchronously. */
-    private class StartDeviceThread extends Thread {
+    private FailureDescription createInvocationFailure(String errorMessage, FailureStatus status) {
+        FailureDescription failure = FailureDescription.create(errorMessage);
+        failure.setFailureStatus(status);
+        failure.setCause(new RuntimeException(errorMessage));
+        return failure;
+    }
 
-        private ITestInvocationListener mListener;
-        private int mUserId;
-        private GceAvdInfo mInfo;
-        private TestDeviceOptions mOptions;
-        private IRunUtil mRunUtil;
-        private Semaphore mToken;
-
-        private boolean mFinalResult = false;
-
-        public StartDeviceThread(
-                ITestInvocationListener listener,
-                int userId,
-                GceAvdInfo info,
-                TestDeviceOptions options,
-                IRunUtil runUtil,
-                Semaphore token) {
-            super();
-            setDaemon(true);
-            setName(String.format("start-device-thread-vsoc-%s", userId));
-            mListener = listener;
-            mUserId = userId;
-            mInfo = info;
-            mOptions = options;
-            mRunUtil = runUtil;
-            mToken = token;
-        }
-
-        @Override
-        public void run() {
-            try {
-                mFinalResult = startDevice(mListener, mUserId, mInfo, mOptions, mRunUtil, mToken);
-            } catch (InterruptedException e) {
-                CLog.e(e);
-            }
-        }
-
-        /**
-         * Returns the final status of the startDevice. Returns true if it succeeded, false
-         * otherwise.
-         */
-        boolean getFinalStatus() {
-            return mFinalResult;
-        }
+    private FailureDescription createInvocationFailure(Exception e, FailureStatus status) {
+        FailureDescription failure = FailureDescription.create(e.getMessage());
+        failure.setFailureStatus(status);
+        failure.setCause(e);
+        return failure;
     }
 }

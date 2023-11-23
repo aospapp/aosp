@@ -53,8 +53,8 @@ def remove_user(android_device, user_id):
 
 def get_current_user(android_device):
     out = android_device.adb.shell("dumpsys activity")
-    result = re.search("mUserLru(.*,(.*\d)\])", out)
-    return result.group(2)
+    result = re.search("mCurrentUserId:(\d+)", out)
+    return result.group(1)
 
 
 def _wait_for_user_to_take_place(android_device, user_id, timeout=10):

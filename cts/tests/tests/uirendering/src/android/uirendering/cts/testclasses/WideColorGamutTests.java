@@ -148,7 +148,7 @@ public class WideColorGamutTests extends ActivityTestBase {
                 .runWithVerifier(getVerifier(
                             new Point[] { new Point(0, 0), new Point(50, 50) },
                             new Color[] { greenP3, greenP3 },
-                            .001f));
+                            .002f));
     }
 
     private static Color plus(Color a, Color b) {

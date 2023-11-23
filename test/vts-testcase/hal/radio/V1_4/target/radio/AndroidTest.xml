@@ -27,8 +27,17 @@
         <option name="test-module-name" value="VtsHalRadioV1_4Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalRadioV1_4TargetTest/VtsHalRadioV1_4TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalRadioV1_4TargetTest/VtsHalRadioV1_4TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="test-timeout" value="15m"/>
+        <!-- b/137298570: a known modem issue with new tests (waiver) -->
+        <option name="exclude-filter" value="RadioHidlTest_v1_4.startNetworkScan_InvalidInterval1" />
+        <option name="exclude-filter" value="RadioHidlTest_v1_4.startNetworkScan_InvalidInterval2" />
+        <option name="exclude-filter" value="RadioHidlTest_v1_4.startNetworkScan_InvalidMaxSearchTime1" />
+        <option name="exclude-filter" value="RadioHidlTest_v1_4.startNetworkScan_InvalidMaxSearchTime2" />
+        <option name="exclude-filter" value="RadioHidlTest_v1_4.startNetworkScan_InvalidPeriodicity1" />
+        <option name="exclude-filter" value="RadioHidlTest_v1_4.startNetworkScan_InvalidPeriodicity2" />
+        <option name="exclude-filter" value="RadioHidlTest_v1_4.startNetworkScan_GoodRequest1" />
+        <option name="exclude-filter" value="RadioHidlTest_v1_4.startNetworkScan_GoodRequest2" />
     </test>
 </configuration>

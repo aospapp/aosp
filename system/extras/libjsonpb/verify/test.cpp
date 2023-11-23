@@ -122,9 +122,9 @@ TEST_F(JsonKeyTest, NoJsonNameOk) {
   EXPECT_TRUE(AllFieldsAreKnown(*object, json, &error)) << error;
 }
 
-// JSON field name is lowerCamelCase of Proto field name;
-// AllFieldsAreKnown should return false. Although the lowerCamelCase name is a
-// valid key accepted by Protobuf's JSON parser, we explicitly disallow the
+// JSON field name is lower/UpperCamelCase of Proto field name;
+// AllFieldsAreKnown should return false. Although the lower/UpperCamelCase name
+// is a valid key accepted by Protobuf's JSON parser, we explicitly disallow the
 // behavior.
 TEST_F(JsonKeyTest, NoJsonNameFooBar) {
   EXPECT_EQ("fooBar", GetFieldJsonName<NoJsonName>("foo_bar"));
@@ -137,13 +137,13 @@ TEST_F(JsonKeyTest, NoJsonNameBarBaz) {
 }
 
 TEST_F(JsonKeyTest, NoJsonNameBazQux) {
-  EXPECT_EQ("bazQux", GetFieldJsonName<NoJsonName>("BazQux"));
-  TestParseOkWithUnknownKey<NoJsonName>("BazQux", "bazQux");
+  EXPECT_EQ("BazQux", GetFieldJsonName<NoJsonName>("BazQux"));
+  // No test for BazQux because its JSON name is the same as field_name
 }
 
 TEST_F(JsonKeyTest, NoJsonNameQuxQuux) {
-  EXPECT_EQ("qUXQUUX", GetFieldJsonName<NoJsonName>("QUX_QUUX"));
-  TestParseOkWithUnknownKey<NoJsonName>("QUX_QUUX", "qUXQUUX");
+  EXPECT_EQ("QUXQUUX", GetFieldJsonName<NoJsonName>("QUX_QUUX"));
+  TestParseOkWithUnknownKey<NoJsonName>("QUX_QUUX", "QUXQUUX");
 }
 
 class EmbeddedJsonKeyTest : public LibJsonpbVerifyTest {
@@ -198,16 +198,16 @@ TEST_F(EmbeddedJsonKeyTest, BarBaz) {
   EXPECT_EQ("test", object->repeated_with_json_name().begin()->barbaz());
 }
 
-TEST_F(EmbeddedJsonKeyTest, BazQux) {
-  auto object =
-      TestEmbeddedError("{\"no_json_name\": {\"bazQux\": \"test\"}}", "bazQux");
+TEST_F(EmbeddedJsonKeyTest, NoJsonName) {
+  auto object = TestEmbeddedError(
+      "{\"no_json_name\": {\"QUXQUUX\": \"test\"}}", "QUXQUUX");
   ASSERT_TRUE(object.ok()) << object.error();
-  EXPECT_EQ("test", object->no_json_name().bazqux());
+  EXPECT_EQ("test", object->no_json_name().qux_quux());
 }
 
 TEST_F(EmbeddedJsonKeyTest, QuxQuux) {
   auto object = TestEmbeddedError(
-      "{\"repeated_no_json_name\": [{\"qUXQUUX\": \"test\"}]}", "qUXQUUX");
+      "{\"repeated_no_json_name\": [{\"QUXQUUX\": \"test\"}]}", "QUXQUUX");
   ASSERT_TRUE(object.ok()) << object.error();
   ASSERT_EQ(1u, object->repeated_no_json_name().size());
   EXPECT_EQ("test", object->repeated_no_json_name().begin()->qux_quux());
@@ -287,7 +287,7 @@ static const std::vector<ScalarTestErrorParam> gScalarTestErrorParams = {
     {"{\"e\": 1}", "Should not allow integers for enums"},
 };
 
-INSTANTIATE_TEST_SUITE_P(, ScalarTestError,
+INSTANTIATE_TEST_SUITE_P(Jsonpb, ScalarTestError,
                          ::testing::ValuesIn(gScalarTestErrorParams));
 
 int main(int argc, char** argv) {

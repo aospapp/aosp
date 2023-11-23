@@ -135,10 +135,13 @@ public class LogRegistry implements ILogRegistry {
      */
     @Override
     public void dumpToGlobalLog(ILeveledLogOutput log) {
-        try (InputStreamSource source = log.getLog();
-                InputStream stream = source.createInputStream()) {
-            mGlobalLogger.dumpToLog(stream);
-        } catch (IOException e) {
+        try (InputStreamSource source = log.getLog()) {
+            if (source != null) {
+                try (InputStream stream = source.createInputStream()) {
+                    mGlobalLogger.dumpToLog(stream);
+                }
+            }
+        } catch (IOException | RuntimeException e) {
             System.err.println("Failed to dump log");
             e.printStackTrace();
         }

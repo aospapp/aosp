@@ -20,12 +20,10 @@ import static com.android.cts.verifier.notifications.MockListener.JSON_AMBIENT;
 import static com.android.cts.verifier.notifications.MockListener.JSON_MATCHES_ZEN_FILTER;
 import static com.android.cts.verifier.notifications.MockListener.JSON_TAG;
 
-import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ContentProviderOperation;
-import android.content.Context;
 import android.content.OperationApplicationException;
 import android.database.Cursor;
 import android.media.AudioAttributes;
@@ -94,37 +92,30 @@ public class AttentionManagementVerifierActivity
 
     @Override
     protected List<InteractiveTestCase> createTestItems() {
-
         List<InteractiveTestCase> tests = new ArrayList<>(17);
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        if (am.isLowRamDevice()) {
-            tests.add(new CannotBeEnabledTest());
-            tests.add(new ServiceStoppedTest());
-        } else {
-            tests.add(new IsEnabledTest());
-            tests.add(new ServiceStartedTest());
-            tests.add(new InsertContactsTest());
-            tests.add(new NoneInterceptsAllMessagesTest());
-            tests.add(new NoneInterceptsAlarmEventReminderCategoriesTest());
-            tests.add(new PriorityInterceptsSomeMessagesTest());
+        tests.add(new IsEnabledTest());
+        tests.add(new ServiceStartedTest());
+        tests.add(new InsertContactsTest());
+        tests.add(new NoneInterceptsAllMessagesTest());
+        tests.add(new NoneInterceptsAlarmEventReminderCategoriesTest());
+        tests.add(new PriorityInterceptsSomeMessagesTest());
 
-            if (getApplicationInfo().targetSdkVersion > Build.VERSION_CODES.O_MR1) {
-                // Tests targeting P and above:
-                tests.add(new PriorityInterceptsAlarmsTest());
-                tests.add(new PriorityInterceptsMediaSystemOtherTest());
-            }
-
-            tests.add(new AllInterceptsNothingMessagesTest());
-            tests.add(new AllInterceptsNothingDiffCategoriesTest());
-            tests.add(new DefaultOrderTest());
-            tests.add(new PriorityOrderTest());
-            tests.add(new InterruptionOrderTest());
-            tests.add(new AmbientBitsTest());
-            tests.add(new LookupUriOrderTest());
-            tests.add(new EmailOrderTest());
-            tests.add(new PhoneOrderTest());
-            tests.add(new DeleteContactsTest());
+        if (getApplicationInfo().targetSdkVersion > Build.VERSION_CODES.O_MR1) {
+            // Tests targeting P and above:
+            tests.add(new PriorityInterceptsAlarmsTest());
+            tests.add(new PriorityInterceptsMediaSystemOtherTest());
         }
+
+        tests.add(new AllInterceptsNothingMessagesTest());
+        tests.add(new AllInterceptsNothingDiffCategoriesTest());
+        tests.add(new DefaultOrderTest());
+        tests.add(new PriorityOrderTest());
+        tests.add(new InterruptionOrderTest());
+        tests.add(new AmbientBitsTest());
+        tests.add(new LookupUriOrderTest());
+        tests.add(new EmailOrderTest());
+        tests.add(new PhoneOrderTest());
+        tests.add(new DeleteContactsTest());
         return tests;
     }
 

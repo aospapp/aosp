@@ -26,6 +26,8 @@ import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.support.test.uiautomator.UiObject2;
 
+import com.android.compatibility.common.util.FeatureUtil;
+
 import org.junit.After;
 import org.junit.Test;
 
@@ -51,8 +53,12 @@ public class SettingsIntentTest
 
     @After
     public void killSettings() {
-        // Make sure there's no Settings activity left , as it could fail future tests.
-        runShellCommand("am force-stop com.android.settings");
+        // Make sure there's no Settings activity left, as it could fail future tests.
+        if (FeatureUtil.isAutomotive()) {
+            runShellCommand("am force-stop com.android.car.settings");
+        } else {
+            runShellCommand("am force-stop com.android.settings");
+        }
     }
 
     @Test
@@ -65,6 +71,7 @@ public class SettingsIntentTest
         // Asserts services are shown.
         mUiBot.assertShownByText(InstrumentedAutoFillService.sServiceLabel);
         mUiBot.assertShownByText(InstrumentedAutoFillServiceCompatMode.sServiceLabel);
+        mUiBot.scrollToTextObject(NoOpAutofillService.SERVICE_LABEL);
         mUiBot.assertShownByText(NoOpAutofillService.SERVICE_LABEL);
         mUiBot.assertNotShowingForSure(BadAutofillService.SERVICE_LABEL);
 

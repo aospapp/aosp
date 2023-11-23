@@ -154,7 +154,7 @@ void* DlMallocSpace::CreateMspace(void* begin, size_t morecore_start, size_t ini
   // create mspace using our backing storage starting at begin and with a footprint of
   // morecore_start. Don't use an internal dlmalloc lock (as we already hold heap lock). When
   // morecore_start bytes of memory is exhaused morecore will be called.
-  void* msp = create_mspace_with_base(begin, morecore_start, false /*locked*/);
+  void* msp = create_mspace_with_base(begin, morecore_start, 0 /*locked*/);
   if (msp != nullptr) {
     // Do not allow morecore requests to succeed beyond the initial size of the heap
     mspace_set_footprint_limit(msp, initial_size);
@@ -337,8 +337,8 @@ uint64_t DlMallocSpace::GetObjectsAllocated() {
 void DlMallocSpace::Clear() {
   size_t footprint_limit = GetFootprintLimit();
   madvise(GetMemMap()->Begin(), GetMemMap()->Size(), MADV_DONTNEED);
-  live_bitmap_->Clear();
-  mark_bitmap_->Clear();
+  live_bitmap_.Clear();
+  mark_bitmap_.Clear();
   SetEnd(Begin() + starting_size_);
   mspace_ = CreateMspace(mem_map_.Begin(), starting_size_, initial_size_);
   SetFootprintLimit(footprint_limit);
@@ -384,8 +384,8 @@ void* ArtDlMallocMoreCore(void* mspace, intptr_t increment) REQUIRES_SHARED(Lock
   ::art::gc::space::DlMallocSpace* dlmalloc_space = heap->GetDlMallocSpace();
   // Support for multiple DlMalloc provided by a slow path.
   if (UNLIKELY(dlmalloc_space == nullptr || dlmalloc_space->GetMspace() != mspace)) {
-    if (LIKELY(runtime->GetJit() != nullptr)) {
-      jit::JitCodeCache* code_cache = runtime->GetJit()->GetCodeCache();
+    if (LIKELY(runtime->GetJitCodeCache() != nullptr)) {
+      jit::JitCodeCache* code_cache = runtime->GetJitCodeCache();
       if (code_cache->OwnsSpace(mspace)) {
         return code_cache->MoreCore(mspace, increment);
       }

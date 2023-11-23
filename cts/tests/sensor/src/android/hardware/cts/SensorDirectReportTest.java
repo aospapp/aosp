@@ -19,9 +19,7 @@ package android.hardware.cts;
 import android.content.Context;
 import android.hardware.HardwareBuffer;
 import android.hardware.Sensor;
-import android.hardware.SensorAdditionalInfo;
 import android.hardware.SensorDirectChannel;
-import android.hardware.SensorEventCallback;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
@@ -38,7 +36,6 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -211,8 +208,22 @@ public class SensorDirectReportTest extends SensorTestCase {
                 SensorDirectChannel.RATE_NORMAL);
     }
 
+    public void testAccelerometerAshmemNormalUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_ACCELEROMETER,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_NORMAL);
+    }
+
     public void testGyroscopeAshmemNormal() {
         runSensorDirectReportTest(
+                Sensor.TYPE_GYROSCOPE,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_NORMAL);
+    }
+
+    public void testGyroscopeAshmemNormalUidIdle() {
+        runSensorDirectReportUidIdleTest(
                 Sensor.TYPE_GYROSCOPE,
                 SensorDirectChannel.TYPE_MEMORY_FILE,
                 SensorDirectChannel.RATE_NORMAL);
@@ -225,16 +236,36 @@ public class SensorDirectReportTest extends SensorTestCase {
                 SensorDirectChannel.RATE_NORMAL);
     }
 
+    public void testMagneticFieldAshmemNormalUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_MAGNETIC_FIELD,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_NORMAL);
+    }
+
     public void testAccelerometerAshmemFast() {
         runSensorDirectReportTest(
                 Sensor.TYPE_ACCELEROMETER,
                 SensorDirectChannel.TYPE_MEMORY_FILE,
                 SensorDirectChannel.RATE_FAST);
+    }
 
+    public void testAccelerometerAshmemFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_ACCELEROMETER,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_FAST);
     }
 
     public void testGyroscopeAshmemFast() {
         runSensorDirectReportTest(
+                Sensor.TYPE_GYROSCOPE,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_FAST);
+    }
+
+    public void testGyroscopeAshmemFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
                 Sensor.TYPE_GYROSCOPE,
                 SensorDirectChannel.TYPE_MEMORY_FILE,
                 SensorDirectChannel.RATE_FAST);
@@ -247,16 +278,36 @@ public class SensorDirectReportTest extends SensorTestCase {
                 SensorDirectChannel.RATE_FAST);
     }
 
+    public void testMagneticFieldAshmemFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_MAGNETIC_FIELD,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_FAST);
+    }
+
     public void testAccelerometerAshmemVeryFast() {
         runSensorDirectReportTest(
                 Sensor.TYPE_ACCELEROMETER,
                 SensorDirectChannel.TYPE_MEMORY_FILE,
                 SensorDirectChannel.RATE_VERY_FAST);
+    }
 
+    public void testAccelerometerAshmemVeryFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_ACCELEROMETER,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_VERY_FAST);
     }
 
     public void testGyroscopeAshmemVeryFast() {
         runSensorDirectReportTest(
+                Sensor.TYPE_GYROSCOPE,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_VERY_FAST);
+    }
+
+    public void testGyroscopeAshmemVeryFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
                 Sensor.TYPE_GYROSCOPE,
                 SensorDirectChannel.TYPE_MEMORY_FILE,
                 SensorDirectChannel.RATE_VERY_FAST);
@@ -269,8 +320,22 @@ public class SensorDirectReportTest extends SensorTestCase {
                 SensorDirectChannel.RATE_VERY_FAST);
     }
 
+    public void testMagneticFieldAshmemVeryFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_MAGNETIC_FIELD,
+                SensorDirectChannel.TYPE_MEMORY_FILE,
+                SensorDirectChannel.RATE_VERY_FAST);
+    }
+
     public void testAccelerometerHardwareBufferNormal() {
         runSensorDirectReportTest(
+                Sensor.TYPE_ACCELEROMETER,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_NORMAL);
+    }
+
+    public void testAccelerometerHardwareBufferNormalUidIdle() {
+        runSensorDirectReportUidIdleTest(
                 Sensor.TYPE_ACCELEROMETER,
                 SensorDirectChannel.TYPE_HARDWARE_BUFFER,
                 SensorDirectChannel.RATE_NORMAL);
@@ -283,8 +348,22 @@ public class SensorDirectReportTest extends SensorTestCase {
                 SensorDirectChannel.RATE_NORMAL);
     }
 
+    public void testGyroscopeHardwareBufferNormalUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_GYROSCOPE,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_NORMAL);
+    }
+
     public void testMagneticFieldHardwareBufferNormal() {
         runSensorDirectReportTest(
+                Sensor.TYPE_MAGNETIC_FIELD,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_NORMAL);
+    }
+
+    public void testMagneticFieldHardwareBufferNormalUidIdle() {
+        runSensorDirectReportUidIdleTest(
                 Sensor.TYPE_MAGNETIC_FIELD,
                 SensorDirectChannel.TYPE_HARDWARE_BUFFER,
                 SensorDirectChannel.RATE_NORMAL);
@@ -297,8 +376,21 @@ public class SensorDirectReportTest extends SensorTestCase {
                 SensorDirectChannel.RATE_FAST);
     }
 
+    public void testAccelerometerHardwareBufferFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_ACCELEROMETER,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_FAST);
+    }
+
     public void testGyroscopeHardwareBufferFast() {
         runSensorDirectReportTest(
+                Sensor.TYPE_GYROSCOPE,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_FAST);
+    }
+    public void testGyroscopeHardwareBufferFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
                 Sensor.TYPE_GYROSCOPE,
                 SensorDirectChannel.TYPE_HARDWARE_BUFFER,
                 SensorDirectChannel.RATE_FAST);
@@ -311,8 +403,22 @@ public class SensorDirectReportTest extends SensorTestCase {
                 SensorDirectChannel.RATE_FAST);
     }
 
+    public void testMagneticFieldHardwareBufferFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_MAGNETIC_FIELD,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_FAST);
+    }
+
     public void testAccelerometerHardwareBufferVeryFast() {
         runSensorDirectReportTest(
+                Sensor.TYPE_ACCELEROMETER,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_VERY_FAST);
+    }
+
+    public void testAccelerometerHardwareBufferVeryFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
                 Sensor.TYPE_ACCELEROMETER,
                 SensorDirectChannel.TYPE_HARDWARE_BUFFER,
                 SensorDirectChannel.RATE_VERY_FAST);
@@ -325,8 +431,22 @@ public class SensorDirectReportTest extends SensorTestCase {
                 SensorDirectChannel.RATE_VERY_FAST);
     }
 
+    public void testGyroscopeHardwareBufferVeryFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
+                Sensor.TYPE_GYROSCOPE,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_VERY_FAST);
+    }
+
     public void testMagneticFieldHardwareBufferVeryFast() {
         runSensorDirectReportTest(
+                Sensor.TYPE_MAGNETIC_FIELD,
+                SensorDirectChannel.TYPE_HARDWARE_BUFFER,
+                SensorDirectChannel.RATE_VERY_FAST);
+    }
+
+    public void testMagneticFieldHardwareBufferVeryFastUidIdle() {
+        runSensorDirectReportUidIdleTest(
                 Sensor.TYPE_MAGNETIC_FIELD,
                 SensorDirectChannel.TYPE_HARDWARE_BUFFER,
                 SensorDirectChannel.RATE_VERY_FAST);
@@ -624,6 +744,57 @@ public class SensorDirectReportTest extends SensorTestCase {
 
             int token = mChannel.configure(s, rateLevel);
             assertTrue("configure direct mChannel failed", token > 0);
+
+            waitSensorCollection();
+
+            //stop sensor and analyze content
+            mChannel.configure(s, SensorDirectChannel.RATE_STOP);
+            checkSharedMemoryContent(s, memType, rateLevel, token);
+        } finally {
+            mChannel.close();
+            mChannel = null;
+        }
+    }
+
+    private void runSensorDirectReportUidIdleTest(int sensorType, int memType, int rateLevel) {
+        Sensor s = mSensorManager.getDefaultSensor(sensorType);
+        if (s == null
+                || s.getHighestDirectReportRateLevel() < rateLevel
+                || !s.isDirectChannelTypeSupported(memType)) {
+            return;
+        }
+        resetEvent();
+
+        mChannel = prepareDirectChannel(memType, false /* secondary */);
+        assertTrue("createDirectChannel failed", mChannel != null);
+
+        try {
+            assertTrue("Shared memory is not formatted", isSharedMemoryFormatted(memType));
+            waitBeforeStartSensor();
+
+            int token = mChannel.configure(s, rateLevel);
+            assertTrue("configure direct mChannel failed", token > 0);
+
+            // Make package idle and ensure no sensor events are received
+            try {
+                SensorCtsHelper.makeMyPackageIdle();
+            } catch (IOException e) {
+                fail("IOException while making package idle");
+            }
+
+            int originalEventSize = mBuffer.length;
+            waitSensorCollection();
+
+            assertEquals(mBuffer.length, originalEventSize);
+
+            try {
+                SensorCtsHelper.makeMyPackageActive();
+            } catch (IOException e) {
+                fail("IOException while making package active");
+            }
+
+            // Also verify sensor events can be received after becoming active.
+            resetEvent();
 
             waitSensorCollection();
 

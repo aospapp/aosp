@@ -15,6 +15,8 @@
  */
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.Helper.createInlinePresentation;
+import static android.autofillservice.cts.Helper.createPresentation;
 import static android.autofillservice.cts.Helper.getAutofillIds;
 
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -27,6 +29,7 @@ import android.service.autofill.Dataset;
 import android.service.autofill.FillCallback;
 import android.service.autofill.FillContext;
 import android.service.autofill.FillResponse;
+import android.service.autofill.InlinePresentation;
 import android.service.autofill.SaveInfo;
 import android.service.autofill.UserData;
 import android.util.Log;
@@ -72,9 +75,10 @@ public final class CannedFillResponse {
     private final String[] mRequiredSavableIds;
     private final String[] mOptionalSavableIds;
     private final AutofillId[] mRequiredSavableAutofillIds;
-    private final String mSaveDescription;
+    private final CharSequence mSaveDescription;
     private final Bundle mExtras;
     private final RemoteViews mPresentation;
+    private final InlinePresentation mInlinePresentation;
     private final RemoteViews mHeader;
     private final RemoteViews mFooter;
     private final IntentSender mAuthentication;
@@ -82,6 +86,7 @@ public final class CannedFillResponse {
     private final String[] mIgnoredIds;
     private final int mNegativeActionStyle;
     private final IntentSender mNegativeActionListener;
+    private final int mPositiveActionStyle;
     private final int mSaveInfoFlags;
     private final int mFillResponseFlags;
     private final AutofillId mSaveTriggerId;
@@ -92,6 +97,7 @@ public final class CannedFillResponse {
     private final UserData mUserData;
     private final DoubleVisitor<List<FillContext>, FillResponse.Builder> mVisitor;
     private DoubleVisitor<List<FillContext>, SaveInfo.Builder> mSaveInfoVisitor;
+    private final int[] mCancelIds;
 
     private CannedFillResponse(Builder builder) {
         mResponseType = builder.mResponseType;
@@ -104,6 +110,7 @@ public final class CannedFillResponse {
         mSaveType = builder.mSaveType;
         mExtras = builder.mExtras;
         mPresentation = builder.mPresentation;
+        mInlinePresentation = builder.mInlinePresentation;
         mHeader = builder.mHeader;
         mFooter = builder.mFooter;
         mAuthentication = builder.mAuthentication;
@@ -111,6 +118,7 @@ public final class CannedFillResponse {
         mIgnoredIds = builder.mIgnoredIds;
         mNegativeActionStyle = builder.mNegativeActionStyle;
         mNegativeActionListener = builder.mNegativeActionListener;
+        mPositiveActionStyle = builder.mPositiveActionStyle;
         mSaveInfoFlags = builder.mSaveInfoFlags;
         mFillResponseFlags = builder.mFillResponseFlags;
         mSaveTriggerId = builder.mSaveTriggerId;
@@ -121,6 +129,7 @@ public final class CannedFillResponse {
         mUserData = builder.mUserData;
         mVisitor = builder.mVisitor;
         mSaveInfoVisitor = builder.mSaveInfoVisitor;
+        mCancelIds = builder.mCancelIds;
     }
 
     /**
@@ -194,6 +203,9 @@ public final class CannedFillResponse {
             if (mNegativeActionListener != null) {
                 saveInfoBuilder.setNegativeAction(mNegativeActionStyle, mNegativeActionListener);
             }
+
+            saveInfoBuilder.setPositiveAction(mPositiveActionStyle);
+
             if (mSaveTriggerId != null) {
                 saveInfoBuilder.setTriggerId(mSaveTriggerId);
             }
@@ -220,7 +232,7 @@ public final class CannedFillResponse {
         }
         if (mAuthenticationIds != null) {
             builder.setAuthentication(getAutofillIds(nodeResolver, mAuthenticationIds),
-                    mAuthentication, mPresentation);
+                    mAuthentication, mPresentation, mInlinePresentation);
         }
         if (mDisableDuration > 0) {
             builder.disableAutofill(mDisableDuration);
@@ -252,6 +264,7 @@ public final class CannedFillResponse {
             Log.d(TAG, "Visiting " + builder);
             mVisitor.visit(contexts, builder);
         }
+        builder.setPresentationCancelIds(mCancelIds);
 
         final FillResponse response = builder.build();
         Log.v(TAG, "Response: " + response);
@@ -270,6 +283,7 @@ public final class CannedFillResponse {
                 + ", failureMessage=" + mFailureMessage
                 + ", saveDescription=" + mSaveDescription
                 + ", hasPresentation=" + (mPresentation != null)
+                + ", hasInlinePresentation=" + (mInlinePresentation != null)
                 + ", hasHeader=" + (mHeader != null)
                 + ", hasFooter=" + (mFooter != null)
                 + ", hasAuthentication=" + (mAuthentication != null)
@@ -291,7 +305,8 @@ public final class CannedFillResponse {
         NULL,
         NO_MORE,
         TIMEOUT,
-        FAILURE
+        FAILURE,
+        DELAY
     }
 
     public static final class Builder {
@@ -301,10 +316,11 @@ public final class CannedFillResponse {
         private String[] mRequiredSavableIds;
         private String[] mOptionalSavableIds;
         private AutofillId[] mRequiredSavableAutofillIds;
-        private String mSaveDescription;
+        private CharSequence mSaveDescription;
         public int mSaveType = -1;
         private Bundle mExtras;
         private RemoteViews mPresentation;
+        private InlinePresentation mInlinePresentation;
         private RemoteViews mFooter;
         private RemoteViews mHeader;
         private IntentSender mAuthentication;
@@ -312,6 +328,7 @@ public final class CannedFillResponse {
         private String[] mIgnoredIds;
         private int mNegativeActionStyle;
         private IntentSender mNegativeActionListener;
+        private int mPositiveActionStyle;
         private int mSaveInfoFlags;
         private int mFillResponseFlags;
         private AutofillId mSaveTriggerId;
@@ -322,6 +339,7 @@ public final class CannedFillResponse {
         private UserData mUserData;
         private DoubleVisitor<List<FillContext>, FillResponse.Builder> mVisitor;
         private DoubleVisitor<List<FillContext>, SaveInfo.Builder> mSaveInfoVisitor;
+        private int[] mCancelIds;
 
         public Builder(ResponseType type) {
             mResponseType = type;
@@ -367,7 +385,7 @@ public final class CannedFillResponse {
         /**
          * Sets the description passed to the {@link SaveInfo}.
          */
-        public Builder setSaveDescription(String description) {
+        public Builder setSaveDescription(CharSequence description) {
             mSaveDescription = description;
             return this;
         }
@@ -386,6 +404,25 @@ public final class CannedFillResponse {
          */
         public Builder setPresentation(RemoteViews presentation) {
             mPresentation = presentation;
+            return this;
+        }
+
+        /**
+         * Sets the view to present the response in the UI.
+         */
+        public Builder setInlinePresentation(InlinePresentation inlinePresentation) {
+            mInlinePresentation = inlinePresentation;
+            return this;
+        }
+
+        /**
+         * Sets views to present the response in the UI by the type.
+         */
+        public Builder setPresentation(String message, boolean inlineMode) {
+            mPresentation = createPresentation(message);
+            if (inlineMode) {
+                mInlinePresentation = createInlinePresentation(message);
+            }
             return this;
         }
 
@@ -412,6 +449,14 @@ public final class CannedFillResponse {
         public Builder setNegativeAction(int style, IntentSender listener) {
             mNegativeActionStyle = style;
             mNegativeActionListener = listener;
+            return this;
+        }
+
+        /**
+         * Sets the positive action spec.
+         */
+        public Builder setPositiveAction(int style) {
+            mPositiveActionStyle = style;
             return this;
         }
 
@@ -512,6 +557,14 @@ public final class CannedFillResponse {
             mSaveInfoVisitor = visitor;
             return this;
         }
+
+        /**
+         * Sets targets that cancel current session
+         */
+        public Builder setPresentationCancelIds(int[] ids) {
+            mCancelIds = ids;
+            return this;
+        }
     }
 
     /**
@@ -532,16 +585,20 @@ public final class CannedFillResponse {
     public static class CannedDataset {
         private final Map<String, AutofillValue> mFieldValues;
         private final Map<String, RemoteViews> mFieldPresentations;
+        private final Map<String, InlinePresentation> mFieldInlinePresentations;
         private final Map<String, Pair<Boolean, Pattern>> mFieldFilters;
         private final RemoteViews mPresentation;
+        private final InlinePresentation mInlinePresentation;
         private final IntentSender mAuthentication;
         private final String mId;
 
         private CannedDataset(Builder builder) {
             mFieldValues = builder.mFieldValues;
             mFieldPresentations = builder.mFieldPresentations;
+            mFieldInlinePresentations = builder.mFieldInlinePresentations;
             mFieldFilters = builder.mFieldFilters;
             mPresentation = builder.mPresentation;
+            mInlinePresentation = builder.mInlinePresentation;
             mAuthentication = builder.mAuthentication;
             mId = builder.mId;
         }
@@ -550,9 +607,13 @@ public final class CannedFillResponse {
          * Creates a new dataset, replacing the field ids by the real ids from the assist structure.
          */
         Dataset asDataset(Function<String, ViewNode> nodeResolver) {
-            final Dataset.Builder builder = (mPresentation == null)
-                    ? new Dataset.Builder()
-                    : new Dataset.Builder(mPresentation);
+            final Dataset.Builder builder = mPresentation != null
+                    ? mInlinePresentation == null
+                    ? new Dataset.Builder(mPresentation)
+                    : new Dataset.Builder(mPresentation).setInlinePresentation(mInlinePresentation)
+                    : mInlinePresentation == null
+                            ? new Dataset.Builder()
+                            : new Dataset.Builder(mInlinePresentation);
 
             if (mFieldValues != null) {
                 for (Map.Entry<String, AutofillValue> entry : mFieldValues.entrySet()) {
@@ -564,18 +625,34 @@ public final class CannedFillResponse {
                     final AutofillId autofillId = node.getAutofillId();
                     final AutofillValue value = entry.getValue();
                     final RemoteViews presentation = mFieldPresentations.get(id);
+                    final InlinePresentation inlinePresentation = mFieldInlinePresentations.get(id);
                     final Pair<Boolean, Pattern> filter = mFieldFilters.get(id);
                     if (presentation != null) {
                         if (filter == null) {
-                            builder.setValue(autofillId, value, presentation);
+                            if (inlinePresentation != null) {
+                                builder.setValue(autofillId, value, presentation,
+                                        inlinePresentation);
+                            } else {
+                                builder.setValue(autofillId, value, presentation);
+                            }
                         } else {
-                            builder.setValue(autofillId, value, filter.second, presentation);
+                            if (inlinePresentation != null) {
+                                builder.setValue(autofillId, value, filter.second, presentation,
+                                        inlinePresentation);
+                            } else {
+                                builder.setValue(autofillId, value, filter.second, presentation);
+                            }
                         }
                     } else {
-                        if (filter == null) {
-                            builder.setValue(autofillId, value);
+                        if (inlinePresentation != null) {
+                            builder.setFieldInlinePresentation(autofillId, value,
+                                    filter != null ? filter.second : null, inlinePresentation);
                         } else {
-                            builder.setValue(autofillId, value, filter.second);
+                            if (filter == null) {
+                                builder.setValue(autofillId, value);
+                            } else {
+                                builder.setValue(autofillId, value, filter.second);
+                            }
                         }
                     }
                 }
@@ -587,7 +664,9 @@ public final class CannedFillResponse {
         @Override
         public String toString() {
             return "CannedDataset " + mId + " : [hasPresentation=" + (mPresentation != null)
+                    + ", hasInlinePresentation=" + (mInlinePresentation != null)
                     + ", fieldPresentations=" + (mFieldPresentations)
+                    + ", fieldInlinePresentations=" + (mFieldInlinePresentations)
                     + ", hasAuthentication=" + (mAuthentication != null)
                     + ", fieldValues=" + mFieldValues
                     + ", fieldFilters=" + mFieldFilters + "]";
@@ -596,9 +675,12 @@ public final class CannedFillResponse {
         public static class Builder {
             private final Map<String, AutofillValue> mFieldValues = new HashMap<>();
             private final Map<String, RemoteViews> mFieldPresentations = new HashMap<>();
+            private final Map<String, InlinePresentation> mFieldInlinePresentations =
+                    new HashMap<>();
             private final Map<String, Pair<Boolean, Pattern>> mFieldFilters = new HashMap<>();
 
             private RemoteViews mPresentation;
+            private InlinePresentation mInlinePresentation;
             private IntentSender mAuthentication;
             private String mId;
 
@@ -723,10 +805,55 @@ public final class CannedFillResponse {
             }
 
             /**
+             * Sets the canned value of a field based on its {@code id}.
+             *
+             * <p>The meaning of the id is defined by the object using the canned dataset.
+             * For example, {@link InstrumentedAutoFillService.Replier} resolves the id based on
+             * {@link IdMode}.
+             */
+            public Builder setField(String id, String text, RemoteViews presentation,
+                    InlinePresentation inlinePresentation) {
+                setField(id, text);
+                mFieldPresentations.put(id, presentation);
+                mFieldInlinePresentations.put(id, inlinePresentation);
+                return this;
+            }
+
+            /**
+             * Sets the canned value of a field based on its {@code id}.
+             *
+             * <p>The meaning of the id is defined by the object using the canned dataset.
+             * For example, {@link InstrumentedAutoFillService.Replier} resolves the id based on
+             * {@link IdMode}.
+             */
+            public Builder setField(String id, String text, RemoteViews presentation,
+                    InlinePresentation inlinePresentation, Pattern filter) {
+                setField(id, text, presentation, inlinePresentation);
+                mFieldFilters.put(id, new Pair<>(true, filter));
+                return this;
+            }
+
+            /**
              * Sets the view to present the response in the UI.
              */
             public Builder setPresentation(RemoteViews presentation) {
                 mPresentation = presentation;
+                return this;
+            }
+
+            /**
+             * Sets the view to present the response in the UI.
+             */
+            public Builder setInlinePresentation(InlinePresentation inlinePresentation) {
+                mInlinePresentation = inlinePresentation;
+                return this;
+            }
+
+            public Builder setPresentation(String message, boolean inlineMode) {
+                mPresentation = createPresentation(message);
+                if (inlineMode) {
+                    mInlinePresentation = createInlinePresentation(message);
+                }
                 return this;
             }
 
@@ -746,6 +873,9 @@ public final class CannedFillResponse {
                 return this;
             }
 
+            /**
+             * Builds the canned dataset.
+             */
             public CannedDataset build() {
                 return new CannedDataset(this);
             }

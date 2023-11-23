@@ -421,7 +421,7 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
                 if (mCollectTestsOnly != null) {
                     module.setCollectTestsOnly(mCollectTestsOnly);
                 }
-                isPrepared &= (module.prepare(mSkipPreconditions, mPreconditionArgs));
+                isPrepared &= module.prepare(mSkipPreconditions, mPreconditionArgs);
             }
             if (!isPrepared) {
                 throw new RuntimeException(String.format("Failed preconditions on %s",

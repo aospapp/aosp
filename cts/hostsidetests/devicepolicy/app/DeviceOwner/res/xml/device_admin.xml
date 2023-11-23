@@ -7,5 +7,6 @@
         <watch-login />
         <disable-keyguard-features />
         <force-lock />
+        <disable-camera />
     </uses-policies>
 </device-admin>

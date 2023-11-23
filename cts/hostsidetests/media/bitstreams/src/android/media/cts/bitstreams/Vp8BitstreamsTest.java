@@ -15,6 +15,9 @@
  */
 package android.media.cts.bitstreams;
 
+import android.cts.host.utils.DeviceJUnit4ClassRunnerWithParameters;
+import android.cts.host.utils.DeviceJUnit4Parameterized;
+
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized.Parameters;
 import org.junit.runners.Parameterized.UseParametersRunnerFactory;

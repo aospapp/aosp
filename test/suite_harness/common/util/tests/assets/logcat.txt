@@ -272,3 +272,65 @@
 11-25 19:47:35.597   940   940 F DEBUG   :     #25 pc 0001a085  /system/lib/libc.so (__start_thread+6)
 11-25 19:47:35.837   940   940 F DEBUG   :
 11-25 19:47:35.837   940   940 F DEBUG   : Tombstone written to: /data/tombstones/tombstone_01
+--------- beginning of crash
+09-03 17:48:05.627 11071 11189 F libc    : Fatal signal 11 (SIGSEGV), code 1, fault addr 0xe9380000 in tid 11189 (synthetic_thread)
+09-03 17:48:05.707   359   359 W         : debuggerd: handling request: pid=11071 uid=1041 gid=1005 tid=11189
+09-03 17:48:05.796  7072  7072 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+09-03 17:48:05.796  7072  7072 F DEBUG   : Build fingerprint: 'google/angler/angler:7.1.1/N4F26T/3687331:userdebug/dev-keys'
+09-03 17:48:05.796  7072  7072 F DEBUG   : Revision: '0'
+09-03 17:48:05.796  7072  7072 F DEBUG   : ABI: 'arm'
+09-03 17:48:05.796  7072  7072 F DEBUG   : pid: 11071, tid: 11189, name: synthetic_thread  >>> synthetic_process_0 <<<
+09-03 17:48:05.797  7072  7072 F DEBUG   : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0xe9380000
+09-03 17:48:05.797  7072  7072 F DEBUG   :     r0 e9e7a240  r1 e9380000  r2 00000170  r3 00000000
+09-03 17:48:05.797  7072  7072 F DEBUG   :     r4 00000002  r5 00000000  r6 ec1e1f25  r7 eb6f8000
+09-03 17:48:05.797  7072  7072 F DEBUG   :     r8 00000000  r9 eb105204  sl 00000000  fp 000003c0
+09-03 17:48:05.797  7072  7072 F DEBUG   :     ip ebd3df18  sp eaf80688  lr ec1e1f41  pc ebd38dd6  cpsr 20000030
+09-03 17:48:05.805  7072  7072 F DEBUG   :
+09-03 17:48:05.805  7072  7072 F DEBUG   : backtrace:
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #00 pc 00002dd6  /system/lib/libaudioutils.so (memcpy_to_float_from_i16+5)
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #01 pc 00040f3d  /system/lib/libaudioflinger.so
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #02 pc 00040799  /system/lib/libaudioflinger.so
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #03 pc 00011178  /system/lib/libaudioflinger.so
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #04 pc 0003180b  /system/lib/libaudioflinger.so
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #05 pc 0002fe57  /system/lib/libaudioflinger.so
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #06 pc 0000e345  /system/lib/libutils.so (_ZN7android6Thread11_threadLoopEPv+140)
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #07 pc 000470b3  /system/lib/libc.so (_ZL15__pthread_startPv+22)
+09-03 17:48:05.806  7072  7072 F DEBUG   :     #08 pc 00019e3d  /system/lib/libc.so (__start_thread+6)
+09-03 17:48:05.967 11272 11568 W NativeCrashListener: Couldn't find ProcessRecord for pid 11071
+09-03 17:48:05.969   359   359 W         : debuggerd: resuming target 11071
+09-03 17:48:05.981 11272 11307 I BootReceiver: Copying /data/tombstones/tombstone_01 to DropBox (SYSTEM_TOMBSTONE)
+09-03 17:48:06.067   394   394 I ServiceManager: service 'media.sound_trigger_hw' died
+06-15 19:57:33.607 12736 12761 D PermissionCache: checking android.permission.MODIFY_AUDIO_SETTINGS for uid=10197 => granted (698 us)
+--------- beginning of crash
+06-15 19:57:33.607 12736 12761 F libc    : Fatal signal 11 (SIGSEGV), code 1, fault addr 0x0 in tid 12761 (synthetic_thread)
+06-15 19:57:33.608   379   379 W         : debuggerd: handling request: pid=12736 uid=1041 gid=1005 tid=12761
+06-15 19:57:33.670 26192 26192 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+06-15 19:57:33.670 26192 26192 F DEBUG   : Build fingerprint: 'google/bullhead/bullhead:7.1.2/N2G48C/4104010:userdebug/dev-keys'
+06-15 19:57:33.670 26192 26192 F DEBUG   : Revision: 'rev_1.0'
+06-15 19:57:33.670 26192 26192 F DEBUG   : ABI: 'arm'
+06-15 19:57:33.670 26192 26192 F DEBUG   : pid: 12736, tid: 12761, name: synthetic_thread  >>> synthetic_process_1 <<<
+06-15 19:57:33.670 26192 26192 F DEBUG   : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0
+06-15 19:57:33.670 26192 26192 F DEBUG   :     r0 00000000  r1 00000000  r2 0000005f  r3 00000000
+06-15 19:57:33.670 26192 26192 F DEBUG   :     r4 ffffffff  r5 00000000  r6 f14f9000  r7 00000001
+06-15 19:57:33.670 26192 26192 F DEBUG   :     r8 00000004  r9 f3353114  sl f3313900  fp 00000000
+06-15 19:57:33.670 26192 26192 F DEBUG   :     ip f3bd4d88  sp f127d9c8  lr f3b9cbc5  pc f3b65af4  cpsr 60000030
+06-15 19:57:33.676 26192 26192 F DEBUG   :
+06-15 19:57:33.676 26192 26192 F DEBUG   : backtrace:
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #00 pc 00018af4  /system/lib/libc.so (strlen+71)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #01 pc 0004fbc1  /system/lib/libc.so (__strlen_chk+4)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #02 pc 0000c599  /system/lib/libutils.so (_ZN7android7String8C2EPKc+12)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #03 pc 0002fdbf  /system/lib/libaudiopolicymanagerdefault.so (_ZNK7android18HwModuleCollection19getDeviceDescriptorEjPKcS2_b+458)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #04 pc 0001de47  /system/lib/libaudiopolicymanagerdefault.so (_ZN7android18AudioPolicyManager27setDeviceConnectionStateIntEj24audio_policy_dev_state_tPKcS3_+178)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #05 pc 0000a009  /system/lib/libaudiopolicyservice.so
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #06 pc 000a01a5  /system/lib/libmedia.so (_ZN7android20BnAudioPolicyService10onTransactEjRKNS_6ParcelEPS1_j+1256)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #07 pc 000359c3  /system/lib/libbinder.so (_ZN7android7BBinder8transactEjRKNS_6ParcelEPS1_j+70)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #08 pc 0003d1bb  /system/lib/libbinder.so (_ZN7android14IPCThreadState14executeCommandEi+702)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #09 pc 0003ce07  /system/lib/libbinder.so (_ZN7android14IPCThreadState20getAndExecuteCommandEv+114)
+06-15 19:57:33.677 26192 26192 F DEBUG   :     #10 pc 0003d31b  /system/lib/libbinder.so (_ZN7android14IPCThreadState14joinThreadPoolEb+46)
+06-15 19:57:33.678 26192 26192 F DEBUG   :     #11 pc 0004f8c5  /system/lib/libbinder.so
+06-15 19:57:33.678 26192 26192 F DEBUG   :     #12 pc 0000e345  /system/lib/libutils.so (_ZN7android6Thread11_threadLoopEPv+140)
+06-15 19:57:33.678 26192 26192 F DEBUG   :     #13 pc 000470b3  /system/lib/libc.so (_ZL15__pthread_startPv+22)
+06-15 19:57:33.678 26192 26192 F DEBUG   :     #14 pc 00019e3d  /system/lib/libc.so (__start_thread+6)
+06-15 19:57:33.839   934  2991 W NativeCrashListener: Couldn't find ProcessRecord for pid 12736
+06-15 19:57:33.846   934   952 I BootReceiver: Copying /data/tombstones/tombstone_01 to DropBox (SYSTEM_TOMBSTONE)
+

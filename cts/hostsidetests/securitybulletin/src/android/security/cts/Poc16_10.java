@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,21 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc16_10 extends SecurityTestCase {
 
     /**
      *  b/30204103
      */
+    @Test
     @SecurityTest(minPatchLevel = "2016-10")
     public void testPocCVE_2016_3913() throws Exception {
-        AdbUtils.runCommandLine("logcat -c",getDevice());
-        AdbUtils.runPoc("CVE-2016-3913", getDevice(), 60);
-        String logcat = AdbUtils.runCommandLine("logcat -d", getDevice());
-        assertNotMatchesMultiLine("Fatal signal 11.*?/system/bin/mediaserver",logcat);
+        AdbUtils.runPocAssertNoCrashes("CVE-2016-3913", getDevice(), "mediaserver");
     }
 }

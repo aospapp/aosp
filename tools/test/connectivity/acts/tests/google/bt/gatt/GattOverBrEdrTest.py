@@ -47,13 +47,11 @@ class GattOverBrEdrTest(BluetoothBaseTest):
     default_discovery_timeout = 3
     per_droid_mac_address = None
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super(BluetoothBaseTest, self).setup_class()
         self.cen_ad = self.android_devices[0]
         self.per_ad = self.android_devices[1]
 
-    def setup_class(self):
-        super(BluetoothBaseTest, self).setup_class()
         self.per_droid_mac_address = self.per_ad.droid.bluetoothGetLocalAddress(
         )
         if not self.per_droid_mac_address:

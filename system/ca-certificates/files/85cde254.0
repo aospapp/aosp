@@ -25,7 +25,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 0 (0x0)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, ST=Arizona, L=Scottsdale, O=Starfield Technologies, Inc., CN=Starfield Root Certificate Authority - G2
         Validity
             Not Before: Sep  1 00:00:00 2009 GMT
@@ -33,7 +33,7 @@ Certificate:
         Subject: C=US, ST=Arizona, L=Scottsdale, O=Starfield Technologies, Inc., CN=Starfield Root Certificate Authority - G2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:bd:ed:c1:03:fc:f6:8f:fc:02:b1:6f:5b:9f:48:
                     d9:9d:79:e2:a2:b7:03:61:56:18:c3:47:b6:d7:ca:

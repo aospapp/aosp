@@ -19,13 +19,17 @@
 #endif
 
 #include "globals.def"
+#include "art_field.def"
 #include "art_method.def"
+#include "code_item.def"
 #include "lockword.def"
 #include "mirror_array.def"
 #include "mirror_class.def"
 #include "mirror_dex_cache.def"
 #include "mirror_object.def"
 #include "mirror_string.def"
+#include "osr.def"
+#include "profiling_info.def"
 #include "rosalloc.def"
 #include "runtime.def"
 #include "shadow_frame.def"

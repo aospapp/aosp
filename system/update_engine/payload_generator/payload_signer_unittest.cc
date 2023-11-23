@@ -46,6 +46,8 @@ const char* kUnittestPrivateKey2Path = "unittest_key2.pem";
 const char* kUnittestPublicKey2Path = "unittest_key2.pub.pem";
 const char* kUnittestPrivateKeyRSA4096Path = "unittest_key_RSA4096.pem";
 const char* kUnittestPublicKeyRSA4096Path = "unittest_key_RSA4096.pub.pem";
+const char* kUnittestPrivateKeyECPath = "unittest_key_EC.pem";
+const char* kUnittestPublicKeyECPath = "unittest_key_EC.pub.pem";
 
 // Some data and its corresponding hash and signature:
 const char kDataToSign[] = "This is some data to sign.";
@@ -115,7 +117,6 @@ TEST_F(PayloadSignerTest, SignSimpleTextTest) {
   EXPECT_TRUE(signatures.ParseFromString(signature));
   EXPECT_EQ(1, signatures.signatures_size());
   const Signatures::Signature& sig = signatures.signatures(0);
-  EXPECT_EQ(1U, sig.version());
   const string& sig_data = sig.data();
   ASSERT_EQ(arraysize(kDataSignature), sig_data.size());
   for (size_t i = 0; i < arraysize(kDataSignature); i++) {
@@ -128,22 +129,20 @@ TEST_F(PayloadSignerTest, VerifyAllSignatureTest) {
   SignSampleData(&signature,
                  {GetBuildArtifactsPath(kUnittestPrivateKeyPath),
                   GetBuildArtifactsPath(kUnittestPrivateKey2Path),
-                  GetBuildArtifactsPath(kUnittestPrivateKeyRSA4096Path)});
+                  GetBuildArtifactsPath(kUnittestPrivateKeyRSA4096Path),
+                  GetBuildArtifactsPath(kUnittestPrivateKeyECPath)});
 
   // Either public key should pass the verification.
-  string public_key;
-  EXPECT_TRUE(utils::ReadFile(GetBuildArtifactsPath(kUnittestPublicKeyPath),
-                              &public_key));
-  EXPECT_TRUE(
-      PayloadVerifier::VerifySignature(signature, public_key, hash_data_));
-  EXPECT_TRUE(utils::ReadFile(GetBuildArtifactsPath(kUnittestPublicKey2Path),
-                              &public_key));
-  EXPECT_TRUE(
-      PayloadVerifier::VerifySignature(signature, public_key, hash_data_));
-  EXPECT_TRUE(utils::ReadFile(
-      GetBuildArtifactsPath(kUnittestPublicKeyRSA4096Path), &public_key));
-  EXPECT_TRUE(
-      PayloadVerifier::VerifySignature(signature, public_key, hash_data_));
+  for (const auto& path : {kUnittestPublicKeyPath,
+                           kUnittestPublicKey2Path,
+                           kUnittestPublicKeyRSA4096Path,
+                           kUnittestPublicKeyECPath}) {
+    string public_key;
+    EXPECT_TRUE(utils::ReadFile(GetBuildArtifactsPath(path), &public_key));
+    auto payload_verifier = PayloadVerifier::CreateInstance(public_key);
+    EXPECT_TRUE(payload_verifier != nullptr);
+    EXPECT_TRUE(payload_verifier->VerifySignature(signature, hash_data_));
+  }
 }
 
 TEST_F(PayloadSignerTest, VerifySignatureTest) {
@@ -153,13 +152,17 @@ TEST_F(PayloadSignerTest, VerifySignatureTest) {
   string public_key;
   EXPECT_TRUE(utils::ReadFile(GetBuildArtifactsPath(kUnittestPublicKeyPath),
                               &public_key));
-  EXPECT_TRUE(
-      PayloadVerifier::VerifySignature(signature, public_key, hash_data_));
+  auto payload_verifier = PayloadVerifier::CreateInstance(public_key);
+  EXPECT_TRUE(payload_verifier != nullptr);
+  EXPECT_TRUE(payload_verifier->VerifySignature(signature, hash_data_));
+
   // Passing the invalid key should fail the verification.
+  public_key.clear();
   EXPECT_TRUE(utils::ReadFile(GetBuildArtifactsPath(kUnittestPublicKey2Path),
                               &public_key));
-  EXPECT_TRUE(
-      PayloadVerifier::VerifySignature(signature, public_key, hash_data_));
+  payload_verifier = PayloadVerifier::CreateInstance(public_key);
+  EXPECT_TRUE(payload_verifier != nullptr);
+  EXPECT_FALSE(payload_verifier->VerifySignature(signature, hash_data_));
 }
 
 TEST_F(PayloadSignerTest, SkipMetadataSignatureTest) {
@@ -171,7 +174,7 @@ TEST_F(PayloadSignerTest, SkipMetadataSignatureTest) {
   uint64_t metadata_size;
   EXPECT_TRUE(payload.WritePayload(
       payload_file.path(), "/dev/null", "", &metadata_size));
-  const vector<int> sizes = {256};
+  const vector<size_t> sizes = {256};
   brillo::Blob unsigned_payload_hash, unsigned_metadata_hash;
   EXPECT_TRUE(PayloadSigner::HashPayloadForSigning(payload_file.path(),
                                                    sizes,

@@ -38,6 +38,7 @@ import android.media.cts.CodecUtils;
 import android.media.cts.R;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
@@ -67,6 +68,7 @@ import java.util.concurrent.TimeUnit;
  * test. For decoder test, hw and sw decoders are tested,
  * </p>
  */
+@Presubmit
 @SmallTest
 @RequiresDevice
 public class ImageReaderDecoderTest extends AndroidTestCase {

@@ -29,7 +29,7 @@ package sun.security.x509;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class AttributeNameEnumeration extends java.util.Vector<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public AttributeNameEnumeration() {
         throw new RuntimeException("Stub!");
     }

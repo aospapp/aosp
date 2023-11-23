@@ -26,6 +26,7 @@ import java.io.File;
 public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
 
     private static final long serialVersionUID = BuildSerializedVersion.VERSION;
+    private String mDeviceBuildFlavor = null;
 
     public DeviceBuildInfo() {
         super();
@@ -58,7 +59,13 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getDeviceBuildFlavor() {
-        return getBuildFlavor();
+        return mDeviceBuildFlavor == null ? getBuildFlavor() : mDeviceBuildFlavor;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setDeviceBuildFlavor(String deviceBuildFlavor) {
+        mDeviceBuildFlavor = deviceBuildFlavor;
     }
 
     /**
@@ -131,18 +138,6 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
     @Override
     public void setTestsDir(File testsDir, String version) {
         setFile(BuildInfoFileKey.TESTDIR_IMAGE, testsDir, version);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public File getResourcesDir() {
-        return getFile(BuildInfoFileKey.SHARED_RESOURCE_DIR);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setResourcesDir(File resourceDir, String version) {
-        setFile(BuildInfoFileKey.SHARED_RESOURCE_DIR, resourceDir, version);
     }
 
     /**

@@ -37,7 +37,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:exported="true" android:name="com.android.nn.benchmark.util.DumpAllTensors">
+        <activity android:exported="true" android:name="com.android.nn.benchmark.util.DumpIntermediateTensors">
         </activity>
         <activity android:exported="true" android:name="com.android.nn.benchmark.util.TestExternalStorageActivity">
         </activity>

@@ -21,6 +21,6 @@ namespace chre {
 
 class PowerControlManagerBase {};
 
-} // namespace chre
+}  // namespace chre
 
-#endif // CHRE_PLATFORM_POWER_CONTROL_MANAGER_BASE_H
+#endif  // CHRE_PLATFORM_POWER_CONTROL_MANAGER_BASE_H

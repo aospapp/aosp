@@ -24,6 +24,7 @@ android_test {
     static_libs: [
         "compatibility-device-util-axt",
         "ctsdeviceutillegacy-axt",
+        "cts-wm-util",
         "mockito-target-minus-junit4",
         "androidx.test.rules",
         "kotlin-test",
@@ -33,7 +34,7 @@ android_test {
 
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }

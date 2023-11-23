@@ -37,6 +37,7 @@ import static org.junit.Assert.assertTrue;
  *
  * To run:
  * Have a valid perfetto config under /data/misc/perfetto-traces/valid_config.pb
+ * Have a valid text perfetto config under /data/misc/perfetto-traces/valid_text_config.textproto
  * TODO: b/119020380 to keep track of automating the above step.
  * atest CollectorsHelperTest:com.android.helpers.tests.PerfettoHelperTest
  */
@@ -64,7 +65,7 @@ public class PerfettoHelperTest {
      */
     @Test
     public void testNullConfigName() throws Exception {
-        assertFalse(perfettoHelper.startCollecting(null));
+        assertFalse(perfettoHelper.startCollecting(null, false));
     }
 
     /**
@@ -72,7 +73,7 @@ public class PerfettoHelperTest {
      */
     @Test
     public void testEmptyConfigName() throws Exception {
-        assertFalse(perfettoHelper.startCollecting(""));
+        assertFalse(perfettoHelper.startCollecting("", false));
     }
 
     /**
@@ -80,7 +81,7 @@ public class PerfettoHelperTest {
      */
     @Test
     public void testNoConfigFile() throws Exception {
-        assertFalse(perfettoHelper.startCollecting("no_config.pb"));
+        assertFalse(perfettoHelper.startCollecting("no_config.pb", false));
     }
 
     /**
@@ -88,7 +89,7 @@ public class PerfettoHelperTest {
      */
     @Test
     public void testPerfettoStartSuccess() throws Exception {
-        assertTrue(perfettoHelper.startCollecting("valid_config.pb"));
+        assertTrue(perfettoHelper.startCollecting("valid_config.pb", false));
     }
 
     /**
@@ -96,7 +97,7 @@ public class PerfettoHelperTest {
      */
     @Test
     public void testPerfettoValidOutputPath() throws Exception {
-        assertTrue(perfettoHelper.startCollecting("valid_config.pb"));
+        assertTrue(perfettoHelper.startCollecting("valid_config.pb", false));
         assertTrue(perfettoHelper.stopCollecting(1000, "data/local/tmp/out.pb"));
     }
 
@@ -105,7 +106,7 @@ public class PerfettoHelperTest {
      */
     @Test
     public void testPerfettoInvalidOutputPath() throws Exception {
-        assertTrue(perfettoHelper.startCollecting("valid_config.pb"));
+        assertTrue(perfettoHelper.startCollecting("valid_config.pb", false));
         // Don't have permission to create new folder under /data
         assertFalse(perfettoHelper.stopCollecting(1000, "/data/dummy/xyz/out.pb"));
     }
@@ -116,7 +117,7 @@ public class PerfettoHelperTest {
      */
     @Test
     public void testPerfettoSuccess() throws Exception {
-        assertTrue(perfettoHelper.startCollecting("valid_config.pb"));
+        assertTrue(perfettoHelper.startCollecting("valid_config.pb", false));
         assertTrue(perfettoHelper.stopCollecting(1000, "/data/local/tmp/out.pb"));
         UiDevice uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         String[] fileStats = uiDevice.executeShellCommand(String.format(
@@ -125,4 +126,18 @@ public class PerfettoHelperTest {
         assertTrue(fileSize > 0);
     }
 
+    /**
+     * Test perfetto collection returns true and output file size greater than zero
+     * if the valid perfetto config file used.
+     */
+    @Test
+    public void testTextProtoConfigSuccess() throws Exception {
+        assertTrue(perfettoHelper.startCollecting("valid_text_config.textproto", true));
+        assertTrue(perfettoHelper.stopCollecting(1000, "/data/local/tmp/out.pb"));
+        UiDevice uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        String[] fileStats = uiDevice.executeShellCommand(String.format(
+                FILE_SIZE_IN_BYTES, "/data/local/tmp/out.pb")).split(" ");
+        int fileSize = Integer.parseInt(fileStats[0].trim());
+        assertTrue(fileSize > 0);
+    }
 }

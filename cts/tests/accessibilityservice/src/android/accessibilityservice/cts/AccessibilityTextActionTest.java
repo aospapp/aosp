@@ -16,6 +16,7 @@ package android.accessibilityservice.cts;
 
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityAndWaitForItToBeOnscreen;
 import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
+import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_RENDERING_INFO_KEY;
 import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH;
 import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX;
 import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
@@ -29,11 +30,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
-import android.accessibilityservice.cts.R;
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibilityservice.cts.activities.AccessibilityTextTraversalActivity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
+import android.graphics.Bitmap;
 import android.graphics.RectF;
 import android.os.Bundle;
 import android.os.Message;
@@ -42,12 +45,19 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
+import android.text.style.ImageSpan;
+import android.text.style.ReplacementSpan;
 import android.text.style.URLSpan;
+import android.util.DisplayMetrics;
+import android.util.Size;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeProvider;
 import android.view.accessibility.AccessibilityRequestPreparer;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -60,6 +70,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
@@ -76,13 +87,19 @@ public class AccessibilityTextActionTest {
     private static UiAutomation sUiAutomation;
     final Object mClickableSpanCallbackLock = new Object();
     final AtomicBoolean mClickableSpanCalled = new AtomicBoolean(false);
-    
 
     private AccessibilityTextTraversalActivity mActivity;
 
-    @Rule
-    public ActivityTestRule<AccessibilityTextTraversalActivity> mActivityRule =
+    private ActivityTestRule<AccessibilityTextTraversalActivity> mActivityRule =
             new ActivityTestRule<>(AccessibilityTextTraversalActivity.class, false, false);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mActivityRule)
+            .around(mDumpOnFailureRule);
 
     @BeforeClass
     public static void oneTimeSetup() throws Exception {
@@ -225,6 +242,25 @@ public class AccessibilityTextActionTest {
         urlSpanFromA11y.onClick(null);
 
         assertOnClickCalled();
+    }
+
+    @Test
+    public void testImageSpan_accessibilityServiceShouldSeeContentDescription() {
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
+        final Bitmap bitmap = Bitmap.createBitmap(/* width= */10, /* height= */10,
+                Bitmap.Config.ARGB_8888);
+        final ImageSpan imageSpan = new ImageSpan(mActivity, bitmap);
+        final String contentDescription = mActivity.getString(R.string.contentDescription);
+        imageSpan.setContentDescription(contentDescription);
+        final SpannableString textWithImageSpan =
+                new SpannableString(mActivity.getString(R.string.a_b));
+        textWithImageSpan.setSpan(imageSpan, /* start= */0, /* end= */1, /* flags= */0);
+        makeTextViewVisibleAndSetText(textView, textWithImageSpan);
+
+        ReplacementSpan replacementSpanFromA11y = findSingleSpanInViewWithText(R.string.a_b,
+                ReplacementSpan.class);
+
+        assertEquals(contentDescription, replacementSpanFromA11y.getContentDescription());
     }
 
     @Test
@@ -403,6 +439,105 @@ public class AccessibilityTextActionTest {
         // Declare preparation for the request complete, and verify that it runs to completion
         verify(mockRunnableForData, timeout(DEFAULT_TIMEOUT_MS)).run();
         a11yManager.removeAccessibilityRequestPreparer(requestPreparer);
+    }
+
+    @Test
+    public void testEditableTextView_shouldExposeAndRespondToImeEnterAction() throws Throwable {
+        final TextView textView = (TextView) mActivity.findViewById(R.id.editText);
+        makeTextViewVisibleAndSetText(textView, mActivity.getString(R.string.a_b));
+        textView.requestFocus();
+        assertTrue(textView.isFocused());
+
+        final TextView.OnEditorActionListener mockOnEditorActionListener =
+                mock(TextView.OnEditorActionListener.class);
+        textView.setOnEditorActionListener(mockOnEditorActionListener);
+        verifyZeroInteractions(mockOnEditorActionListener);
+
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
+        verifyImeActionLabel(text, sInstrumentation.getContext().getString(
+                                R.string.accessibility_action_ime_enter_label));
+        text.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+        verify(mockOnEditorActionListener, times(1)).onEditorAction(
+                textView, EditorInfo.IME_ACTION_UNSPECIFIED, null);
+
+        // Testing custom ime action : IME_ACTION_DONE.
+        textView.setImeActionLabel("pinyin", EditorInfo.IME_ACTION_DONE);
+        text.refresh();
+        verifyImeActionLabel(text, "pinyin");
+        text.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+        verify(mockOnEditorActionListener, times(1)).onEditorAction(
+                textView, EditorInfo.IME_ACTION_DONE, null);
+    }
+
+    @Test
+    public void testExtraRendering_textViewShouldProvideExtraDataTextSizeWhenRequested() {
+        final Bundle arg = new Bundle();
+        final DisplayMetrics displayMetrics = mActivity.getResources().getDisplayMetrics();
+        final TextView textView = mActivity.findViewById(R.id.text);
+        final String stringToSet = mActivity.getString(R.string.foo_bar_baz);
+        final int expectedWidthInPx = textView.getLayoutParams().width;
+        final int expectedHeightInPx = textView.getLayoutParams().height;
+        final float expectedTextSize = textView.getTextSize();
+        final float newTextSize = 20f;
+        final float expectedNewTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,
+                newTextSize, displayMetrics);
+        makeTextViewVisibleAndSetText(textView, stringToSet);
+
+        final AccessibilityNodeInfo info = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(stringToSet).get(0);
+        assertTrue("Text view should offer extra data to accessibility ",
+                info.getAvailableExtraData().contains(EXTRA_DATA_RENDERING_INFO_KEY));
+
+        AccessibilityNodeInfo.ExtraRenderingInfo extraRenderingInfo;
+        assertNull(info.getExtraRenderingInfo());
+        assertTrue("Refresh failed", info.refreshWithExtraData(
+                EXTRA_DATA_RENDERING_INFO_KEY , arg));
+        assertNotNull(info.getExtraRenderingInfo());
+        extraRenderingInfo = info.getExtraRenderingInfo();
+        assertNotNull(extraRenderingInfo.getLayoutSize());
+        assertEquals(expectedWidthInPx, extraRenderingInfo.getLayoutSize().getWidth());
+        assertEquals(expectedHeightInPx, extraRenderingInfo.getLayoutSize().getHeight());
+        assertEquals(expectedTextSize, extraRenderingInfo.getTextSizeInPx(), 0f);
+        assertEquals(TypedValue.COMPLEX_UNIT_DIP, extraRenderingInfo.getTextSizeUnit());
+
+        // After changing text size
+        sInstrumentation.runOnMainSync(() ->
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, newTextSize));
+        assertTrue("Refresh failed", info.refreshWithExtraData(
+                EXTRA_DATA_RENDERING_INFO_KEY, arg));
+        extraRenderingInfo = info.getExtraRenderingInfo();
+        assertEquals(expectedNewTextSize, extraRenderingInfo.getTextSizeInPx(), 0f);
+        assertEquals(TypedValue.COMPLEX_UNIT_SP, extraRenderingInfo.getTextSizeUnit());
+    }
+
+    @Test
+    public void testExtraRendering_viewGroupShouldNotProvideLayoutParamsWhenNotRequested() {
+        final AccessibilityNodeInfo info = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByViewId(
+                        "android.accessibilityservice.cts:id/viewGroup").get(0);
+
+        assertTrue("ViewGroup should offer extra data to accessibility",
+                info.getAvailableExtraData().contains(EXTRA_DATA_RENDERING_INFO_KEY));
+        assertNull(info.getExtraRenderingInfo());
+        assertTrue("Refresh failed", info.refreshWithExtraData(
+                EXTRA_DATA_RENDERING_INFO_KEY, new Bundle()));
+        assertNotNull(info.getExtraRenderingInfo());
+        assertNotNull(info.getExtraRenderingInfo().getLayoutSize());
+        final Size size = info.getExtraRenderingInfo().getLayoutSize();
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, size.getWidth());
+        assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, size.getHeight());
+    }
+
+    private void verifyImeActionLabel(AccessibilityNodeInfo node, String label) {
+        final List<AccessibilityNodeInfo.AccessibilityAction> actionList = node.getActionList();
+        final int indexOfActionImeEnter =
+                actionList.indexOf(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER);
+        assertTrue(indexOfActionImeEnter >= 0);
+
+        final AccessibilityNodeInfo.AccessibilityAction action =
+                actionList.get(indexOfActionImeEnter);
+        assertEquals(action.getLabel().toString(), label);
     }
 
     private Bundle getTextLocationArguments(AccessibilityNodeInfo info) {

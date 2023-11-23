@@ -48,27 +48,35 @@ public class MediaSessionTestHelperConstants {
     /**
      * Intent extra value for the key {@link #EXTRA_CONTROL_COMMAND} to create the media session
      * if it doesn't exist.
-     * @see buildControlCommand
+     * @see #buildControlCommand
      */
     public static final int FLAG_CREATE_MEDIA_SESSION = 0x01;
     /**
      * Intent extra value for the key {@link #EXTRA_CONTROL_COMMAND} to set the media session active
      * if it exists.
-     * @see buildControlCommand
+     * @see #buildControlCommand
      */
     public static final int FLAG_SET_MEDIA_SESSION_ACTIVE = 0x02;
     /**
      * Intent extra value for the key {@link #EXTRA_CONTROL_COMMAND} to set the media session
      * inactive if it exists.
-     * @see buildControlCommand
+     * @see #buildControlCommand
      */
     public static final int FLAG_SET_MEDIA_SESSION_INACTIVE = 0x04;
     /**
-     * Intent extra value for the key {@link #EXTRA_CONTROL_COMMAND} to release the media session
-     * if it was created.
-     * @see buildControlCommand
+     * Intent extra value for the key {@link #EXTRA_CONTROL_COMMAND} to release both media session1
+     * and session2 if created.
+     * @see #buildControlCommand
      */
-    public static final int FLAG_RELEASE_MEDIA_SESSION = 0x08;
+    public static final int FLAG_RELEASE_ALL_MEDIA_SESSION = 0x08;
+
+    /**
+     * Intent extra value for the key {@link #EXTRA_CONTROL_COMMAND} to create the media session2
+     * if it doesn't exist.
+     * @see #buildControlCommand
+     */
+    public static final int FLAG_CREATE_MEDIA_SESSION2 = 0x10;
+
 
     private MediaSessionTestHelperConstants() {
         // Prevent from the instantiation.
@@ -80,7 +88,7 @@ public class MediaSessionTestHelperConstants {
      * @param userId user id to send the command
      * @param flag bit masked flag among {@link #FLAG_CREATE_MEDIA_SESSION},
      *            {@link #FLAG_SET_MEDIA_SESSION_ACTIVE}, {@link #FLAG_SET_MEDIA_SESSION_INACTIVE},
-     *            and {@link #FLAG_RELEASE_MEDIA_SESSION}. If multiple flags are specificed,
+     *            and {@link #FLAG_RELEASE_ALL_MEDIA_SESSION}. If multiple flags are specificed,
      *            operations will be exceuted in order.
      **/
     public static String buildControlCommand(int userId, int flag) {

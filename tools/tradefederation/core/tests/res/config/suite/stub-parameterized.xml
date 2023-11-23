@@ -15,6 +15,7 @@
 -->
 <configuration description="A stub module with a parameterized metadata">
     <option name="metadata" key="parameter" value="instant_app" />
+    <option name="metadata" key="parameter" value="secondary_user" />
 
     <option name="test-suite-tag" value="example-suite-parameters" />
     <test class="com.android.tradefed.testtype.suite.TestSuiteStub" />

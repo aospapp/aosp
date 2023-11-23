@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 #
+# [VPYTHON:BEGIN]
+# python_version: "3.8"
+# [VPYTHON:END]
+#
 # Copyright 2017, The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +50,18 @@ In the end, the script will print the failed and skipped tests if any.
 """
 import argparse
 import collections
+
+# b/140161314 diagnostics.
+try:
+  import concurrent.futures
+except Exception:
+  import sys
+  sys.stdout.write("\n\n" + sys.executable + " " + sys.version + "\n\n")
+  sys.stdout.flush()
+  raise
+
 import contextlib
+import datetime
 import fnmatch
 import itertools
 import json
@@ -55,10 +70,10 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 
 import env
@@ -67,7 +82,15 @@ from device_config import device_config
 
 # timeout for individual tests.
 # TODO: make it adjustable per tests and for buildbots
-timeout = 3000 # 50 minutes
+#
+# Note: this needs to be larger than run-test timeouts, as long as this script
+#       does not push the value to run-test. run-test is somewhat complicated:
+#                      base: 25m  (large for ASAN)
+#        + timeout handling:  2m
+#        +   gcstress extra: 20m
+#        -----------------------
+#                            47m
+timeout = 3600 # 60 minutes
 
 # DISABLED_TEST_CONTAINER holds information about the disabled tests. It is a map
 # that has key as the test name (like 001-HelloWorld), and value as set of
@@ -79,6 +102,9 @@ DISABLED_TEST_CONTAINER = {}
 # the test name given as the argument to run.
 VARIANT_TYPE_DICT = {}
 
+# The set of all variant sets that are incompatible and will always be skipped.
+NONFUNCTIONAL_VARIANT_SETS = set()
+
 # The set contains all the variants of each time.
 TOTAL_VARIANTS_SET = set()
 
@@ -89,27 +115,15 @@ COLOR_PASS = '\033[92m'
 COLOR_SKIP = '\033[93m'
 COLOR_NORMAL = '\033[0m'
 
-# The mutex object is used by the threads for exclusive access of test_count
-# to make any changes in its value.
-test_count_mutex = threading.Lock()
-
 # The set contains the list of all the possible run tests that are in art/test
 # directory.
 RUN_TEST_SET = set()
 
-# The semaphore object is used by the testrunner to limit the number of
-# threads to the user requested concurrency value.
-semaphore = threading.Semaphore(1)
-
-# The mutex object is used to provide exclusive access to a thread to print
-# its output.
-print_mutex = threading.Lock()
 failed_tests = []
 skipped_tests = []
 
 # Flags
 n_thread = -1
-test_count = 0
 total_test_count = 0
 verbose = False
 dry_run = False
@@ -121,7 +135,6 @@ runtime_option = ''
 with_agent = []
 zipapex_loc = None
 run_test_option = []
-stop_testrunner = False
 dex2oat_jobs = -1   # -1 corresponds to default threads for dex2oat
 run_all_configs = False
 
@@ -139,7 +152,6 @@ def gather_test_info():
   of disabled test. It also maps various variants to types.
   """
   global TOTAL_VARIANTS_SET
-  global DISABLED_TEST_CONTAINER
   # TODO: Avoid duplication of the variant names in different lists.
   VARIANT_TYPE_DICT['run'] = {'ndebug', 'debug'}
   VARIANT_TYPE_DICT['target'] = {'target', 'host', 'jvm'}
@@ -155,7 +167,11 @@ def gather_test_info():
   VARIANT_TYPE_DICT['jvmti'] = {'no-jvmti', 'jvmti-stress', 'redefine-stress', 'trace-stress',
                                 'field-stress', 'step-stress'}
   VARIANT_TYPE_DICT['compiler'] = {'interp-ac', 'interpreter', 'jit', 'jit-on-first-use',
-                                   'optimizing', 'regalloc_gc', 'speed-profile', 'baseline'}
+                                   'optimizing', 'regalloc_gc',
+                                   'speed-profile', 'baseline'}
+
+  # Regalloc_GC cannot work with prebuild.
+  NONFUNCTIONAL_VARIANT_SETS.add(frozenset({'regalloc_gc', 'prebuild'}))
 
   for v_type in VARIANT_TYPE_DICT:
     TOTAL_VARIANTS_SET = TOTAL_VARIANTS_SET.union(VARIANT_TYPE_DICT.get(v_type))
@@ -164,7 +180,6 @@ def gather_test_info():
   for f in os.listdir(test_dir):
     if fnmatch.fnmatch(f, '[0-9]*'):
       RUN_TEST_SET.add(f)
-  DISABLED_TEST_CONTAINER = get_disabled_test_info()
 
 
 def setup_test_env():
@@ -225,7 +240,7 @@ def setup_test_env():
     _user_input_variants['address_sizes_target']['target'] = _user_input_variants['address_sizes']
 
   global n_thread
-  if n_thread is -1:
+  if n_thread == -1:
     if 'target' in _user_input_variants['target']:
       n_thread = get_default_threads('target')
     else:
@@ -235,9 +250,6 @@ def setup_test_env():
   global extra_arguments
   for target in _user_input_variants['target']:
     extra_arguments[target] = find_extra_device_arguments(target)
-
-  global semaphore
-  semaphore = threading.Semaphore(n_thread)
 
   if not sys.stdout.isatty():
     global COLOR_ERROR
@@ -277,15 +289,7 @@ def get_device_name():
     return "UNKNOWN_TARGET"
 
 def run_tests(tests):
-  """Creates thread workers to run the tests.
-
-  The method generates command and thread worker to run the tests. Depending on
-  the user input for the number of threads to be used, the method uses a
-  semaphore object to keep a count in control for the thread workers. When a new
-  worker is created, it acquires the semaphore object, and when the number of
-  workers reaches the maximum allowed concurrency, the method wait for an
-  existing thread worker to release the semaphore object. Worker releases the
-  semaphore object when they finish printing the output.
+  """This method generates variants of the tests to be run and executes them.
 
   Args:
     tests: The set of tests to be run.
@@ -362,18 +366,10 @@ def run_tests(tests):
       'debuggable': [''], 'jvmti': [''],
       'cdex_level': ['']})
 
-  def start_combination(config_tuple, global_options, address_size):
+  def start_combination(executor, config_tuple, global_options, address_size):
       test, target, run, prebuild, compiler, relocate, trace, gc, \
       jni, image, debuggable, jvmti, cdex_level = config_tuple
 
-      if stop_testrunner:
-        # When ART_TEST_KEEP_GOING is set to false, then as soon as a test
-        # fails, stop_testrunner is set to True. When this happens, the method
-        # stops creating any any thread and wait for all the exising threads
-        # to end.
-        while threading.active_count() > 2:
-          time.sleep(0.1)
-          return
       # NB The order of components here should match the order of
       # components in the regex parser in parse_test_name.
       test_name = 'test-art-'
@@ -402,15 +398,18 @@ def run_tests(tests):
       elif target == 'jvm':
         options_test += ' --jvm'
 
-      # Honor ART_TEST_CHROOT, ART_TEST_ANDROID_ROOT, ART_TEST_ANDROID_RUNTIME_ROOT,
-      # and ART_TEST_ANDROID_TZDATA_ROOT but only for target tests.
+      # Honor ART_TEST_CHROOT, ART_TEST_ANDROID_ROOT, ART_TEST_ANDROID_ART_ROOT,
+      # ART_TEST_ANDROID_I18N_ROOT, and ART_TEST_ANDROID_TZDATA_ROOT but only
+      # for target tests.
       if target == 'target':
         if env.ART_TEST_CHROOT:
           options_test += ' --chroot ' + env.ART_TEST_CHROOT
         if env.ART_TEST_ANDROID_ROOT:
           options_test += ' --android-root ' + env.ART_TEST_ANDROID_ROOT
-        if env.ART_TEST_ANDROID_RUNTIME_ROOT:
-          options_test += ' --android-runtime-root ' + env.ART_TEST_ANDROID_RUNTIME_ROOT
+        if env.ART_TEST_ANDROID_I18N_ROOT:
+            options_test += ' --android-i18n-root ' + env.ART_TEST_ANDROID_I18N_ROOT
+        if env.ART_TEST_ANDROID_ART_ROOT:
+          options_test += ' --android-art-root ' + env.ART_TEST_ANDROID_ART_ROOT
         if env.ART_TEST_ANDROID_TZDATA_ROOT:
           options_test += ' --android-tzdata-root ' + env.ART_TEST_ANDROID_TZDATA_ROOT
 
@@ -467,7 +466,7 @@ def run_tests(tests):
         options_test += ' --no-image'
 
       if debuggable == 'debuggable':
-        options_test += ' --debuggable'
+        options_test += ' --debuggable --runtime-option -Xopaque-jni-ids:true'
 
       if jvmti == 'jvmti-stress':
         options_test += ' --jvmti-trace-stress --jvmti-redefine-stress --jvmti-field-stress'
@@ -498,25 +497,32 @@ def run_tests(tests):
 
       run_test_sh = env.ANDROID_BUILD_TOP + '/art/test/run-test'
       command = ' '.join((run_test_sh, options_test, ' '.join(extra_arguments[target]), test))
-
-      semaphore.acquire()
-      worker = threading.Thread(target=run_test, args=(command, test, variant_set, test_name))
-      worker.daemon = True
-      worker.start()
+      return executor.submit(run_test, command, test, variant_set, test_name)
 
   #  Use a context-manager to handle cleaning up the extracted zipapex if needed.
   with handle_zipapex(zipapex_loc) as zipapex_opt:
     options_all += zipapex_opt
-    for config_tuple in config:
-      target = config_tuple[1]
-      for address_size in _user_input_variants['address_sizes_target'][target]:
-        start_combination(config_tuple, options_all, address_size)
+    global n_thread
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_thread) as executor:
+      test_futures = []
+      for config_tuple in config:
+        target = config_tuple[1]
+        for address_size in _user_input_variants['address_sizes_target'][target]:
+          test_futures.append(start_combination(executor, config_tuple, options_all, address_size))
 
-    for config_tuple in uncombinated_config:
-        start_combination(config_tuple, options_all, "")  # no address size
+        for config_tuple in uncombinated_config:
+          test_futures.append(start_combination(executor, config_tuple, options_all, ""))  # no address size
 
-    while threading.active_count() > 2:
-      time.sleep(0.1)
+      tests_done = 0
+      for test_future in concurrent.futures.as_completed(test_futures):
+        (test, status, failure_info, test_time) = test_future.result()
+        tests_done += 1
+        print_test_info(tests_done, test, status, failure_info, test_time)
+        if failure_info and not env.ART_TEST_KEEP_GOING:
+          for f in test_futures:
+            f.cancel()
+          break
+      executor.shutdown(True)
 
 @contextlib.contextmanager
 def handle_zipapex(ziploc):
@@ -543,57 +549,84 @@ def run_test(command, test, test_variant, test_name):
   passed, otherwise, put it in the list of failed test. Before actually running
   the test, it also checks if the test is placed in the list of disabled tests,
   and if yes, it skips running it, and adds the test in the list of skipped
-  tests. The method uses print_text method to actually print the output. After
-  successfully running and capturing the output for the test, it releases the
-  semaphore object.
+  tests.
 
   Args:
     command: The command to be used to invoke the script
     test: The name of the test without the variant information.
     test_variant: The set of variant for the test.
     test_name: The name of the test along with the variants.
+
+  Returns: a tuple of testname, status, optional failure info, and test time.
   """
-  global stop_testrunner
   try:
     if is_test_disabled(test, test_variant):
       test_skipped = True
+      test_time = datetime.timedelta()
     else:
       test_skipped = False
+      test_start_time = time.monotonic()
+      if verbose:
+        print_text("Starting %s at %s\n" % (test_name, test_start_time))
       if gdb:
-        proc = subprocess.Popen(command.split(), stderr=subprocess.STDOUT, universal_newlines=True)
+        proc = subprocess.Popen(command.split(), stderr=subprocess.STDOUT,
+                                universal_newlines=True, start_new_session=True)
       else:
         proc = subprocess.Popen(command.split(), stderr=subprocess.STDOUT, stdout = subprocess.PIPE,
-                                universal_newlines=True)
+                                universal_newlines=True, start_new_session=True)
       script_output = proc.communicate(timeout=timeout)[0]
       test_passed = not proc.wait()
+      test_time_seconds = time.monotonic() - test_start_time
+      test_time = datetime.timedelta(seconds=test_time_seconds)
 
     if not test_skipped:
       if test_passed:
-        print_test_info(test_name, 'PASS')
+        return (test_name, 'PASS', None, test_time)
       else:
         failed_tests.append((test_name, str(command) + "\n" + script_output))
-        if not env.ART_TEST_KEEP_GOING:
-          stop_testrunner = True
-        print_test_info(test_name, 'FAIL', ('%s\n%s') % (
-          command, script_output))
+        return (test_name, 'FAIL', ('%s\n%s') % (command, script_output), test_time)
     elif not dry_run:
-      print_test_info(test_name, 'SKIP')
       skipped_tests.append(test_name)
+      return (test_name, 'SKIP', None, test_time)
     else:
-      print_test_info(test_name, '')
+      return (test_name, 'PASS', None, test_time)
   except subprocess.TimeoutExpired as e:
+    if verbose:
+      print_text("Timeout of %s at %s\n" % (test_name, time.monotonic()))
+    test_time_seconds = time.monotonic() - test_start_time
+    test_time = datetime.timedelta(seconds=test_time_seconds)
     failed_tests.append((test_name, 'Timed out in %d seconds' % timeout))
-    print_test_info(test_name, 'TIMEOUT', 'Timed out in %d seconds\n%s' % (
-        timeout, command))
+
+    # HACK(b/142039427): Print extra backtraces on timeout.
+    if "-target-" in test_name:
+      for i in range(8):
+        proc_name = "dalvikvm" + test_name[-2:]
+        pidof = subprocess.run(["adb", "shell", "pidof", proc_name], stdout=subprocess.PIPE)
+        for pid in pidof.stdout.decode("ascii").split():
+          if i >= 4:
+            print_text("Backtrace of %s at %s\n" % (pid, time.monotonic()))
+            subprocess.run(["adb", "shell", "debuggerd", pid])
+            time.sleep(10)
+          task_dir = "/proc/%s/task" % pid
+          tids = subprocess.run(["adb", "shell", "ls", task_dir], stdout=subprocess.PIPE)
+          for tid in tids.stdout.decode("ascii").split():
+            for status in ["stat", "status"]:
+              filename = "%s/%s/%s" % (task_dir, tid, status)
+              print_text("Content of %s\n" % (filename))
+              subprocess.run(["adb", "shell", "cat", filename])
+        time.sleep(60)
+
+    # The python documentation states that it is necessary to actually kill the process.
+    os.killpg(proc.pid, signal.SIGKILL)
+    script_output = proc.communicate()
+
+    return (test_name, 'TIMEOUT', 'Timed out in %d seconds\n%s' % (timeout, command), test_time)
   except Exception as e:
     failed_tests.append((test_name, str(e)))
-    print_test_info(test_name, 'FAIL',
-    ('%s\n%s\n\n') % (command, str(e)))
-  finally:
-    semaphore.release()
+    return (test_name, 'FAIL', ('%s\n%s\n\n') % (command, str(e)), datetime.timedelta())
 
-
-def print_test_info(test_name, result, failed_test_info=""):
+def print_test_info(test_count, test_name, result, failed_test_info="",
+                    test_time=datetime.timedelta()):
   """Print the continous test information
 
   If verbose is set to True, it continuously prints test status information
@@ -608,7 +641,6 @@ def print_test_info(test_name, result, failed_test_info=""):
   test information in either of the cases.
   """
 
-  global test_count
   info = ''
   if not verbose:
     # Without --verbose, the testrunner erases passing test info. It
@@ -617,13 +649,14 @@ def print_test_info(test_name, result, failed_test_info=""):
     console_width = int(os.popen('stty size', 'r').read().split()[1])
     info = '\r' + ' ' * console_width + '\r'
   try:
-    print_mutex.acquire()
-    test_count += 1
     percent = (test_count * 100) / total_test_count
     progress_info = ('[ %d%% %d/%d ]') % (
       percent,
       test_count,
       total_test_count)
+    if test_time.total_seconds() != 0 and verbose:
+      info += '(%s)' % str(test_time)
+
 
     if result == 'FAIL' or result == 'TIMEOUT':
       if not verbose:
@@ -666,8 +699,6 @@ def print_test_info(test_name, result, failed_test_info=""):
   except Exception as e:
     print_text(('%s\n%s\n') % (test_name, str(e)))
     failed_tests.append(test_name)
-  finally:
-    print_mutex.release()
 
 def verify_knownfailure_entry(entry):
   supported_field = {
@@ -676,7 +707,9 @@ def verify_knownfailure_entry(entry):
       'description' : (list, str),
       'bug' : (str,),
       'variant' : (str,),
+      'devices': (list, str),
       'env_vars' : (dict,),
+      'zipapex' : (bool,),
   }
   for field in entry:
     field_type = type(entry[field])
@@ -686,7 +719,7 @@ def verify_knownfailure_entry(entry):
           field,
           str(entry)))
 
-def get_disabled_test_info():
+def get_disabled_test_info(device_name):
   """Generate set of known failures.
 
   It parses the art/test/knownfailures.json file to generate the list of
@@ -708,10 +741,23 @@ def get_disabled_test_info():
       tests = [tests]
     patterns = failure.get("test_patterns", [])
     if (not isinstance(patterns, list)):
-      raise ValueError("test_patters is not a list in %s" % failure)
+      raise ValueError("test_patterns is not a list in %s" % failure)
 
     tests += [f for f in RUN_TEST_SET if any(re.match(pat, f) is not None for pat in patterns)]
     variants = parse_variants(failure.get('variant'))
+
+    # Treat a '"devices": "<foo>"' equivalent to 'target' variant if
+    # "foo" is present in "devices".
+    device_names = failure.get('devices', [])
+    if isinstance(device_names, str):
+      device_names = [device_names]
+    if len(device_names) != 0:
+      if device_name in device_names:
+        variants.add('target')
+      else:
+        # Skip adding test info as device_name is not present in "devices" entry.
+        continue
+
     env_vars = failure.get('env_vars')
 
     if check_env_vars(env_vars):
@@ -723,8 +769,23 @@ def get_disabled_test_info():
           disabled_test_info[test] = disabled_test_info[test].union(variants)
         else:
           disabled_test_info[test] = variants
+
+    zipapex_disable = failure.get("zipapex", False)
+    if zipapex_disable and zipapex_loc is not None:
+      for test in tests:
+        if test not in RUN_TEST_SET:
+          raise ValueError('%s is not a valid run-test' % (test))
+        if test in disabled_test_info:
+          disabled_test_info[test] = disabled_test_info[test].union(variants)
+        else:
+          disabled_test_info[test] = variants
+
   return disabled_test_info
 
+def gather_disabled_test_info():
+  global DISABLED_TEST_CONTAINER
+  device_name = get_device_name() if 'target' in _user_input_variants['target'] else None
+  DISABLED_TEST_CONTAINER = get_disabled_test_info(device_name)
 
 def check_env_vars(env_vars):
   """Checks if the env variables are set as required to run the test.
@@ -764,6 +825,9 @@ def is_test_disabled(test, variant_set):
         variants_present = False
         break
     if variants_present:
+      return True
+  for bad_combo in NONFUNCTIONAL_VARIANT_SETS:
+    if bad_combo.issubset(variant_set):
       return True
   return False
 
@@ -836,7 +900,7 @@ def parse_test_name(test_name):
   It supports two types of test_name:
   1) Like 001-HelloWorld. In this case, it will just verify if the test actually
   exists and if it does, it returns the testname.
-  2) Like test-art-host-run-test-debug-prebuild-interpreter-no-relocate-ntrace-cms-checkjni-picimage-ndebuggable-001-HelloWorld32
+  2) Like test-art-host-run-test-debug-prebuild-interpreter-no-relocate-ntrace-cms-checkjni-pointer-ids-picimage-ndebuggable-001-HelloWorld32
   In this case, it will parse all the variants and check if they are placed
   correctly. If yes, it will set the various VARIANT_TYPES to use the
   variants required to run the test. Again, it returns the test_name
@@ -903,13 +967,13 @@ def setup_env_for_build_target(build_target, parser, options):
   return target_options
 
 def get_default_threads(target):
-  if target is 'target':
+  if target == 'target':
     adb_command = 'adb shell cat /sys/devices/system/cpu/present'
     cpu_info_proc = subprocess.Popen(adb_command.split(), stdout=subprocess.PIPE)
     cpu_info = cpu_info_proc.stdout.read()
     if type(cpu_info) is bytes:
       cpu_info = cpu_info.decode('utf-8')
-    cpu_info_regex = '\d*-(\d*)'
+    cpu_info_regex = r'\d*-(\d*)'
     match = re.match(cpu_info_regex, cpu_info)
     if match:
       return int(match.group(1))
@@ -982,11 +1046,21 @@ def parse_option():
     var_group = parser.add_argument_group(
         '{}-type Options'.format(variant_type),
         "Options that control the '{}' variants.".format(variant_type))
+    var_group.add_argument('--all-' + variant_type,
+                           action='store_true',
+                           dest='all_' + variant_type,
+                           help='Enable all variants of ' + variant_type)
     for variant in variant_set:
       flag = '--' + variant
       var_group.add_argument(flag, action='store_true', dest=variant)
 
   options = vars(parser.parse_args())
+  # Handle the --all-<type> meta-options
+  for variant_type, variant_set in VARIANT_TYPE_DICT.items():
+    if options['all_' + variant_type]:
+      for variant in variant_set:
+        options[variant] = True
+
   if options['build_target']:
     options = setup_env_for_build_target(target_config[options['build_target']],
                                          parser, options)
@@ -1034,6 +1108,7 @@ def main():
   gather_test_info()
   user_requested_tests = parse_option()
   setup_test_env()
+  gather_disabled_test_info()
   if build:
     build_targets = ''
     if 'host' in _user_input_variants['target']:
@@ -1050,28 +1125,16 @@ def main():
       if env.DIST_DIR:
         shutil.copyfile(env.SOONG_OUT_DIR + '/build.ninja', env.DIST_DIR + '/soong.ninja')
       sys.exit(1)
+
   if user_requested_tests:
-    test_runner_thread = threading.Thread(target=run_tests, args=(user_requested_tests,))
+    run_tests(user_requested_tests)
   else:
-    test_runner_thread = threading.Thread(target=run_tests, args=(RUN_TEST_SET,))
-  test_runner_thread.daemon = True
-  try:
-    test_runner_thread.start()
-    # This loops waits for all the threads to finish, unless
-    # stop_testrunner is set to True. When ART_TEST_KEEP_GOING
-    # is set to false, stop_testrunner is set to True as soon as
-    # a test fails to signal the parent thread  to stop
-    # the execution of the testrunner.
-    while threading.active_count() > 1 and not stop_testrunner:
-      time.sleep(0.1)
-    print_analysis()
-  except Exception as e:
-    print_analysis()
-    print_text(str(e))
-    sys.exit(1)
-  if failed_tests:
-    sys.exit(1)
-  sys.exit(0)
+    run_tests(RUN_TEST_SET)
+
+  print_analysis()
+
+  exit_code = 0 if len(failed_tests) == 0 else 1
+  sys.exit(exit_code)
 
 if __name__ == '__main__':
   main()

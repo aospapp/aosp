@@ -83,7 +83,11 @@ public class GenericDeviceInfo extends DeviceInfo {
         } else {
             store.addResult(BUILD_SERIAL, Build.SERIAL); // deprecated in O
         }
-        store.addResult(BUILD_VERSION_RELEASE, Build.VERSION.RELEASE);
+        if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R)) {
+            store.addResult(BUILD_VERSION_RELEASE, Build.VERSION.RELEASE_OR_CODENAME);
+        } else {
+            store.addResult(BUILD_VERSION_RELEASE, Build.VERSION.RELEASE);
+        }
         store.addResult(BUILD_VERSION_SDK, Build.VERSION.SDK);
         store.addResult(BUILD_REFERENCE_FINGERPRINT,
                 SystemProperties.get("ro.build.reference.fingerprint", ""));

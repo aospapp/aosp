@@ -37,8 +37,8 @@ WAIT_FOR_CELLULAR_CONNECTION = 20
 
 
 class TelLiveCellInfoTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.ad = self.android_devices[0]
         self.wifi_network_ssid = self.user_params.get(
             "wifi_network_ssid") or self.user_params.get(
@@ -52,7 +52,6 @@ class TelLiveCellInfoTest(TelephonyBaseTest):
             toggle_airplane_mode(self.log, self.ad, False)
             time.sleep(WAIT_FOR_CELLULAR_CONNECTION)
 
-    def setup_class(self):
         return True
 
     def setup_test(self):

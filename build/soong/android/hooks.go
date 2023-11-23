@@ -15,7 +15,10 @@
 package android
 
 import (
+	"reflect"
+
 	"github.com/google/blueprint"
+	"github.com/google/blueprint/proptools"
 )
 
 // This file implements hooks that external module types can use to inject logic into existing
@@ -26,56 +29,98 @@ import (
 // before the module has been split into architecture variants, and before defaults modules have
 // been applied.
 type LoadHookContext interface {
-	// TODO: a new context that includes Config() but not Target(), etc.?
-	BaseContext
+	EarlyModuleContext
+
 	AppendProperties(...interface{})
 	PrependProperties(...interface{})
-	CreateModule(blueprint.ModuleFactory, ...interface{})
+	CreateModule(ModuleFactory, ...interface{}) Module
+
+	registerScopedModuleType(name string, factory blueprint.ModuleFactory)
+	moduleFactories() map[string]blueprint.ModuleFactory
 }
 
-// Arch hooks are run after the module has been split into architecture variants, and can be used
-// to add architecture-specific properties.
-type ArchHookContext interface {
-	BaseContext
-	AppendProperties(...interface{})
-	PrependProperties(...interface{})
-}
-
+// Add a hook that will be called once the module has been loaded, i.e. its
+// properties have been initialized from the Android.bp file.
+//
+// Consider using SetDefaultableHook to register a hook for any module that implements
+// DefaultableModule as the hook is called after any defaults have been applied to the
+// module which could reduce duplication and make it easier to use.
 func AddLoadHook(m blueprint.Module, hook func(LoadHookContext)) {
-	h := &m.(Module).base().hooks
-	h.load = append(h.load, hook)
+	blueprint.AddLoadHook(m, func(ctx blueprint.LoadHookContext) {
+		actx := &loadHookContext{
+			earlyModuleContext: m.(Module).base().earlyModuleContextFactory(ctx),
+			bp:                 ctx,
+		}
+		hook(actx)
+	})
 }
 
-func AddArchHook(m blueprint.Module, hook func(ArchHookContext)) {
-	h := &m.(Module).base().hooks
-	h.arch = append(h.arch, hook)
+type loadHookContext struct {
+	earlyModuleContext
+	bp     blueprint.LoadHookContext
+	module Module
 }
 
-func (x *hooks) runLoadHooks(ctx LoadHookContext, m *ModuleBase) {
-	if len(x.load) > 0 {
-		for _, x := range x.load {
-			x(ctx)
-			if ctx.Failed() {
-				return
+func (l *loadHookContext) moduleFactories() map[string]blueprint.ModuleFactory {
+	return l.bp.ModuleFactories()
+}
+
+func (l *loadHookContext) AppendProperties(props ...interface{}) {
+	for _, p := range props {
+		err := proptools.AppendMatchingProperties(l.Module().base().customizableProperties,
+			p, nil)
+		if err != nil {
+			if propertyErr, ok := err.(*proptools.ExtendPropertyError); ok {
+				l.PropertyErrorf(propertyErr.Property, "%s", propertyErr.Err.Error())
+			} else {
+				panic(err)
 			}
 		}
 	}
 }
 
-func (x *hooks) runArchHooks(ctx ArchHookContext, m *ModuleBase) {
-	if len(x.arch) > 0 {
-		for _, x := range x.arch {
-			x(ctx)
-			if ctx.Failed() {
-				return
+func (l *loadHookContext) PrependProperties(props ...interface{}) {
+	for _, p := range props {
+		err := proptools.PrependMatchingProperties(l.Module().base().customizableProperties,
+			p, nil)
+		if err != nil {
+			if propertyErr, ok := err.(*proptools.ExtendPropertyError); ok {
+				l.PropertyErrorf(propertyErr.Property, "%s", propertyErr.Err.Error())
+			} else {
+				panic(err)
 			}
 		}
 	}
+}
+
+func (l *loadHookContext) CreateModule(factory ModuleFactory, props ...interface{}) Module {
+	inherited := []interface{}{&l.Module().base().commonProperties}
+	module := l.bp.CreateModule(ModuleFactoryAdaptor(factory), append(inherited, props...)...).(Module)
+
+	if l.Module().base().variableProperties != nil && module.base().variableProperties != nil {
+		src := l.Module().base().variableProperties
+		dst := []interface{}{
+			module.base().variableProperties,
+			// Put an empty copy of the src properties into dst so that properties in src that are not in dst
+			// don't cause a "failed to find property to extend" error.
+			proptools.CloneEmptyProperties(reflect.ValueOf(src)).Interface(),
+		}
+		err := proptools.AppendMatchingProperties(dst, src, nil)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return module
+}
+
+func (l *loadHookContext) registerScopedModuleType(name string, factory blueprint.ModuleFactory) {
+	l.bp.RegisterScopedModuleType(name, factory)
 }
 
 type InstallHookContext interface {
 	ModuleContext
-	Path() OutputPath
+	Path() InstallPath
 	Symlink() bool
 }
 
@@ -89,11 +134,11 @@ func AddInstallHook(m blueprint.Module, hook func(InstallHookContext)) {
 
 type installHookContext struct {
 	ModuleContext
-	path    OutputPath
+	path    InstallPath
 	symlink bool
 }
 
-func (x *installHookContext) Path() OutputPath {
+func (x *installHookContext) Path() InstallPath {
 	return x.path
 }
 
@@ -101,7 +146,7 @@ func (x *installHookContext) Symlink() bool {
 	return x.symlink
 }
 
-func (x *hooks) runInstallHooks(ctx ModuleContext, path OutputPath, symlink bool) {
+func (x *hooks) runInstallHooks(ctx ModuleContext, path InstallPath, symlink bool) {
 	if len(x.install) > 0 {
 		mctx := &installHookContext{
 			ModuleContext: ctx,
@@ -118,25 +163,5 @@ func (x *hooks) runInstallHooks(ctx ModuleContext, path OutputPath, symlink bool
 }
 
 type hooks struct {
-	load    []func(LoadHookContext)
-	arch    []func(ArchHookContext)
 	install []func(InstallHookContext)
-}
-
-func LoadHookMutator(ctx TopDownMutatorContext) {
-	if m, ok := ctx.Module().(Module); ok {
-		// Cast through *androidTopDownMutatorContext because AppendProperties is implemented
-		// on *androidTopDownMutatorContext but not exposed through TopDownMutatorContext
-		var loadHookCtx LoadHookContext = ctx.(*androidTopDownMutatorContext)
-		m.base().hooks.runLoadHooks(loadHookCtx, m.base())
-	}
-}
-
-func archHookMutator(ctx TopDownMutatorContext) {
-	if m, ok := ctx.Module().(Module); ok {
-		// Cast through *androidTopDownMutatorContext because AppendProperties is implemented
-		// on *androidTopDownMutatorContext but not exposed through TopDownMutatorContext
-		var archHookCtx ArchHookContext = ctx.(*androidTopDownMutatorContext)
-		m.base().hooks.runArchHooks(archHookCtx, m.base())
-	}
 }

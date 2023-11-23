@@ -17,7 +17,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             60:59:49:e0:26:2e:bb:55:f9:0a:77:8a:71:f9:4a:d8:6c
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: OU=GlobalSign ECC Root CA - R5, O=GlobalSign, CN=GlobalSign
         Validity
             Not Before: Nov 13 00:00:00 2012 GMT

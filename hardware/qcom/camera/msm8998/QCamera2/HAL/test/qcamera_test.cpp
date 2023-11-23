@@ -97,8 +97,8 @@ const char CameraContext::KEY_ZSL[] = "zsl";
  *==========================================================================*/
 void CameraContext::previewCallback(const sp<IMemory>& mem)
 {
-    printf("PREVIEW Callback %p", mem->pointer());
-    uint8_t *ptr = (uint8_t*) mem->pointer();
+    printf("PREVIEW Callback %p", mem->unsecurePointer());
+    uint8_t *ptr = (uint8_t*) mem->unsecurePointer();
     if (NULL != ptr) {
         printf("PRV_CB: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
                 ptr[0],
@@ -186,7 +186,7 @@ status_t CameraContext::saveFile(const sp<IMemory>& mem, String8 path)
         return BAD_VALUE;
     }
 
-    buff = (unsigned char *)mem->pointer();
+    buff = (unsigned char *)mem->unsecurePointer();
     if (!buff) {
         printf("Buffer pointer is invalid\n");
         close(fd);
@@ -289,7 +289,7 @@ status_t CameraContext::decodeJPEG(const sp<IMemory>& mem, SkBitmap *skBM)
     const void *buff = NULL;
     size_t size;
 
-    buff = (const void *)mem->pointer();
+    buff = (const void *)mem->unsecurePointer();
     size= mem->size();
 
     switch(prefConfig) {
@@ -341,7 +341,7 @@ status_t CameraContext::decodeJPEG(const sp<IMemory>& mem, SkBitmap *skBM)
     const void *buff = NULL;
     size_t size;
 
-    buff = (const void *)mem->pointer();
+    buff = (const void *)mem->unsecurePointer();
     size= mem->size();
 
     switch(prefConfig) {
@@ -923,11 +923,11 @@ void CameraContext::postData(int32_t msgType,
                 // its jpeg sections
                 if ((mInterpr->camera[0]->mWidthTmp * mInterpr->camera[0]->mHeightTmp) >
                         (mInterpr->camera[1]->mWidthTmp * mInterpr->camera[1]->mHeightTmp)) {
-                    buff = (unsigned char *)PiPPtrTmp->pointer();
+                    buff = (unsigned char *)PiPPtrTmp->unsecurePointer();
                     size= PiPPtrTmp->size();
                 } else if ((mInterpr->camera[0]->mWidthTmp * mInterpr->camera[0]->mHeightTmp) <
                         (mInterpr->camera[1]->mWidthTmp * mInterpr->camera[1]->mHeightTmp)) {
-                    buff = (unsigned char *)PiPPtrTmp->pointer();
+                    buff = (unsigned char *)PiPPtrTmp->unsecurePointer();
                     size= PiPPtrTmp->size();
                 } else {
                     printf("Cannot take PiP. Images are with the same width"
@@ -1057,7 +1057,7 @@ void CameraContext::dataCallbackTimestamp(nsecs_t timestamp,
     status_t err = NO_ERROR;
     ANativeWindowBuffer* anb = NULL;
 
-    dstBuff = (void *) dataPtr->pointer();
+    dstBuff = (void *) dataPtr->unsecurePointer();
     if (NULL == dstBuff) {
         printf("Cannot access destination buffer!!!\n");
         mInterpr->ViVUnlock();

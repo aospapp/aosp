@@ -18,9 +18,8 @@ package com.android.tests.stagedinstall;
 
 import android.content.pm.PackageInstaller;
 
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
-import com.google.common.truth.SubjectFactory;
 import com.google.common.truth.Truth;
 
 import javax.annotation.Nullable;
@@ -28,19 +27,19 @@ import javax.annotation.Nullable;
 final class PackageInstallerSessionInfoSubject extends
         Subject<PackageInstallerSessionInfoSubject, PackageInstaller.SessionInfo> {
 
-    private PackageInstallerSessionInfoSubject(FailureStrategy failureStrategy,
+    private PackageInstallerSessionInfoSubject(FailureMetadata failureMetadata,
             @Nullable PackageInstaller.SessionInfo subject) {
-        super(failureStrategy, subject);
+        super(failureMetadata, subject);
     }
 
-    private static SubjectFactory<PackageInstallerSessionInfoSubject,
+    private static Subject.Factory<PackageInstallerSessionInfoSubject,
             PackageInstaller.SessionInfo> sessions() {
-        return new SubjectFactory<PackageInstallerSessionInfoSubject,
+        return new Subject.Factory<PackageInstallerSessionInfoSubject,
                 PackageInstaller.SessionInfo>() {
             @Override
-            public PackageInstallerSessionInfoSubject getSubject(FailureStrategy failureStrategy,
+            public PackageInstallerSessionInfoSubject createSubject(FailureMetadata failureMetadata,
                     PackageInstaller.SessionInfo session) {
-                return new PackageInstallerSessionInfoSubject(failureStrategy, session);
+                return new PackageInstallerSessionInfoSubject(failureMetadata, session);
             }
         };
     }
@@ -51,17 +50,17 @@ final class PackageInstallerSessionInfoSubject extends
     }
 
     public void isStagedSessionReady() {
-        check().withFailureMessage(failureMessage("in state READY")).that(
+        check().withMessage(failureMessage("in state READY")).that(
                 getSubject().isStagedSessionReady()).isTrue();
     }
 
     public void isStagedSessionApplied() {
-        check().withFailureMessage(failureMessage("in state APPLIED")).that(
+        check().withMessage(failureMessage("in state APPLIED")).that(
                 getSubject().isStagedSessionApplied()).isTrue();
     }
 
     public void isStagedSessionFailed() {
-        check().withFailureMessage(failureMessage("in state FAILED")).that(
+        check().withMessage(failureMessage("in state FAILED")).that(
                 getSubject().isStagedSessionFailed()).isTrue();
     }
 

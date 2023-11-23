@@ -20,7 +20,7 @@
 #include "chre/platform/shared/host_protocol_common.h"
 #include "chre/util/macros.h"
 #include "chre_api/chre/version.h"
-#include "chre_host/host_messages_generated.h"
+#include "chre_host/generated/host_messages_generated.h"
 
 namespace chre {
 
@@ -30,7 +30,7 @@ union HostClientIdCallbackData {
   void *ptr;
 };
 
-static_assert(sizeof(uint16_t) <= sizeof(void*),
+static_assert(sizeof(uint16_t) <= sizeof(void *),
               "Pointer must at least fit a u16 for passing the host client ID");
 
 /**
@@ -50,12 +50,11 @@ void setVectorToString(std::vector<int8_t> *vector, const char *str) {
  * @param hostClientId The host who made the original request for which this is
  *        a reply.
  */
-template<typename T>
-void sendFlatbufferToHost(T& message, uint16_t hostClientId) {
-  static_assert(
-      fbs::ChreMessageTraits<typename T::TableType>::enum_value
-          != fbs::ChreMessage::NONE,
-      "Only works for message types supported by ChreMessageUnion");
+template <typename T>
+void sendFlatbufferToHost(T &message, uint16_t hostClientId) {
+  static_assert(fbs::ChreMessageTraits<typename T::TableType>::enum_value !=
+                    fbs::ChreMessage::NONE,
+                "Only works for message types supported by ChreMessageUnion");
 
   fbs::MessageContainerT container;
   container.message.Set(std::move(message));
@@ -74,9 +73,9 @@ void sendFlatbufferToHost(T& message, uint16_t hostClientId) {
  *
  * @param message The message to deliver to a nanoapp.
  */
-void handleNanoappMessage(const fbs::NanoappMessageT& message) {
+void handleNanoappMessage(const fbs::NanoappMessageT &message) {
   LOGD("handleNanoappMessage");
-  HostCommsManager& manager =
+  HostCommsManager &manager =
       EventLoopManagerSingleton::get()->getHostCommsManager();
   manager.sendMessageToNanoappFromHost(
       message.app_id, message.message_type, message.host_endpoint,
@@ -93,14 +92,14 @@ void handleHubInfoRequest(uint16_t hostClientId) {
   fbs::HubInfoResponseT response;
   setVectorToString(&response.name, "CHRE on Android");
   setVectorToString(&response.vendor, "Google");
-  setVectorToString(&response.toolchain, "Android NDK API 26 (clang "
-    STRINGIFY(__clang_major__) "."
-    STRINGIFY(__clang_minor__) "."
-    STRINGIFY(__clang_patchlevel__) ")");
+  setVectorToString(
+      &response.toolchain,
+      "Android NDK API 26 (clang " STRINGIFY(__clang_major__) "." STRINGIFY(
+          __clang_minor__) "." STRINGIFY(__clang_patchlevel__) ")");
   response.platform_version = 0;
   response.toolchain_version = ((__clang_major__ & 0xFF) << 24) |
-    ((__clang_minor__ & 0xFF) << 16) |
-    (__clang_patchlevel__ & 0xFFFF);
+                               ((__clang_minor__ & 0xFF) << 16) |
+                               (__clang_patchlevel__ & 0xFFFF);
   response.peak_mips = 1000;
   response.stopped_power = 1000;
   response.sleep_power = 1000;
@@ -128,7 +127,7 @@ void constructNanoappListCallback(uint16_t /*eventType*/, void *cookie) {
   };
 
   fbs::NanoappListResponseT response;
-  EventLoop& eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
+  EventLoop &eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
   eventLoop.forEachNanoapp(nanoappAddCallback, &response);
 
   sendFlatbufferToHost(response, clientIdCbData.hostClientId);
@@ -154,8 +153,8 @@ void handleNanoappListRequest(uint16_t hostClientId) {
  * @param hostClientId The client ID on the host making the request.
  * @param loadRequest The details of the nanoapp load request.
  */
-void handleLoadNanoappRequest(
-    uint16_t hostClientId, const fbs::LoadNanoappRequestT& loadRequest) {
+void handleLoadNanoappRequest(uint16_t hostClientId,
+                              const fbs::LoadNanoappRequestT &loadRequest) {
   LOGD("handleLoadNanoappRequest");
 }
 
@@ -166,7 +165,7 @@ void handleLoadNanoappRequest(
  * @param unloadRequest The details of the nanoapp unload request.
  */
 void handleUnloadNanoappRequest(
-    uint16_t hostClientId, const fbs::UnloadNanoappRequestT& unloadRequest) {
+    uint16_t hostClientId, const fbs::UnloadNanoappRequestT &unloadRequest) {
   LOGD("handleUnloadNanoappRequest");
 }
 

@@ -30,6 +30,10 @@
 #include "stack.h"
 #endif
 
+ASM_DEFINE(ACCESS_FLAGS_METHOD_IS_FAST_NATIVE,
+           art::kAccFastNative)
+ASM_DEFINE(ACCESS_FLAGS_METHOD_IS_CRITICAL_NATIVE,
+           art::kAccCriticalNative)
 ASM_DEFINE(ACCESS_FLAGS_CLASS_IS_FINALIZABLE,
            art::kAccClassIsFinalizable)
 ASM_DEFINE(ACCESS_FLAGS_CLASS_IS_FINALIZABLE_BIT,
@@ -70,3 +74,5 @@ ASM_DEFINE(STACK_REFERENCE_SIZE,
            sizeof(art::StackReference<art::mirror::Object>))
 ASM_DEFINE(STD_MEMORY_ORDER_RELAXED,
            std::memory_order_relaxed)
+ASM_DEFINE(STACK_OVERFLOW_RESERVED_BYTES,
+           GetStackOverflowReservedBytes(art::kRuntimeISA))

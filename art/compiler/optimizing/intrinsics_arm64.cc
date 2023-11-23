@@ -54,6 +54,7 @@ using helpers::RegisterFrom;
 using helpers::SRegisterFrom;
 using helpers::WRegisterFrom;
 using helpers::XRegisterFrom;
+using helpers::HRegisterFrom;
 using helpers::InputRegisterAt;
 using helpers::OutputRegister;
 
@@ -90,8 +91,8 @@ static void MoveFromReturnRegister(Location trg,
     Register res_reg = RegisterFrom(ARM64ReturnLocation(type), type);
     __ Mov(trg_reg, res_reg, kDiscardForSameWReg);
   } else {
-    FPRegister trg_reg = FPRegisterFrom(trg, type);
-    FPRegister res_reg = FPRegisterFrom(ARM64ReturnLocation(type), type);
+    VRegister trg_reg = FPRegisterFrom(trg, type);
+    VRegister res_reg = FPRegisterFrom(ARM64ReturnLocation(type), type);
     __ Fmov(trg_reg, res_reg);
   }
 }
@@ -299,6 +300,14 @@ static void CreateIntToIntLocations(ArenaAllocator* allocator, HInvoke* invoke) 
   locations->SetOut(Location::RequiresRegister(), Location::kNoOutputOverlap);
 }
 
+static void CreateIntIntToIntLocations(ArenaAllocator* allocator, HInvoke* invoke) {
+  LocationSummary* locations =
+      new (allocator) LocationSummary(invoke, LocationSummary::kNoCall, kIntrinsified);
+  locations->SetInAt(0, Location::RequiresRegister());
+  locations->SetInAt(1, Location::RequiresRegister());
+  locations->SetOut(Location::RequiresRegister(), Location::kNoOutputOverlap);
+}
+
 static void GenReverseBytes(LocationSummary* locations,
                             DataType::Type type,
                             MacroAssembler* masm) {
@@ -435,7 +444,7 @@ static void GenBitCount(HInvoke* instr, DataType::Type type, MacroAssembler* mas
 
   Register src = InputRegisterAt(instr, 0);
   Register dst = RegisterFrom(instr->GetLocations()->Out(), type);
-  FPRegister fpr = (type == DataType::Type::kInt64) ? temps.AcquireD() : temps.AcquireS();
+  VRegister fpr = (type == DataType::Type::kInt64) ? temps.AcquireD() : temps.AcquireS();
 
   __ Fmov(fpr, src);
   __ Cnt(fpr.V8B(), fpr.V8B());
@@ -591,8 +600,8 @@ static void GenMathRound(HInvoke* invoke, bool is_double, vixl::aarch64::MacroAs
   // For example, FCVTPS(-1.9) = -1 and FCVTPS(1.1) = 2.
   // If we were using this instruction, for most inputs, more handling code would be needed.
   LocationSummary* l = invoke->GetLocations();
-  FPRegister in_reg = is_double ? DRegisterFrom(l->InAt(0)) : SRegisterFrom(l->InAt(0));
-  FPRegister tmp_fp = is_double ? DRegisterFrom(l->GetTemp(0)) : SRegisterFrom(l->GetTemp(0));
+  VRegister in_reg = is_double ? DRegisterFrom(l->InAt(0)) : SRegisterFrom(l->InAt(0));
+  VRegister tmp_fp = is_double ? DRegisterFrom(l->GetTemp(0)) : SRegisterFrom(l->GetTemp(0));
   Register out_reg = is_double ? XRegisterFrom(l->Out()) : WRegisterFrom(l->Out());
   vixl::aarch64::Label done;
 
@@ -1960,7 +1969,8 @@ void IntrinsicCodeGeneratorARM64::VisitStringGetCharsNoCheck(HInvoke* invoke) {
   Register tmp2 = temps.AcquireX();
 
   vixl::aarch64::Label done;
-  vixl::aarch64::Label compressed_string_loop;
+  vixl::aarch64::Label compressed_string_vector_loop;
+  vixl::aarch64::Label compressed_string_remainder;
   __ Sub(num_chr, srcEnd, srcBegin);
   // Early out for valid zero-length retrievals.
   __ Cbz(num_chr, &done);
@@ -2013,16 +2023,39 @@ void IntrinsicCodeGeneratorARM64::VisitStringGetCharsNoCheck(HInvoke* invoke) {
   __ B(&done);
 
   if (mirror::kUseStringCompression) {
+    // For compressed strings, acquire a SIMD temporary register.
+    VRegister vtmp1 = temps.AcquireVRegisterOfSize(kQRegSize);
     const size_t c_char_size = DataType::Size(DataType::Type::kInt8);
     DCHECK_EQ(c_char_size, 1u);
     __ Bind(&compressed_string_preloop);
     __ Add(src_ptr, src_ptr, Operand(srcBegin));
-    // Copy loop for compressed src, copying 1 character (8-bit) to (16-bit) at a time.
-    __ Bind(&compressed_string_loop);
+
+    // Save repairing the value of num_chr on the < 8 character path.
+    __ Subs(tmp1, num_chr, 8);
+    __ B(lt, &compressed_string_remainder);
+
+    // Keep the result of the earlier subs, we are going to fetch at least 8 characters.
+    __ Mov(num_chr, tmp1);
+
+    // Main loop for compressed src, copying 8 characters (8-bit) to (16-bit) at a time.
+    // Uses SIMD instructions.
+    __ Bind(&compressed_string_vector_loop);
+    __ Ld1(vtmp1.V8B(), MemOperand(src_ptr, c_char_size * 8, PostIndex));
+    __ Subs(num_chr, num_chr, 8);
+    __ Uxtl(vtmp1.V8H(), vtmp1.V8B());
+    __ St1(vtmp1.V8H(), MemOperand(dst_ptr, char_size * 8, PostIndex));
+    __ B(ge, &compressed_string_vector_loop);
+
+    __ Adds(num_chr, num_chr, 8);
+    __ B(eq, &done);
+
+    // Loop for < 8 character case and remainder handling with a compressed src.
+    // Copies 1 character (8-bit) to (16-bit) at a time.
+    __ Bind(&compressed_string_remainder);
     __ Ldrb(tmp1, MemOperand(src_ptr, c_char_size, PostIndex));
     __ Strh(tmp1, MemOperand(dst_ptr, char_size, PostIndex));
     __ Subs(num_chr, num_chr, Operand(1));
-    __ B(gt, &compressed_string_loop);
+    __ B(gt, &compressed_string_remainder);
   }
 
   __ Bind(&done);
@@ -2796,22 +2829,25 @@ static void GenIsInfinite(LocationSummary* locations,
                           bool is64bit,
                           MacroAssembler* masm) {
   Operand infinity;
+  Operand tst_mask;
   Register out;
 
   if (is64bit) {
     infinity = kPositiveInfinityDouble;
+    tst_mask = MaskLeastSignificant<uint64_t>(63);
     out = XRegisterFrom(locations->Out());
   } else {
     infinity = kPositiveInfinityFloat;
+    tst_mask = MaskLeastSignificant<uint32_t>(31);
     out = WRegisterFrom(locations->Out());
   }
 
-  const Register zero = vixl::aarch64::Assembler::AppropriateZeroRegFor(out);
-
   MoveFPToInt(locations, is64bit, masm);
+  // Checks whether exponent bits are all 1 and fraction bits are all 0.
   __ Eor(out, out, infinity);
-  // We don't care about the sign bit, so shift left.
-  __ Cmp(zero, Operand(out, LSL, 1));
+  // TST bitmask is used to mask out the sign bit: either 0x7fffffff or 0x7fffffffffffffff
+  // depending on is64bit.
+  __ Tst(out, tst_mask);
   __ Cset(out, eq);
 }
 
@@ -3169,6 +3205,203 @@ void IntrinsicCodeGeneratorARM64::VisitCRC32UpdateByteBuffer(HInvoke* invoke) {
   GenerateCodeForCalculationCRC32ValueOfBytes(masm, crc, ptr, length, out);
 }
 
+void IntrinsicLocationsBuilderARM64::VisitFP16ToFloat(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  LocationSummary* locations = new (allocator_) LocationSummary(invoke,
+                                                                LocationSummary::kNoCall,
+                                                                kIntrinsified);
+  locations->SetInAt(0, Location::RequiresRegister());
+  locations->SetOut(Location::RequiresFpuRegister());
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16ToFloat(HInvoke* invoke) {
+  DCHECK(codegen_->GetInstructionSetFeatures().HasFP16());
+  MacroAssembler* masm = GetVIXLAssembler();
+  UseScratchRegisterScope scratch_scope(masm);
+  Register bits = InputRegisterAt(invoke, 0);
+  VRegister out = SRegisterFrom(invoke->GetLocations()->Out());
+  VRegister half = scratch_scope.AcquireH();
+  __ Fmov(half, bits);  // ARMv8.2
+  __ Fcvt(out, half);
+}
+
+void IntrinsicLocationsBuilderARM64::VisitFP16ToHalf(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  LocationSummary* locations = new (allocator_) LocationSummary(invoke,
+                                                                LocationSummary::kNoCall,
+                                                                kIntrinsified);
+  locations->SetInAt(0, Location::RequiresFpuRegister());
+  locations->SetOut(Location::RequiresRegister());
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16ToHalf(HInvoke* invoke) {
+  DCHECK(codegen_->GetInstructionSetFeatures().HasFP16());
+  MacroAssembler* masm = GetVIXLAssembler();
+  UseScratchRegisterScope scratch_scope(masm);
+  VRegister in = SRegisterFrom(invoke->GetLocations()->InAt(0));
+  VRegister half = scratch_scope.AcquireH();
+  Register out = WRegisterFrom(invoke->GetLocations()->Out());
+  __ Fcvt(half, in);
+  __ Fmov(out, half);
+  __ Sxth(out, out);  // sign extend due to returning a short type.
+}
+
+template<typename OP>
+void GenerateFP16Round(HInvoke* invoke,
+                       CodeGeneratorARM64* const codegen_,
+                       MacroAssembler* masm,
+                       const OP roundOp) {
+  DCHECK(codegen_->GetInstructionSetFeatures().HasFP16());
+  LocationSummary* locations = invoke->GetLocations();
+  UseScratchRegisterScope scratch_scope(masm);
+  Register out = WRegisterFrom(locations->Out());
+  VRegister half = scratch_scope.AcquireH();
+  __ Fmov(half, WRegisterFrom(locations->InAt(0)));
+  roundOp(half, half);
+  __ Fmov(out, half);
+  __ Sxth(out, out);
+}
+
+void IntrinsicLocationsBuilderARM64::VisitFP16Floor(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  CreateIntToIntLocations(allocator_, invoke);
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16Floor(HInvoke* invoke) {
+  MacroAssembler* masm = GetVIXLAssembler();
+  auto roundOp = [masm](const VRegister& out, const VRegister& in) {
+    __ Frintm(out, in);  // Round towards Minus infinity
+  };
+  GenerateFP16Round(invoke, codegen_, masm, roundOp);
+}
+
+void IntrinsicLocationsBuilderARM64::VisitFP16Ceil(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  CreateIntToIntLocations(allocator_, invoke);
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16Ceil(HInvoke* invoke) {
+  MacroAssembler* masm = GetVIXLAssembler();
+  auto roundOp = [masm](const VRegister& out, const VRegister& in) {
+    __ Frintp(out, in);  // Round towards Plus infinity
+  };
+  GenerateFP16Round(invoke, codegen_, masm, roundOp);
+}
+
+void IntrinsicLocationsBuilderARM64::VisitFP16Rint(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  CreateIntToIntLocations(allocator_, invoke);
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16Rint(HInvoke* invoke) {
+  MacroAssembler* masm = GetVIXLAssembler();
+  auto roundOp = [masm](const VRegister& out, const VRegister& in) {
+    __ Frintn(out, in);  // Round to nearest, with ties to even
+  };
+  GenerateFP16Round(invoke, codegen_, masm, roundOp);
+}
+
+template<typename OP>
+void GenerateFP16Compare(HInvoke* invoke,
+                         CodeGeneratorARM64* codegen,
+                         MacroAssembler* masm,
+                         const OP compareOp) {
+  DCHECK(codegen->GetInstructionSetFeatures().HasFP16());
+  LocationSummary* locations = invoke->GetLocations();
+  Register out = WRegisterFrom(locations->Out());
+  VRegister half0 = HRegisterFrom(locations->GetTemp(0));
+  VRegister half1 = HRegisterFrom(locations->GetTemp(1));
+  __ Fmov(half0, WRegisterFrom(locations->InAt(0)));
+  __ Fmov(half1, WRegisterFrom(locations->InAt(1)));
+  compareOp(out, half0, half1);
+}
+
+static inline void GenerateFP16Compare(HInvoke* invoke,
+                                       CodeGeneratorARM64* codegen,
+                                       MacroAssembler* masm,
+                                       vixl::aarch64::Condition cond) {
+  auto compareOp = [masm, cond](const Register out, const VRegister& in0, const VRegister& in1) {
+    __ Fcmp(in0, in1);
+    __ Cset(out, cond);
+  };
+  GenerateFP16Compare(invoke, codegen, masm, compareOp);
+}
+
+void IntrinsicLocationsBuilderARM64::VisitFP16Greater(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  CreateIntIntToIntLocations(allocator_, invoke);
+  invoke->GetLocations()->AddTemp(Location::RequiresFpuRegister());
+  invoke->GetLocations()->AddTemp(Location::RequiresFpuRegister());
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16Greater(HInvoke* invoke) {
+  MacroAssembler* masm = GetVIXLAssembler();
+  GenerateFP16Compare(invoke, codegen_, masm, gt);
+}
+
+void IntrinsicLocationsBuilderARM64::VisitFP16GreaterEquals(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  CreateIntIntToIntLocations(allocator_, invoke);
+  invoke->GetLocations()->AddTemp(Location::RequiresFpuRegister());
+  invoke->GetLocations()->AddTemp(Location::RequiresFpuRegister());
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16GreaterEquals(HInvoke* invoke) {
+  MacroAssembler* masm = GetVIXLAssembler();
+  GenerateFP16Compare(invoke, codegen_, masm, ge);
+}
+
+void IntrinsicLocationsBuilderARM64::VisitFP16Less(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  CreateIntIntToIntLocations(allocator_, invoke);
+  invoke->GetLocations()->AddTemp(Location::RequiresFpuRegister());
+  invoke->GetLocations()->AddTemp(Location::RequiresFpuRegister());
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16Less(HInvoke* invoke) {
+  MacroAssembler* masm = GetVIXLAssembler();
+  GenerateFP16Compare(invoke, codegen_, masm, mi);
+}
+
+void IntrinsicLocationsBuilderARM64::VisitFP16LessEquals(HInvoke* invoke) {
+  if (!codegen_->GetInstructionSetFeatures().HasFP16()) {
+    return;
+  }
+
+  CreateIntIntToIntLocations(allocator_, invoke);
+  invoke->GetLocations()->AddTemp(Location::RequiresFpuRegister());
+  invoke->GetLocations()->AddTemp(Location::RequiresFpuRegister());
+}
+
+void IntrinsicCodeGeneratorARM64::VisitFP16LessEquals(HInvoke* invoke) {
+  MacroAssembler* masm = GetVIXLAssembler();
+  GenerateFP16Compare(invoke, codegen_, masm, ls);
+}
+
 UNIMPLEMENTED_INTRINSIC(ARM64, ReferenceGetReferent)
 
 UNIMPLEMENTED_INTRINSIC(ARM64, StringStringIndexOf);
@@ -3176,7 +3409,16 @@ UNIMPLEMENTED_INTRINSIC(ARM64, StringStringIndexOfAfter);
 UNIMPLEMENTED_INTRINSIC(ARM64, StringBufferAppend);
 UNIMPLEMENTED_INTRINSIC(ARM64, StringBufferLength);
 UNIMPLEMENTED_INTRINSIC(ARM64, StringBufferToString);
-UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppend);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendObject);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendString);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendCharSequence);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendCharArray);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendBoolean);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendChar);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendInt);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendLong);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendFloat);
+UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderAppendDouble);
 UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderLength);
 UNIMPLEMENTED_INTRINSIC(ARM64, StringBuilderToString);
 

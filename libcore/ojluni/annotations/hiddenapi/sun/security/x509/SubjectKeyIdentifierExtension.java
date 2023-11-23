@@ -25,13 +25,11 @@
 
 package sun.security.x509;
 
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class SubjectKeyIdentifierExtension extends sun.security.x509.Extension
         implements sun.security.x509.CertAttrSet<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public SubjectKeyIdentifierExtension(byte[] octetString) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

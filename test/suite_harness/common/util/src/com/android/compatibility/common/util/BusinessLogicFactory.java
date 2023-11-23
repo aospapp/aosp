@@ -69,6 +69,8 @@ public class BusinessLogicFactory {
     private static final String TIMESTAMP = "timestamp";
     // Date and time pattern for raw timestamp string
     private static final String TIMESTAMP_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
+    // Name of the redacted regexes field
+    private static final String REDACTION_REGEXES = "redactionRegexes";
 
     /**
      * Create a BusinessLogic instance from a {@link FileInputStream} of business logic data,
@@ -116,6 +118,9 @@ public class BusinessLogicFactory {
             if (root.has(TIMESTAMP)) {
                 bl.mTimestamp = parseTimestamp(root.getString(TIMESTAMP));
             }
+            if (root.has(REDACTION_REGEXES)) {
+                bl.mRedactionRegexes = parseRedactionRegexes(root.getJSONArray(REDACTION_REGEXES));
+            }
             try {
                 jsonRulesLists = root.getJSONArray(BUSINESS_LOGIC_RULES_LISTS);
             } catch (JSONException e) {
@@ -138,6 +143,15 @@ public class BusinessLogicFactory {
         // Return business logic
         bl.mRules = rulesMap;
         return bl;
+    }
+
+    private static List<String> parseRedactionRegexes(JSONArray redactionRegexesJSONArray)
+            throws JSONException {
+        List<String> redactionRegexes = new ArrayList<>();
+        for (int i = 0; i < redactionRegexesJSONArray.length(); i++) {
+            redactionRegexes.add(redactionRegexesJSONArray.getString(i));
+        }
+        return redactionRegexes;
     }
 
     /* Extract a BusinessLogicRulesList from the representative JSON object */

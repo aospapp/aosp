@@ -50,12 +50,18 @@ func NewTestArchContext() *TestContext {
 
 type TestContext struct {
 	*Context
-	preArch, preDeps, postDeps []RegisterMutatorFunc
-	NameResolver               *NameResolver
+	preArch, preDeps, postDeps, finalDeps []RegisterMutatorFunc
+	NameResolver                          *NameResolver
+	config                                Config
 }
 
 func (ctx *TestContext) PreArchMutators(f RegisterMutatorFunc) {
 	ctx.preArch = append(ctx.preArch, f)
+}
+
+func (ctx *TestContext) HardCodedPreArchMutators(f RegisterMutatorFunc) {
+	// Register mutator function as normal for testing.
+	ctx.PreArchMutators(f)
 }
 
 func (ctx *TestContext) PreDepsMutators(f RegisterMutatorFunc) {
@@ -66,10 +72,40 @@ func (ctx *TestContext) PostDepsMutators(f RegisterMutatorFunc) {
 	ctx.postDeps = append(ctx.postDeps, f)
 }
 
-func (ctx *TestContext) Register() {
-	registerMutators(ctx.Context.Context, ctx.preArch, ctx.preDeps, ctx.postDeps)
+func (ctx *TestContext) FinalDepsMutators(f RegisterMutatorFunc) {
+	ctx.finalDeps = append(ctx.finalDeps, f)
+}
 
-	ctx.RegisterSingletonType("env", SingletonFactoryAdaptor(EnvSingleton))
+func (ctx *TestContext) Register(config Config) {
+	ctx.SetFs(config.fs)
+	if config.mockBpList != "" {
+		ctx.SetModuleListFile(config.mockBpList)
+	}
+	registerMutators(ctx.Context.Context, ctx.preArch, ctx.preDeps, ctx.postDeps, ctx.finalDeps)
+
+	ctx.RegisterSingletonType("env", EnvSingleton)
+
+	ctx.config = config
+}
+
+func (ctx *TestContext) ParseFileList(rootDir string, filePaths []string) (deps []string, errs []error) {
+	// This function adapts the old style ParseFileList calls that are spread throughout the tests
+	// to the new style that takes a config.
+	return ctx.Context.ParseFileList(rootDir, filePaths, ctx.config)
+}
+
+func (ctx *TestContext) ParseBlueprintsFiles(rootDir string) (deps []string, errs []error) {
+	// This function adapts the old style ParseBlueprintsFiles calls that are spread throughout the
+	// tests to the new style that takes a config.
+	return ctx.Context.ParseBlueprintsFiles(rootDir, ctx.config)
+}
+
+func (ctx *TestContext) RegisterModuleType(name string, factory ModuleFactory) {
+	ctx.Context.RegisterModuleType(name, ModuleFactoryAdaptor(factory))
+}
+
+func (ctx *TestContext) RegisterSingletonType(name string, factory SingletonFactory) {
+	ctx.Context.RegisterSingletonType(name, SingletonFactoryAdaptor(factory))
 }
 
 func (ctx *TestContext) ModuleForTests(name, variant string) TestingModule {
@@ -122,25 +158,6 @@ func (ctx *TestContext) SingletonForTests(name string) TestingSingleton {
 		"\nall singletons: %v", name, allSingletonNames))
 }
 
-// MockFileSystem causes the Context to replace all reads with accesses to the provided map of
-// filenames to contents stored as a byte slice.
-func (ctx *TestContext) MockFileSystem(files map[string][]byte) {
-	// no module list file specified; find every file named Blueprints or Android.bp
-	pathsToParse := []string{}
-	for candidate := range files {
-		base := filepath.Base(candidate)
-		if base == "Blueprints" || base == "Android.bp" {
-			pathsToParse = append(pathsToParse, candidate)
-		}
-	}
-	if len(pathsToParse) < 1 {
-		panic(fmt.Sprintf("No Blueprint or Android.bp files found in mock filesystem: %v\n", files))
-	}
-	files[blueprint.MockModuleListFile] = []byte(strings.Join(pathsToParse, "\n"))
-
-	ctx.Context.MockFileSystem(files)
-}
-
 type testBuildProvider interface {
 	BuildParamsForTests() []BuildParams
 	RuleParamsForTests() map[blueprint.Rule]blueprint.RuleParams
@@ -177,7 +194,7 @@ func buildParamsFromRule(provider testBuildProvider, rule string) TestingBuildPa
 
 func maybeBuildParamsFromDescription(provider testBuildProvider, desc string) TestingBuildParams {
 	for _, p := range provider.BuildParamsForTests() {
-		if p.Description == desc {
+		if strings.Contains(p.Description, desc) {
 			return newTestingBuildParams(provider, p)
 		}
 	}
@@ -368,4 +385,86 @@ func FailIfNoMatchingErrors(t *testing.T, pattern string, errs []error) {
 			t.Errorf("errs[%d] = %s", i, err)
 		}
 	}
+}
+
+func CheckErrorsAgainstExpectations(t *testing.T, errs []error, expectedErrorPatterns []string) {
+	t.Helper()
+
+	if expectedErrorPatterns == nil {
+		FailIfErrored(t, errs)
+	} else {
+		for _, expectedError := range expectedErrorPatterns {
+			FailIfNoMatchingErrors(t, expectedError, errs)
+		}
+		if len(errs) > len(expectedErrorPatterns) {
+			t.Errorf("additional errors found, expected %d, found %d",
+				len(expectedErrorPatterns), len(errs))
+			for i, expectedError := range expectedErrorPatterns {
+				t.Errorf("expectedErrors[%d] = %s", i, expectedError)
+			}
+			for i, err := range errs {
+				t.Errorf("errs[%d] = %s", i, err)
+			}
+		}
+	}
+
+}
+
+func SetInMakeForTests(config Config) {
+	config.inMake = true
+}
+
+func AndroidMkEntriesForTest(t *testing.T, config Config, bpPath string, mod blueprint.Module) []AndroidMkEntries {
+	var p AndroidMkEntriesProvider
+	var ok bool
+	if p, ok = mod.(AndroidMkEntriesProvider); !ok {
+		t.Errorf("module does not implement AndroidMkEntriesProvider: " + mod.Name())
+	}
+
+	entriesList := p.AndroidMkEntries()
+	for i, _ := range entriesList {
+		entriesList[i].fillInEntries(config, bpPath, mod)
+	}
+	return entriesList
+}
+
+func AndroidMkDataForTest(t *testing.T, config Config, bpPath string, mod blueprint.Module) AndroidMkData {
+	var p AndroidMkDataProvider
+	var ok bool
+	if p, ok = mod.(AndroidMkDataProvider); !ok {
+		t.Errorf("module does not implement AndroidMkDataProvider: " + mod.Name())
+	}
+	data := p.AndroidMk()
+	data.fillInData(config, bpPath, mod)
+	return data
+}
+
+// Normalize the path for testing.
+//
+// If the path is relative to the build directory then return the relative path
+// to avoid tests having to deal with the dynamically generated build directory.
+//
+// Otherwise, return the supplied path as it is almost certainly a source path
+// that is relative to the root of the source tree.
+//
+// The build and source paths should be distinguishable based on their contents.
+func NormalizePathForTesting(path Path) string {
+	p := path.String()
+	if w, ok := path.(WritablePath); ok {
+		rel, err := filepath.Rel(w.buildDir(), p)
+		if err != nil {
+			panic(err)
+		}
+		return rel
+	}
+	return p
+}
+
+func NormalizePathsForTesting(paths Paths) []string {
+	var result []string
+	for _, path := range paths {
+		relative := NormalizePathForTesting(path)
+		result = append(result, relative)
+	}
+	return result
 }

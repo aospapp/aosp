@@ -76,7 +76,7 @@ class TestSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, int> {
                                   const BranchStackItemType&) override {
     return nullptr;
   };
-  SampleEntry* CreateCallChainSample(const SampleEntry*, uint64_t, bool,
+  SampleEntry* CreateCallChainSample(const ThreadEntry*, const SampleEntry*, uint64_t, bool,
                                      const std::vector<SampleEntry*>&,
                                      const int&) override {
     return nullptr;

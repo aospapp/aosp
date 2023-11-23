@@ -27,6 +27,8 @@ import android.service.notification.ZenMode;
 import android.service.notification.ZenModeProto;
 import android.service.notification.ZenRuleProto;
 
+import com.android.tradefed.device.ITestDevice;
+
 import java.util.List;
 
 /**
@@ -55,43 +57,51 @@ public class NotificationIncidentTest extends ProtoDumpTestCase {
     private static final String TEST_ACTIVITY =
             "com.android.server.cts.notifications/.NotificationIncidentTestActivity";
     private static final int WAIT_MS = 1000;
+    private static final String DEVICE_SIDE_TEST_PKG = "com.android.server.cts.notifications";
 
     /**
      * Tests that at least one notification is posted, and verify its properties are plausible.
      */
     public void testNotificationRecords() throws Exception {
-        installPackage(DEVICE_SIDE_TEST_APK, /* grantPermissions= */ true);
-        int retries = 3;
-        do {
-            getDevice().executeShellCommand("am start -n " + TEST_ACTIVITY);
-        } while (!checkLogcatForText(TEST_APP_TAG, TEST_APP_LOG, WAIT_MS) && retries-- > 0);
+        ITestDevice device = getDevice();
+        try {
+            installPackage(DEVICE_SIDE_TEST_APK, /* grantPermissions= */ true);
+            int retries = 3;
+            do {
+                device.executeShellCommand("am start -n " + TEST_ACTIVITY);
+            } while (!checkLogcatForText(TEST_APP_TAG, TEST_APP_LOG, WAIT_MS) && retries-- > 0);
 
-        final NotificationServiceDumpProto dump = getDump(NotificationServiceDumpProto.parser(),
-                "dumpsys notification --proto");
+            final NotificationServiceDumpProto dump = getDump(NotificationServiceDumpProto.parser(),
+                    "dumpsys notification --proto");
 
-        assertTrue(dump.getRecordsCount() > 0);
-        boolean found = false;
-        for (NotificationRecordProto record : dump.getRecordsList()) {
-            if (record.getKey().contains("android")) {
-                found = true;
-                assertTrue(record.getImportance() > IMPORTANCE_NONE);
+            assertTrue(dump.getRecordsCount() > 0);
+            boolean found = false;
+            for (NotificationRecordProto record : dump.getRecordsList()) {
+                if (record.getKey().contains("android")) {
+                    found = true;
+                    assertTrue(record.getImportance() > IMPORTANCE_NONE);
 
-                // Ensure these fields exist, at least
-                record.getFlags();
-                record.getChannelId();
-                record.getSound();
-                record.getAudioAttributes();
-                record.getCanVibrate();
-                record.getCanShowLight();
-                record.getGroupKey();
+                    // Ensure these fields exist, at least
+                    record.getFlags();
+                    record.getChannelId();
+                    record.getSound();
+                    record.getAudioAttributes();
+                    record.getCanVibrate();
+                    record.getCanShowLight();
+                    record.getGroupKey();
+                }
+                assertTrue(
+                        NotificationRecordProto.State.getDescriptor()
+                                .getValues()
+                                .contains(record.getState().getValueDescriptor()));
             }
-            assertTrue(
-                NotificationRecordProto.State.getDescriptor()
-                        .getValues()
-                        .contains(record.getState().getValueDescriptor()));
-        }
 
-        assertTrue(found);
+            assertTrue(found);
+        } finally {
+            if (device.getInstalledPackageNames().contains(DEVICE_SIDE_TEST_PKG)) {
+                device.uninstallPackage(DEVICE_SIDE_TEST_PKG);
+            }
+        }
     }
 
     /** Test valid values from the RankingHelper. */
@@ -113,7 +123,7 @@ public class NotificationIncidentTest extends ProtoDumpTestCase {
 
     private static void verifyRecordProto(RecordProto rp) throws Exception {
         assertTrue(!rp.getPackage().isEmpty());
-        assertTrue(rp.getUid() == -10000 || rp.getUid() >= 0);
+        assertTrue(rp.getUid() == -10000 || rp.getUid() >= 0 || rp.getUid() == -1);
         assertTrue("Record importance is an invalid value: " + rp.getImportance(),
                 rp.getImportance() == IMPORTANCE_UNSPECIFIED ||
                 (rp.getImportance() >= IMPORTANCE_NONE && rp.getImportance() <= IMPORTANCE_MAX));

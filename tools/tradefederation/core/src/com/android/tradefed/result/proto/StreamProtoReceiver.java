@@ -23,7 +23,6 @@ import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.TimeUtil;
 
-import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -48,6 +47,12 @@ public class StreamProtoReceiver implements Closeable {
      * results. The longer the invocation goes, the higher is the chance of backing up events.
      */
     private long mExtraWaitTimeForEvents = 0L;
+
+    /**
+     * Stop parsing events when this is set. This allows to avoid a thread parsing the events when
+     * we don't expect them anymore.
+     */
+    private boolean mStopParsing = false;
 
     /**
      * Ctor.
@@ -133,7 +138,6 @@ public class StreamProtoReceiver implements Closeable {
         @Override
         public void run() {
             Socket client = null;
-            BufferedReader in = null;
             try {
                 client = mSocket.accept();
                 TestRecord received = null;
@@ -144,7 +148,7 @@ public class StreamProtoReceiver implements Closeable {
             } catch (IOException e) {
                 CLog.e(e);
             } finally {
-                StreamUtil.close(in);
+                StreamUtil.close(client);
                 mCountDown.countDown();
             }
             CLog.d("ProtoEventReceiverThread done.");
@@ -186,12 +190,25 @@ public class StreamProtoReceiver implements Closeable {
             } catch (InterruptedException e) {
                 CLog.e(e);
                 throw new RuntimeException(e);
+            } finally {
+                mStopParsing = true;
             }
         }
         return true;
     }
 
+    /** If needed to ensure consistent reporting, complete the events of the module. */
+    public void completeModuleEvents() {
+        mParser.completeModuleEvents();
+    }
+
     private void parse(TestRecord receivedRecord) {
+        if (mStopParsing) {
+            CLog.i(
+                    "Skip parsing of %s. It came after joinReceiver.",
+                    receivedRecord.getTestRecordId());
+            return;
+        }
         try {
             TestLevel level = mParser.processNewProto(receivedRecord);
             if (TestLevel.MODULE.equals(level)) {

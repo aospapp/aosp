@@ -411,6 +411,15 @@ public class DrawableWrapperTest {
         wrapper.getConstantState();
     }
 
+    @Test
+    public void testJumpToCurrentStateInvoked() {
+        MockDrawable inner = new MockDrawable();
+        DrawableWrapper wrapper = new MockDrawableWrapper(inner);
+
+        wrapper.jumpToCurrentState();
+        assertTrue(inner.isJumpToCurrentStateInvoked());
+    }
+
     // Since Mockito can't mock or spy on protected methods, we have a custom extension
     // of Drawable to track calls to protected methods. This class also has empty implementations
     // of the base abstract methods.
@@ -418,6 +427,17 @@ public class DrawableWrapperTest {
         private boolean mCalledOnLevelChange = false;
         private ColorFilter mColorFilter;
         private Insets mInsets = null;
+
+        private boolean mJumpToCurrentStateInvoked = false;
+
+        public boolean isJumpToCurrentStateInvoked() {
+            return mJumpToCurrentStateInvoked;
+        }
+
+        @Override
+        public void jumpToCurrentState() {
+            mJumpToCurrentStateInvoked = true;
+        }
 
         @Override
         public void draw(Canvas canvas) {

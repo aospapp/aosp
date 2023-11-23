@@ -59,7 +59,7 @@ public class CarModuleControllerTest {
     public void testStubDevice() {
         EasyMock.expect(mMockDevice.getIDevice()).andReturn(new StubDevice("serial"));
         EasyMock.replay(mMockDevice);
-        assertEquals(RunStrategy.SKIP_MODULE_TESTCASES, mController.shouldRunModule(mContext));
+        assertEquals(RunStrategy.FULL_MODULE_BYPASS, mController.shouldRunModule(mContext));
         EasyMock.verify(mMockDevice);
     }
 
@@ -69,7 +69,7 @@ public class CarModuleControllerTest {
         EasyMock.expect(mMockDevice.getIDevice()).andReturn(mMockIDevice);
         EasyMock.expect(mMockDevice.hasFeature(FEATURE_AUTOMOTIVE)).andReturn(false);
         EasyMock.replay(mMockDevice, mMockIDevice);
-        assertEquals(RunStrategy.SKIP_MODULE_TESTCASES, mController.shouldRunModule(mContext));
+        assertEquals(RunStrategy.FULL_MODULE_BYPASS, mController.shouldRunModule(mContext));
         EasyMock.verify(mMockDevice, mMockIDevice);
     }
 

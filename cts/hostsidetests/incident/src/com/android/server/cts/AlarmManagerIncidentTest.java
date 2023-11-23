@@ -23,8 +23,8 @@ import com.android.server.BatchProto;
 import com.android.server.BroadcastStatsProto;
 import com.android.server.ConstantsProto;
 import com.android.server.FilterStatsProto;
-import com.android.server.ForceAppStandbyTrackerProto;
-import com.android.server.ForceAppStandbyTrackerProto.RunAnyInBackgroundRestrictedPackages;
+import com.android.server.AppStateTrackerProto;
+import com.android.server.AppStateTrackerProto.RunAnyInBackgroundRestrictedPackages;
 import com.android.server.IdleDispatchEntryProto;
 import com.android.server.InFlightProto;
 import com.android.server.WakeupEventProto;
@@ -58,19 +58,19 @@ public class AlarmManagerIncidentTest extends ProtoDumpTestCase {
         assertTrue(0 < settings.getAllowWhileIdleLongDurationMs());
         assertTrue(0 < settings.getAllowWhileIdleWhitelistDurationMs());
 
-        // ForceAppStandbyTrackerProto
-        ForceAppStandbyTrackerProto forceAppStandbyTracker = dump.getForceAppStandbyTracker();
-        for (int uid : forceAppStandbyTracker.getForegroundUidsList()) {
+        // AppStateTrackerProto
+        AppStateTrackerProto appStateTracker = dump.getAppStateTracker();
+        for (int uid : appStateTracker.getForegroundUidsList()) {
             // 0 is technically a valid UID.
             assertTrue(0 <= uid);
         }
-        for (int aid : forceAppStandbyTracker.getPowerSaveWhitelistAppIdsList()) {
+        for (int aid : appStateTracker.getPowerSaveWhitelistAppIdsList()) {
             assertTrue(0 <= aid);
         }
-        for (int aid : forceAppStandbyTracker.getTempPowerSaveWhitelistAppIdsList()) {
+        for (int aid : appStateTracker.getTempPowerSaveWhitelistAppIdsList()) {
             assertTrue(0 <= aid);
         }
-        for (RunAnyInBackgroundRestrictedPackages r : forceAppStandbyTracker.getRunAnyInBackgroundRestrictedPackagesList()) {
+        for (RunAnyInBackgroundRestrictedPackages r : appStateTracker.getRunAnyInBackgroundRestrictedPackagesList()) {
             assertTrue(0 <= r.getUid());
         }
 

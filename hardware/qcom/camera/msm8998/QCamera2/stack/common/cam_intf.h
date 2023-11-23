@@ -658,6 +658,9 @@ typedef struct cam_capability{
     /*White balance calibration data*/
     cam_wb_calibration_t wb_cal;
 
+    /*Max zoom ratio*/
+    float max_zoom;
+
 } cam_capability_t;
 
 typedef enum {

@@ -18,6 +18,7 @@
 
 #include <time.h>
 #include <mutex>
+#include <vector>
 
 #include <android/hardware/bluetooth/audio/2.0/IBluetoothAudioProvider.h>
 #include <android/hardware/bluetooth/audio/2.0/types.h>
@@ -35,8 +36,6 @@ using ::android::hardware::bluetooth::audio::V2_0::AudioCapabilities;
 using ::android::hardware::bluetooth::audio::V2_0::AudioConfiguration;
 using ::android::hardware::bluetooth::audio::V2_0::BitsPerSample;
 using ::android::hardware::bluetooth::audio::V2_0::ChannelMode;
-using ::android::hardware::bluetooth::audio::V2_0::CodecConfiguration;
-using ::android::hardware::bluetooth::audio::V2_0::CodecType;
 using ::android::hardware::bluetooth::audio::V2_0::IBluetoothAudioProvider;
 using ::android::hardware::bluetooth::audio::V2_0::PcmParameters;
 using ::android::hardware::bluetooth::audio::V2_0::SampleRate;
@@ -135,7 +134,11 @@ class BluetoothAudioClientInterface {
     return provider_ != nullptr;
   }
 
+  IBluetoothTransportInstance* GetTransportInstance() const { return sink_; }
+
   std::vector<AudioCapabilities> GetAudioCapabilities() const;
+  static std::vector<AudioCapabilities> GetAudioCapabilities(
+      SessionType session_type);
 
   bool UpdateAudioConfig(const AudioConfiguration& audioConfig);
 
@@ -158,12 +161,15 @@ class BluetoothAudioClientInterface {
 
   static constexpr PcmParameters kInvalidPcmConfiguration = {
       .sampleRate = SampleRate::RATE_UNKNOWN,
+      .channelMode = ChannelMode::UNKNOWN,
       .bitsPerSample = BitsPerSample::BITS_UNKNOWN,
-      .channelMode = ChannelMode::UNKNOWN};
+  };
 
  private:
+  static bool IsSupported();
+
   // Helper function to connect to an IBluetoothAudioProvider
-  void fetch_audio_provider();
+  void FetchAudioProvider();
 
   mutable std::mutex internal_mutex_;
   IBluetoothTransportInstance* sink_;

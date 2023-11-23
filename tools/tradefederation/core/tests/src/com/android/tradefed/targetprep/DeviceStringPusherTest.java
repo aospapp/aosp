@@ -19,6 +19,9 @@ package com.android.tradefed.targetprep;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -34,12 +37,17 @@ public class DeviceStringPusherTest {
     private DeviceStringPusher mDeviceStringPusher;
     private ITestDevice mMockDevice;
     private IBuildInfo mMockBuildInfo;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
         mDeviceStringPusher = new DeviceStringPusher();
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mMockDevice);
+        context.addDeviceBuildInfo("device", mMockBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     @Test(expected = TargetSetupError.class)
@@ -52,7 +60,7 @@ public class DeviceStringPusherTest {
         EasyMock.expect(mMockDevice.getDeviceDescriptor()).andReturn(null).once();
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
-        mDeviceStringPusher.setUp(mMockDevice, mMockBuildInfo);
+        mDeviceStringPusher.setUp(mTestInfo);
     }
 
     @Test
@@ -65,8 +73,8 @@ public class DeviceStringPusherTest {
         mMockDevice.deleteFile("file");
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
-        mDeviceStringPusher.setUp(mMockDevice, mMockBuildInfo);
-        mDeviceStringPusher.tearDown(mMockDevice, mMockBuildInfo, null);
+        mDeviceStringPusher.setUp(mTestInfo);
+        mDeviceStringPusher.tearDown(mTestInfo, null);
         EasyMock.verify(mMockBuildInfo, mMockDevice);
     }
 
@@ -82,8 +90,8 @@ public class DeviceStringPusherTest {
         EasyMock.expect(mMockDevice.pushFile(file, "file")).andReturn(true).once();
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
-        mDeviceStringPusher.setUp(mMockDevice, mMockBuildInfo);
-        mDeviceStringPusher.tearDown(mMockDevice, mMockBuildInfo, null);
+        mDeviceStringPusher.setUp(mTestInfo);
+        mDeviceStringPusher.tearDown(mTestInfo, null);
         EasyMock.verify(mMockBuildInfo, mMockDevice);
     }
 }

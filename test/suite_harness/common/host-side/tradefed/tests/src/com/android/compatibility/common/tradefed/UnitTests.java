@@ -32,13 +32,17 @@ import com.android.compatibility.common.tradefed.result.ResultReporterBuildInfoT
 import com.android.compatibility.common.tradefed.result.ResultReporterTest;
 import com.android.compatibility.common.tradefed.result.SubPlanHelperTest;
 import com.android.compatibility.common.tradefed.result.suite.CertificationChecksumHelperTest;
+import com.android.compatibility.common.tradefed.result.suite.CertificationSuiteResultReporterTest;
 import com.android.compatibility.common.tradefed.result.suite.PreviousResultLoaderTest;
 import com.android.compatibility.common.tradefed.result.suite.PreviousSessionFileCopierTest;
 import com.android.compatibility.common.tradefed.targetprep.BusinessLogicPreparerTest;
+import com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollectorTest;
+import com.android.compatibility.common.tradefed.targetprep.DeviceInteractionHelperInstallerTest;
 import com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusherTest;
 import com.android.compatibility.common.tradefed.targetprep.MediaPreparerTest;
 import com.android.compatibility.common.tradefed.targetprep.PropertyCheckTest;
 import com.android.compatibility.common.tradefed.targetprep.SettingsPreparerTest;
+import com.android.compatibility.common.tradefed.targetprep.VtsDeviceInfoCollectorTest;
 import com.android.compatibility.common.tradefed.testtype.CompatibilityTestTest;
 import com.android.compatibility.common.tradefed.testtype.JarHostTestTest;
 import com.android.compatibility.common.tradefed.testtype.ModuleDefTest;
@@ -90,15 +94,19 @@ import org.junit.runners.Suite.SuiteClasses;
 
     // result.suite
     CertificationChecksumHelperTest.class,
+    CertificationSuiteResultReporterTest.class,
     PreviousResultLoaderTest.class,
     PreviousSessionFileCopierTest.class,
 
     // targetprep
     BusinessLogicPreparerTest.class,
+    DeviceInfoCollectorTest.class,
+    DeviceInteractionHelperInstallerTest.class,
     DynamicConfigPusherTest.class,
     MediaPreparerTest.class,
     PropertyCheckTest.class,
     SettingsPreparerTest.class,
+    VtsDeviceInfoCollectorTest.class,
 
     // testtype
     CompatibilityTestTest.class,

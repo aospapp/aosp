@@ -16,9 +16,9 @@
 
 #include "gtest/gtest.h"
 
-#include "chre/platform/memory_manager.h"
-#include "chre/platform/memory.h"
 #include "chre/platform/log.h"
+#include "chre/platform/memory.h"
+#include "chre/platform/memory_manager.h"
 
 using chre::MemoryManager;
 using chre::Nanoapp;
@@ -27,7 +27,7 @@ namespace {
 struct node {
   node *next;
 };
-}
+}  // namespace
 
 TEST(MemoryManager, DefaultTotalMemoryAllocatedIsZero) {
   MemoryManager manager;
@@ -75,10 +75,10 @@ TEST(MemoryManager, ManyAllocationsTest) {
   MemoryManager manager;
   Nanoapp app;
   size_t maxCount = manager.getMaxAllocationCount();
-  node *head = static_cast<node*>(manager.nanoappAlloc(&app, sizeof(node)));
+  node *head = static_cast<node *>(manager.nanoappAlloc(&app, sizeof(node)));
   node *curr = nullptr, *prev = head;
-  for (size_t i = 0; i < maxCount-1; i++) {
-    curr = static_cast<node*>(manager.nanoappAlloc(&app, sizeof(node)));
+  for (size_t i = 0; i < maxCount - 1; i++) {
+    curr = static_cast<node *>(manager.nanoappAlloc(&app, sizeof(node)));
     EXPECT_NE(curr, nullptr);
     prev->next = curr;
     prev = curr;
@@ -105,4 +105,3 @@ TEST(MemoryManager, NegativeAllocationFails) {
   EXPECT_EQ(manager.getTotalAllocatedBytes(), 0);
   EXPECT_EQ(manager.getAllocationCount(), 0);
 }
-

@@ -26,9 +26,12 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import android.hardware.camera2.cts.Camera2ParameterizedTestCase;
+import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
@@ -40,6 +43,8 @@ import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.runners.Parameterized;
+import org.junit.runner.RunWith;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -52,8 +57,9 @@ import java.io.IOException;
  * get an error callback losing the camera handle. Similarly if the UID is
  * already idle it cannot obtain a camera handle.
  */
-@RunWith(AndroidJUnit4.class)
-public final class IdleUidTest {
+
+@RunWith(Parameterized.class)
+public final class IdleUidTest extends Camera2ParameterizedTestCase {
     private static final long CAMERA_OPERATION_TIMEOUT_MILLIS = 5000; // 5 sec
 
     private static final HandlerThread sCallbackThread = new HandlerThread("Callback thread");
@@ -73,10 +79,8 @@ public final class IdleUidTest {
      */
     @Test
     public void testCameraAccessForIdleUid() throws Exception {
-        final CameraManager cameraManager = InstrumentationRegistry.getTargetContext()
-                .getSystemService(CameraManager.class);
-        for (String cameraId : cameraManager.getCameraIdList()) {
-            testCameraAccessForIdleUidByCamera(cameraManager, cameraId,
+        for (String cameraId : mCameraIdsUnderTest) {
+            testCameraAccessForIdleUidByCamera(cameraId,
                     new Handler(sCallbackThread.getLooper()));
         }
     }
@@ -86,32 +90,29 @@ public final class IdleUidTest {
      */
     @Test
     public void testCameraAccessBecomingInactiveUid() throws Exception {
-        final CameraManager cameraManager = InstrumentationRegistry.getTargetContext()
-                .getSystemService(CameraManager.class);
-        for (String cameraId : cameraManager.getCameraIdList()) {
-            testCameraAccessBecomingInactiveUidByCamera(cameraManager, cameraId,
+        for (String cameraId : mCameraIdsUnderTest) {
+            testCameraAccessBecomingInactiveUidByCamera(cameraId,
                     new Handler(sCallbackThread.getLooper()));
         }
-
     }
 
-    private void testCameraAccessForIdleUidByCamera(CameraManager cameraManager,
-            String cameraId, Handler handler) throws Exception {
+    private void testCameraAccessForIdleUidByCamera(String cameraId, Handler handler)
+            throws Exception {
         // Can access camera from an active UID.
-        assertCameraAccess(cameraManager, cameraId, true, handler);
+        assertCameraAccess(mCameraManager, cameraId, true, handler);
 
         // Make our UID idle
         makeMyPackageIdle();
         try {
             // Can not access camera from an idle UID.
-            assertCameraAccess(cameraManager, cameraId, false, handler);
+            assertCameraAccess(mCameraManager, cameraId, false, handler);
         } finally {
             // Restore our UID as active
             makeMyPackageActive();
         }
 
         // Can access camera from an active UID.
-        assertCameraAccess(cameraManager, cameraId, true, handler);
+        assertCameraAccess(mCameraManager, cameraId, true, handler);
     }
 
     private static void assertCameraAccess(CameraManager cameraManager,
@@ -152,14 +153,14 @@ public final class IdleUidTest {
         }
     }
 
-    private void testCameraAccessBecomingInactiveUidByCamera(CameraManager cameraManager,
-            String cameraId, Handler handler) throws Exception {
+    private void testCameraAccessBecomingInactiveUidByCamera(String cameraId, Handler handler)
+            throws Exception {
         // Mock the callback used to observe camera state.
         final CameraDevice.StateCallback callback = mock(CameraDevice.StateCallback.class);
 
         // Open the camera
         try {
-            cameraManager.openCamera(cameraId, callback, handler);
+            mCameraManager.openCamera(cameraId, callback, handler);
         } catch (CameraAccessException e) {
             fail("Unexpected exception" + e);
         }

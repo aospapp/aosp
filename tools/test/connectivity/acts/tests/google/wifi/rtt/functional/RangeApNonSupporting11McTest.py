@@ -33,9 +33,8 @@ class RangeApNonSupporting11McTest(WifiBaseTest, RttBaseTest):
     # Time gap (in seconds) between iterations
     TIME_BETWEEN_ITERATIONS = 0
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
-        RttBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start()
 
@@ -61,7 +60,7 @@ class RangeApNonSupporting11McTest(WifiBaseTest, RttBaseTest):
         stats = rutils.analyze_results(events, self.rtt_reference_distance_mm,
                                        self.rtt_reference_distance_margin_mm,
                                        self.rtt_min_expected_rssi_dbm,
-                                       self.lci_reference, self.lcr_reference)
+                                       [], [])
         dut.log.debug("Stats=%s", stats)
 
         for bssid, stat in stats.items():

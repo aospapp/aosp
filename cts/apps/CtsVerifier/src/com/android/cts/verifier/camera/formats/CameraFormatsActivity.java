@@ -166,7 +166,7 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         mCameraSpinner = (Spinner) findViewById(R.id.cameras_selection);
         mCameraSpinner.setAdapter(
             new ArrayAdapter<String>(
-                this, R.layout.cf_format_list_item, cameraNames));
+                this, R.layout.camera_list_item, cameraNames));
         mCameraSpinner.setOnItemSelectedListener(mCameraSpinnerListener);
 
         mFormatSpinner = (Spinner) findViewById(R.id.format_selection);
@@ -407,7 +407,7 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         }
         mResolutionSpinner.setAdapter(
             new ArrayAdapter<String>(
-                this, R.layout.cf_format_list_item, availableSizeNames));
+                this, R.layout.camera_list_item, availableSizeNames));
 
         // Get preview formats, removing duplicates
 
@@ -421,7 +421,7 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         }
         mFormatSpinner.setAdapter(
             new ArrayAdapter<String>(
-                this, R.layout.cf_format_list_item, availableFormatNames));
+                this, R.layout.camera_list_item, availableFormatNames));
 
         // Update untested entries
 

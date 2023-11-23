@@ -35,6 +35,7 @@
 namespace sdm {
 
 HWC2::Error HWCCallbacks::Hotplug(hwc2_display_t display, HWC2::Connection state) {
+  std::lock_guard<std::mutex> hotplug_lock(hotplug_mutex_);
   if (!hotplug_) {
     return HWC2::Error::NoResources;
   }
@@ -43,6 +44,7 @@ HWC2::Error HWCCallbacks::Hotplug(hwc2_display_t display, HWC2::Connection state
 }
 
 HWC2::Error HWCCallbacks::Refresh(hwc2_display_t display) {
+  std::lock_guard<std::mutex> refresh_lock(refresh_mutex_);
   if (!refresh_) {
     return HWC2::Error::NoResources;
   }
@@ -51,6 +53,7 @@ HWC2::Error HWCCallbacks::Refresh(hwc2_display_t display) {
 }
 
 HWC2::Error HWCCallbacks::Vsync(hwc2_display_t display, int64_t timestamp) {
+  std::lock_guard<std::mutex> vsync_lock(vsync_mutex_);
   if (!vsync_) {
     return HWC2::Error::NoResources;
   }
@@ -62,18 +65,21 @@ HWC2::Error HWCCallbacks::Vsync(hwc2_display_t display, int64_t timestamp) {
 HWC2::Error HWCCallbacks::Register(HWC2::Callback descriptor, hwc2_callback_data_t callback_data,
                                    hwc2_function_pointer_t pointer) {
   switch (descriptor) {
-    case HWC2::Callback::Hotplug:
+    case HWC2::Callback::Hotplug: {
+      std::lock_guard<std::mutex> hotplug_lock(hotplug_mutex_);
       hotplug_data_ = callback_data;
       hotplug_ = reinterpret_cast<HWC2_PFN_HOTPLUG>(pointer);
-      break;
-    case HWC2::Callback::Refresh:
+    } break;
+    case HWC2::Callback::Refresh: {
+      std::lock_guard<std::mutex> refresh_lock(refresh_mutex_);
       refresh_data_ = callback_data;
       refresh_ = reinterpret_cast<HWC2_PFN_REFRESH>(pointer);
-      break;
-    case HWC2::Callback::Vsync:
+    } break;
+    case HWC2::Callback::Vsync: {
+      std::lock_guard<std::mutex> vsync_lock(vsync_mutex_);
       vsync_data_ = callback_data;
       vsync_ = reinterpret_cast<HWC2_PFN_VSYNC>(pointer);
-      break;
+    } break;
     default:
       return HWC2::Error::BadParameter;
   }

@@ -108,7 +108,7 @@
 #endif
 
 #ifndef BTA_DM_SDP_DB_SIZE
-#define BTA_DM_SDP_DB_SIZE 8000
+#define BTA_DM_SDP_DB_SIZE 20000
 #endif
 
 #ifndef HL_INCLUDED
@@ -534,7 +534,7 @@
 
 /* Whether link wants to be the master or the slave. */
 #ifndef L2CAP_DESIRED_LINK_ROLE
-#define L2CAP_DESIRED_LINK_ROLE HCI_ROLE_SLAVE
+#define L2CAP_DESIRED_LINK_ROLE HCI_ROLE_MASTER
 #endif
 
 /* Include Non-Flushable Packet Boundary Flag feature of Lisbon */
@@ -771,11 +771,6 @@
 /* The name for security authorization. */
 #ifndef SDP_SERVICE_NAME
 #define SDP_SERVICE_NAME "Service Discovery"
-#endif
-
-/* The security level for BTM. */
-#ifndef SDP_SECURITY_LEVEL
-#define SDP_SECURITY_LEVEL BTM_SEC_NONE
 #endif
 
 /******************************************************************************

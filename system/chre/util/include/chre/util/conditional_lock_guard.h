@@ -25,13 +25,13 @@ namespace chre {
  * A version of LockGuard that only acquires the lock if a boolean constructor
  * argument evaluates to true.
  */
-template<typename MutexType>
+template <typename MutexType>
 class ConditionalLockGuard : public NonCopyable {
  public:
   /**
    * Acquires a lock on the mutex if shouldLock is true, otherwise does nothing
    */
-  ConditionalLockGuard(MutexType& mutex, bool shouldLock);
+  ConditionalLockGuard(MutexType &mutex, bool shouldLock);
 
   /**
    * Releases the lock if it was acquired in the constructor
@@ -39,7 +39,7 @@ class ConditionalLockGuard : public NonCopyable {
   ~ConditionalLockGuard();
 
  private:
-  MutexType& mMutex;
+  MutexType &mMutex;
   bool mShouldLock;
 };
 

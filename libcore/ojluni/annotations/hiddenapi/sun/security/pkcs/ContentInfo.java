@@ -31,13 +31,13 @@ import sun.security.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ContentInfo {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public ContentInfo(
             sun.security.util.ObjectIdentifier contentType, sun.security.util.DerValue content) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public ContentInfo(byte[] bytes) {
         throw new RuntimeException("Stub!");
     }
@@ -60,12 +60,12 @@ public class ContentInfo {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getData() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void encode(sun.security.util.DerOutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -78,7 +78,7 @@ public class ContentInfo {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static sun.security.util.ObjectIdentifier DATA_OID;
 
     public static sun.security.util.ObjectIdentifier DIGESTED_DATA_OID;

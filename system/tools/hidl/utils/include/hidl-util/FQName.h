@@ -108,6 +108,13 @@ struct FQName {
     bool operator==(const FQName &other) const;
     bool operator!=(const FQName &other) const;
 
+    // Provides the FQName relative to "relativeTo"
+    // If this is android.hardware.foo@1.0::IFoo it returns
+    // relativeTo: android.hardware.foo@1.0::IBar - IFoo
+    // relativeTo: android.hardware.foo@1.2::IFoo - @1.0::IFoo
+    // relativeTo: android.hardware.bar@1.0::IFoo - android.hardware.foo@1.0::IFoo
+    std::string getRelativeFQName(const FQName& relativeTo) const;
+
     // Must be called on an interface
     // android.hardware.foo@1.0::IBar
     // -> Bar
@@ -211,11 +218,9 @@ struct FQName {
     // package = "android.hardware@1.0" -> false
     bool inPackage(const std::string &package) const;
 
-    void getPackageComponents(std::vector<std::string> *components) const;
+    std::vector<std::string> getPackageComponents() const;
 
-    void getPackageAndVersionComponents(
-            std::vector<std::string> *components,
-            bool cpp_compatible) const;
+    std::vector<std::string> getPackageAndVersionComponents(bool sanitized) const;
 
     // return major and minor version if they exist, else abort program.
     // Existence of version can be checked via hasVersion().
@@ -224,8 +229,10 @@ struct FQName {
 
     // minor-- if result doesn't underflow, else abort.
     FQName downRev() const;
+    // minor++
+    FQName upRev() const;
 
-   private:
+  private:
     bool mIsIdentifier;
     std::string mPackage;
     // mMajor == 0 means empty.
@@ -250,9 +257,6 @@ struct FQName {
 
     void clearVersion();
 };
-
-extern const FQName gIBaseFqName;
-extern const FQName gIManagerFqName;
 
 }  // namespace android
 

@@ -34,6 +34,7 @@ import static org.junit.Assert.assertEquals;
  * Android Unit tests for {@link com.android.helpers.CrashHelper}.
  *
  * <p>To run: Disable SELinux: adb shell setenforce 0; if this fails with "permission denied", try
+ * Build and install Development apk.
  * "adb shell su 0 setenforce 0" atest CollectorsHelperTest:com.android.helpers.CrashHelperTest
  */
 @RunWith(AndroidJUnit4.class)

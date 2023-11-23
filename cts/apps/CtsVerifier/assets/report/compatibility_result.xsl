@@ -229,7 +229,7 @@
                                             <td class="failuredetails">
                                                 <div class="details">
                                                     <xsl:choose>
-                                                        <xsl:when test="$fullStackTrace=true()">
+                                                        <xsl:when test="$fullStackTrace=true() and Failure/StackTrace != ''">
                                                             <xsl:value-of select="Failure/StackTrace" />
                                                         </xsl:when>
                                                         <xsl:otherwise>

@@ -10,3 +10,4 @@ COMMON_CFLAGS += -Ipal/include
 # GoogleTest Source Files ######################################################
 
 GOOGLETEST_SRCS += pal/tests/version_test.cc
+GOOGLETEST_SRCS += pal/tests/wwan_test.cc

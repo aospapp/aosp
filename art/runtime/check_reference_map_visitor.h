@@ -40,7 +40,12 @@ class CheckReferenceMapVisitor : public StackVisitor {
       CHECK_EQ(GetDexPc(), dex::kDexNoIndex);
     }
 
-    if (m == nullptr || m->IsNative() || m->IsRuntimeMethod() || IsShadowFrame()) {
+    // If the method is not compiled, continue the stack walk.
+    if (m == nullptr ||
+        m->IsNative() ||
+        m->IsRuntimeMethod() ||
+        IsShadowFrame() ||
+        !GetCurrentOatQuickMethodHeader()->IsOptimized()) {
       return true;
     }
 
@@ -68,6 +73,12 @@ class CheckReferenceMapVisitor : public StackVisitor {
     StackMap stack_map = code_info.GetStackMapForNativePcOffset(native_pc_offset);
     CodeItemDataAccessor accessor(m->DexInstructionData());
     uint16_t number_of_dex_registers = accessor.RegistersSize();
+
+    if (!Runtime::Current()->IsAsyncDeoptimizeable(GetCurrentQuickFramePc())) {
+      // We can only guarantee dex register info presence for debuggable methods.
+      return;
+    }
+
     DexRegisterMap dex_register_map = code_info.GetDexRegisterMapOf(stack_map);
     DCHECK_EQ(dex_register_map.size(), number_of_dex_registers);
     uint32_t register_mask = code_info.GetRegisterMaskOf(stack_map);

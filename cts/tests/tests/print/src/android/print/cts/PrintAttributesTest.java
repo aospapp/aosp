@@ -383,7 +383,7 @@ public class PrintAttributesTest extends BasePrintTest {
         Log.d(LOG_TAG, "waitForWriteAdapterCallback");
         waitForWriteAdapterCallback(1);
         Log.d(LOG_TAG, "clickPrintButton");
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
         Log.d(LOG_TAG, "waitForPrinterDiscoverySessionDestroyCallbackCalled");
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 

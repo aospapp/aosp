@@ -18,35 +18,32 @@ package android.voicesettings.cts;
 
 import static android.provider.Settings.ACTION_VOICE_CONTROL_AIRPLANE_MODE;
 
-import com.android.compatibility.common.util.BroadcastTestBase;
-import com.android.compatibility.common.util.BroadcastUtils;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.provider.Settings;
-import android.provider.Settings.Global;
 import android.util.Log;
+
+import com.android.compatibility.common.util.BroadcastUtils;
+
+import org.junit.Test;
 
 public class AirplaneModeTest extends BroadcastTestBase {
     static final String TAG = "AirplaneModeTest";
     private static final String VOICE_SETTINGS_PACKAGE = "android.voicesettings.service";
     private static final String VOICE_INTERACTION_CLASS =
-        "android.voicesettings.service.VoiceInteractionMain";
+            "android.voicesettings.service.VoiceInteractionMain";
     protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
 
     private static final int AIRPLANE_MODE_IS_OFF = 0;
     private static final int AIRPLANE_MODE_IS_ON = 1;
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    protected void customSetup() throws Exception {
         mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
         Log.v(TAG, "setUp(): mHasFeature=" + mHasFeature);
     }
 
-    public AirplaneModeTest() {
-        super();
-    }
-
+    @Test
     public void testAll() throws Exception {
         if (!mHasFeature) {
             Log.i(TAG, "The device doesn't support feature: " + FEATURE_VOICE_RECOGNIZERS);
@@ -89,20 +86,23 @@ public class AirplaneModeTest extends BroadcastTestBase {
     }
 
     private boolean runTest(BroadcastUtils.TestcaseType test, int expectedMode) throws Exception {
-        if (!startTestAndWaitForBroadcast(test, VOICE_SETTINGS_PACKAGE, VOICE_INTERACTION_CLASS)) {
+        if (!startTestAndWaitForChange(test,
+                Settings.Global.getUriFor(Settings.Global.AIRPLANE_MODE_ON),
+                VOICE_SETTINGS_PACKAGE,
+                VOICE_INTERACTION_CLASS)) {
             return false;
         }
 
         // verify the test results
         int mode = getMode();
         Log.i(TAG, "After testing, AIRPLANE_MODE is set to: " + mode);
-        assertEquals(expectedMode, mode);
+        assertThat(mode).isEqualTo(expectedMode);
         Log.i(TAG, "Successfully Tested: " + test);
         return true;
     }
 
     private int getMode() throws Settings.SettingNotFoundException {
         return Settings.Global.getInt(mContext.getContentResolver(),
-            Settings.Global.AIRPLANE_MODE_ON);
+                Settings.Global.AIRPLANE_MODE_ON);
     }
 }

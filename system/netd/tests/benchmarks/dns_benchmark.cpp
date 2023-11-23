@@ -43,8 +43,7 @@
 #include <benchmark/benchmark.h>
 
 #include "NetdClient.h"
-#include "dns_responder_client.h"
-#include "netd_resolv/params.h"  // MAXNS
+#include "dns_responder_client_ndk.h"
 
 using android::base::StringPrintf;
 

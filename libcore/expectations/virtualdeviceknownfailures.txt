@@ -1,5 +1,14 @@
 /*
  * List of test cases known to fail on a virtual device.
+ *
+ * Many are because of the network environment used by some or all of the
+ * virtual devices during CTS runs.
+ *
+ * See: https://cloud.google.com/vpc/docs/vpc
+ * As of 2019-05: "VPC networks only support IPv4 unicast traffic. They do not
+ * support broadcast, multicast, or IPv6 traffic within the network: VMs in the
+ * VPC network can only send to IPv4 destinations and only receive traffic from
+ * IPv4 sources.
  */
 [
 {
@@ -15,12 +24,16 @@
 },
 {
   description: "multicast not supported in virtual device testing infra",
-  names: ["org.apache.harmony.tests.java.net.MulticastSocketTest#test_joinGroupLjava_net_InetAddress_IPv4",
-          "org.apache.harmony.tests.java.net.MulticastSocketTest#test_joinGroupLjava_net_SocketAddressLjava_net_NetworkInterface_IPv4_nullInterface",
-          "org.apache.harmony.tests.java.net.MulticastSocketTest#test_leaveGroupLjava_net_InetAddress_IPv4",
-          "org.apache.harmony.tests.java.net.MulticastSocketTest#test_sendLjava_net_DatagramPacketB_IPv4",
-          "org.apache.harmony.tests.java.net.MulticastSocketTest#test_setLoopbackModeSendReceive_IPv4"
+  names: ["org.apache.harmony.tests.java.net.MulticastSocketTest",
+          "libcore.java.net.MulticastSocketTest#testGroupReceiveIPv6",
+          "libcore.java.nio.channels.DatagramChannelMulticastTest#test_joinAnySource_IPv4",
+          "libcore.java.nio.channels.DatagramChannelMulticastTest#test_joinAnySource_multicastLoopOption_IPv4"
           ],
+  bug: 35922755
+},
+{
+  description: "DNS lookups of {1.2.3.4.} do not reliably fail on GCE networks",
+  names: ["libcore.java.net.InetAddressTest#test_getByName_invalid[1]"],
   bug: 35922755
 },
 {

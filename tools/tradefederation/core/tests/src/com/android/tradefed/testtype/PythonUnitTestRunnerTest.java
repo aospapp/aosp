@@ -228,7 +228,7 @@ public class PythonUnitTestRunnerTest {
             mRunner.doRunTest(mMockListener, mockRunUtil, "");
             fail("Should not reach here.");
         } catch (RuntimeException e) {
-            assertEquals("Failed to parse Python unittest result", e.getMessage());
+            assertEquals("Test execution failed", e.getMessage());
         }
         EasyMock.verify(mockRunUtil);
     }

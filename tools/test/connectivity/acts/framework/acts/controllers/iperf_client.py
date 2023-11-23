@@ -17,11 +17,15 @@
 import logging
 import os
 import subprocess
+import socket
 import threading
 
 from acts import context
-from acts import utils
 from acts.controllers.android_device import AndroidDevice
+from acts.controllers.iperf_server import _AndroidDeviceBridge
+from acts.controllers.fuchsia_lib.utils_lib import create_ssh_connection
+from acts.controllers.fuchsia_lib.utils_lib import ssh_is_connected
+from acts.controllers.fuchsia_lib.utils_lib import SshResults
 from acts.controllers.utils_lib.ssh import connection
 from acts.controllers.utils_lib.ssh import settings
 from acts.event import event_bus
@@ -29,9 +33,13 @@ from acts.event.decorators import subscribe_static
 from acts.event.event import TestClassBeginEvent
 from acts.event.event import TestClassEndEvent
 from acts.libs.proc import job
-
+from paramiko.buffered_pipe import PipeTimeout
 ACTS_CONTROLLER_CONFIG_NAME = 'IPerfClient'
 ACTS_CONTROLLER_REFERENCE_NAME = 'iperf_clients'
+
+
+class IPerfError(Exception):
+    """Raised on execution errors of iPerf."""
 
 
 def create(configs):
@@ -48,12 +56,26 @@ def create(configs):
     results = []
     for c in configs:
         if type(c) is dict and 'AndroidDevice' in c:
-            results.append(IPerfClientOverAdb(c['AndroidDevice']))
+            results.append(
+                IPerfClientOverAdb(c['AndroidDevice'],
+                                   test_interface=c.get('test_interface')))
         elif type(c) is dict and 'ssh_config' in c:
-            results.append(IPerfClientOverSsh(c['ssh_config']))
+            results.append(
+                IPerfClientOverSsh(c['ssh_config'],
+                                   use_paramiko=c.get('use_paramiko'),
+                                   test_interface=c.get('test_interface')))
         else:
             results.append(IPerfClient())
     return results
+
+
+def get_info(iperf_clients):
+    """Placeholder for info about iperf clients
+
+    Returns:
+        None
+    """
+    return None
 
 
 def destroy(_):
@@ -89,7 +111,7 @@ class IPerfClientBase(object):
                                     'iperf_client_files')
 
         with IPerfClientBase.__log_file_lock:
-            utils.create_dir(full_out_dir)
+            os.makedirs(full_out_dir, exist_ok=True)
             tags = ['IPerfClient', tag, IPerfClientBase.__log_file_counter]
             out_file_name = '%s.log' % (','.join(
                 [str(x) for x in tags if x != '' and x is not None]))
@@ -97,7 +119,7 @@ class IPerfClientBase(object):
 
         return os.path.join(full_out_dir, out_file_name)
 
-    def start(self, ip, iperf_args, tag, timeout=3600):
+    def start(self, ip, iperf_args, tag, timeout=3600, iperf_binary=None):
         """Starts iperf client, and waits for completion.
 
         Args:
@@ -106,6 +128,8 @@ class IPerfClientBase(object):
                 client. Eg: iperf_args = "-t 10 -p 5001 -w 512k/-u -b 200M -J".
             tag: A string to further identify iperf results file
             timeout: the maximum amount of time the iperf client can run.
+            iperf_binary: Location of iperf3 binary. If none, it is assumed the
+                the binary is in the path.
 
         Returns:
             full_out_path: iperf result path.
@@ -115,8 +139,7 @@ class IPerfClientBase(object):
 
 class IPerfClient(IPerfClientBase):
     """Class that handles iperf3 client operations."""
-
-    def start(self, ip, iperf_args, tag, timeout=3600):
+    def start(self, ip, iperf_args, tag, timeout=3600, iperf_binary=None):
         """Starts iperf client, and waits for completion.
 
         Args:
@@ -125,11 +148,19 @@ class IPerfClient(IPerfClientBase):
             client. Eg: iperf_args = "-t 10 -p 5001 -w 512k/-u -b 200M -J".
             tag: tag to further identify iperf results file
             timeout: unused.
+            iperf_binary: Location of iperf3 binary. If none, it is assumed the
+                the binary is in the path.
 
         Returns:
             full_out_path: iperf result path.
         """
-        iperf_cmd = ['iperf3', '-c', ip] + iperf_args.split(' ')
+        if not iperf_binary:
+            logging.debug('No iperf3 binary specified.  '
+                          'Assuming iperf3 is in the path.')
+            iperf_binary = 'iperf3'
+        else:
+            logging.debug('Using iperf3 binary located at %s' % iperf_binary)
+        iperf_cmd = [str(iperf_binary), '-c', ip] + iperf_args.split(' ')
         full_out_path = self._get_full_file_path(tag)
 
         with open(full_out_path, 'w') as out_file:
@@ -140,12 +171,21 @@ class IPerfClient(IPerfClientBase):
 
 class IPerfClientOverSsh(IPerfClientBase):
     """Class that handles iperf3 client operations on remote machines."""
-
-    def __init__(self, ssh_config):
+    def __init__(self, ssh_config, use_paramiko=False, test_interface=None):
         self._ssh_settings = settings.from_config(ssh_config)
-        self._ssh_session = connection.SshConnection(self._ssh_settings)
+        self._use_paramiko = use_paramiko
+        if str(self._use_paramiko) == 'True':
+            self._ssh_session = create_ssh_connection(
+                ip_address=self._ssh_settings.hostname,
+                ssh_username=self._ssh_settings.username,
+                ssh_config=self._ssh_settings.ssh_config)
+        else:
+            self._ssh_session = connection.SshConnection(self._ssh_settings)
 
-    def start(self, ip, iperf_args, tag, timeout=3600):
+        self.hostname = self._ssh_settings.hostname
+        self.test_interface = test_interface
+
+    def start(self, ip, iperf_args, tag, timeout=3600, iperf_binary=None):
         """Starts iperf client, and waits for completion.
 
         Args:
@@ -154,54 +194,57 @@ class IPerfClientOverSsh(IPerfClientBase):
             client. Eg: iperf_args = "-t 10 -p 5001 -w 512k/-u -b 200M -J".
             tag: tag to further identify iperf results file
             timeout: the maximum amount of time to allow the iperf client to run
+            iperf_binary: Location of iperf3 binary. If none, it is assumed the
+                the binary is in the path.
 
         Returns:
             full_out_path: iperf result path.
         """
-        iperf_cmd = 'iperf3 -c {} {}'.format(ip, iperf_args)
+        if not iperf_binary:
+            logging.debug('No iperf3 binary specified.  '
+                          'Assuming iperf3 is in the path.')
+            iperf_binary = 'iperf3'
+        else:
+            logging.debug('Using iperf3 binary located at %s' % iperf_binary)
+        iperf_cmd = '{} -c {} {}'.format(iperf_binary, ip, iperf_args)
         full_out_path = self._get_full_file_path(tag)
 
         try:
-            iperf_process = self._ssh_session.run(iperf_cmd, timeout=timeout)
+            if self._use_paramiko:
+                if not ssh_is_connected(self._ssh_session):
+                    logging.info('Lost SSH connection to %s. Reconnecting.' %
+                                 self._ssh_settings.hostname)
+                    self._ssh_session.close()
+                    self._ssh_session = create_ssh_connection(
+                        ip_address=self._ssh_settings.hostname,
+                        ssh_username=self._ssh_settings.username,
+                        ssh_config=self._ssh_settings.ssh_config)
+                cmd_result_stdin, cmd_result_stdout, cmd_result_stderr = (
+                    self._ssh_session.exec_command(iperf_cmd, timeout=timeout))
+                iperf_process = SshResults(cmd_result_stdin, cmd_result_stdout,
+                                           cmd_result_stderr,
+                                           cmd_result_stdout.channel)
+            else:
+                iperf_process = self._ssh_session.run(iperf_cmd,
+                                                      timeout=timeout)
             iperf_output = iperf_process.stdout
             with open(full_out_path, 'w') as out_file:
                 out_file.write(iperf_output)
-        except Exception:
+        except PipeTimeout:
+            raise TimeoutError('Paramiko PipeTimeout. Timed out waiting for '
+                               'iperf client to finish.')
+        except socket.timeout:
+            raise TimeoutError('Socket timeout. Timed out waiting for iperf '
+                               'client to finish.')
+        except Exception as e:
             logging.exception('iperf run failed.')
 
         return full_out_path
 
 
-# TODO(markdr): Remove this after automagic controller creation has been
-# removed.
-class _AndroidDeviceBridge(object):
-    """A helper class that bridges the IPerfClientOverAdb to the AndroidDevices.
-
-    Using this class, IPerfClientOverAdb can access the AndroidDevices on the
-    test
-    """
-    android_devices = {}
-
-    @staticmethod
-    @subscribe_static(TestClassBeginEvent)
-    def on_test_begin(event):
-        for device in getattr(event.test_class, 'android_devices', []):
-            _AndroidDeviceBridge.android_devices[device.serial] = device
-
-    @staticmethod
-    @subscribe_static(TestClassEndEvent)
-    def on_test_end(_):
-        _AndroidDeviceBridge.android_devices = {}
-
-
-event_bus.register_subscription(_AndroidDeviceBridge.on_test_begin.subscription)
-event_bus.register_subscription(_AndroidDeviceBridge.on_test_end.subscription)
-
-
 class IPerfClientOverAdb(IPerfClientBase):
     """Class that handles iperf3 operations over ADB devices."""
-
-    def __init__(self, android_device_or_serial):
+    def __init__(self, android_device_or_serial, test_interface=None):
         """Creates a new IPerfClientOverAdb object.
 
         Args:
@@ -209,18 +252,21 @@ class IPerfClientOverAdb(IPerfClientBase):
                 serial that corresponds to the AndroidDevice. Note that the
                 serial must be present in an AndroidDevice entry in the ACTS
                 config.
+            test_interface: The network interface that will be used to send
+                traffic to the iperf server.
         """
         self._android_device_or_serial = android_device_or_serial
+        self.test_interface = test_interface
 
     @property
     def _android_device(self):
         if isinstance(self._android_device_or_serial, AndroidDevice):
             return self._android_device_or_serial
         else:
-            return _AndroidDeviceBridge.android_devices[
+            return _AndroidDeviceBridge.android_devices()[
                 self._android_device_or_serial]
 
-    def start(self, ip, iperf_args, tag, timeout=3600):
+    def start(self, ip, iperf_args, tag, timeout=3600, iperf_binary=None):
         """Starts iperf client, and waits for completion.
 
         Args:
@@ -229,19 +275,32 @@ class IPerfClientOverAdb(IPerfClientBase):
             client. Eg: iperf_args = "-t 10 -p 5001 -w 512k/-u -b 200M -J".
             tag: tag to further identify iperf results file
             timeout: the maximum amount of time to allow the iperf client to run
+            iperf_binary: Location of iperf3 binary. If none, it is assumed the
+                the binary is in the path.
 
         Returns:
             The iperf result file path.
         """
-        iperf_output = ''
+        clean_out = ''
         try:
-            iperf_status, iperf_output = self._android_device.run_iperf_client(
-                ip, iperf_args, timeout=timeout)
+            if not iperf_binary:
+                logging.debug('No iperf3 binary specified.  '
+                              'Assuming iperf3 is in the path.')
+                iperf_binary = 'iperf3'
+            else:
+                logging.debug('Using iperf3 binary located at %s' %
+                              iperf_binary)
+            iperf_cmd = '{} -c {} {}'.format(iperf_binary, ip, iperf_args)
+            out = self._android_device.adb.shell(str(iperf_cmd),
+                                                 timeout=timeout)
+            clean_out = out.split('\n')
+            if 'error' in clean_out[0].lower():
+                raise IPerfError(clean_out)
         except job.TimeoutError:
             logging.warning('TimeoutError: Iperf measurement timed out.')
 
         full_out_path = self._get_full_file_path(tag)
         with open(full_out_path, 'w') as out_file:
-            out_file.write('\n'.join(iperf_output))
+            out_file.write('\n'.join(clean_out))
 
         return full_out_path

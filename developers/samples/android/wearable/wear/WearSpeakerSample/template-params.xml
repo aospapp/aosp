@@ -35,7 +35,7 @@ on your watch (using "adb").
 
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <!-- See http://go/sample-categories for details on the next 4 fields. -->
         <categories>Wearable</categories>
         <technologies>Android</technologies>
@@ -58,27 +58,20 @@ on your watch (using "adb").
           <android>android.media.AudioTrack</android>
           <android>android.media.AudioRecord</android>
         </api_refs>
-
-        <!-- 1-3 line description of the sample here.
-
-            Avoid simply rearranging the sample's title. What does this sample actually
-            accomplish, and how does it do it? -->
         <description>
-<![CDATA[
-A sample that shows how you can record voice using the microphone on a wearable and
-play the recorded voice or an mp3 file, if the wearable device has a built-in speaker.
+            <![CDATA[
+Sample moved to [github.com/android/wear-os][1].
 
-This sample doesn't have any companion phone app so you need to install this directly
-on your watch (using "adb").
+[1]: https://github.com/android/wear-os
 ]]>
         </description>
 
-        <!-- Multi-paragraph introduction to sample, from an educational point-of-view.
-        Makrdown formatting allowed. This will be used to generate a mini-article for the
-        sample on DAC. -->
-        <!-- <intro>
-<![CDATA[
+        <intro>
+            <![CDATA[
+This repo and all Wear OS samples have been moved to [github.com/android/wear-os][1]. Please check out the code there. Thank you!
+
+[1]: https://github.com/android/wear-os
 ]]>
-        </intro> -->
+        </intro>
     </metadata>
 </sample>

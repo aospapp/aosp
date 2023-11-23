@@ -15,8 +15,8 @@
  */
 package com.android.collectors;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -36,8 +36,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.net.URLConnection;
 import java.util.Arrays;
 
 /**
@@ -99,7 +100,9 @@ public class LogcatOnFailureCollectorHostTest extends BaseHostJUnit4Test {
         public void processMetricFile(String key, File metricFile, DeviceMetricData runData) {
             try {
                 assertTrue(metricFile.getName().endsWith(".txt"));
-                assertEquals("text/plain", Files.probeContentType(metricFile.toPath()));
+                String mime =
+                        URLConnection.guessContentTypeFromStream(new FileInputStream(metricFile));
+                assertNull(mime); // guessContentTypeFromStream returns null for text/plain
             } catch (IOException e) {
                 throw new RuntimeException(e);
             } finally {

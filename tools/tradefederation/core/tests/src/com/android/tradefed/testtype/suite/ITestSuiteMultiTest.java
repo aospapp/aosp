@@ -25,6 +25,7 @@ import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ILogSaver;
@@ -55,6 +56,7 @@ public class ITestSuiteMultiTest {
     private ITestSuite mTestSuite;
     private ITestInvocationListener mMockListener;
     private IInvocationContext mContext;
+    private TestInformation mTestInfo;
     private ITestDevice mMockDevice1;
     private IBuildInfo mMockBuildInfo1;
     private ITestDevice mMockDevice2;
@@ -116,6 +118,7 @@ public class ITestSuiteMultiTest {
         mMockDevice1 = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockDevice1.getSerialNumber()).andStubReturn("SERIAL1");
         mMockBuildInfo1 = EasyMock.createMock(IBuildInfo.class);
+        EasyMock.expect(mMockBuildInfo1.getRemoteFiles()).andReturn(null).once();
         mMockDevice2 = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockDevice2.getSerialNumber()).andStubReturn("SERIAL2");
         mMockBuildInfo2 = EasyMock.createMock(IBuildInfo.class);
@@ -141,7 +144,7 @@ public class ITestSuiteMultiTest {
         mContext.addAllocatedDevice(DEVICE_NAME_2, mMockDevice2);
         mContext.addDeviceBuildInfo(DEVICE_NAME_2, mMockBuildInfo2);
         mTestSuite.setInvocationContext(mContext);
-        mTestSuite.setDeviceInfos(mContext.getDeviceBuildMap());
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(mContext).build();
 
         mTestSuite.setSystemStatusChecker(new ArrayList<>());
         mMockListener.testModuleStarted(EasyMock.anyObject());
@@ -160,8 +163,9 @@ public class ITestSuiteMultiTest {
         mMockListener.testModuleEnded();
 
         // Target preparation is triggered against the preparer in the second device.
-        EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false);
-        mMockTargetPrep.setUp(mMockDevice2, mMockBuildInfo2);
+        EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false).times(2);
+        mMockTargetPrep.setUp(EasyMock.anyObject());
+        EasyMock.expect(mMockTargetPrep.isTearDownDisabled()).andReturn(true);
 
         EasyMock.replay(
                 mMockListener,
@@ -170,7 +174,7 @@ public class ITestSuiteMultiTest {
                 mMockDevice1,
                 mMockDevice2,
                 mMockTargetPrep);
-        mTestSuite.run(mMockListener);
+        mTestSuite.run(mTestInfo, mMockListener);
         EasyMock.verify(
                 mMockListener,
                 mMockBuildInfo1,

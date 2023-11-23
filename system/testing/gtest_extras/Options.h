@@ -32,7 +32,7 @@ class Options {
   Options() = default;
   ~Options() = default;
 
-  bool Process(const std::vector<const char*>& args, std::vector<const char*>* child_args);
+  bool Process(const std::vector<const char*>& args, std::vector<char*>* child_args);
 
   size_t job_count() const { return job_count_; }
   int num_iterations() const { return num_iterations_; }
@@ -44,7 +44,6 @@ class Options {
   uint64_t total_shards() const { return numerics_.at("gtest_total_shards"); }
 
   bool print_time() const { return bools_.at("gtest_print_time"); }
-  bool gtest_format() const { return bools_.at("gtest_format"); }
   bool allow_disabled_tests() const { return bools_.at("gtest_also_run_disabled_tests"); }
   bool list_tests() const { return bools_.at("gtest_list_tests"); }
 
@@ -77,6 +76,9 @@ class Options {
 
   bool HandleArg(const std::string& arg, const std::string& value, const ArgInfo& info,
                  bool from_env = false);
+
+  bool ProcessFlagfile(const std::string& file, std::vector<char*>* child_args);
+  bool ProcessSingle(const char* arg, std::vector<char*>* child_args, bool allow_flagfile);
 
   bool SetNumeric(const std::string&, const std::string&, bool);
   bool SetNumericEnvOnly(const std::string&, const std::string&, bool);

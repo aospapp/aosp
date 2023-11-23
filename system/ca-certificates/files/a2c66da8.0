@@ -35,7 +35,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             05:9b:1b:57:9e:8e:21:32:e2:39:07:bd:a7:77:75:5c
-    Signature Algorithm: sha384WithRSAEncryption
+        Signature Algorithm: sha384WithRSAEncryption
         Issuer: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Trusted Root G4
         Validity
             Not Before: Aug  1 12:00:00 2013 GMT
@@ -43,7 +43,7 @@ Certificate:
         Subject: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Trusted Root G4
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:bf:e6:90:73:68:de:bb:e4:5d:4a:3c:30:22:30:
                     69:33:ec:c2:a7:25:2e:c9:21:3d:f2:8a:d8:59:c2:

@@ -16,12 +16,14 @@
 
 package dalvik.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.annotation.optimization.FastNative;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+
+import dalvik.annotation.optimization.FastNative;
 
 /**
  * Provides access to some VM-specific debug features. Though this class and

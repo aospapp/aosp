@@ -49,6 +49,7 @@ import java.nio.ShortBuffer;
 // Warns if not. This can happen if there is no Fast Mixer or if a FastTrack
 // is not available.
 
+@NonMediaMainlineTest
 @AppModeFull(reason = "The APIs would either work correctly or not at all for instant apps")
 public class AudioTrackLatencyTest extends CtsAndroidTestCase {
     private String TAG = "AudioTrackLatencyTest";

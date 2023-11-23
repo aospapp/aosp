@@ -28,12 +28,12 @@ package sun.security.action;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class GetPropertyAction implements java.security.PrivilegedAction<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public GetPropertyAction(java.lang.String theProp) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public GetPropertyAction(java.lang.String theProp, java.lang.String defaultVal) {
         throw new RuntimeException("Stub!");
     }

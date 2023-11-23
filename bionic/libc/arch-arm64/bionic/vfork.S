@@ -26,17 +26,24 @@
  * SUCH DAMAGE.
  */
 
+#include <platform/bionic/tls_defines.h>
 #include <private/bionic_asm.h>
-#include <private/bionic_asm_tls.h>
 #include <asm/signal.h>
-#include <linux/sched.h>
+
+// Must match the defines in linux/sched.h
+#define CLONE_VM 0x00000100
+#define CLONE_VFORK 0x00004000
 
 ENTRY(vfork)
 __BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(vfork)
-    // __get_tls()[TLS_SLOT_THREAD_ID]->cached_pid_ = 0
-    mrs     x0, tpidr_el0
-    ldr     x0, [x0, #(TLS_SLOT_THREAD_ID * 8)]
-    str     wzr, [x0, #20]
+    // x9 = __get_tls()[TLS_SLOT_THREAD_ID]
+    mrs     x9, tpidr_el0
+    ldr     x9, [x9, #(TLS_SLOT_THREAD_ID * 8)]
+
+    // Set cached_pid_ to 0, vforked_ to 1, and stash the previous value.
+    mov     w0, #0x80000000
+    ldr     w10, [x9, #20]
+    str     w0, [x9, #20]
 
     mov     x0, #(CLONE_VM | CLONE_VFORK | SIGCHLD)
     mov     x1, xzr
@@ -47,6 +54,10 @@ __BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(vfork)
     mov     x8, __NR_clone
     svc     #0
 
+    cbz     x0, .L_exit
+
+    // rc != 0: reset cached_pid_ and vforked_.
+    str     w10, [x9, #20]
     cmn     x0, #(MAX_ERRNO + 1)
     cneg    x0, x0, hi
     b.hi    __set_errno_internal

@@ -501,7 +501,7 @@ public class AudioLoopbackTestHelper {
         final int[] histogram = new int[(int) mLatencyStats.mMax + 1];
         for (final ResultData rd : mGoodResults) {
             // Increase value in bucket
-            histogram[(int) (rd.mLatencyMs.floatValue())]++;
+            histogram[(int) rd.mLatencyMs.floatValue()]++;
         }
 
         CLog.i("========== VALID RESULTS ============================================");

@@ -24,9 +24,9 @@
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
-        <option name="push" value="/google/data/ro/teams/tradefed/testdata/media/multimeter/video_calibration.mp4->/sdcard/media_api/samples/video_cali.mp4" />
-        <option name="push" value="/google/data/ro/teams/tradefed/testdata/media/multimeter/video_1080p_30fps_10min_bbb.mp4->/sdcard/media_api/samples/video.mp4" />
-        <option name="push" value="/google/data/ro/teams/tradefed/testdata/media/multimeter/video_720p_60fps_4min_mountham.mp4->/sdcard/media_api/samples/video2.mp4" />
+        <option name="push-file" key="gs://tradefed_test_resources/teams/tradefed/testdata/media/multimeter/video_calibration.mp4" value="/sdcard/media_api/samples/video_cali.mp4" />
+        <option name="push-file" key="gs://tradefed_test_resources/teams/tradefed/testdata/media/multimeter/video_1080p_30fps_10min_bbb.mp4" value="/sdcard/media_api/samples/video.mp4" />
+        <option name="push-file" key="gs://tradefed_test_resources/teams/tradefed/testdata/media/multimeter/video_720p_60fps_4min_mountham.mp4" value="/sdcard/media_api/samples/video2.mp4" />
     </target_preparer>
 
     <test class="com.android.media.tests.VideoMultimeterRunner">

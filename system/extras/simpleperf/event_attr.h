@@ -39,6 +39,7 @@ bool GetCommonEventIdPositionsForAttrs(std::vector<perf_event_attr>& attrs,
 bool IsTimestampSupported(const perf_event_attr& attr);
 bool IsCpuSupported(const perf_event_attr& attr);
 // Return event name with modifier if the event is found, otherwise return "unknown".
+// This function is slow for using linear search, so only used when reporting.
 std::string GetEventNameByAttr(const perf_event_attr& attr);
 
 #endif  // SIMPLE_PERF_EVENT_ATTR_H_

@@ -30,4 +30,4 @@ bool inEventLoopThread();
 
 }  // namespace chre
 
-#endif //CHRE_CONTEXT_H
+#endif  // CHRE_CONTEXT_H

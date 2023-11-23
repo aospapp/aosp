@@ -96,12 +96,12 @@
     <option name="compatibility:exclude-filter" value="VtsHalRadioV1_0Target RadioHidlTest.changeIccPin2ForApp" />
     <option name="compatibility:exclude-filter" value="VtsHalRadioV1_0Target RadioHidlTest.iccCloseLogicalChannel" />
 
-    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Host WifiChipHidlTest.CreateRttController" />
-    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Host WifiStaIfaceHidlTest.LinkLayerStatsCollection" />
-    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Host WifiChipHidlTest.GetDebugRingBuffersStatus" />
-    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Host WifiChipHidlTest.StartLoggingToDebugRingBuffer" />
-    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Host WifiChipHidlTest.ForceDumpToDebugRingBuffer" />
-    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Host WifiChipHidlTest.GetDebugHostWakeReasonStats" />
+    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Target WifiChipHidlTest.CreateRttController" />
+    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Target WifiStaIfaceHidlTest.LinkLayerStatsCollection" />
+    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Target WifiChipHidlTest.GetDebugRingBuffersStatus" />
+    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Target WifiChipHidlTest.StartLoggingToDebugRingBuffer" />
+    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Target WifiChipHidlTest.ForceDumpToDebugRingBuffer" />
+    <option name="compatibility:exclude-filter" value="VtsHalWifiV1_0Target WifiChipHidlTest.GetDebugHostWakeReasonStats" />
 
     <option name="compatibility:exclude-filter" value="VtsHalWifiV1_1Target WifiChipHidlTest.SelectTxPowerScenario" />
     <option name="compatibility:exclude-filter" value="VtsHalWifiV1_1Target WifiChipHidlTest.ResetTxPowerScenario" />

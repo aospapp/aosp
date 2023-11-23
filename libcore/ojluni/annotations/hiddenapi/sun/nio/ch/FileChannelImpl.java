@@ -207,7 +207,7 @@ public class FileChannelImpl extends java.nio.channels.FileChannel {
 
     private native long map0(int prot, long position, long length) throws java.io.IOException;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static native int unmap0(long address, long length);
 
     private native long transferTo0(

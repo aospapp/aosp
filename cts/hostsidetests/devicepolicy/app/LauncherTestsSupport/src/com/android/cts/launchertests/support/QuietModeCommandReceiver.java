@@ -31,6 +31,7 @@ public class QuietModeCommandReceiver extends BroadcastReceiver {
     private static final String ACTION_TOGGLE_QUIET_MODE = "toggle_quiet_mode";
     private static final String EXTRA_QUIET_MODE = "quiet_mode";
     private static final String RESULT_SECURITY_EXCEPTION = "security-exception";
+    private static final String EXTRA_FLAGS = "quiet_mode_flags";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -40,10 +41,14 @@ public class QuietModeCommandReceiver extends BroadcastReceiver {
         final UserManager userManager = context.getSystemService(UserManager.class);
         final boolean enableQuietMode = intent.getBooleanExtra(EXTRA_QUIET_MODE, false);
         final UserHandle targetUser = intent.getParcelableExtra(Intent.EXTRA_USER);
+        final boolean hasFlags = intent.hasExtra(EXTRA_FLAGS);
+        final int flags = hasFlags ? intent.getIntExtra(EXTRA_FLAGS, 0) : 0;
         String result;
         try {
             final boolean setQuietModeResult =
-                    userManager.requestQuietModeEnabled(enableQuietMode, targetUser);
+                    hasFlags ? userManager.requestQuietModeEnabled(enableQuietMode, targetUser,
+                            flags)
+                            : userManager.requestQuietModeEnabled(enableQuietMode, targetUser);
             result = Boolean.toString(setQuietModeResult);
             Log.i(TAG, "trySetQuietModeEnabled returns " + setQuietModeResult);
         } catch (SecurityException ex) {

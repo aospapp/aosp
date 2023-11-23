@@ -53,8 +53,10 @@ class HardwareAndroid final : public HardwareInterface {
   bool GetNonVolatileDirectory(base::FilePath* path) const override;
   bool GetPowerwashSafeDirectory(base::FilePath* path) const override;
   int64_t GetBuildTimestamp() const override;
+  bool AllowDowngrade() const override;
   bool GetFirstActiveOmahaPingSent() const override;
   bool SetFirstActiveOmahaPingSent() override;
+  void SetWarmReset(bool warm_reset) override;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(HardwareAndroid);

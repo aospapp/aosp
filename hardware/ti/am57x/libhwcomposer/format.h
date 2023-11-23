@@ -23,7 +23,7 @@
 #include <drm/drm_fourcc.h>
 #include <linux/types.h>
 
-#include "hal_public.h"
+#include "img_gralloc1_public.h"
 
 static inline std::string HAL_FMT(uint32_t format)
 {

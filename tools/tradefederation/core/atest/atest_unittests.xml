@@ -14,7 +14,7 @@
     <option name="test-suite-tag" value="atest_unittests" />
 
     <test class="com.android.tradefed.testtype.python.PythonBinaryHostTest" >
-        <option name="par-file-name" value="atest_unittests" />
+        <option name="par-file-name" value="atest-py2_unittests" />
         <option name="test-timeout" value="2m" />
     </test>
 </configuration>

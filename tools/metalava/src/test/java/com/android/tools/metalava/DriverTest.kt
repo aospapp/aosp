@@ -31,8 +31,8 @@ import com.android.tools.lint.checks.infrastructure.TestFiles
 import com.android.tools.lint.checks.infrastructure.TestFiles.java
 import com.android.tools.lint.checks.infrastructure.stripComments
 import com.android.tools.metalava.doclava1.ApiFile
-import com.android.tools.metalava.doclava1.Errors
 import com.android.tools.metalava.model.SUPPORT_TYPE_USE_ANNOTATIONS
+import com.android.tools.metalava.model.defaultConfiguration
 import com.android.tools.metalava.model.parseDocument
 import com.android.utils.FileUtils
 import com.android.utils.SdkUtils
@@ -48,6 +48,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.ErrorCollector
 import org.junit.rules.TemporaryFolder
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -58,13 +59,21 @@ import java.io.StringWriter
 import java.net.URL
 import kotlin.text.Charsets.UTF_8
 
-const val CHECK_OLD_DOCLAVA_TOO = false
 const val CHECK_JDIFF = false
 const val CHECK_STUB_COMPILATION = false
+
+/**
+ * Marker class for stubs argument to [DriverTest.check] indicating that no
+ * stubs should be generated for a particular source file.
+ */
+const val NO_STUB = ""
 
 abstract class DriverTest {
     @get:Rule
     var temporaryFolder = TemporaryFolder()
+
+    @get:Rule
+    val errorCollector = ErrorCollector()
 
     @Before
     fun setup() {
@@ -81,7 +90,13 @@ abstract class DriverTest {
         return dir
     }
 
+    // Makes a note to fail the test, but still allows the test to complete before failing
+    protected fun addError(error: String) {
+        errorCollector.addError(Throwable(error))
+    }
+
     protected fun runDriver(vararg args: String, expectedFail: String = ""): String {
+
         resetTicker()
 
         // Capture the actual input and output from System.out/err and compare it
@@ -90,9 +105,9 @@ abstract class DriverTest {
         val previousOut = System.out
         val previousErr = System.err
         try {
-            val output = OutputForbiddenWriter("stdout")
+            val output = TeeWriter(previousOut)
             System.setOut(PrintStream(output))
-            val error = OutputForbiddenWriter("stderr")
+            val error = TeeWriter(previousErr)
             System.setErr(PrintStream(error))
 
             val sw = StringWriter()
@@ -100,7 +115,9 @@ abstract class DriverTest {
 
             Disposer.setDebugMode(true)
 
-            if (!com.android.tools.metalava.run(arrayOf(*args), writer, writer)) {
+            if (run(arrayOf(*args), writer, writer)) {
+                assertTrue("Test expected to fail but didn't. Expected failure: $expectedFail", expectedFail.isEmpty())
+            } else {
                 val actualFail = cleanupString(sw.toString(), null)
                 if (cleanupString(expectedFail, null).replace(".", "").trim() !=
                     actualFail.replace(".", "").trim()
@@ -113,17 +130,19 @@ abstract class DriverTest {
                         // the signature was passed at the same time
                         // ignore
                     } else {
-                        assertEquals(expectedFail, actualFail)
-                        fail(actualFail)
+                        assertEquals(expectedFail.trimIndent(), actualFail)
                     }
                 }
             }
 
             val stdout = output.toString(UTF_8.name())
-            assertTrue(stdout, stdout.isEmpty())
-
+            if (!stdout.isEmpty()) {
+                addError("Unexpected write to stdout:\n $stdout")
+            }
             val stderr = error.toString(UTF_8.name())
-            assertTrue(stderr, stderr.isEmpty())
+            if (!stderr.isEmpty()) {
+                addError("Unexpected write to stderr:\n $stderr")
+            }
 
             val printedOutput = sw.toString()
             if (printedOutput.isNotEmpty() && printedOutput.trim().isEmpty()) {
@@ -139,22 +158,22 @@ abstract class DriverTest {
         }
     }
 
-    // This is here to make sure we don't have any unexpected random println's
-    // in the source that are left behind after debugging and ends up polluting
-    // the production output
-    class OutputForbiddenWriter(private val stream: String) : ByteArrayOutputStream() {
+    // This is here so we can keep a record of what was printed, to make sure we
+    // don't have any unexpected printlns in the source that are left behind after
+    // debugging and pollute the production output
+    class TeeWriter(private val otherStream: PrintStream) : ByteArrayOutputStream() {
         override fun write(b: ByteArray?, off: Int, len: Int) {
-            fail("Unexpected write directly to $stream")
+            otherStream.write(b, off, len)
             super.write(b, off, len)
         }
 
         override fun write(b: ByteArray?) {
-            fail("Unexpected write directly to $stream")
+            otherStream.write(b)
             super.write(b)
         }
 
         override fun write(b: Int) {
-            fail("Unexpected write directly to $stream")
+            otherStream.write(b)
             super.write(b)
         }
     }
@@ -194,6 +213,14 @@ abstract class DriverTest {
         return System.getenv("JAVA_HOME")
     }
 
+    private fun <T> buildOptionalArgs(option: T?, converter: (T) -> Array<String>): Array<String> {
+        if (option != null) {
+            return converter(option)
+        } else {
+            return emptyArray<String>()
+        }
+    }
+
     /** File conversion tasks */
     data class ConvertData(
         val fromApi: String,
@@ -229,10 +256,13 @@ abstract class DriverTest {
         /** The subtract api signature content (corresponds to --subtract-api) */
         @Language("TEXT")
         subtractApi: String? = null,
-        /** Expected stubs (corresponds to --stubs) */
+        /** Expected stubs (corresponds to --stubs) in order corresponding to [sourceFiles]. Use
+         * [NO_STUB] as a marker for source files that are not expected to generate stubs */
         @Language("JAVA") stubs: Array<String> = emptyArray(),
         /** Stub source file list generated */
         stubsSourceList: String? = null,
+        /** Doc Stub source file list generated */
+        docStubsSourceList: String? = null,
         /** Whether the stubs should be written as documentation stubs instead of plain stubs. Decides
          * whether the stubs include @doconly elements, uses rewritten/migration annotations, etc */
         docStubs: Boolean = false,
@@ -244,10 +274,10 @@ abstract class DriverTest {
         trim: Boolean = true,
         /** Whether to remove blank lines in the output (the signature file usually contains a lot of these) */
         stripBlankLines: Boolean = true,
-        /** Warnings expected to be generated when analyzing these sources */
-        warnings: String? = "",
-        /** Whether to run doclava1 on the test output and assert that the output is identical */
-        checkDoclava1: Boolean = compatibilityMode && (format == null || format == FileFormat.V1),
+        /** All expected issues to be generated when analyzing these sources */
+        expectedIssues: String? = "",
+        /** Expected [Severity.ERROR] issues to be generated when analyzing these sources */
+        errorSeverityExpectedIssues: String? = null,
         checkCompilation: Boolean = false,
         /** Annotations to merge in (in .xml format) */
         @Language("XML") mergeXmlAnnotations: String? = null,
@@ -257,7 +287,12 @@ abstract class DriverTest {
         @Language("JAVA") mergeJavaStubAnnotations: String? = null,
         /** Inclusion annotations to merge in (in Java stub format) */
         @Language("JAVA") mergeInclusionAnnotations: String? = null,
-        /** An optional API signature file content to load **instead** of Java/Kotlin source files */
+        /** Otional API signature files content to load **instead** of Java/Kotlin source files */
+        @Language("TEXT") signatureSources: Array<String> = emptyArray(),
+        /**
+         * An otional API signature file content to load **instead** of Java/Kotlin source files.
+         * This is added to [signatureSources]. This argument exists for backward compatibility.
+         */
         @Language("TEXT") signatureSource: String? = null,
         /** An optional API jar file content to load **instead** of Java/Kotlin source files */
         apiJar: File? = null,
@@ -276,8 +311,10 @@ abstract class DriverTest {
         @Language("Proguard") proguard: String? = null,
         /** Show annotations (--show-annotation arguments) */
         showAnnotations: Array<String> = emptyArray(),
-        /** Hide annotations (--hideAnnotation arguments) */
+        /** Hide annotations (--hide-annotation arguments) */
         hideAnnotations: Array<String> = emptyArray(),
+        /** Hide meta-annotations (--hide-meta-annotation arguments) */
+        hideMetaAnnotations: Array<String> = emptyArray(),
         /** If using [showAnnotations], whether to include unannotated */
         showUnannotated: Boolean = false,
         /** Additional arguments to supply */
@@ -350,19 +387,37 @@ abstract class DriverTest {
          * directory
          */
         projectSetup: ((File) -> Unit)? = null,
-        /** Baseline file to use, if any */
+        /** Content of the baseline file to use, if any */
         baseline: String? = null,
-        /** Whether to create the baseline if it does not exist. Requires [baseline] to be set. */
-        updateBaseline: Boolean = false,
+        /** If non-null, we expect the baseline file to be updated to this. [baseline] must also be set. */
+        updateBaseline: String? = null,
         /** Merge instead of replacing the baseline */
         mergeBaseline: String? = null,
+
+        /** [ARG_BASELINE_API_LINT] */
+        baselineApiLint: String? = null,
+        /** [ARG_UPDATE_BASELINE_API_LINT] */
+        updateBaselineApiLint: String? = null,
+
+        /** [ARG_BASELINE_CHECK_COMPATIBILITY_RELEASED] */
+        baselineCheckCompatibilityReleased: String? = null,
+        /** [ARG_UPDATE_BASELINE_CHECK_COMPATIBILITY_RELEASED] */
+        updateBaselineCheckCompatibilityReleased: String? = null,
+
+        /** [ARG_ERROR_MESSAGE_API_LINT] */
+        errorMessageApiLint: String? = null,
+        /** [ARG_ERROR_MESSAGE_CHECK_COMPATIBILITY_RELEASED] */
+        errorMessageCheckCompatibilityReleased: String? = null,
+        /** [ARG_ERROR_MESSAGE_CHECK_COMPATIBILITY_CURRENT] */
+        errorMessageCheckCompatibilityCurrent: String? = null,
+
         /**
          * If non null, enable API lint. If non-blank, a codebase where only new APIs not in the codebase
          * are linted.
          */
         @Language("TEXT") apiLint: String? = null,
         /** The source files to pass to the analyzer */
-        vararg sourceFiles: TestFile
+        sourceFiles: Array<TestFile> = emptyArray()
     ) {
         // Ensure different API clients don't interfere with each other
         try {
@@ -396,13 +451,14 @@ abstract class DriverTest {
                 "Can't specify both compatibilityMode and mergeInclusionAnnotations"
             )
         }
-        Errors.resetLevels()
+        defaultConfiguration.reset()
 
         @Suppress("NAME_SHADOWING")
-        val expectedFail = expectedFail ?: if (checkCompatibilityApi != null ||
+        val expectedFail = expectedFail ?: if ((checkCompatibilityApi != null ||
             checkCompatibilityApiReleased != null ||
             checkCompatibilityRemovedApiCurrent != null ||
-            checkCompatibilityRemovedApiReleased != null
+            checkCompatibilityRemovedApiReleased != null) &&
+            (expectedIssues != null && !expectedIssues.trim().isEmpty())
         ) {
             "Aborting: Found compatibility problems with --check-compatibility"
         } else {
@@ -413,8 +469,6 @@ abstract class DriverTest {
         val androidJar = getPlatformFile("android.jar")
 
         val project = createProject(*sourceFiles)
-
-        val packages = sourceFiles.asSequence().map { findPackage(it.getContents()!!) }.filterNotNull().toSet()
 
         val sourcePathDir = File(project, "src")
         if (!sourcePathDir.isDirectory) {
@@ -429,20 +483,25 @@ abstract class DriverTest {
         }
 
         val sourceList =
-            if (signatureSource != null) {
+            if (!signatureSources.isEmpty() || signatureSource != null) {
                 sourcePathDir.mkdirs()
-                assert(sourceFiles.isEmpty()) { "Shouldn't combine sources with signature file loads" }
-                val signatureFile = File(project, "load-api.txt")
-                signatureFile.writeText(signatureSource.trimIndent())
-                if (includeStrippedSuperclassWarnings) {
-                    arrayOf(signatureFile.path)
-                } else {
-                    arrayOf(
-                        signatureFile.path,
-                        ARG_HIDE,
-                        "HiddenSuperclass"
-                    ) // Suppress warning #111
+
+                // if signatureSource is set, add it to signatureSources.
+                val sources = signatureSources.toMutableList()
+                signatureSource?. let { sources.add(it) }
+
+                var num = 0
+                var args = mutableListOf<String>()
+                sources.forEach { file ->
+                    val signatureFile = File(project, "load-api${ if (++num == 1) "" else num }.txt")
+                    signatureFile.writeText(file.trimIndent())
+                    args.add(signatureFile.path)
                 }
+                if (!includeStrippedSuperclassWarnings) {
+                    args.add(ARG_HIDE)
+                    args.add("HiddenSuperclass") // Suppress warning #111
+                }
+                args.toTypedArray()
             } else if (apiJar != null) {
                 sourcePathDir.mkdirs()
                 assert(sourceFiles.isEmpty()) { "Shouldn't combine sources with API jar file loads" }
@@ -462,11 +521,15 @@ abstract class DriverTest {
             emptyArray()
         }
 
-        val reportedWarnings = StringBuilder()
-        reporter = object : Reporter(project) {
-            override fun print(message: String) {
-                reportedWarnings.append(cleanupString(message, project).trim()).append('\n')
+        val allReportedIssues = StringBuilder()
+        val errorSeverityReportedIssues = StringBuilder()
+        Reporter.rootFolder = project
+        Reporter.reportPrinter = { message, severity ->
+            val cleanedUpMessage = cleanupString(message, project).trim()
+            if (severity == Severity.ERROR) {
+                errorSeverityReportedIssues.append(cleanedUpMessage).append('\n')
             }
+            allReportedIssues.append(cleanedUpMessage).append('\n')
         }
 
         val mergeAnnotationsArgs = if (mergeXmlAnnotations != null) {
@@ -520,7 +583,7 @@ abstract class DriverTest {
                 arrayOf(ARG_API_LINT, file.path)
             }
         } else {
-            emptyArray<String>()
+            emptyArray()
         }
 
         val checkCompatibilityApiFile = if (checkCompatibilityApi != null) {
@@ -697,6 +760,17 @@ abstract class DriverTest {
             emptyArray()
         }
 
+        val hideMetaAnnotationArguments = if (hideMetaAnnotations.isNotEmpty()) {
+            val args = mutableListOf<String>()
+            for (annotation in hideMetaAnnotations) {
+                args.add(ARG_HIDE_META_ANNOTATION)
+                args.add(annotation)
+            }
+            args.toTypedArray()
+        } else {
+            emptyArray()
+        }
+
         val showUnannotatedArgs =
             if (showUnannotated) {
                 arrayOf(ARG_SHOW_UNANNOTATED)
@@ -783,7 +857,7 @@ abstract class DriverTest {
             emptyArray()
         }
 
-        var subtractApiFile: File? = null
+        var subtractApiFile: File?
         val subtractApiArgs = if (subtractApi != null) {
             subtractApiFile = temporaryFolder.newFile("subtract-api.txt")
             subtractApiFile.writeText(subtractApi.trimIndent())
@@ -860,6 +934,14 @@ abstract class DriverTest {
             emptyArray()
         }
 
+        var docStubsSourceListFile: File? = null
+        val docStubsSourceListArgs = if (docStubsSourceList != null) {
+            docStubsSourceListFile = temporaryFolder.newFile("droiddoc-doc-src-list")
+            arrayOf(ARG_DOC_STUBS_SOURCE_LIST, docStubsSourceListFile.path)
+        } else {
+            emptyArray()
+        }
+
         val applyApiLevelsXmlFile: File?
         val applyApiLevelsXmlArgs = if (applyApiLevelsXml != null) {
             ApiLookup::class.java.getDeclaredMethod("dispose").apply { isAccessible = true }.invoke(null)
@@ -870,21 +952,45 @@ abstract class DriverTest {
             emptyArray()
         }
 
-        var baselineFile: File? = null
-        val baselineArgs = if (baseline != null) {
-            baselineFile = temporaryFolder.newFile("baseline.txt")
-            baselineFile?.writeText(baseline.trimIndent())
-            if (!(updateBaseline || mergeBaseline != null)) {
-                arrayOf(ARG_BASELINE, baselineFile.path)
+        fun buildBaselineArgs(
+            argBaseline: String,
+            argUpdateBaseline: String,
+            argMergeBaseline: String,
+            filename: String,
+            baselineContent: String?,
+            updateContent: String?,
+            merge: Boolean
+        ): Pair<Array<String>, File?> {
+            if (baselineContent != null) {
+                val baselineFile = temporaryFolder.newFile(filename)
+                baselineFile?.writeText(baselineContent.trimIndent())
+                if (!(updateContent != null || merge)) {
+                    return Pair(arrayOf(argBaseline, baselineFile.path), baselineFile)
+                } else {
+                    return Pair(arrayOf(argBaseline,
+                        baselineFile.path,
+                        if (mergeBaseline != null) argMergeBaseline else argUpdateBaseline,
+                        baselineFile.path), baselineFile)
+                }
             } else {
-                arrayOf(ARG_BASELINE,
-                    baselineFile.path,
-                    if (mergeBaseline != null) ARG_MERGE_BASELINE else ARG_UPDATE_BASELINE,
-                    baselineFile.path)
+                return Pair(emptyArray(), null)
             }
-        } else {
-            emptyArray()
         }
+
+        val (baselineArgs, baselineFile) = buildBaselineArgs(
+            ARG_BASELINE, ARG_UPDATE_BASELINE, ARG_MERGE_BASELINE, "baseline.txt",
+            baseline, updateBaseline, mergeBaseline != null
+        )
+        val (baselineApiLintArgs, baselineApiLintFile) = buildBaselineArgs(
+            ARG_BASELINE_API_LINT, ARG_UPDATE_BASELINE_API_LINT, "",
+            "baseline-api-lint.txt",
+            baselineApiLint, updateBaselineApiLint, false
+        )
+        val (baselineCheckCompatibilityReleasedArgs, baselineCheckCompatibilityReleasedFile) = buildBaselineArgs(
+            ARG_BASELINE_CHECK_COMPATIBILITY_RELEASED, ARG_UPDATE_BASELINE_CHECK_COMPATIBILITY_RELEASED, "",
+            "baseline-check-released.txt",
+            baselineCheckCompatibilityReleased, updateBaselineCheckCompatibilityReleased, false
+        )
 
         val importedPackageArgs = mutableListOf<String>()
         importedPackages.forEach {
@@ -979,6 +1085,16 @@ abstract class DriverTest {
             emptyArray()
         }
 
+        val errorMessageApiLintArgs = buildOptionalArgs(errorMessageApiLint) {
+            arrayOf(ARG_ERROR_MESSAGE_API_LINT, it)
+        }
+        val errorMessageCheckCompatibilityReleasedArgs = buildOptionalArgs(errorMessageCheckCompatibilityReleased) {
+            arrayOf(ARG_ERROR_MESSAGE_CHECK_COMPATIBILITY_RELEASED, it)
+        }
+        val errorMessageCheckCompatibilityCurrentArgs = buildOptionalArgs(errorMessageCheckCompatibilityCurrent) {
+            arrayOf(ARG_ERROR_MESSAGE_CHECK_COMPATIBILITY_CURRENT, it)
+        }
+
         // Run optional additional setup steps on the project directory
         projectSetup?.invoke(project)
 
@@ -1020,6 +1136,7 @@ abstract class DriverTest {
             *subtractApiArgs,
             *stubsArgs,
             *stubsSourceListArgs,
+            *docStubsSourceListArgs,
             "$ARG_COMPAT_OUTPUT=${if (compatibilityMode) "yes" else "no"}",
             "$ARG_OUTPUT_KOTLIN_NULLS=${if (outputKotlinStyleNulls) "yes" else "no"}",
             "$ARG_INPUT_KOTLIN_NULLS=${if (inputKotlinStyleNulls) "yes" else "no"}",
@@ -1041,8 +1158,11 @@ abstract class DriverTest {
             *convertArgs,
             *applyApiLevelsXmlArgs,
             *baselineArgs,
+            *baselineApiLintArgs,
+            *baselineCheckCompatibilityReleasedArgs,
             *showAnnotationArguments,
             *hideAnnotationArguments,
+            *hideMetaAnnotationArguments,
             *showUnannotatedArgs,
             *includeSourceRetentionAnnotationArgs,
             *apiLintArgs,
@@ -1056,6 +1176,9 @@ abstract class DriverTest {
             *signatureFormatArgs,
             *sourceList,
             *extraArguments,
+            *errorMessageApiLintArgs,
+            *errorMessageCheckCompatibilityReleasedArgs,
+            *errorMessageCheckCompatibilityCurrentArgs,
             expectedFail = expectedFail
         )
 
@@ -1082,15 +1205,28 @@ abstract class DriverTest {
             parseDocument(apiXmlFile.readText(UTF_8), false)
         }
 
-        if (baseline != null && baselineFile != null) {
+        fun checkBaseline(arg: String, baselineContent: String?, updateBaselineContent: String?, mergeBaselineContent: String?, file: File?) {
+            if (file == null) {
+                return
+            }
             assertTrue(
-                "${baselineFile.path} does not exist even though $ARG_BASELINE was used",
-                baselineFile.exists()
+                "${file.path} does not exist even though $arg was used",
+                file.exists()
             )
-            val actualText = readFile(baselineFile, stripBlankLines, trim)
-            val sourceFile = mergeBaseline ?: baseline
+            val actualText = readFile(file, stripBlankLines, trim)
+
+            // Compare against:
+            // If "merged baseline" is set, use it.
+            // If "update baseline" is set, use it.
+            // Otherwise, the original baseline.
+            val sourceFile = mergeBaselineContent ?: updateBaselineContent ?: baselineContent ?: ""
             assertEquals(stripComments(sourceFile, stripLineComments = false).trimIndent(), actualText)
         }
+        checkBaseline(ARG_BASELINE, baseline, updateBaseline, mergeBaseline, baselineFile)
+        checkBaseline(ARG_BASELINE_API_LINT, baselineApiLint, updateBaselineApiLint, null, baselineApiLintFile)
+        checkBaseline(ARG_BASELINE_CHECK_COMPATIBILITY_RELEASED, baselineCheckCompatibilityReleased,
+            updateBaselineCheckCompatibilityReleased, null, baselineCheckCompatibilityReleasedFile
+        )
 
         if (convertFiles.isNotEmpty()) {
             for (i in 0 until convertToJDiff.size) {
@@ -1222,10 +1358,16 @@ abstract class DriverTest {
             assertEquals(sdk_widgets.trimIndent().trim(), actual.trim())
         }
 
-        if (warnings != null) {
+        if (expectedIssues != null) {
             assertEquals(
-                warnings.trimIndent().trim(),
-                cleanupString(reportedWarnings.toString(), project)
+                expectedIssues.trimIndent().trim(),
+                cleanupString(allReportedIssues.toString(), project)
+            )
+        }
+        if (errorSeverityExpectedIssues != null) {
+            assertEquals(
+                errorSeverityExpectedIssues.trimIndent().trim(),
+                cleanupString(errorSeverityReportedIssues.toString(), project)
             )
         }
 
@@ -1281,25 +1423,26 @@ abstract class DriverTest {
                             stub = stub.substring(pathEnd + 2)
                         }
                     }
-                    if (!stubFile.exists()) {
-                        /* Example:
-                            stubs = arrayOf(
-                                """
-                                [test/visible/package-info.java]
-                                <html>My package docs</html>
-                                package test.visible;
-                                """,
-                                ...
-                           Here the stub will be read from $stubsDir/test/visible/package-info.java.
-                         */
-                        throw FileNotFoundException(
-                            "Could not find generated stub for $targetPath; consider " +
-                                "setting target relative path in stub header as prefix surrounded by []"
-                        )
-                    }
                 }
-                val actualText = readFile(stubFile, stripBlankLines, trim)
-                assertEquals(stub, actualText)
+                if (stubFile.exists()) {
+                    val actualText = readFile(stubFile, stripBlankLines, trim)
+                    assertEquals(stub, actualText)
+                } else if (stub != NO_STUB) {
+                    /* Example:
+                        stubs = arrayOf(
+                            """
+                            [test/visible/package-info.java]
+                            <html>My package docs</html>
+                            package test.visible;
+                            """,
+                            ...
+                       Here the stub will be read from $stubsDir/test/visible/package-info.java.
+                     */
+                    throw FileNotFoundException(
+                        "Could not find generated stub for $targetPath; consider " +
+                            "setting target relative path in stub header as prefix surrounded by []"
+                    )
+                }
             }
         }
 
@@ -1313,6 +1456,18 @@ abstract class DriverTest {
                 // space separated line
                 .replace(' ', '\n')
             assertEquals(stripComments(stubsSourceList, stripLineComments = false).trimIndent(), actualText)
+        }
+
+        if (docStubsSourceList != null && docStubsSourceListFile != null) {
+            assertTrue(
+                "${docStubsSourceListFile.path} does not exist even though --write-stubs-source-list was used",
+                docStubsSourceListFile.exists()
+            )
+            val actualText = cleanupString(readFile(docStubsSourceListFile, stripBlankLines, trim), project)
+                // To make golden files look better put one entry per line instead of a single
+                // space separated line
+                .replace(' ', '\n')
+            assertEquals(stripComments(docStubsSourceList, stripLineComments = false).trimIndent(), actualText)
         }
 
         if (checkCompilation && stubsDir != null && CHECK_STUB_COMPILATION) {
@@ -1338,278 +1493,8 @@ abstract class DriverTest {
             }
         }
 
-        if (checkDoclava1 && !CHECK_OLD_DOCLAVA_TOO) {
-            println(
-                "This test requested diffing with doclava1, but doclava1 testing was disabled with the " +
-                    "DriverTest#CHECK_OLD_DOCLAVA_TOO = false"
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && signatureSource == null &&
-            api != null && apiFile != null
-        ) {
-            apiFile.delete()
-            checkSignaturesWithDoclava(
-                api = api,
-                argument = "-api",
-                output = apiFile,
-                expected = apiFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                showUnannotated = showUnannotated,
-                project = project,
-                extraArguments = extraArguments
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && apiXml != null && apiXmlFile != null) {
-            apiXmlFile.delete()
-
-            // Either we write the signatureSource, or you must have specified an API report
-            val signatureFile: File =
-                apiFile ?: if (signatureSource != null) {
-                    val temp = temporaryFolder.newFile("jdiff-doclava-api.txt")
-                    temp.writeText(signatureSource.trimIndent(), UTF_8)
-                    temp
-                } else {
-                    fail("When verifying XML files with doclava you must either specify signatureSource or api")
-                    error("Unreachable")
-                }
-
-            // Need to emit the codebase
-            generateJDiffXmlWithDoclava1(signatureFile, apiXmlFile, null)
-
-            val actualText = cleanupString(readFile(apiXmlFile, stripBlankLines, trim), project, true)
-            assertEquals(stripComments(apiXml, stripLineComments = false).trimIndent(), actualText)
-        }
-
         if (CHECK_JDIFF && apiXmlFile != null && convertToJDiff.isNotEmpty()) {
             // TODO: Parse the XML file with jdiff too
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && convertToJDiff.isNotEmpty()) {
-            var index = 1
-            for (convert in convertToJDiff) {
-                if (convert.format != FileFormat.JDIFF) {
-                    continue
-                }
-                val signature = convert.fromApi
-                val expectedXml = convert.outputFile
-                val base = convert.baseApi
-                val strip = convert.strip
-                val convertSig = temporaryFolder.newFile("doclava-jdiff-signatures$index.txt")
-                convertSig.writeText(signature.trimIndent(), UTF_8)
-                val output = temporaryFolder.newFile("doclava-jdiff-output$index.xml")
-                val baseFile = if (base != null) {
-                    val baseFile = temporaryFolder.newFile("doclava-jdiff-signatures$index-base.txt")
-                    baseFile.writeText(base.trimIndent(), UTF_8)
-                    baseFile
-                } else {
-                    null
-                }
-
-                generateJDiffXmlWithDoclava1(convertSig, output, baseFile, strip = strip)
-
-                val actualText = cleanupString(readFile(output, stripBlankLines, trim), project, true)
-                assertEquals(stripComments(expectedXml, stripLineComments = false).trimIndent(), actualText)
-                index++
-            }
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && signatureSource == null &&
-            exactApi != null && exactApiFile != null
-        ) {
-            exactApiFile.delete()
-            checkSignaturesWithDoclava(
-                api = exactApi,
-                argument = "-exactApi",
-                output = exactApiFile,
-                expected = exactApiFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                showUnannotated = showUnannotated,
-                project = project,
-                extraArguments = extraArguments
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && signatureSource == null &&
-            removedApi != null && removedApiFile != null
-        ) {
-            removedApiFile.delete()
-            checkSignaturesWithDoclava(
-                api = removedApi,
-                argument = "-removedApi",
-                output = removedApiFile,
-                expected = removedApiFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                showUnannotated = showUnannotated,
-                project = project,
-                extraArguments = extraArguments
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && signatureSource == null && stubsDir != null) {
-            stubsDir.deleteRecursively()
-            val firstFile = File(stubsDir, sourceFiles[0].targetPath.substring("src/".length))
-            checkSignaturesWithDoclava(
-                api = stubs[0],
-                argument = "-stubs",
-                output = stubsDir,
-                expected = firstFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                showUnannotated = showUnannotated,
-                project = project,
-                extraArguments = extraArguments
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && proguard != null && proguardFile != null) {
-            proguardFile.delete()
-            checkSignaturesWithDoclava(
-                api = proguard,
-                argument = "-proguard",
-                output = proguardFile,
-                expected = proguardFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                showUnannotated = showUnannotated,
-                project = project,
-                extraArguments = extraArguments
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && signatureSource == null &&
-            privateApi != null && privateApiFile != null
-        ) {
-            privateApiFile.delete()
-            checkSignaturesWithDoclava(
-                api = privateApi,
-                argument = "-privateApi",
-                output = privateApiFile,
-                expected = privateApiFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                // Workaround: -privateApi is a no-op if you don't also provide -api
-                extraDoclavaArguments = arrayOf("-api", File(privateApiFile.parentFile, "dummy-api.txt").path),
-                showUnannotated = showUnannotated,
-                project = project,
-                extraArguments = extraArguments
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && signatureSource == null &&
-            privateDexApi != null && privateDexApiFile != null
-        ) {
-            privateDexApiFile.delete()
-            checkSignaturesWithDoclava(
-                api = privateDexApi,
-                argument = "-privateDexApi",
-                output = privateDexApiFile,
-                expected = privateDexApiFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                // Workaround: -privateDexApi is a no-op if you don't also provide -api
-                extraDoclavaArguments = arrayOf("-api", File(privateDexApiFile.parentFile, "dummy-api.txt").path),
-                showUnannotated = showUnannotated,
-                project = project,
-                extraArguments = extraArguments
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && signatureSource == null &&
-            dexApi != null && dexApiFile != null
-        ) {
-            dexApiFile.delete()
-            checkSignaturesWithDoclava(
-                api = dexApi,
-                argument = "-dexApi",
-                output = dexApiFile,
-                expected = dexApiFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                // Workaround: -dexApi is a no-op if you don't also provide -api
-                extraDoclavaArguments = arrayOf("-api", File(dexApiFile.parentFile, "dummy-api.txt").path),
-                showUnannotated = showUnannotated,
-                project = project,
-                extraArguments = extraArguments
-            )
-        }
-
-        if (CHECK_OLD_DOCLAVA_TOO && checkDoclava1 && signatureSource == null &&
-            dexApiMapping != null && dexApiMappingFile != null
-        ) {
-            dexApiMappingFile.delete()
-            checkSignaturesWithDoclava(
-                api = dexApiMapping,
-                argument = "-apiMapping",
-                output = dexApiMappingFile,
-                expected = dexApiMappingFile,
-                sourceList = sourceList,
-                sourcePath = sourcePath,
-                packages = packages,
-                androidJar = androidJar,
-                trim = trim,
-                stripBlankLines = stripBlankLines,
-                showAnnotationArgs = showAnnotationArguments,
-                stubImportPackages = importedPackages,
-                // Workaround: -apiMapping is a no-op if you don't also provide -api
-                extraDoclavaArguments = arrayOf("-api", File(dexApiMappingFile.parentFile, "dummy-api.txt").path),
-                showUnannotated = showUnannotated,
-                project = project,
-                skipTestRoot = true,
-                extraArguments = extraArguments
-            )
         }
     }
 
@@ -1655,241 +1540,6 @@ abstract class DriverTest {
         }
 
         return s
-    }
-
-    private fun generateJDiffXmlWithDoclava1(
-        signatureFile: File,
-        xmlOutput: File,
-        baseFile: File?,
-        strip: Boolean = false
-    ) {
-        val docLava1 = findDoclava()
-
-        val args = if (baseFile != null) {
-            arrayOf(
-                if (strip) "-new_api" else "-new_api_no_strip",
-                baseFile.path,
-                signatureFile.path,
-                xmlOutput.path
-            )
-        } else {
-            arrayOf(
-                if (strip) "-convert2xml" else "-convert2xmlnostrip",
-                signatureFile.path,
-                xmlOutput.path
-            )
-        }
-
-        val message = "\n${args.joinToString(separator = "\n") { "\"$it\"," }}"
-        println("Running doclava1 with the following args:\n$message")
-
-        println("My args:")
-        args.forEach {
-            println("\"$it\",")
-        }
-
-        val jdkPath = findJdk()
-        if (!runCommand(
-                "$jdkPath/bin/java",
-                arrayOf(
-                    "-classpath",
-                    "${docLava1.path}:$jdkPath/lib/tools.jar",
-                    "com.google.doclava.apicheck.ApiCheck",
-                    *args
-                )
-            )
-        ) {
-            return
-        }
-    }
-
-    private fun checkSignaturesWithDoclava(
-        api: String,
-        argument: String,
-        output: File,
-        expected: File = output,
-        sourceList: Array<String>,
-        sourcePath: String,
-        packages: Set<String>,
-        androidJar: File,
-        trim: Boolean = true,
-        stripBlankLines: Boolean = true,
-        showAnnotationArgs: Array<String> = emptyArray(),
-        stubImportPackages: List<String>,
-        extraArguments: Array<String>,
-        extraDoclavaArguments: Array<String> = emptyArray(),
-        showUnannotated: Boolean,
-        project: File,
-        skipTestRoot: Boolean = false
-    ) {
-        // We have to run Doclava out of process because running it in process
-        // (with Doclava1 jars on the test classpath) only works once; it leaves
-        // around state such that the second test fails. Instead we invoke it
-        // separately on each test; slower but reliable.
-
-        val doclavaArg = when (argument) {
-            ARG_API -> "-api"
-            ARG_REMOVED_API -> "-removedApi"
-            else -> if (argument.startsWith("--")) argument.substring(1) else argument
-        }
-
-        val showAnnotationArgsDoclava1: Array<String> =
-            if (showAnnotationArgs.isNotEmpty() || extraArguments.isNotEmpty()) {
-                val shown = mutableListOf<String>()
-                extraArguments.forEachIndexed { index, s ->
-                    if (s == ARG_SHOW_ANNOTATION) {
-                        shown += "-showAnnotation"
-                        shown += extraArguments[index + 1]
-                    }
-                }
-                showAnnotationArgs.forEach { s ->
-                    shown += if (s == ARG_SHOW_ANNOTATION) {
-                        "-showAnnotation"
-                    } else {
-                        s
-                    }
-                }
-                shown.toTypedArray()
-            } else {
-                emptyArray()
-            }
-        val hideAnnotationArgsDoclava1: Array<String> = if (extraArguments.isNotEmpty()) {
-            val hidden = mutableListOf<String>()
-            extraArguments.forEachIndexed { index, s ->
-                if (s == ARG_HIDE_ANNOTATION) {
-                    hidden += "-hideAnnotation"
-                    hidden += extraArguments[index + 1]
-                }
-            }
-            hidden.toTypedArray()
-        } else {
-            emptyArray()
-        }
-        val showUnannotatedArgs = if (showUnannotated) {
-            arrayOf("-showUnannotated")
-        } else {
-            emptyArray()
-        }
-
-        val docLava1 = findDoclava()
-        val jdkPath = findJdk()
-
-        val hidePackageArgs = mutableListOf<String>()
-        options.hidePackages.forEach {
-            hidePackageArgs.add("-hidePackage")
-            hidePackageArgs.add(it)
-        }
-
-        val stubImports = if (stubImportPackages.isNotEmpty()) {
-            arrayOf("-stubimportpackages", stubImportPackages.joinToString(separator = ":") { it })
-        } else {
-            emptyArray()
-        }
-
-        val args = arrayOf(
-            *sourceList,
-            "-stubpackages",
-            packages.joinToString(separator = ":") { it },
-            *stubImports,
-            "-doclet",
-            "com.google.doclava.Doclava",
-            "-docletpath",
-            docLava1.path,
-            "-encoding",
-            "UTF-8",
-            "-source",
-            "1.8",
-            "-nodocs",
-            "-quiet",
-            "-sourcepath",
-            sourcePath,
-            "-classpath",
-            androidJar.path,
-
-            *showAnnotationArgsDoclava1,
-            *hideAnnotationArgsDoclava1,
-            *showUnannotatedArgs,
-            *hidePackageArgs.toTypedArray(),
-            *extraDoclavaArguments,
-
-            // -api, or // -stub, etc
-            doclavaArg,
-            output.path
-        )
-
-        val message = "\n${args.joinToString(separator = "\n") { "\"$it\"," }}"
-        println("Running doclava1 with the following args:\n$message")
-
-        if (!runCommand(
-                "$jdkPath/bin/java",
-                arrayOf(
-                    "-classpath",
-                    "${docLava1.path}:$jdkPath/lib/tools.jar",
-                    "com.google.doclava.Doclava",
-                    *args
-                )
-            )
-        ) {
-            return
-        }
-
-        // If there's a discrepancy between doclava1 and metalava, you can debug
-        // doclava; to do this, open the Doclava project, and take all the
-        // metalava arguments, drop the ones that don't apply and use the
-        // doclava-style names instead of metalava (e.g. -stubs instead of --stubs,
-        // -showAnnotation instead of --show-annotation, -sourcepath instead of
-        // --sourcepath, and so on. Finally, and most importantly, add these
-        // 4 arguments at the beginning:
-        //   "-doclet",
-        //   "com.google.doclava.Doclava",
-        //   "-docletpath",
-        //   "out/host/linux-x86/framework/jsilver.jar:out/host/linux-x86/framework/doclava.jar",
-        // ..and finally from your Main entry point take this array of strings
-        // and call Doclava.main(newArgs)
-
-        val actualText = cleanupString(readFile(expected, stripBlankLines, trim), project, skipTestRoot)
-        assertEquals(stripComments(api, stripLineComments = false).trimIndent(), actualText)
-    }
-
-    protected fun findJdk(): String? {
-        val jdkPath = getJdkPath()
-        if (jdkPath == null) {
-            fail("JDK not found in the environment; make sure \$JAVA_HOME is set.")
-        }
-        return jdkPath
-    }
-
-    private fun findDoclava(): File {
-        val docLava1 = File("testlibs/doclava-1.0.6-full-SNAPSHOT.jar")
-        if (!docLava1.isFile) {
-            /*
-                Not checked in (it's 22MB).
-                To generate the doclava1 jar, add this to external/doclava/build.gradle and run ./gradlew shadowJar:
-
-                // shadow jar: Includes all dependencies
-                buildscript {
-                    repositories {
-                        jcenter()
-                    }
-                    dependencies {
-                        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.2'
-                    }
-                }
-                apply plugin: 'com.github.johnrengelman.shadow'
-                shadowJar {
-                   baseName = "doclava-$version-full-SNAPSHOT"
-                   classifier = null
-                   version = null
-                }
-
-                and finally
-                $ cp ../../out/host/gradle/external/jdiff/build/libs/doclava-*-SNAPSHOT-full-SNAPSHOT.jar \
-                     testlibs/doclava-1.0.6-full-SNAPSHOT.jar
-
-             */
-            fail("Couldn't find $docLava1: Is the pwd set to the root of the metalava source code?")
-        }
-        return docLava1
     }
 
     private fun runCommand(executable: String, args: Array<String>): Boolean {
@@ -2191,34 +1841,6 @@ val nullableSource: TestFile = java(
     """
 ).indented()
 
-val supportNonNullSource: TestFile = java(
-    """
-    package android.support.annotation;
-    import java.lang.annotation.*;
-    import static java.lang.annotation.ElementType.*;
-    import static java.lang.annotation.RetentionPolicy.SOURCE;
-    @SuppressWarnings("WeakerAccess")
-    @Retention(SOURCE)
-    @Target({METHOD, PARAMETER, FIELD, TYPE_USE, TYPE_PARAMETER})
-    public @interface NonNull {
-    }
-    """
-).indented()
-
-val supportNullableSource: TestFile = java(
-    """
-    package android.support.annotation;
-    import java.lang.annotation.*;
-    import static java.lang.annotation.ElementType.*;
-    import static java.lang.annotation.RetentionPolicy.SOURCE;
-    @SuppressWarnings("WeakerAccess")
-    @Retention(SOURCE)
-    @Target({METHOD, PARAMETER, FIELD, TYPE_USE, TYPE_PARAMETER})
-    public @interface Nullable {
-    }
-    """
-).indented()
-
 val androidxNonNullSource: TestFile = java(
     """
     package androidx.annotation;
@@ -2450,6 +2072,31 @@ val visibleForTestingSource: TestFile = java(
         int PACKAGE_PRIVATE = 3;
         int PROTECTED = 4;
         int NONE = 5;
+    }
+    """
+).indented()
+
+val columnSource: TestFile = java(
+    """
+    package android.provider;
+
+    import static java.lang.annotation.ElementType.FIELD;
+    import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+    import android.content.ContentProvider;
+    import android.content.ContentValues;
+    import android.database.Cursor;
+
+    import java.lang.annotation.Documented;
+    import java.lang.annotation.Retention;
+    import java.lang.annotation.Target;
+
+    @Documented
+    @Retention(RUNTIME)
+    @Target({FIELD})
+    public @interface Column {
+        int value();
+        boolean readOnly() default false;
     }
     """
 ).indented()

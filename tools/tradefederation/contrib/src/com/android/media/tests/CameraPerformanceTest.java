@@ -18,6 +18,7 @@ package com.android.media.tests;
 
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
@@ -98,20 +99,20 @@ public class CameraPerformanceTest extends CameraTestBase {
         setTestRunner("androidx.test.runner.AndroidJUnitRunner");
         setRuKey("camera_framework_performance");
         setTestTimeoutMs(10 * 60 * 1000); // 10 mins
+        setIsolatedStorageFlag(false);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        runInstrumentationTest(listener, new CollectingListener(listener));
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        runInstrumentationTest(testInfo, listener, new CollectingListener(listener));
     }
 
     /**
      * A listener to collect the output from test run and fatal errors
      */
-    private class CollectingListener extends DefaultCollectingListener {
+    private class CollectingListener extends CameraTestMetricsCollectionListener.DefaultCollectingListener {
 
         public CollectingListener(ITestInvocationListener listener) {
             super(listener);

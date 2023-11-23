@@ -81,10 +81,10 @@ static void verifyBasicBufferImport(JNIEnv *env, jclass, jobject assetMgr,
       .width = kTestImageWidth,
       .height = kTestImageHeight,
       .layers = 1,
+      .format = static_cast<uint32_t>(format),
       .usage = AHARDWAREBUFFER_USAGE_CPU_READ_NEVER |
                AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN |
                AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE,
-      .format = static_cast<uint32_t>(format),
   };
   AHardwareBuffer *buffer;
   if (0 != AHardwareBuffer_allocate(&hwbDesc, &buffer)) {

@@ -35,7 +35,7 @@ from test_runners import atest_tf_test_runner
 _INT_NAME_RE = re.compile(r'^.*\/res\/config\/(?P<int_name>.*).xml$')
 _TF_TARGETS = frozenset(['tradefed', 'tradefed-contrib'])
 _GTF_TARGETS = frozenset(['google-tradefed', 'google-tradefed-contrib'])
-_CONTRIB_TARGETS = frozenset(['tradefed-contrib', 'google-tradefed-contrib'])
+_CONTRIB_TARGETS = frozenset(['google-tradefed-contrib'])
 _TF_RES_DIR = '../res/config'
 
 
@@ -120,8 +120,10 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
                 if not integration_name:
                     logging.warn('skipping <include> tag with no "name" value')
                     continue
-                full_path = self._search_integration_dirs(integration_name)
-                node = self._load_xml_file(full_path)
+                full_paths = self._search_integration_dirs(integration_name)
+                node = None
+                if full_paths:
+                    node = self._load_xml_file(full_paths[0])
                 if node is None:
                     raise atest_error.FatalIncludeError("can't load %r" %
                                                         integration_name)
@@ -137,16 +139,17 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             name: A string of integration name as seen in tf's list configs.
 
         Returns:
-            A string of test path if test found, else None.
+            A list of test path.
         """
+        test_files = []
         for integration_dir in self.integration_dirs:
             abs_path = os.path.join(self.root_dir, integration_dir)
-            test_file = test_finder_utils.run_find_cmd(
+            found_test_files = test_finder_utils.run_find_cmd(
                 test_finder_utils.FIND_REFERENCE_TYPE.INTEGRATION,
                 abs_path, name)
-            if test_file:
-                return test_file
-        return None
+            if found_test_files:
+                test_files.extend(found_test_files)
+        return test_files
 
     def find_test_by_integration_name(self, name):
         """Find the test info matching the given integration name.
@@ -160,13 +163,17 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         class_name = None
         if ':' in name:
             name, class_name = name.split(':')
-        test_file = self._search_integration_dirs(name)
-        if test_file is None:
+        test_files = self._search_integration_dirs(name)
+        if test_files is None:
             return None
         # Don't use names that simply match the path,
         # must be the actual name used by TF to run the test.
-        t_info = self._get_test_info(name, test_file, class_name)
-        return t_info
+        t_infos = []
+        for test_file in test_files:
+            t_info = self._get_test_info(name, test_file, class_name)
+            if t_info:
+                t_infos.append(t_info)
+        return t_infos
 
     def _get_test_info(self, name, test_file, class_name):
         """Find the test info matching the given test_file and class_name.
@@ -193,17 +200,24 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         filters = frozenset()
         if class_name:
             class_name, methods = test_finder_utils.split_methods(class_name)
-            if '.' not in class_name:
+            test_filters = []
+            if '.' in class_name:
+                test_filters.append(test_info.TestFilter(class_name, methods))
+            else:
                 logging.warn('Looking up fully qualified class name for: %s.'
                              'Improve speed by using fully qualified names.',
                              class_name)
-                path = test_finder_utils.find_class_file(self.root_dir,
-                                                         class_name)
-                if not path:
+                paths = test_finder_utils.find_class_file(self.root_dir,
+                                                          class_name)
+                if not paths:
                     return None
-                class_name = test_finder_utils.get_fully_qualified_class_name(
-                    path)
-            filters = frozenset([test_info.TestFilter(class_name, methods)])
+                for path in paths:
+                    class_name = (
+                        test_finder_utils.get_fully_qualified_class_name(
+                            path))
+                    test_filters.append(test_info.TestFilter(
+                        class_name, methods))
+            filters = frozenset(test_filters)
         return test_info.TestInfo(
             test_name=name,
             test_runner=self._TEST_RUNNER,
@@ -223,7 +237,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             path: A string of the test's path.
 
         Returns:
-            A populated TestInfo namedtuple if test found, else None
+            A list of populated TestInfo namedtuple if test found, else None
         """
         path, _ = test_finder_utils.split_methods(path)
 
@@ -246,10 +260,10 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
                               rel_config)
                 return None
             int_name = match.group('int_name')
-            return test_info.TestInfo(
+            return [test_info.TestInfo(
                 test_name=int_name,
                 test_runner=self._TEST_RUNNER,
                 build_targets=self._get_build_targets(rel_config),
                 data={constants.TI_REL_CONFIG: rel_config,
-                      constants.TI_FILTER: frozenset()})
+                      constants.TI_FILTER: frozenset()})]
         return None

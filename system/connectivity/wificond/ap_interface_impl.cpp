@@ -23,12 +23,14 @@
 #include "wificond/ap_interface_binder.h"
 #include "wificond/logging_utils.h"
 
-using android::net::wifi::IApInterface;
+using android::net::wifi::nl80211::IApInterface;
 using android::wifi_system::InterfaceTool;
+using android::net::wifi::nl80211::NativeWifiClient;
 using std::array;
 using std::endl;
 using std::string;
 using std::unique_ptr;
+using std::vector;
 
 using namespace std::placeholders;
 
@@ -43,8 +45,7 @@ ApInterfaceImpl::ApInterfaceImpl(const string& interface_name,
       interface_index_(interface_index),
       netlink_utils_(netlink_utils),
       if_tool_(if_tool),
-      binder_(new ApInterfaceBinder(this)),
-      number_of_associated_stations_(0) {
+      binder_(new ApInterfaceBinder(this)) {
   // This log keeps compiler happy.
   LOG(DEBUG) << "Created ap interface " << interface_name_
              << " with index " << interface_index_;
@@ -75,34 +76,31 @@ void ApInterfaceImpl::Dump(std::stringstream* ss) const {
   *ss << "------- Dump of AP interface with index: "
       << interface_index_ << " and name: " << interface_name_
       << "-------" << endl;
-  *ss << "Number of associated stations: "
-      <<  number_of_associated_stations_ << endl;
   *ss << "------- Dump End -------" << endl;
 }
 
 void ApInterfaceImpl::OnStationEvent(
     StationEvent event,
     const array<uint8_t, ETH_ALEN>& mac_address) {
+  vector<uint8_t> mac_return_address = vector<uint8_t>(mac_address.begin(), mac_address.end());
+
+  NativeWifiClient station;
+  station.mac_address_ = mac_return_address;
+
   if (event == NEW_STATION) {
     LOG(INFO) << "New station "
               << LoggingUtils::GetMacString(mac_address)
-              << " associated with hotspot";
-    number_of_associated_stations_++;
+              << " connected to hotspot"
+              << " using interface "
+              << interface_name_;
+    LOG(INFO) << "Sending notifications for station add event";
+    binder_->NotifyConnectedClientsChanged(station, true);
   } else if (event == DEL_STATION) {
     LOG(INFO) << "Station "
               << LoggingUtils::GetMacString(mac_address)
               << " disassociated from hotspot";
-    if (number_of_associated_stations_ <= 0) {
-      LOG(ERROR) << "Received DEL_STATION event when station counter is: "
-                 << number_of_associated_stations_;
-      return;
-    } else {
-      number_of_associated_stations_--;
-    }
-  }
-
-  if (event == NEW_STATION || event == DEL_STATION) {
-    binder_->NotifyNumAssociatedStationsChanged(number_of_associated_stations_);
+    LOG(DEBUG) << "Sending notifications for station leave event";
+    binder_->NotifyConnectedClientsChanged(station, false);
   }
 }
 
@@ -112,10 +110,6 @@ void ApInterfaceImpl::OnChannelSwitchEvent(uint32_t frequency,
   LOG(INFO) << "New channel on frequency: " << frequency
             << " with bandwidth: " << LoggingUtils::GetBandwidthString(bandwidth);
   binder_->NotifySoftApChannelSwitched(frequency, bandwidth);
-}
-
-int ApInterfaceImpl::GetNumberOfAssociatedStations() const {
-  return number_of_associated_stations_;
 }
 
 }  // namespace wificond

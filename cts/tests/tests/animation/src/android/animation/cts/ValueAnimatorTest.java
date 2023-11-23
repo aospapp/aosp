@@ -39,6 +39,7 @@ import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.graphics.Color;
 import android.graphics.PointF;
 import android.os.SystemClock;
+import android.util.Range;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.LinearInterpolator;
 
@@ -689,10 +690,59 @@ public class ValueAnimatorTest {
         }
     }
 
+    @Test
+    public void testAnimationDurationNoShortenByTinkeredScale() throws Throwable {
+        final long expectedDurationMs = 1000L;
+        final long minDurationMs = expectedDurationMs;
+        final long maxDurationMs = expectedDurationMs + 200L;
+        final Range<Long> durationRange = new Range<>(minDurationMs, maxDurationMs);
+
+        final CountDownLatch endLatch = new CountDownLatch(1);
+        long[] startAnimationTime = new long[1];
+        long[] endAnimationTime = new long[1];
+
+        final float durationScale = 1.0f;
+        float currentDurationScale = ValueAnimator.getDurationScale();
+        try {
+            ValueAnimator.setDurationScale(durationScale);
+            assertTrue("The duration scale of ValueAnimator should be 1.0f,"
+                            + " actual=" + ValueAnimator.getDurationScale(),
+                    ValueAnimator.getDurationScale() == durationScale);
+
+            ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
+            animator.setInterpolator(new LinearInterpolator());
+            animator.setDuration(expectedDurationMs);
+            assertEquals(animator.getDuration(), expectedDurationMs);
+
+            animator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    endAnimationTime[0] = SystemClock.uptimeMillis();
+                    endLatch.countDown();
+                }
+            });
+
+            // Start the animation and verify if the actual animation duration is in the range.
+            mActivityRule.runOnUiThread(() -> {
+                startAnimationTime[0] = SystemClock.uptimeMillis();
+                animator.start();
+            });
+            endLatch.await(2, TimeUnit.SECONDS);
+            final long totalTime = endAnimationTime[0] - startAnimationTime[0];
+            assertTrue("ValueAnimator the duration should be in the range "
+                    + "<" + minDurationMs + ", " + maxDurationMs + "> ms, "
+                    + "actual=" + totalTime, durationRange.contains(totalTime));
+        } finally {
+            // restore scale value to avoid messing up future tests
+            ValueAnimator.setDurationScale(currentDurationScale);
+        }
+    }
+
     private void testAnimatorsEnabledImpl(boolean enabled) throws Throwable {
         final CountDownLatch startLatch = new CountDownLatch(1);
         final CountDownLatch endLatch = new CountDownLatch(1);
         final ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
+
         animator.setDuration(1000);
         animator.addListener(new AnimatorListenerAdapter() {
             @Override

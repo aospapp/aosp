@@ -57,9 +57,6 @@ class MatchFilterTest(AwareBaseTest):
                      [MF_N2N4, MF_12345, True,
                       False], [MF_12345, MF_1N3N, False, True]]
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     def run_discovery(self, p_dut, s_dut, p_mf, s_mf, do_unsolicited_passive,
                       expect_discovery):
         """Creates a discovery session (publish and subscribe) with the specified

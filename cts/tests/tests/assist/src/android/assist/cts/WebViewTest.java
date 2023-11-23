@@ -16,10 +16,14 @@
 
 package android.assist.cts;
 
+import static org.junit.Assert.fail;
+
 import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.content.pm.PackageManager;
 import android.util.Log;
+
+import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -33,8 +37,7 @@ public class WebViewTest extends AssistTestBase {
     private final AutoResetLatch mTestWebViewLatch = new AutoResetLatch();
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         mActionLatchReceiver = new ActionLatchReceiver(Utils.TEST_ACTIVITY_WEBVIEW_LOADED, mTestWebViewLatch);
         startTestActivity(TEST_CASE_TYPE);
     }
@@ -46,6 +49,7 @@ public class WebViewTest extends AssistTestBase {
         }
     }
 
+    @Test
     public void testWebView() throws Throwable {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");

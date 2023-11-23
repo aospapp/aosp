@@ -18,13 +18,15 @@ package com.android.compatibility.common.tradefed.targetprep;
 import com.android.compatibility.common.util.CrashUtils;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.MultiLineReceiver;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.BackgroundDeviceAction;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BaseTargetPreparer;
-import com.android.tradefed.targetprep.ITargetCleaner;
+
+import org.json.JSONArray;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -33,13 +35,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.regex.Matcher;
-import org.json.JSONArray;
 
 /**
  * Starts and kills the crash reporter thread. This thread uploads crash results to devices as they
  * occurring allowing for device side crash analysis.
  */
-public class CrashReporter extends BaseTargetPreparer implements ITargetCleaner {
+public class CrashReporter extends BaseTargetPreparer {
 
     private BackgroundDeviceAction mBackgroundThread;
 
@@ -74,7 +75,8 @@ public class CrashReporter extends BaseTargetPreparer implements ITargetCleaner 
 
     /** {@inheritDoc} */
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) {
+    public void setUp(TestInformation testInfo) {
+        ITestDevice device = testInfo.getDevice();
         try {
             device.executeShellCommand("rm -rf " + CrashUtils.DEVICE_PATH);
             device.executeShellCommand("mkdir " + CrashUtils.DEVICE_PATH);
@@ -97,7 +99,7 @@ public class CrashReporter extends BaseTargetPreparer implements ITargetCleaner 
 
     /** {@inheritDoc} */
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e) {
+    public void tearDown(TestInformation testInfo, Throwable e) {
         if (mBackgroundThread != null) {
             mBackgroundThread.cancel();
         }

@@ -17,7 +17,8 @@ package test.bad_character@1.0;
 
 interface IFoo {
 
-    enum A /* missing storage */ {
+    /* missing storage */
+    enum A {
     };
 
 };

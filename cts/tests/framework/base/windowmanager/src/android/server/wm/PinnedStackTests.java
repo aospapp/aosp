@@ -16,36 +16,40 @@
 
 package android.server.wm;
 
+import static android.app.ActivityManager.LOCK_TASK_MODE_NONE;
 import static android.app.ActivityTaskManager.INVALID_STACK_ID;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_HOME;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.app.WindowConfiguration.WINDOWING_MODE_PINNED;
 import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
-import static android.server.wm.ActivityManagerState.STATE_RESUMED;
-import static android.server.wm.ActivityManagerState.STATE_STOPPED;
 import static android.server.wm.ComponentNameUtils.getActivityName;
 import static android.server.wm.ComponentNameUtils.getWindowName;
 import static android.server.wm.UiDeviceUtils.pressWindowButton;
+import static android.server.wm.WindowManagerState.STATE_PAUSED;
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
+import static android.server.wm.WindowManagerState.STATE_STOPPED;
 import static android.server.wm.app.Components.ALWAYS_FOCUSABLE_PIP_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCH_ENTER_PIP_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCH_INTO_PINNED_STACK_PIP_ACTIVITY;
 import static android.server.wm.app.Components.NON_RESIZEABLE_ACTIVITY;
-import static android.server.wm.app.Components.NO_RELAUNCH_ACTIVITY;
 import static android.server.wm.app.Components.PIP_ACTIVITY;
 import static android.server.wm.app.Components.PIP_ACTIVITY2;
+import static android.server.wm.app.Components.PIP_ACTIVITY_WITH_MINIMAL_SIZE;
 import static android.server.wm.app.Components.PIP_ACTIVITY_WITH_SAME_AFFINITY;
 import static android.server.wm.app.Components.PIP_ON_STOP_ACTIVITY;
 import static android.server.wm.app.Components.PipActivity.ACTION_ENTER_PIP;
-import static android.server.wm.app.Components.PipActivity.ACTION_EXPAND_PIP;
 import static android.server.wm.app.Components.PipActivity.ACTION_FINISH;
 import static android.server.wm.app.Components.PipActivity.ACTION_MOVE_TO_BACK;
+import static android.server.wm.app.Components.PipActivity.ACTION_ON_PIP_REQUESTED;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ASPECT_RATIO_DENOMINATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ASPECT_RATIO_NUMERATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_PAUSE;
+import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_PIP_REQUESTED;
+import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_USER_LEAVE_HINT;
 import static android.server.wm.app.Components.PipActivity.EXTRA_FINISH_SELF_ON_RESUME;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ON_PAUSE_DELAY;
 import static android.server.wm.app.Components.PipActivity.EXTRA_PIP_ORIENTATION;
@@ -60,9 +64,11 @@ import static android.server.wm.app.Components.TRANSLUCENT_TEST_ACTIVITY;
 import static android.server.wm.app.Components.TestActivity.EXTRA_CONFIGURATION;
 import static android.server.wm.app.Components.TestActivity.EXTRA_FIXED_ORIENTATION;
 import static android.server.wm.app.Components.TestActivity.TEST_ACTIVITY_ACTION_FINISH_SELF;
+import static android.server.wm.app27.Components.SDK_27_LAUNCH_ENTER_PIP_ACTIVITY;
+import static android.server.wm.app27.Components.SDK_27_PIP_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
@@ -75,6 +81,8 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.ContentObserver;
 import android.graphics.Rect;
@@ -82,12 +90,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
-import android.server.wm.ActivityManagerState.ActivityStack;
-import android.server.wm.ActivityManagerState.ActivityTask;
 import android.server.wm.CommandSession.ActivityCallback;
 import android.server.wm.CommandSession.SizeInfo;
 import android.server.wm.TestJournalProvider.TestJournalContainer;
-import android.server.wm.WindowManagerState.WindowStack;
+import android.server.wm.WindowManagerState.ActivityTask;
 import android.server.wm.settings.SettingsSession;
 import android.util.Log;
 import android.util.Size;
@@ -111,14 +117,12 @@ import java.util.concurrent.TimeUnit;
  * atest CtsWindowManagerDeviceTestCases:PinnedStackTests
  */
 @Presubmit
-@FlakyTest(bugId = 71792368)
+@android.server.wm.annotation.Group2
 public class PinnedStackTests extends ActivityManagerTestBase {
     private static final String TAG = PinnedStackTests.class.getSimpleName();
 
     private static final String APP_OPS_OP_ENTER_PICTURE_IN_PICTURE = "PICTURE_IN_PICTURE";
-    private static final int APP_OPS_MODE_ALLOWED = 0;
     private static final int APP_OPS_MODE_IGNORED = 1;
-    private static final int APP_OPS_MODE_ERRORED = 2;
 
     private static final int ROTATION_0 = 0;
     private static final int ROTATION_90 = 1;
@@ -150,7 +154,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
 
     @Test
     public void testMinimumDeviceSize() throws Exception {
-        mAmWmState.assertDeviceDefaultDisplaySize(
+        mWmState.assertDeviceDefaultDisplaySize(
                 "Devices supporting picture-in-picture must be larger than the default minimum"
                         + " task size");
     }
@@ -199,120 +203,17 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         // Tap the screen at a known location in the pinned stack bounds, and ensure that it is
         // not passed down to the top task
         tapToFinishPip();
-        mAmWmState.computeState(false /* compareTaskAndStackBounds */,
+        mWmState.computeState(
                 new WaitForValidActivityState(PIP_ACTIVITY));
-        mAmWmState.assertVisibility(PIP_ACTIVITY, true);
+        mWmState.assertVisibility(PIP_ACTIVITY, true);
     }
 
     @Test
-    public void testPinnedStackDefaultBounds() throws Exception {
-        // Launch a PIP activity
-        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
-        // Wait for animation complete since we are comparing bounds
-        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
+    public void testPinnedStackInBoundsAfterRotation() {
+        assumeTrue("Skipping test: no rotation support", supportsRotation());
 
-        try (final RotationSession rotationSession = new RotationSession()) {
-            rotationSession.set(ROTATION_0);
-            mAmWmState.waitForWithWmState((wmState1) -> {
-                Rect db = wmState1.getDefaultPinnedStackBounds();
-                Rect sb = wmState1.getStableBounds();
-                return (db.width() > 0 && db.height() > 0) &&
-                        (sb.contains(db));
-            }, "Waiting for valid bounds..");
-            WindowManagerState wmState = mAmWmState.getWmState();
-            wmState.computeState();
-            Rect defaultPipBounds = wmState.getDefaultPinnedStackBounds();
-            Rect stableBounds = wmState.getStableBounds();
-            assertTrue(defaultPipBounds.width() > 0 && defaultPipBounds.height() > 0);
-            assertTrue(stableBounds.contains(defaultPipBounds));
-
-            rotationSession.set(ROTATION_90);
-            mAmWmState.waitForWithWmState((wmState1) -> {
-                Rect db = wmState1.getDefaultPinnedStackBounds();
-                Rect sb = wmState1.getStableBounds();
-                return (db.width() > 0 && db.height() > 0) &&
-                        (sb.contains(db));
-            }, "Waiting for valid bounds...");
-            wmState = mAmWmState.getWmState();
-            wmState.computeState();
-            defaultPipBounds = wmState.getDefaultPinnedStackBounds();
-            stableBounds = wmState.getStableBounds();
-            assertTrue(defaultPipBounds.width() > 0 && defaultPipBounds.height() > 0);
-            assertTrue(stableBounds.contains(defaultPipBounds));
-        }
-    }
-
-    @Test
-    public void testPinnedStackMovementBounds() throws Exception {
-        // Launch a PIP activity
-        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
-        // Wait for animation complete since we are comparing bounds
-        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-
-        try (final RotationSession rotationSession = new RotationSession()) {
-            rotationSession.set(ROTATION_0);
-            mAmWmState.waitForWithWmState((wmState1) -> {
-                Rect db = wmState1.getPinnedStackMovementBounds();
-                Rect sb = wmState1.getStableBounds();
-                return (db.width() > 0 && db.height() > 0) &&
-                        (sb.contains(db));
-            }, "Waiting for valid bounds...");
-            WindowManagerState wmState = mAmWmState.getWmState();
-            wmState.computeState();
-            Rect pipMovementBounds = wmState.getPinnedStackMovementBounds();
-            Rect stableBounds = wmState.getStableBounds();
-            assertTrue(pipMovementBounds.width() > 0 && pipMovementBounds.height() > 0);
-            assertTrue(stableBounds.contains(pipMovementBounds));
-
-            rotationSession.set(ROTATION_90);
-            mAmWmState.waitForWithWmState((wmState1) -> {
-                Rect db = wmState1.getPinnedStackMovementBounds();
-                Rect sb = wmState1.getStableBounds();
-                return (db.width() > 0 && db.height() > 0) &&
-                        (sb.contains(db));
-            }, "Waiting for valid bounds...");
-            wmState = mAmWmState.getWmState();
-            wmState.computeState();
-            pipMovementBounds = wmState.getPinnedStackMovementBounds();
-            stableBounds = wmState.getStableBounds();
-            assertTrue(pipMovementBounds.width() > 0 && pipMovementBounds.height() > 0);
-            assertTrue(stableBounds.contains(pipMovementBounds));
-        }
-    }
-
-    @Test
-    @FlakyTest // TODO: Reintroduce to presubmit once b/71508234 is resolved.
-    public void testPinnedStackOutOfBoundsInsetsNonNegative() throws Exception {
-        final WindowManagerState wmState = mAmWmState.getWmState();
-
-        // Launch an activity into the pinned stack
-        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true",
-                EXTRA_TAP_TO_FINISH, "true");
-        // Wait for animation complete since we are comparing bounds
-        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-
-        // Get the display dimensions
-        WindowManagerState.WindowState windowState = getWindowState(PIP_ACTIVITY);
-        WindowManagerState.Display display = wmState.getDisplay(windowState.getDisplayId());
-        Rect displayRect = display.getDisplayRect();
-
-        // Move the pinned stack offscreen
-        final int stackId = getPinnedStack().mStackId;
-        final int top = 0;
-        final int left = displayRect.width() - 200;
-        resizeStack(stackId, left, top, left + 500, top + 500);
-
-        // Ensure that the surface insets are not negative
-        windowState = getWindowState(PIP_ACTIVITY);
-        Rect contentInsets = windowState.getContentInsets();
-        if (contentInsets != null) {
-            assertTrue(contentInsets.left >= 0 && contentInsets.top >= 0
-                    && contentInsets.width() >= 0 && contentInsets.height() >= 0);
-        }
-    }
-
-    @Test
-    public void testPinnedStackInBoundsAfterRotation() throws Exception {
+        // Launch an activity that is not fixed-orientation so that the display can rotate
+        launchActivity(TEST_ACTIVITY);
         // Launch an activity into the pinned stack
         launchActivity(PIP_ACTIVITY,
                 EXTRA_ENTER_PIP, "true",
@@ -321,16 +222,15 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         waitForEnterPipAnimationComplete(PIP_ACTIVITY);
 
         // Ensure that the PIP stack is fully visible in each orientation
-        try (final RotationSession rotationSession = new RotationSession()) {
-            rotationSession.set(ROTATION_0);
-            assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
-            rotationSession.set(ROTATION_90);
-            assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
-            rotationSession.set(ROTATION_180);
-            assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
-            rotationSession.set(ROTATION_270);
-            assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
-        }
+        final RotationSession rotationSession = createManagedRotationSession();
+        rotationSession.set(ROTATION_0);
+        assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
+        rotationSession.set(ROTATION_90);
+        assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
+        rotationSession.set(ROTATION_180);
+        assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
+        rotationSession.set(ROTATION_270);
+        assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
     }
 
     @Test
@@ -350,6 +250,31 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         assertPinnedStackActivityIsInDisplayBounds(PIP_ACTIVITY);
     }
 
+    // TODO: launch/size pip to a size smaller than limitation and verify the minWidth/minHeight
+    // is respected after b/149338177.
+    @Test
+    public void testEnterPipWithMinimalSize() throws Exception {
+        // Launch a PiP activity with minimal size specified
+        launchActivity(PIP_ACTIVITY_WITH_MINIMAL_SIZE, EXTRA_ENTER_PIP, "true");
+        // Wait for animation complete since we are comparing size
+        waitForEnterPipAnimationComplete(PIP_ACTIVITY_WITH_MINIMAL_SIZE);
+        assertPinnedStackExists();
+
+        // query the minimal size
+        final PackageManager pm = getInstrumentation().getTargetContext().getPackageManager();
+        final ActivityInfo info = pm.getActivityInfo(
+                PIP_ACTIVITY_WITH_MINIMAL_SIZE, 0 /* flags */);
+        final Size minSize = new Size(info.windowLayout.minWidth, info.windowLayout.minHeight);
+
+        // compare the bounds with minimal size
+        final Rect pipBounds = getPinnedStackBounds();
+        assertTrue("Pinned stack bounds is no smaller than minimal",
+                (pipBounds.width() == minSize.getWidth()
+                        && pipBounds.height() >= minSize.getHeight())
+                        || (pipBounds.height() == minSize.getHeight()
+                        && pipBounds.width() >= minSize.getWidth()));
+    }
+
     @Test
     public void testEnterPipAspectRatioMin() throws Exception {
         testEnterPipAspectRatio(MIN_ASPECT_RATIO_NUMERATOR, MIN_ASPECT_RATIO_DENOMINATOR);
@@ -361,6 +286,9 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     }
 
     private void testEnterPipAspectRatio(int num, int denom) throws Exception {
+        // Launch a test activity so that we're not over home
+        launchActivity(TEST_ACTIVITY);
+
         launchActivity(PIP_ACTIVITY,
                 EXTRA_ENTER_PIP, "true",
                 EXTRA_ENTER_PIP_ASPECT_RATIO_NUMERATOR, Integer.toString(num),
@@ -386,6 +314,9 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     }
 
     private void testResizePipAspectRatio(int num, int denom) throws Exception {
+        // Launch a test activity so that we're not over home
+        launchActivity(TEST_ACTIVITY);
+
         launchActivity(PIP_ACTIVITY,
                 EXTRA_ENTER_PIP, "true",
                 EXTRA_SET_ASPECT_RATIO_NUMERATOR, Integer.toString(num),
@@ -411,6 +342,9 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     }
 
     private void testEnterPipExtremeAspectRatio(int num, int denom) throws Exception {
+        // Launch a test activity so that we're not over home
+        launchActivity(TEST_ACTIVITY);
+
         // Assert that we could not create a pinned stack with an extreme aspect ratio
         launchActivity(PIP_ACTIVITY,
                 EXTRA_ENTER_PIP, "true",
@@ -432,6 +366,9 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     }
 
     private void testSetPipExtremeAspectRatio(int num, int denom) throws Exception {
+        // Launch a test activity so that we're not over home
+        launchActivity(TEST_ACTIVITY);
+
         // Try to resize the a normal pinned stack to an extreme aspect ratio and ensure that
         // fails (the aspect ratio remains the same)
         launchActivity(PIP_ACTIVITY,
@@ -457,7 +394,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         launchActivity(PIP_ON_STOP_ACTIVITY);
 
         // Wait for the bottom pip activity to be stopped
-        mAmWmState.waitForActivityState(PIP_ON_STOP_ACTIVITY, STATE_STOPPED);
+        mWmState.waitForActivityState(PIP_ON_STOP_ACTIVITY, STATE_STOPPED);
 
         // Assert that there is no pinned stack (that enterPictureInPicture() failed)
         assertPinnedStackDoesNotExist();
@@ -479,6 +416,72 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     }
 
     @Test
+    public void testAutoEnterPictureInPictureOnUserLeaveHintWhenPipRequestedNotOverridden()
+            throws Exception {
+        // Launch a test activity so that we're not over home
+        launchActivity(TEST_ACTIVITY);
+
+        // Launch the PIP activity that enters PIP on user leave hint, not on PIP requested
+        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP_ON_USER_LEAVE_HINT, "true");
+        assertPinnedStackDoesNotExist();
+
+        // Go home and ensure that there is a pinned stack
+        separateTestJournal();
+        launchHomeActivity();
+        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
+        assertPinnedStackExists();
+
+        final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(PIP_ACTIVITY);
+        // Check the order of the callbacks accounting for a task overlay activity that might show.
+        // The PIP request (with a user leave hint) should come before the pip mode change.
+        final int firstUserLeaveIndex =
+                lifecycleCounts.getFirstIndex(ActivityCallback.ON_USER_LEAVE_HINT);
+        final int firstPipRequestedIndex =
+                lifecycleCounts.getFirstIndex(ActivityCallback.ON_PICTURE_IN_PICTURE_REQUESTED);
+        final int firstPipModeChangedIndex =
+                lifecycleCounts.getFirstIndex(ActivityCallback.ON_PICTURE_IN_PICTURE_MODE_CHANGED);
+        assertTrue("missing request", firstPipRequestedIndex != -1);
+        assertTrue("missing user leave", firstUserLeaveIndex != -1);
+        assertTrue("missing pip mode changed", firstPipModeChangedIndex != -1);
+        assertTrue("pip requested not before pause",
+                firstPipRequestedIndex < firstUserLeaveIndex);
+        assertTrue("unexpected user leave hint",
+                firstUserLeaveIndex < firstPipModeChangedIndex);
+    }
+
+    @Test
+    public void testAutoEnterPictureInPictureOnPictureInPictureRequested() throws Exception {
+        // Launch a test activity so that we're not over home
+        launchActivity(TEST_ACTIVITY);
+
+        // Launch the PIP activity on pip requested
+        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP_ON_PIP_REQUESTED, "true");
+        assertPinnedStackDoesNotExist();
+
+        // Call onPictureInPictureRequested and verify activity enters pip
+        separateTestJournal();
+        mBroadcastActionTrigger.doAction(ACTION_ON_PIP_REQUESTED);
+        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
+        assertPinnedStackExists();
+
+        final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(PIP_ACTIVITY);
+        // Check the order of the callbacks accounting for a task overlay activity that might show.
+        // The PIP request (without a user leave hint) should come before the pip mode change.
+        final int firstUserLeaveIndex =
+                lifecycleCounts.getFirstIndex(ActivityCallback.ON_USER_LEAVE_HINT);
+        final int firstPipRequestedIndex =
+                lifecycleCounts.getFirstIndex(ActivityCallback.ON_PICTURE_IN_PICTURE_REQUESTED);
+        final int firstPipModeChangedIndex =
+                lifecycleCounts.getFirstIndex(ActivityCallback.ON_PICTURE_IN_PICTURE_MODE_CHANGED);
+        assertTrue("missing request", firstPipRequestedIndex != -1);
+        assertTrue("missing pip mode changed", firstPipModeChangedIndex != -1);
+        assertTrue("pip requested not before pause",
+                firstPipRequestedIndex < firstPipModeChangedIndex);
+        assertTrue("unexpected user leave hint",
+                firstUserLeaveIndex == -1 || firstUserLeaveIndex > firstPipModeChangedIndex);
+    }
+
+    @Test
     public void testAutoEnterPictureInPictureLaunchActivity() throws Exception {
         // Launch a test activity so that we're not over home
         launchActivity(TEST_ACTIVITY);
@@ -489,7 +492,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         launchActivity(PIP_ACTIVITY,
                 EXTRA_ENTER_PIP_ON_PAUSE, "true",
                 EXTRA_START_ACTIVITY, getActivityName(NON_RESIZEABLE_ACTIVITY));
-        mAmWmState.computeState(false /* compareTaskAndStackBounds */,
+        mWmState.computeState(
                 new WaitForValidActivityState(NON_RESIZEABLE_ACTIVITY));
         assertPinnedStackDoesNotExist();
 
@@ -548,10 +551,22 @@ public class PinnedStackTests extends ActivityManagerTestBase {
 
         // Ensure that auto-enter pip failed and that the resumed activity in the pinned stack is
         // still the first activity
-        final ActivityStack pinnedStack = getPinnedStack();
-        assertEquals(1, pinnedStack.getTasks().size());
-        assertEquals(getActivityName(ALWAYS_FOCUSABLE_PIP_ACTIVITY),
-                pinnedStack.getTasks().get(0).mRealActivity);
+        final ActivityTask pinnedStack = getPinnedStack();
+        assertEquals(getActivityName(ALWAYS_FOCUSABLE_PIP_ACTIVITY), pinnedStack.mRealActivity);
+    }
+
+    @Test
+    public void testDismissPipWhenLaunchNewOne() throws Exception {
+        // Launch another PIP activity
+        launchActivity(LAUNCH_INTO_PINNED_STACK_PIP_ACTIVITY);
+        waitForEnterPip(ALWAYS_FOCUSABLE_PIP_ACTIVITY);
+        assertPinnedStackExists();
+        final ActivityTask pinnedStack = getPinnedStack();
+
+        launchActivityInNewTask(LAUNCH_INTO_PINNED_STACK_PIP_ACTIVITY);
+        waitForEnterPip(ALWAYS_FOCUSABLE_PIP_ACTIVITY);
+
+        assertEquals(1, mWmState.countStacks(WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD));
     }
 
     @Test
@@ -566,11 +581,11 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         // Launch second PIP activity
         launchActivity(PIP_ACTIVITY2, EXTRA_ENTER_PIP, "true");
 
-        final ActivityStack pinnedStack = getPinnedStack();
-        assertEquals(1, pinnedStack.getTasks().size());
-        assertTrue(mAmWmState.getAmState().containsActivityInWindowingMode(
+        final ActivityTask pinnedStack = getPinnedStack();
+        assertEquals(0, pinnedStack.getTasks().size());
+        assertTrue(mWmState.containsActivityInWindowingMode(
                 PIP_ACTIVITY2, WINDOWING_MODE_PINNED));
-        assertTrue(mAmWmState.getAmState().containsActivityInWindowingMode(
+        assertTrue(mWmState.containsActivityInWindowingMode(
                 PIP_ACTIVITY, WINDOWING_MODE_FULLSCREEN));
     }
 
@@ -588,7 +603,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         waitForExitPipToFullscreen(PIP_ACTIVITY);
         mBroadcastActionTrigger.doAction(ACTION_ENTER_PIP);
         waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-        mAmWmState.assertHomeActivityVisible(true);
+        mWmState.assertHomeActivityVisible(true);
     }
 
     @Test
@@ -606,7 +621,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         waitForExitPipToFullscreen(PIP_ACTIVITY);
         mBroadcastActionTrigger.doAction(ACTION_ENTER_PIP);
         waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-        mAmWmState.assertVisibility(TEST_ACTIVITY, true);
+        mWmState.assertVisibility(TEST_ACTIVITY, true);
     }
 
     @Test
@@ -638,7 +653,6 @@ public class PinnedStackTests extends ActivityManagerTestBase {
                 WINDOWING_MODE_FULLSCREEN, ACTIVITY_TYPE_STANDARD);
     }
 
-    @FlakyTest(bugId = 70746098)
     @Test
     public void testRemovePipWithHiddenFullscreenStack() throws Exception {
         // Launch a fullscreen activity, return home and while the fullscreen stack is hidden,
@@ -673,7 +687,6 @@ public class PinnedStackTests extends ActivityManagerTestBase {
                 WINDOWING_MODE_UNDEFINED, ACTIVITY_TYPE_HOME);
     }
 
-    @FlakyTest(bugId = 70906499)
     @Test
     public void testMovePipToBackWithVisibleFullscreenStack() throws Exception {
         // Launch a fullscreen activity, and a pip activity over that
@@ -689,7 +702,6 @@ public class PinnedStackTests extends ActivityManagerTestBase {
                 WINDOWING_MODE_FULLSCREEN, ACTIVITY_TYPE_STANDARD);
     }
 
-    @FlakyTest(bugId = 70906499)
     @Test
     public void testMovePipToBackWithHiddenFullscreenStack() throws Exception {
         // Launch a fullscreen activity, return home and while the fullscreen stack is hidden,
@@ -752,6 +764,30 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     }
 
     @Test
+    public void testLaunchStoppedActivityWithPiPInSameProcessPreQ() {
+        // Try to enter picture-in-picture from an activity that has more than one activity in the
+        // task and ensure that it works, for pre-Q app
+        launchActivity(SDK_27_LAUNCH_ENTER_PIP_ACTIVITY,
+                EXTRA_ENTER_PIP, "true");
+        waitForEnterPip(SDK_27_PIP_ACTIVITY);
+        assertPinnedStackExists();
+
+        // Puts the host activity to stopped state
+        launchHomeActivity();
+        mWmState.assertHomeActivityVisible(true);
+        waitAndAssertActivityState(SDK_27_LAUNCH_ENTER_PIP_ACTIVITY, STATE_STOPPED,
+                "Activity should become STOPPED");
+        mWmState.assertVisibility(SDK_27_LAUNCH_ENTER_PIP_ACTIVITY, false);
+
+        // Host activity should be visible after re-launch and PiP window still exists
+        launchActivity(SDK_27_LAUNCH_ENTER_PIP_ACTIVITY);
+        waitAndAssertActivityState(SDK_27_LAUNCH_ENTER_PIP_ACTIVITY, STATE_RESUMED,
+                "Activity should become RESUMED");
+        mWmState.assertVisibility(SDK_27_LAUNCH_ENTER_PIP_ACTIVITY, true);
+        assertPinnedStackExists();
+    }
+
+    @Test
     public void testEnterPipWithResumeWhilePausingActivityNoStop() throws Exception {
         /*
          * Launch the resumeWhilePausing activity and ensure that the PiP activity did not get
@@ -782,7 +818,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     @Test
     public void testDisallowEnterPipActivityLocked() throws Exception {
         launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP_ON_PAUSE, "true");
-        ActivityTask task = mAmWmState.getAmState().getStandardStackByWindowingMode(
+        ActivityTask task = mWmState.getStandardStackByWindowingMode(
                 WINDOWING_MODE_FULLSCREEN).getTopTask();
 
         // Lock the task and ensure that we can't enter picture-in-picture both explicitly and
@@ -790,6 +826,9 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         SystemUtil.runWithShellPermissionIdentity(() -> {
             try {
                 mAtm.startSystemLockTaskMode(task.mTaskId);
+                waitForOrFail("Task in lock mode", () -> {
+                    return mAm.getLockTaskModeState() != LOCK_TASK_MODE_NONE;
+                });
                 mBroadcastActionTrigger.doAction(ACTION_ENTER_PIP);
                 waitForEnterPip(PIP_ACTIVITY);
                 assertPinnedStackDoesNotExist();
@@ -801,7 +840,6 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         });
     }
 
-    @FlakyTest(bugId = 70328524)
     @Test
     public void testConfigurationChangeOrderDuringTransition() throws Exception {
         // Launch a PiP activity and ensure configuration change only happened once, and that the
@@ -831,7 +869,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         }
 
         @Override
-        public void close() throws Exception {
+        public void close() {
             // Wait for the restored setting to apply before we continue on with the next test
             final CountDownLatch waitLock = new CountDownLatch(1);
             final Context context = getInstrumentation().getTargetContext();
@@ -843,44 +881,45 @@ public class PinnedStackTests extends ActivityManagerTestBase {
                         }
                     });
             super.close();
-            if (!waitLock.await(2, TimeUnit.SECONDS)) {
-                Log.i(TAG, "TransitionAnimationScaleSession value not restored");
-            }
+            try {
+                if (!waitLock.await(2, TimeUnit.SECONDS)) {
+                    Log.i(TAG, "TransitionAnimationScaleSession value not restored");
+                }
+            } catch (InterruptedException impossible) {}
         }
     }
 
+    @Ignore("b/149946388")
     @Test
-    public void testEnterPipInterruptedCallbacks() throws Exception {
-        try (final TransitionAnimationScaleSession transitionAnimationScaleSession =
-                new TransitionAnimationScaleSession()) {
-            // Slow down the transition animations for this test
-            transitionAnimationScaleSession.set(20f);
+    public void testEnterPipInterruptedCallbacks() {
+        final TransitionAnimationScaleSession transitionAnimationScaleSession =
+                mObjectTracker.manage(new TransitionAnimationScaleSession());
+        // Slow down the transition animations for this test
+        transitionAnimationScaleSession.set(20f);
 
-            // Launch a PiP activity
-            launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
-            // Wait until the PiP activity has moved into the pinned stack (happens before the
-            // transition has started)
-            waitForEnterPip(PIP_ACTIVITY);
-            assertPinnedStackExists();
+        // Launch a PiP activity
+        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
+        // Wait until the PiP activity has moved into the pinned stack (happens before the
+        // transition has started)
+        waitForEnterPip(PIP_ACTIVITY);
+        assertPinnedStackExists();
 
-            // Relaunch the PiP activity back into fullscreen
-            separateTestJournal();
-            launchActivity(PIP_ACTIVITY);
-            // Wait until the PiP activity is reparented into the fullscreen stack (happens after
-            // the transition has finished)
-            waitForExitPipToFullscreen(PIP_ACTIVITY);
+        // Relaunch the PiP activity back into fullscreen
+        separateTestJournal();
+        launchActivity(PIP_ACTIVITY);
+        // Wait until the PiP activity is reparented into the fullscreen stack (happens after
+        // the transition has finished)
+        waitForExitPipToFullscreen(PIP_ACTIVITY);
 
-            // Ensure that we get the callbacks indicating that PiP/MW mode was cancelled, but no
-            // configuration change (since none was sent)
-            final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(
-                    PIP_ACTIVITY);
-            assertEquals("onConfigurationChanged", 0,
-                    lifecycleCounts.getCount(ActivityCallback.ON_CONFIGURATION_CHANGED));
-            assertEquals("onPictureInPictureModeChanged", 1,
-                    lifecycleCounts.getCount(ActivityCallback.ON_PICTURE_IN_PICTURE_MODE_CHANGED));
-            assertEquals("onMultiWindowModeChanged", 1,
-                    lifecycleCounts.getCount(ActivityCallback.ON_MULTI_WINDOW_MODE_CHANGED));
-        }
+        // Ensure that we get the callbacks indicating that PiP/MW mode was cancelled, but no
+        // configuration change (since none was sent)
+        final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(PIP_ACTIVITY);
+        assertEquals("onConfigurationChanged", 0,
+                lifecycleCounts.getCount(ActivityCallback.ON_CONFIGURATION_CHANGED));
+        assertEquals("onPictureInPictureModeChanged", 1,
+                lifecycleCounts.getCount(ActivityCallback.ON_PICTURE_IN_PICTURE_MODE_CHANGED));
+        assertEquals("onMultiWindowModeChanged", 1,
+                lifecycleCounts.getCount(ActivityCallback.ON_MULTI_WINDOW_MODE_CHANGED));
     }
 
     @Test
@@ -896,6 +935,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         separateTestJournal();
         removeStacksInWindowingModes(WINDOWING_MODE_PINNED);
         waitForExitPipToFullscreen(PIP_ACTIVITY);
+        waitForValidPictureInPictureCallbacks(PIP_ACTIVITY);
 
         // Confirm that we get stop before the multi-window and picture-in-picture mode change
         // callbacks
@@ -945,12 +985,13 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         launchActivity(PIP_ACTIVITY);
         waitForExitPipToFullscreen(PIP_ACTIVITY);
         assertPinnedStackDoesNotExist();
-        assertEquals(ORIENTATION_LANDSCAPE, mAmWmState.getWmState().getLastOrientation());
+        mWmState.waitForLastOrientation(ORIENTATION_LANDSCAPE);
+        assertEquals(ORIENTATION_LANDSCAPE, mWmState.getLastOrientation());
     }
 
     @Test
     public void testWindowButtonEntersPip() throws Exception {
-        assumeTrue(!mAmWmState.getAmState().isHomeRecentsComponent());
+        assumeTrue(!mWmState.isHomeRecentsComponent());
 
         // Launch the PiP activity trigger the window button, ensure that we have entered PiP
         launchActivity(PIP_ACTIVITY);
@@ -960,12 +1001,15 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     }
 
     @Test
+    @FlakyTest(bugId=156314330)
     public void testFinishPipActivityWithTaskOverlay() throws Exception {
+        // Trigger PiP menu activity to properly lose focuse when going home
+        launchActivity(TEST_ACTIVITY);
         // Launch PiP activity
         launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
         waitForEnterPip(PIP_ACTIVITY);
         assertPinnedStackExists();
-        int taskId = mAmWmState.getAmState().getStandardStackByWindowingMode(
+        int taskId = mWmState.getStandardStackByWindowingMode(
                 WINDOWING_MODE_PINNED).getTopTask().mTaskId;
 
         // Ensure that we don't any any other overlays as a result of launching into PIP
@@ -986,21 +1030,16 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
         waitForEnterPip(PIP_ACTIVITY);
         assertPinnedStackExists();
-        ActivityStack stack = mAmWmState.getAmState().getStandardStackByWindowingMode(
-                WINDOWING_MODE_PINNED);
-        int stackId = stack.mStackId;
+        ActivityTask stack = mWmState.getStandardStackByWindowingMode(WINDOWING_MODE_PINNED);
         int taskId = stack.getTopTask().mTaskId;
 
         // Launch task overlay activity into PiP activity task
         launchPinnedActivityAsTaskOverlay(TRANSLUCENT_TEST_ACTIVITY, taskId);
 
-        // Finish the task overlay activity while animating and ensure that the PiP activity never
-        // got resumed.
+        // Finish the task overlay activity and ensure that the PiP activity never got resumed.
         separateTestJournal();
-        SystemUtil.runWithShellPermissionIdentity(
-                () -> mAtm.resizeStack(stackId, new Rect(20, 20, 500, 500), true /* animate */));
         mBroadcastActionTrigger.doAction(TEST_ACTIVITY_ACTION_FINISH_SELF);
-        mAmWmState.waitFor((amState, wmState) ->
+        mWmState.waitFor((amState) ->
                         !amState.containsActivity(TRANSLUCENT_TEST_ACTIVITY),
                 "Waiting for test activity to finish...");
         final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(PIP_ACTIVITY);
@@ -1020,9 +1059,9 @@ public class PinnedStackTests extends ActivityManagerTestBase {
                         .setRandomData(true)
                         .setMultipleTask(false)
         );
-        mAmWmState.assertVisibility(PIP_ACTIVITY, true);
-        mAmWmState.assertVisibility(LAUNCHING_ACTIVITY, true);
-        mAmWmState.assertVisibility(TEST_ACTIVITY, true);
+        mWmState.assertVisibility(PIP_ACTIVITY, true);
+        mWmState.assertVisibility(LAUNCHING_ACTIVITY, true);
+        mWmState.assertVisibility(TEST_ACTIVITY, true);
 
         // Launch the activities again to take focus and make sure nothing is hidden
         launchActivitiesInSplitScreen(
@@ -1031,16 +1070,16 @@ public class PinnedStackTests extends ActivityManagerTestBase {
                         .setRandomData(true)
                         .setMultipleTask(false)
         );
-        mAmWmState.assertVisibility(LAUNCHING_ACTIVITY, true);
-        mAmWmState.assertVisibility(TEST_ACTIVITY, true);
+        mWmState.assertVisibility(LAUNCHING_ACTIVITY, true);
+        mWmState.assertVisibility(TEST_ACTIVITY, true);
 
         // Go to recents to make sure that fullscreen stack is invisible
         // Some devices do not support recents or implement it differently (instead of using a
         // separate stack id or as an activity), for those cases the visibility asserts will be
         // ignored
         pressAppSwitchButtonAndWaitForRecents();
-        mAmWmState.assertVisibility(LAUNCHING_ACTIVITY, true);
-        mAmWmState.assertVisibility(TEST_ACTIVITY, false);
+        mWmState.assertVisibility(LAUNCHING_ACTIVITY, true);
+        mWmState.assertVisibility(TEST_ACTIVITY, false);
     }
 
     @Test
@@ -1052,7 +1091,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         assertPinnedStackExists();
 
         // Launch the root activity again...
-        int rootActivityTaskId = mAmWmState.getAmState().getTaskByActivity(
+        int rootActivityTaskId = mWmState.getTaskByActivity(
                 TEST_ACTIVITY_WITH_SAME_AFFINITY).mTaskId;
         launchHomeActivity();
         launchActivity(TEST_ACTIVITY_WITH_SAME_AFFINITY);
@@ -1060,9 +1099,9 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         // ...and ensure that the root activity task is found and reused, and that the pinned stack
         // is unaffected
         assertPinnedStackExists();
-        mAmWmState.assertFocusedActivity("Expected root activity focused",
+        mWmState.assertFocusedActivity("Expected root activity focused",
                 TEST_ACTIVITY_WITH_SAME_AFFINITY);
-        assertEquals(rootActivityTaskId, mAmWmState.getAmState().getTaskByActivity(
+        assertEquals(rootActivityTaskId, mWmState.getTaskByActivity(
                 TEST_ACTIVITY_WITH_SAME_AFFINITY).mTaskId);
     }
 
@@ -1075,7 +1114,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         launchActivity(TEST_ACTIVITY_WITH_SAME_AFFINITY,
                 EXTRA_START_ACTIVITY, getActivityName(TEST_ACTIVITY),
                 EXTRA_FINISH_SELF_ON_RESUME, "true");
-        mAmWmState.waitForValidState(new WaitForValidActivityState.Builder(TEST_ACTIVITY)
+        mWmState.waitForValidState(new WaitForValidActivityState.Builder(TEST_ACTIVITY)
                 .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
                 .setActivityType(ACTIVITY_TYPE_STANDARD)
                 .build());
@@ -1084,7 +1123,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         assertPinnedStackExists();
 
         // Launch the root activity again...
-        int rootActivityTaskId = mAmWmState.getAmState().getTaskByActivity(
+        int rootActivityTaskId = mWmState.getTaskByActivity(
                 TEST_ACTIVITY).mTaskId;
         launchHomeActivity();
         launchActivity(TEST_ACTIVITY_WITH_SAME_AFFINITY);
@@ -1092,8 +1131,8 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         // ...and ensure that even while matching purely by task affinity, the root activity task is
         // found and reused, and that the pinned stack is unaffected
         assertPinnedStackExists();
-        mAmWmState.assertFocusedActivity("Expected root activity focused", TEST_ACTIVITY);
-        assertEquals(rootActivityTaskId, mAmWmState.getAmState().getTaskByActivity(
+        mWmState.assertFocusedActivity("Expected root activity focused", TEST_ACTIVITY);
+        assertEquals(rootActivityTaskId, mWmState.getTaskByActivity(
                 TEST_ACTIVITY).mTaskId);
     }
 
@@ -1104,27 +1143,26 @@ public class PinnedStackTests extends ActivityManagerTestBase {
                 EXTRA_ENTER_PIP, "true",
                 EXTRA_START_ACTIVITY, getActivityName(PIP_ACTIVITY),
                 EXTRA_FINISH_SELF_ON_RESUME, "true");
-        waitForEnterPip(TEST_ACTIVITY_WITH_SAME_AFFINITY);
+        waitForEnterPip(PIP_ACTIVITY);
         assertPinnedStackExists();
 
         // Launch the root activity again, of the matching task and ensure that we expand to
         // fullscreen
-        int activityTaskId = mAmWmState.getAmState().getTaskByActivity(PIP_ACTIVITY).mTaskId;
+        int activityTaskId = mWmState.getTaskByActivity(PIP_ACTIVITY).mTaskId;
         launchHomeActivity();
         launchActivity(TEST_ACTIVITY_WITH_SAME_AFFINITY);
-        waitForExitPipToFullscreen(TEST_ACTIVITY_WITH_SAME_AFFINITY);
+        waitForExitPipToFullscreen(PIP_ACTIVITY);
         assertPinnedStackDoesNotExist();
-        assertEquals(activityTaskId, mAmWmState.getAmState().getTaskByActivity(
+        assertEquals(activityTaskId, mWmState.getTaskByActivity(
                 PIP_ACTIVITY).mTaskId);
     }
 
     /** Test that reported display size corresponds to fullscreen after exiting PiP. */
-    @FlakyTest
     @Test
     public void testDisplayMetricsPinUnpin() throws Exception {
         separateTestJournal();
         launchActivity(TEST_ACTIVITY);
-        final int defaultWindowingMode = mAmWmState.getAmState()
+        final int defaultWindowingMode = mWmState
                 .getTaskByActivity(TEST_ACTIVITY).getWindowingMode();
         final SizeInfo initialSizes = getLastReportedSizesForActivity(TEST_ACTIVITY);
         final Rect initialAppBounds = getAppBounds(TEST_ACTIVITY);
@@ -1154,108 +1192,6 @@ public class PinnedStackTests extends ActivityManagerTestBase {
                 finalAppSize);
     }
 
-    @Test
-    public void testEnterPictureInPictureSavePosition() throws Exception {
-        // Ensure we have static shelf offset by running this test over a non-home activity
-        launchActivity(NO_RELAUNCH_ACTIVITY);
-        mAmWmState.waitForActivityState(mAmWmState.getAmState().getHomeActivityName(),
-                STATE_STOPPED);
-
-        // Launch PiP activity with auto-enter PiP, save the default position of the PiP
-        // (while the PiP is still animating sleep)
-        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
-        // Wait for animation complete since we are comparing bounds
-        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-        assertPinnedStackExists();
-
-        // Move the PiP to a new position on screen
-        final Rect initialBounds = new Rect();
-        final Rect offsetBounds = new Rect();
-        offsetPipWithinMovementBounds(100 /* offsetY */, initialBounds, offsetBounds);
-
-        // Expand the PiP back to fullscreen and back into PiP and ensure that it is in the same
-        // position as before we expanded (and that the default bounds reflect that)
-        mBroadcastActionTrigger.doAction(ACTION_EXPAND_PIP);
-        waitForExitPipToFullscreen(PIP_ACTIVITY);
-        mBroadcastActionTrigger.doAction(ACTION_ENTER_PIP);
-        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-        mAmWmState.computeState(true);
-        // Due to rounding in how we save and apply the snap fraction we may be a pixel off, so just
-        // account for that in this check
-        offsetBounds.inset(-1, -1);
-        assertTrue("Expected offsetBounds=" + offsetBounds + " to contain bounds="
-                + getPinnedStackBounds(), offsetBounds.contains(getPinnedStackBounds()));
-
-        // Expand the PiP, then launch an activity in a new task, and ensure that the PiP goes back
-        // to the default position (and not the saved position) the next time it is launched
-        mBroadcastActionTrigger.doAction(ACTION_EXPAND_PIP);
-        waitForExitPipToFullscreen(PIP_ACTIVITY);
-        launchActivity(TEST_ACTIVITY);
-        mBroadcastActionTrigger.doAction(TEST_ACTIVITY_ACTION_FINISH_SELF);
-        mAmWmState.waitForActivityState(PIP_ACTIVITY, STATE_RESUMED);
-        mAmWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
-        mBroadcastActionTrigger.doAction(ACTION_ENTER_PIP);
-        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-        assertPinnedStackExists();
-        assertTrue("Expected initialBounds=" + initialBounds + " to equal bounds="
-                + getPinnedStackBounds(), initialBounds.equals(getPinnedStackBounds()));
-    }
-
-    @Test
-    @FlakyTest(bugId = 71792368)
-    public void testEnterPictureInPictureDiscardSavedPositionOnFinish() throws Exception {
-        // Ensure we have static shelf offset by running this test over a non-home activity
-        launchActivity(NO_RELAUNCH_ACTIVITY);
-        mAmWmState.waitForActivityState(mAmWmState.getAmState().getHomeActivityName(),
-                STATE_STOPPED);
-
-        // Launch PiP activity with auto-enter PiP, save the default position of the PiP
-        // (while the PiP is still animating sleep)
-        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
-        // Wait for animation complete since we are comparing bounds
-        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-        assertPinnedStackExists();
-
-        // Move the PiP to a new position on screen
-        final Rect initialBounds = new Rect();
-        final Rect offsetBounds = new Rect();
-        offsetPipWithinMovementBounds(100 /* offsetY */, initialBounds, offsetBounds);
-
-        // Finish the activity
-        mBroadcastActionTrigger.doAction(ACTION_FINISH);
-        waitForPinnedStackRemoved();
-        assertPinnedStackDoesNotExist();
-
-        // Ensure that starting the same PiP activity after it finished will go to the default
-        // bounds
-        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
-        waitForEnterPipAnimationComplete(PIP_ACTIVITY);
-        assertPinnedStackExists();
-        assertTrue("Expected initialBounds=" + initialBounds + " to equal bounds="
-                + getPinnedStackBounds(), initialBounds.equals(getPinnedStackBounds()));
-    }
-
-    /**
-     * Offsets the PiP in a direction by {@param offsetY} such that it is still within the movement
-     * bounds.
-     */
-    private void offsetPipWithinMovementBounds(int offsetY, Rect initialBoundsOut,
-            Rect offsetBoundsOut) {
-        final ActivityStack stack = getPinnedStack();
-        final Rect displayRect = mAmWmState.getWmState().getDisplay(stack.mDisplayId)
-                .getDisplayRect();
-        initialBoundsOut.set(getPinnedStackBounds());
-        offsetBoundsOut.set(initialBoundsOut);
-        if (initialBoundsOut.top < displayRect.centerY()) {
-            // If the default gravity is top-aligned, offset down instead of up
-            offsetBoundsOut.offset(0, offsetY);
-        } else {
-            offsetBoundsOut.offset(0, -offsetY);
-        }
-        resizeStack(stack.mStackId, offsetBoundsOut.left, offsetBoundsOut.top,
-                offsetBoundsOut.right, offsetBoundsOut.bottom);
-    }
-
     /** Get app bounds in last applied configuration. */
     private Rect getAppBounds(ComponentName activityName) {
         final Configuration config = TestJournalContainer.get(activityName).extras
@@ -1275,36 +1211,13 @@ public class PinnedStackTests extends ActivityManagerTestBase {
      */
     private void assertPinnedStackStateOnMoveToFullscreen(ComponentName activityName,
             int windowingMode, int activityType) {
-        mAmWmState.waitForFocusedStack(windowingMode, activityType);
-        mAmWmState.assertFocusedStack("Wrong focused stack", windowingMode, activityType);
+        mWmState.waitForFocusedStack(windowingMode, activityType);
+        mWmState.assertFocusedStack("Wrong focused stack", windowingMode, activityType);
         waitAndAssertActivityState(activityName, STATE_STOPPED,
                 "Activity should go to STOPPED");
-        assertTrue(mAmWmState.getAmState().containsActivityInWindowingMode(
+        assertTrue(mWmState.containsActivityInWindowingMode(
                 activityName, WINDOWING_MODE_FULLSCREEN));
         assertPinnedStackDoesNotExist();
-    }
-
-    /**
-     * Asserts that the pinned stack bounds does not intersect with the IME bounds.
-     */
-    private void assertPinnedStackDoesNotIntersectIME() {
-        // Ensure that the IME is visible
-        WindowManagerState wmState = mAmWmState.getWmState();
-        wmState.computeState();
-        WindowManagerState.WindowState imeWinState = wmState.getInputMethodWindowState();
-        assertTrue(imeWinState != null);
-
-        // Ensure that the PIP movement is constrained by the display bounds intersecting the
-        // non-IME bounds
-        Rect imeContentFrame = imeWinState.getContentFrame();
-        Rect imeContentInsets = imeWinState.getGivenContentInsets();
-        Rect imeBounds = new Rect(imeContentFrame.left + imeContentInsets.left,
-                imeContentFrame.top + imeContentInsets.top,
-                imeContentFrame.right - imeContentInsets.width(),
-                imeContentFrame.bottom - imeContentInsets.height());
-        wmState.computeState();
-        Rect pipMovementBounds = wmState.getPinnedStackMovementBounds();
-        assertTrue(!Rect.intersects(pipMovementBounds, imeBounds));
     }
 
     /**
@@ -1312,7 +1225,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
      */
     private void assertPinnedStackActivityIsInDisplayBounds(ComponentName activityName) {
         final WindowManagerState.WindowState windowState = getWindowState(activityName);
-        final WindowManagerState.Display display = mAmWmState.getWmState().getDisplay(
+        final WindowManagerState.DisplayContent display = mWmState.getDisplay(
                 windowState.getDisplayId());
         final Rect displayRect = display.getDisplayRect();
         final Rect pinnedStackBounds = getPinnedStackBounds();
@@ -1323,7 +1236,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
      * Asserts that the pinned stack exists.
      */
     private void assertPinnedStackExists() {
-        mAmWmState.assertContainsStack("Must contain pinned stack.", WINDOWING_MODE_PINNED,
+        mWmState.assertContainsStack("Must contain pinned stack.", WINDOWING_MODE_PINNED,
                 ACTIVITY_TYPE_STANDARD);
     }
 
@@ -1331,7 +1244,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
      * Asserts that the pinned stack does not exist.
      */
     private void assertPinnedStackDoesNotExist() {
-        mAmWmState.assertDoesNotContainStack("Must not contain pinned stack.",
+        mWmState.assertDoesNotContainStack("Must not contain pinned stack.",
                 WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD);
     }
 
@@ -1339,7 +1252,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
      * Asserts that the pinned stack is the front stack.
      */
     private void assertPinnedStackIsOnTop() {
-        mAmWmState.assertFrontStack("Pinned stack must always be on top.",
+        mWmState.assertFrontStack("Pinned stack must always be on top.",
                 WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD);
     }
 
@@ -1373,10 +1286,10 @@ public class PinnedStackTests extends ActivityManagerTestBase {
      * subsequent animation to start).
      */
     private void waitForEnterPip(ComponentName activityName) {
-        mAmWmState.waitForValidState(new WaitForValidActivityState.Builder(activityName)
-                .setWindowingMode(WINDOWING_MODE_PINNED)
-                .setActivityType(ACTIVITY_TYPE_STANDARD)
-                .build());
+        mWmState.waitForWithAmState(wmState -> {
+            ActivityTask task = wmState.getTaskByActivity(activityName);
+            return task != null && task.getWindowingMode() == WINDOWING_MODE_PINNED;
+        }, "checking task windowing mode");
     }
 
     /**
@@ -1384,51 +1297,63 @@ public class PinnedStackTests extends ActivityManagerTestBase {
      */
     private void waitForEnterPipAnimationComplete(ComponentName activityName) {
         waitForEnterPip(activityName);
-        mAmWmState.waitFor((amState, wmState) -> {
-                WindowStack stack = wmState.getStandardStackByWindowingMode(WINDOWING_MODE_PINNED);
-                return stack != null && !stack.mAnimatingBounds;
-            }, "Waiting for pinned stack bounds animation to finish");
+        mWmState.waitForWithAmState(wmState -> {
+            ActivityTask task = wmState.getTaskByActivity(activityName);
+            if (task == null) {
+                return false;
+            }
+            WindowManagerState.Activity activity = task.getActivity(activityName);
+            return activity.getWindowingMode() == WINDOWING_MODE_PINNED
+                    && activity.getState().equals(STATE_PAUSED);
+        }, "checking activity windowing mode");
     }
 
     /**
      * Waits until the pinned stack has been removed.
      */
     private void waitForPinnedStackRemoved() {
-        mAmWmState.waitFor((amState, wmState) -> {
-            return !amState.containsStack(WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD)
-                    && !wmState.containsStack(WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD);
-        }, "Waiting for pinned stack to be removed...");
+        mWmState.waitFor((amState) ->
+                !amState.containsStack(WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD),
+                "pinned stack to be removed");
     }
 
     /**
      * Waits until the picture-in-picture animation to fullscreen has finished.
      */
     private void waitForExitPipToFullscreen(ComponentName activityName) {
-        mAmWmState.waitForValidState(new WaitForValidActivityState.Builder(activityName)
-                .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
-                .setActivityType(ACTIVITY_TYPE_STANDARD)
-                .build());
+        mWmState.waitForWithAmState(wmState -> {
+            final ActivityTask task = wmState.getTaskByActivity(activityName);
+            if (task == null) {
+                return false;
+            }
+            final WindowManagerState.Activity activity = task.getActivity(activityName);
+            return activity.getWindowingMode() != WINDOWING_MODE_PINNED;
+        }, "checking activity windowing mode");
+        mWmState.waitForWithAmState(wmState -> {
+            final ActivityTask task = wmState.getTaskByActivity(activityName);
+            return task != null && task.getWindowingMode() != WINDOWING_MODE_PINNED;
+        }, "checking task windowing mode");
     }
 
     /**
      * Waits until the expected picture-in-picture callbacks have been made.
      */
     private void waitForValidPictureInPictureCallbacks(ComponentName activityName) {
-        mAmWmState.waitFor((amState, wmState) -> {
+        mWmState.waitFor((amState) -> {
             final ActivityLifecycleCounts lifecycles = new ActivityLifecycleCounts(activityName);
             return lifecycles.getCount(ActivityCallback.ON_CONFIGURATION_CHANGED) == 1
                     && lifecycles.getCount(ActivityCallback.ON_PICTURE_IN_PICTURE_MODE_CHANGED) == 1
                     && lifecycles.getCount(ActivityCallback.ON_MULTI_WINDOW_MODE_CHANGED) == 1;
-        }, "Waiting for picture-in-picture activity callbacks...");
+        }, "picture-in-picture activity callbacks...");
     }
 
     private void waitForValidAspectRatio(int num, int denom) {
         // Hacky, but we need to wait for the auto-enter picture-in-picture animation to complete
         // and before we can check the pinned stack bounds
-        mAmWmState.waitForWithAmState((state) -> {
+        mWmState.waitForWithAmState((state) -> {
             Rect bounds = state.getStandardStackByWindowingMode(WINDOWING_MODE_PINNED).getBounds();
             return floatEquals((float) bounds.width() / bounds.height(), (float) num / denom);
-        }, "waitForValidAspectRatio");
+        }, "valid aspect ratio");
     }
 
     /**
@@ -1436,17 +1361,17 @@ public class PinnedStackTests extends ActivityManagerTestBase {
      */
     private WindowManagerState.WindowState getWindowState(ComponentName activityName) {
         String windowName = getWindowName(activityName);
-        mAmWmState.computeState(activityName);
+        mWmState.computeState(activityName);
         final List<WindowManagerState.WindowState> tempWindowList =
-                mAmWmState.getWmState().getMatchingVisibleWindowState(windowName);
+                mWmState.getMatchingVisibleWindowState(windowName);
         return tempWindowList.get(0);
     }
 
     /**
      * @return the current pinned stack.
      */
-    private ActivityStack getPinnedStack() {
-        return mAmWmState.getAmState().getStandardStackByWindowingMode(WINDOWING_MODE_PINNED);
+    private ActivityTask getPinnedStack() {
+        return mWmState.getStandardStackByWindowingMode(WINDOWING_MODE_PINNED);
     }
 
     /**
@@ -1476,7 +1401,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
         Rect pinnedStackBounds = getPinnedStackBounds();
         int tapX = pinnedStackBounds.left + pinnedStackBounds.width() - 100;
         int tapY = pinnedStackBounds.top + pinnedStackBounds.height() - 100;
-        tapOnDisplay(tapX, tapY, DEFAULT_DISPLAY);
+        tapOnDisplaySync(tapX, tapY, DEFAULT_DISPLAY);
     }
 
     /**
@@ -1485,7 +1410,7 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     private void launchPinnedActivityAsTaskOverlay(ComponentName activityName, int taskId) {
         executeShellCommand(getAmStartCmd(activityName) + " --task " + taskId + " --task-overlay");
 
-        mAmWmState.waitForValidState(new WaitForValidActivityState.Builder(activityName)
+        mWmState.waitForValidState(new WaitForValidActivityState.Builder(activityName)
                 .setWindowingMode(WINDOWING_MODE_PINNED)
                 .setActivityType(ACTIVITY_TYPE_STANDARD)
                 .build());
@@ -1527,49 +1452,49 @@ public class PinnedStackTests extends ActivityManagerTestBase {
     private void pinnedStackTester(String startActivityCmd, ComponentName startActivity,
             ComponentName topActivityName, boolean moveTopToPinnedStack, boolean isFocusable) {
         executeShellCommand(startActivityCmd);
-        mAmWmState.waitForValidState(startActivity);
+        mWmState.waitForValidState(startActivity);
 
         if (moveTopToPinnedStack) {
-            final int stackId = mAmWmState.getAmState().getStackIdByActivity(topActivityName);
+            final int stackId = mWmState.getStackIdByActivity(topActivityName);
 
             assertNotEquals(stackId, INVALID_STACK_ID);
             moveTopActivityToPinnedStack(stackId);
         }
 
-        mAmWmState.waitForValidState(new WaitForValidActivityState.Builder(topActivityName)
+        mWmState.waitForValidState(new WaitForValidActivityState.Builder(topActivityName)
                 .setWindowingMode(WINDOWING_MODE_PINNED)
                 .setActivityType(ACTIVITY_TYPE_STANDARD)
                 .build());
-        mAmWmState.computeState(true);
+        mWmState.computeState();
 
         if (supportsPip()) {
             final String windowName = getWindowName(topActivityName);
             assertPinnedStackExists();
-            mAmWmState.assertFrontStack("Pinned stack must be the front stack.",
+            mWmState.assertFrontStack("Pinned stack must be the front stack.",
                     WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD);
-            mAmWmState.assertVisibility(topActivityName, true);
+            mWmState.assertVisibility(topActivityName, true);
 
             if (isFocusable) {
-                mAmWmState.assertFocusedStack("Pinned stack must be the focused stack.",
+                mWmState.assertFocusedStack("Pinned stack must be the focused stack.",
                         WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD);
-                mAmWmState.assertFocusedActivity(
+                mWmState.assertFocusedActivity(
                         "Pinned activity must be focused activity.", topActivityName);
-                mAmWmState.assertFocusedWindow(
+                mWmState.assertFocusedWindow(
                         "Pinned window must be focused window.", windowName);
                 // Not checking for resumed state here because PiP overlay can be launched on top
                 // in different task by SystemUI.
             } else {
                 // Don't assert that the stack is not focused as a focusable PiP overlay can be
                 // launched on top as a task overlay by SystemUI.
-                mAmWmState.assertNotFocusedActivity(
+                mWmState.assertNotFocusedActivity(
                         "Pinned activity can't be the focused activity.", topActivityName);
-                mAmWmState.assertNotResumedActivity(
+                mWmState.assertNotResumedActivity(
                         "Pinned activity can't be the resumed activity.", topActivityName);
-                mAmWmState.assertNotFocusedWindow(
+                mWmState.assertNotFocusedWindow(
                         "Pinned window can't be focused window.", windowName);
             }
         } else {
-            mAmWmState.assertDoesNotContainStack("Must not contain pinned stack.",
+            mWmState.assertDoesNotContainStack("Must not contain pinned stack.",
                     WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD);
         }
     }

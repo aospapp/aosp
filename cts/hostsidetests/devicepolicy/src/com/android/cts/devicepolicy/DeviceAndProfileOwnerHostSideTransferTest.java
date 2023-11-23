@@ -2,10 +2,16 @@ package com.android.cts.devicepolicy;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
 
+import static org.junit.Assert.fail;
+
+import android.stats.devicepolicy.EventId;
+
 import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
 import com.android.tradefed.device.DeviceNotAvailableException;
 
-import android.stats.devicepolicy.EventId;
+import org.junit.Test;
+
+import static com.google.common.truth.Truth.assertThat;
 
 public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevicePolicyTest {
 
@@ -24,11 +30,16 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
         "com.android.cts.transferowner.TransferProfileOwnerOutgoingTest";
     protected static final String TRANSFER_PROFILE_OWNER_INCOMING_TEST =
         "com.android.cts.transferowner.TransferProfileOwnerIncomingTest";
+    private final String INCOMING_ADMIN_SERVICE_FULL_NAME =
+            "com.android.cts.transferowner"
+                    + ".DeviceAndProfileOwnerTransferIncomingTest$BasicAdminService";
+
 
     protected int mUserId;
     protected String mOutgoingTestClassName;
     protected String mIncomingTestClassName;
 
+    @Test
     public void testTransferOwnership() throws Exception {
         if (!mHasFeature) {
             return;
@@ -45,6 +56,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 .build());
     }
 
+    @Test
     public void testTransferSameAdmin() throws Exception {
         if (!mHasFeature) {
             return;
@@ -54,6 +66,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 "testTransferSameAdmin", mUserId);
     }
 
+    @Test
     public void testTransferInvalidTarget() throws Exception {
         if (!mHasFeature) {
             return;
@@ -64,6 +77,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 "testTransferInvalidTarget", mUserId);
     }
 
+    @Test
     public void testTransferPolicies() throws Exception {
         if (!mHasFeature) {
             return;
@@ -76,6 +90,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 "testTransferPoliciesAreRetainedAfterTransfer", mUserId);
     }
 
+    @Test
     public void testTransferOwnershipChangedBroadcast() throws Exception {
         if (!mHasFeature) {
             return;
@@ -85,6 +100,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 "testTransferOwnershipChangedBroadcast", mUserId);
     }
 
+    @Test
     public void testTransferCompleteCallback() throws Exception {
         if (!mHasFeature) {
             return;
@@ -107,6 +123,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
         mIncomingTestClassName = incomingTestClassName;
     }
 
+    @Test
     public void testTransferOwnershipNoMetadata() throws Exception {
         if (!mHasFeature) {
             return;
@@ -116,6 +133,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 "testTransferOwnershipNoMetadata", mUserId);
     }
 
+    @Test
     public void testIsTransferBundlePersisted() throws DeviceNotAvailableException {
         if (!mHasFeature) {
             return;
@@ -128,6 +146,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 "testTransferOwnershipBundleLoaded", mUserId);
     }
 
+    @Test
     public void testGetTransferOwnershipBundleOnlyCalledFromAdmin()
             throws DeviceNotAvailableException {
         if (!mHasFeature) {
@@ -138,6 +157,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 "testGetTransferOwnershipBundleOnlyCalledFromAdmin", mUserId);
     }
 
+    @Test
     public void testBundleEmptyAfterTransferWithNullBundle() throws DeviceNotAvailableException {
         if (!mHasFeature) {
             return;
@@ -150,6 +170,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
                 "testTransferOwnershipEmptyBundleLoaded", mUserId);
     }
 
+    @Test
     public void testIsBundleNullNoTransfer() throws DeviceNotAvailableException {
         if (!mHasFeature) {
             return;
@@ -161,15 +182,7 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
 
     protected int setupManagedProfileOnDeviceOwner(String apkName, String adminReceiverClassName)
             throws Exception {
-        // Temporary disable the DISALLOW_ADD_MANAGED_PROFILE, so that we can create profile
-        // using adb command.
-        clearDisallowAddManagedProfileRestriction();
-        try {
-            return setupManagedProfile(apkName, adminReceiverClassName);
-        } finally {
-            // Adding back DISALLOW_ADD_MANAGED_PROFILE.
-            addDisallowAddManagedProfileRestriction();
-        }
+        return setupManagedProfile(apkName, adminReceiverClassName);
     }
 
     protected int setupManagedProfile(String apkName, String adminReceiverClassName)
@@ -182,32 +195,11 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
             fail("Failed to set device owner");
             return -1;
         }
-        startUser(userId);
+        startUserAndWait(userId);
         return userId;
     }
 
-    /**
-     * Clear {@link android.os.UserManager#DISALLOW_ADD_MANAGED_PROFILE}.
-     */
-    private void clearDisallowAddManagedProfileRestriction() throws Exception {
-        runDeviceTestsAsUser(
-                TRANSFER_OWNER_OUTGOING_PKG,
-                mOutgoingTestClassName,
-                "testClearDisallowAddManagedProfileRestriction",
-                mPrimaryUserId);
-    }
-
-    /**
-     * Add {@link android.os.UserManager#DISALLOW_ADD_MANAGED_PROFILE}.
-     */
-    private void addDisallowAddManagedProfileRestriction() throws Exception {
-        runDeviceTestsAsUser(
-                TRANSFER_OWNER_OUTGOING_PKG,
-                mOutgoingTestClassName,
-                "testAddDisallowAddManagedProfileRestriction",
-                mPrimaryUserId);
-    }
-
+    @Test
     public void testTargetDeviceAdminServiceBound() throws Exception {
         if (!mHasFeature) {
             return;
@@ -215,9 +207,13 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
         runDeviceTestsAsUser(TRANSFER_OWNER_OUTGOING_PKG,
             mOutgoingTestClassName,
             "testTransferOwnership", mUserId);
-        runDeviceTestsAsUser(TRANSFER_OWNER_INCOMING_PKG,
-            mIncomingTestClassName,
-            "testAdminServiceIsBound", mUserId);
+        assertServiceRunning(INCOMING_ADMIN_SERVICE_FULL_NAME);
+    }
+
+    private void assertServiceRunning(String serviceName) throws DeviceNotAvailableException {
+        final String result = getDevice().executeShellCommand(
+                String.format("dumpsys activity services %s", serviceName));
+        assertThat(result).contains("app=ProcessRecord");
     }
 
     protected void setSameAffiliationId(int profileUserId, String testClassName)
@@ -239,9 +235,4 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
             testClassName,
             "testIsAffiliationId1", profileUserId);
     }
-
-    /* TODO: Add tests for:
-    * 1. passwordOwner
-    *
-    * */
 }

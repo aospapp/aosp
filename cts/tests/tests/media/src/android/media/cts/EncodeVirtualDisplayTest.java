@@ -25,10 +25,12 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.opengl.GLES20;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.DisplayMetrics;
@@ -44,6 +46,8 @@ import androidx.test.filters.SmallTest;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Tests connecting a virtual display to the input of a MediaCodec encoder.
@@ -61,6 +65,7 @@ import java.nio.ByteBuffer;
  * The test puts up a series of colored screens, expecting to see all of them, and in order.
  * Any black screens that appear before or after are ignored.
  */
+@Presubmit
 @SmallTest
 @RequiresDevice
 public class EncodeVirtualDisplayTest extends AndroidTestCase {
@@ -96,6 +101,7 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
 
     // Colors to test (RGB).  These must convert cleanly to and from BT.601 YUV.
     private static final int TEST_COLORS[] = {
+        makeColor(0, 0, 0),             // YCbCr 16,128,128
         makeColor(10, 100, 200),        // YCbCr 89,186,82
         makeColor(100, 200, 10),        // YCbCr 144,60,98
         makeColor(200, 10, 100),        // YCbCr 203,10,103
@@ -283,13 +289,13 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
         int goodFrames = 0;
         int debugFrameCount = 0;
 
-        // Save a copy to disk.  Useful for debugging the test.  Note this is a raw elementary
-        // stream, not a .mp4 file, so not all players will know what to do with it.
-        FileOutputStream outputStream = null;
+        // Save a copy to disk.  Useful for debugging the test.
+        MediaMuxer muxer = null;
+        int trackIndex = -1;
         if (DEBUG_SAVE_FILE) {
             String fileName = DEBUG_FILE_NAME_BASE + sWidth + "x" + sHeight + ".mp4";
             try {
-                outputStream = new FileOutputStream(fileName);
+                muxer = new MediaMuxer(fileName, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
                 Log.d(TAG, "encoded output will be saved as " + fileName);
             } catch (IOException ioe) {
                 Log.w(TAG, "Unable to create debug output file " + fileName);
@@ -396,6 +402,10 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
                         // received before first buffer
                         MediaFormat newFormat = encoder.getOutputFormat();
                         if (VERBOSE) Log.d(TAG, "encoder output format changed: " + newFormat);
+                        if (muxer != null && trackIndex == -1) {
+                            trackIndex = muxer.addTrack(newFormat);
+                            muxer.start();
+                        }
                     } else if (encoderStatus < 0) {
                         fail("unexpected result from encoder.dequeueOutputBuffer: " + encoderStatus);
                     } else { // encoderStatus >= 0
@@ -408,16 +418,8 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
                         encodedData.position(info.offset);
                         encodedData.limit(info.offset + info.size);
 
-                        if (outputStream != null) {
-                            byte[] data = new byte[info.size];
-                            encodedData.get(data);
-                            encodedData.position(info.offset);
-                            try {
-                                outputStream.write(data);
-                            } catch (IOException ioe) {
-                                Log.w(TAG, "failed writing debug data to file");
-                                throw new RuntimeException(ioe);
-                            }
+                        if (muxer != null) {
+                            muxer.writeSampleData(trackIndex, encodedData, info);
                             debugFrameCount++;
                         }
 
@@ -450,14 +452,10 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
             }
         }
 
-        if (outputStream != null) {
-            try {
-                outputStream.close();
-                if (VERBOSE) Log.d(TAG, "Wrote " + debugFrameCount + " frames");
-            } catch (IOException ioe) {
-                Log.w(TAG, "failed closing debug file");
-                throw new RuntimeException(ioe);
-            }
+        if (muxer != null) {
+            muxer.stop();
+            muxer.release();
+            if (VERBOSE) Log.d(TAG, "Wrote " + debugFrameCount + " frames");
         }
 
         if (goodFrames != TEST_COLORS.length) {
@@ -489,10 +487,6 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
         int b = mPixelBuf.get(2) & 0xff;
         if (VERBOSE) Log.d(TAG, "GOT: r=" + r + " g=" + g + " b=" + b);
 
-        if (approxEquals(0, r) && approxEquals(0, g) && approxEquals(0, b)) {
-            return -2;
-        }
-
         // Walk through the color list and try to find a match.  These may have gone through
         // RGB<->YCbCr conversions, so don't expect exact matches.
         for (int i = 0; i < TEST_COLORS.length; i++) {
@@ -522,6 +516,7 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
      */
     private class ColorSlideShow extends Thread {
         private Display mDisplay;
+        private ArrayList<TestPresentation> mPresentations = new ArrayList<>();
 
         public ColorSlideShow(Display display) {
             mDisplay = display;
@@ -535,11 +530,20 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
 
             if (VERBOSE) Log.d(TAG, "slide show finished");
             mInputDone = true;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    for (TestPresentation presentation : mPresentations) {
+                        presentation.dismiss();
+                    }
+                }
+            });
         }
 
         private void showPresentation(final int color) {
             final TestPresentation[] presentation = new TestPresentation[1];
             try {
+                final CountDownLatch latch = new CountDownLatch(1);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -548,21 +552,20 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
                         presentation[0] = new TestPresentation(getContext(), mDisplay, color);
                         if (VERBOSE) Log.d(TAG, "showing color=0x" + Integer.toHexString(color));
                         presentation[0].show();
+                        latch.countDown();
                     }
                 });
 
                 // Give the presentation an opportunity to render.  We don't have a way to
                 // monitor the output, so we just sleep for a bit.
-                try { Thread.sleep(UI_RENDER_PAUSE_MS); }
-                catch (InterruptedException ignore) {}
+                try {
+                    // wait for the UI thread execution to finish
+                    latch.await();
+                    Thread.sleep(UI_RENDER_PAUSE_MS);
+                } catch (InterruptedException ignore) {}
             } finally {
                 if (presentation[0] != null) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            presentation[0].dismiss();
-                        }
-                    });
+                    mPresentations.add(presentation[0]);
                 }
             }
         }

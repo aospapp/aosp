@@ -40,12 +40,12 @@ public class RobustnessTests extends ActivityManagerTestBase {
                 .setTargetActivity(RECURSIVE_ACTIVITY).execute();
 
         for (int retry = 1; retry <= 10; retry++) {
-            mAmWmState.computeState(TEST_ACTIVITY);
-            if (mAmWmState.getAmState().isActivityVisible(TEST_ACTIVITY)) {
+            mWmState.computeState(TEST_ACTIVITY);
+            if (mWmState.isActivityVisible(TEST_ACTIVITY)) {
                 break;
             }
         }
-        mAmWmState.waitForValidState(TEST_ACTIVITY);
-        mAmWmState.assertVisibility(TEST_ACTIVITY, true);
+        mWmState.waitForValidState(TEST_ACTIVITY);
+        mWmState.assertVisibility(TEST_ACTIVITY, true);
     }
 }

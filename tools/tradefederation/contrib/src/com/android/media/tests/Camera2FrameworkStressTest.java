@@ -19,6 +19,7 @@ package com.android.media.tests;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IFileEntry;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -48,7 +49,7 @@ public class Camera2FrameworkStressTest extends CameraTestBase {
 
     // Keys in instrumentation test metrics
     private static final String RESULT_DIR =
-            "/storage/emulated/0/Android/sandbox/com.android.mediaframeworktest/camera-out";
+            "/sdcard/Android/data/com.android.mediaframeworktest/files/camera-out/";
     private static final String RESULT_FILE_FORMAT = RESULT_DIR + "fwk-stress_camera_%s.txt";
     private static final Pattern RESULT_FILE_REGEX = Pattern.compile(
             "^fwk-stress_camera_(?<id>.+).txt");
@@ -65,18 +66,17 @@ public class Camera2FrameworkStressTest extends CameraTestBase {
         setLogcatOnFailure(true);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        runInstrumentationTest(listener, new CollectingListener(listener));
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        runInstrumentationTest(testInfo, listener, new CollectingListener(listener));
     }
 
     /**
      * A listener to collect the output from test run and fatal errors
      */
-    private class CollectingListener extends DefaultCollectingListener {
+    public class CollectingListener extends CameraTestMetricsCollectionListener.DefaultCollectingListener {
 
         public CollectingListener(ITestInvocationListener listener) {
             super(listener);
@@ -96,8 +96,10 @@ public class Camera2FrameworkStressTest extends CameraTestBase {
         public void testEnded(
                 TestDescription test, long endTime, HashMap<String, Metric> testMetrics) {
             if (hasTestRunFatalError()) {
-                CLog.v("The instrumentation result not found. Fall back to get the metrics from a "
-                        + "log file. errorMsg: %s", getCollectingListener().getErrorMessage());
+                CLog.v(
+                        "The instrumentation result not found. Fall back to get the metrics from a "
+                                + "log file. errorMsg: %s",
+                        getErrorMessage());
             }
 
             // For stress test, parse the metrics from a log file.

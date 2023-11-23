@@ -103,3 +103,11 @@ class BluetoothPriorityLevel(Enum):
     PRIORITY_ON = 100
     PRIORITY_OFF = 0
     PRIORITY_UNDEFINED = -1
+
+class BluetoothA2dpCodecType(Enum):
+    SBC = 0
+    AAC = 1
+    APTX = 2
+    APTX_HD = 3
+    LDAC = 4
+    MAX = 5

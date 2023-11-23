@@ -16,7 +16,7 @@
 
 #include "hmac_operation.h"
 
-#include <keymaster/new>
+#include <keymaster/new.h>
 
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
@@ -35,7 +35,7 @@ typedef int openssl_size_t;
 namespace keymaster {
 
 OperationPtr HmacOperationFactory::CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                                   keymaster_error_t* error) const {
+                                                   keymaster_error_t* error) {
     uint32_t min_mac_length_bits;
     if (!key.authorizations().GetTagValue(TAG_MIN_MAC_LENGTH, &min_mac_length_bits)) {
         LOG_E("HMAC key must have KM_TAG_MIN_MAC_LENGTH", 0);

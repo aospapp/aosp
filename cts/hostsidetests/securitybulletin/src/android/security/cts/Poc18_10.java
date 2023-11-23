@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,19 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc18_10 extends SecurityTestCase {
 
     /**
      *  b/111641492
      */
+    @Test
     @SecurityTest(minPatchLevel = "2018-10")
     public void testPocCVE_2018_9515() throws Exception {
         AdbUtils.runCommandLine("rm /sdcard/Android/data/CVE-2018-9515", getDevice());
@@ -40,9 +46,10 @@ public class Poc18_10 extends SecurityTestCase {
     /**
      *  b/111274046
      */
+    @Test
     @SecurityTest
     public void testPocCVE_2018_9490() throws Exception {
-        int code = AdbUtils.runPocGetExitStatus("/data/local/tmp/CVE-2018-9490", getDevice(), 60);
+        int code = AdbUtils.runProxyAutoConfig("CVE-2018-9490", getDevice());
         assertTrue(code != 139); // 128 + signal 11
     }
 }

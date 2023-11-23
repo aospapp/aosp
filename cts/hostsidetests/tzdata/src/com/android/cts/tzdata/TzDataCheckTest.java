@@ -137,14 +137,13 @@ public class TzDataCheckTest extends DeviceTestCase {
     }
 
     /**
-     * Test the real base files exist in the expected locations - tzcdatacheck relies on some of
-     * them via a command line argument hardcoded in system/core/rootdir/init.rc.
+     * Test the base file used by tzdatacheck exists in the expected location - tzcdatacheck relies
+     * on this file to determine the version of tzdata on device. The path is passed to tzdatacheck
+     * via a command line argument hardcoded in system/core/rootdir/init.rc.
      */
     public void testExpectedBaseFilesExist() throws Exception {
-        String baseTzFilesDir = "/apex/com.android.runtime/etc/tz/";
+        String baseTzFilesDir = "/apex/com.android.tzdata/etc/tz/";
         assertDeviceFileExists(baseTzFilesDir + "tz_version");
-        assertDeviceFileExists(baseTzFilesDir + "tzdata");
-        assertDeviceFileExists(baseTzFilesDir + "tzlookup.xml");
     }
 
     public void testTooFewArgs() throws Exception {

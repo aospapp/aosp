@@ -92,6 +92,7 @@ enum {
 #define TCP_ZEROCOPY_RECEIVE 35
 #define TCP_INQ 36
 #define TCP_CM_INQ TCP_INQ
+#define TCP_TX_DELAY 37
 #define TCP_REPAIR_ON 1
 #define TCP_REPAIR_OFF 0
 #define TCP_REPAIR_OFF_NO_WP - 1
@@ -111,6 +112,12 @@ enum {
   TCP_RECV_QUEUE,
   TCP_SEND_QUEUE,
   TCP_QUEUES_NR,
+};
+enum tcp_fastopen_client_fail {
+  TFO_STATUS_UNSPEC,
+  TFO_COOKIE_UNAVAILABLE,
+  TFO_DATA_NOT_ACKED,
+  TFO_SYN_RETRANSMITTED,
 };
 #define TCPI_OPT_TIMESTAMPS 1
 #define TCPI_OPT_SACK 2
@@ -138,7 +145,7 @@ struct tcp_info {
   __u8 tcpi_backoff;
   __u8 tcpi_options;
   __u8 tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
-  __u8 tcpi_delivery_rate_app_limited : 1;
+  __u8 tcpi_delivery_rate_app_limited : 1, tcpi_fastopen_client_fail : 2;
   __u32 tcpi_rto;
   __u32 tcpi_ato;
   __u32 tcpi_snd_mss;
@@ -183,6 +190,8 @@ struct tcp_info {
   __u64 tcpi_bytes_retrans;
   __u32 tcpi_dsack_dups;
   __u32 tcpi_reord_seen;
+  __u32 tcpi_rcv_ooopack;
+  __u32 tcpi_snd_wnd;
 };
 enum {
   TCP_NLA_PAD,

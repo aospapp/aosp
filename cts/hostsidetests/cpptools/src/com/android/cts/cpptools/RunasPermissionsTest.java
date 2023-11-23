@@ -31,10 +31,7 @@ public final class RunasPermissionsTest extends DeviceTestCase {
     private static final String CONNECTOR_EXE_NAME = "connector";
     private static final String START_TEST_APP_COMMAND = String.format("cmd activity start-activity -S -W %s/%s.%s",
             TEST_APP_PACKAGE, TEST_APP_PACKAGE, TEST_APP_CLASS);
-    private static final String COPY_CONNECTOR_COMMAND = String
-            .format("run-as %s sh -c 'cp -f /data/local/tmp/%s ./code_cache/'", TEST_APP_PACKAGE, CONNECTOR_EXE_NAME);
-    private static final String RUN_CONNECTOR_COMMAND = String.format("run-as %s sh -c './code_cache/%s'",
-            TEST_APP_PACKAGE, CONNECTOR_EXE_NAME);
+
     // Test app ('DomainSocketActivity') would pass string "Connection Succeeded." to the
     // connector, and then the connector would append a newline and print it out.
     private static final String EXPECTED_CONNECTOR_OUTPUT = "Connection Succeeded.\n";
@@ -54,8 +51,13 @@ public final class RunasPermissionsTest extends DeviceTestCase {
 
         // Start a run-as process that attempts to connect to the socket opened by the
         // app.
-        getDevice().executeShellCommand(COPY_CONNECTOR_COMMAND);
-        String results = getDevice().executeShellCommand(RUN_CONNECTOR_COMMAND);
+        int currentUser = getDevice().getCurrentUser();
+        getDevice().executeShellCommand(String.format(
+                "run-as %s --user %d sh -c 'cp -f /data/local/tmp/%s ./code_cache/'",
+                        TEST_APP_PACKAGE, currentUser, CONNECTOR_EXE_NAME));
+        String results = getDevice().executeShellCommand(String.format(
+                "run-as %s --user %d sh -c './code_cache/%s'",
+                        TEST_APP_PACKAGE, currentUser, CONNECTOR_EXE_NAME));
         assertEquals(EXPECTED_CONNECTOR_OUTPUT, results);
     }
 

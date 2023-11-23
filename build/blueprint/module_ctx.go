@@ -17,8 +17,11 @@ package blueprint
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
+	"sync"
 	"text/scanner"
 
+	"github.com/google/blueprint/parser"
 	"github.com/google/blueprint/pathtools"
 	"github.com/google/blueprint/proptools"
 )
@@ -120,16 +123,44 @@ type DynamicDependerModule interface {
 	DynamicDependencies(DynamicDependerModuleContext) []string
 }
 
-type BaseModuleContext interface {
+type EarlyModuleContext interface {
+	// Module returns the current module as a Module.  It should rarely be necessary, as the module already has a
+	// reference to itself.
+	Module() Module
+
+	// ModuleName returns the name of the module.  This is generally the value that was returned by Module.Name() when
+	// the module was created, but may have been modified by calls to BaseMutatorContext.Rename.
 	ModuleName() string
+
+	// ModuleDir returns the path to the directory that contains the defintion of the module.
 	ModuleDir() string
+
+	// ModuleType returns the name of the module type that was used to create the module, as specified in
+	// RegisterModuleType.
 	ModuleType() string
+
+	// BlueprintFile returns the name of the blueprint file that contains the definition of this
+	// module.
+	BlueprintsFile() string
+
+	// Config returns the config object that was passed to Context.PrepareBuildActions.
 	Config() interface{}
 
+	// ContainsProperty returns true if the specified property name was set in the module definition.
 	ContainsProperty(name string) bool
+
+	// Errorf reports an error at the specified position of the module definition file.
 	Errorf(pos scanner.Position, fmt string, args ...interface{})
+
+	// ModuleErrorf reports an error at the line number of the module type in the module definition.
 	ModuleErrorf(fmt string, args ...interface{})
+
+	// PropertyErrorf reports an error at the line number of a property in the module definition.
 	PropertyErrorf(property, fmt string, args ...interface{})
+
+	// Failed returns true if any errors have been reported.  In most cases the module can continue with generating
+	// build rules after an error, allowing it to report additional errors in a single run, but in cases where the error
+	// has prevented the module from creating necessary data it can return early when Failed returns true.
 	Failed() bool
 
 	// GlobWithDeps returns a list of files and directories that match the
@@ -140,13 +171,110 @@ type BaseModuleContext interface {
 	// does not match the pattern is added to a searched directory.
 	GlobWithDeps(pattern string, excludes []string) ([]string, error)
 
+	// Fs returns a pathtools.Filesystem that can be used to interact with files.  Using the Filesystem interface allows
+	// the module to be used in build system tests that run against a mock filesystem.
 	Fs() pathtools.FileSystem
+
+	// AddNinjaFileDeps adds dependencies on the specified files to the rule that creates the ninja manifest.  The
+	// primary builder will be rerun whenever the specified files are modified.
 	AddNinjaFileDeps(deps ...string)
 
 	moduleInfo() *moduleInfo
 	error(err error)
 
+	// Namespace returns the Namespace object provided by the NameInterface set by Context.SetNameInterface, or the
+	// default SimpleNameInterface if Context.SetNameInterface was not called.
 	Namespace() Namespace
+
+	// ModuleFactories returns a map of all of the global ModuleFactories by name.
+	ModuleFactories() map[string]ModuleFactory
+}
+
+type BaseModuleContext interface {
+	EarlyModuleContext
+
+	// GetDirectDepWithTag returns the Module the direct dependency with the specified name, or nil if
+	// none exists.  It panics if the dependency does not have the specified tag.
+	GetDirectDepWithTag(name string, tag DependencyTag) Module
+
+	// GetDirectDep returns the Module and DependencyTag for the  direct dependency with the specified
+	// name, or nil if none exists.  If there are multiple dependencies on the same module it returns
+	// the first DependencyTag.
+	GetDirectDep(name string) (Module, DependencyTag)
+
+	// VisitDirectDeps calls visit for each direct dependency.  If there are multiple direct dependencies on the same
+	// module visit will be called multiple times on that module and OtherModuleDependencyTag will return a different
+	// tag for each.
+	//
+	// The Module passed to the visit function should not be retained outside of the visit function, it may be
+	// invalidated by future mutators.
+	VisitDirectDeps(visit func(Module))
+
+	// VisitDirectDepsIf calls pred for each direct dependency, and if pred returns true calls visit.  If there are
+	// multiple direct dependencies on the same module pred and visit will be called multiple times on that module and
+	// OtherModuleDependencyTag will return a different tag for each.
+	//
+	// The Module passed to the visit function should not be retained outside of the visit function, it may be
+	// invalidated by future mutators.
+	VisitDirectDepsIf(pred func(Module) bool, visit func(Module))
+
+	// VisitDepsDepthFirst calls visit for each transitive dependency, traversing the dependency tree in depth first
+	// order. visit will only be called once for any given module, even if there are multiple paths through the
+	// dependency tree to the module or multiple direct dependencies with different tags.  OtherModuleDependencyTag will
+	// return the tag for the first path found to the module.
+	//
+	// The Module passed to the visit function should not be retained outside of the visit function, it may be
+	// invalidated by future mutators.
+	VisitDepsDepthFirst(visit func(Module))
+
+	// VisitDepsDepthFirst calls pred for each transitive dependency, and if pred returns true calls visit, traversing
+	// the dependency tree in depth first order.  visit will only be called once for any given module, even if there are
+	// multiple paths through the dependency tree to the module or multiple direct dependencies with different tags.
+	// OtherModuleDependencyTag will return the tag for the first path found to the module.  The return value of pred
+	// does not affect which branches of the tree are traversed.
+	//
+	// The Module passed to the visit function should not be retained outside of the visit function, it may be
+	// invalidated by future mutators.
+	VisitDepsDepthFirstIf(pred func(Module) bool, visit func(Module))
+
+	// WalkDeps calls visit for each transitive dependency, traversing the dependency tree in top down order.  visit may
+	// be called multiple times for the same (child, parent) pair if there are multiple direct dependencies between the
+	// child and parent with different tags.  OtherModuleDependencyTag will return the tag for the currently visited
+	// (child, parent) pair.  If visit returns false WalkDeps will not continue recursing down to child.
+	//
+	// The Modules passed to the visit function should not be retained outside of the visit function, they may be
+	// invalidated by future mutators.
+	WalkDeps(visit func(Module, Module) bool)
+
+	// OtherModuleName returns the name of another Module.  See BaseModuleContext.ModuleName for more information.
+	// It is intended for use inside the visit functions of Visit* and WalkDeps.
+	OtherModuleName(m Module) string
+
+	// OtherModuleDir returns the directory of another Module.  See BaseModuleContext.ModuleDir for more information.
+	// It is intended for use inside the visit functions of Visit* and WalkDeps.
+	OtherModuleDir(m Module) string
+
+	// OtherModuleSubDir returns the unique subdirectory name of another Module.  See ModuleContext.ModuleSubDir for
+	// more information.
+	// It is intended for use inside the visit functions of Visit* and WalkDeps.
+	OtherModuleSubDir(m Module) string
+
+	// OtherModuleType returns the type of another Module.  See BaseModuleContext.ModuleType for more information.
+	// It is intended for use inside the visit functions of Visit* and WalkDeps.
+	OtherModuleType(m Module) string
+
+	// OtherModuleErrorf reports an error on another Module.  See BaseModuleContext.ModuleErrorf for more information.
+	// It is intended for use inside the visit functions of Visit* and WalkDeps.
+	OtherModuleErrorf(m Module, fmt string, args ...interface{})
+
+	// OtherModuleDependencyTag returns the dependency tag used to depend on a module, or nil if there is no dependency
+	// on the module.  When called inside a Visit* method with current module being visited, and there are multiple
+	// dependencies on the module being visited, it returns the dependency tag used for the current dependency.
+	OtherModuleDependencyTag(m Module) DependencyTag
+
+	// OtherModuleExists returns true if a module with the specified name exists, as determined by the NameInterface
+	// passed to Context.SetNameInterface, or SimpleNameInterface if it was not called.
+	OtherModuleExists(name string) bool
 }
 
 type DynamicDependerModuleContext BottomUpMutatorContext
@@ -154,32 +282,41 @@ type DynamicDependerModuleContext BottomUpMutatorContext
 type ModuleContext interface {
 	BaseModuleContext
 
-	OtherModuleName(m Module) string
-	OtherModuleDir(m Module) string
-	OtherModuleSubDir(m Module) string
-	OtherModuleType(m Module) string
-	OtherModuleErrorf(m Module, fmt string, args ...interface{})
-	OtherModuleDependencyTag(m Module) DependencyTag
-
-	GetDirectDepWithTag(name string, tag DependencyTag) Module
-	GetDirectDep(name string) (Module, DependencyTag)
-
-	VisitDirectDeps(visit func(Module))
-	VisitDirectDepsIf(pred func(Module) bool, visit func(Module))
-	VisitDepsDepthFirst(visit func(Module))
-	VisitDepsDepthFirstIf(pred func(Module) bool, visit func(Module))
-	WalkDeps(visit func(child, parent Module) bool)
-
+	// ModuleSubDir returns a unique name for the current variant of a module that can be used as part of the path
+	// to ensure that each variant of a module gets its own intermediates directory to write to.
 	ModuleSubDir() string
 
+	// Variable creates a new ninja variable scoped to the module.  It can be referenced by calls to Rule and Build
+	// in the same module.
 	Variable(pctx PackageContext, name, value string)
+
+	// Rule creates a new ninja rule scoped to the module.  It can be referenced by calls to Build in the same module.
 	Rule(pctx PackageContext, name string, params RuleParams, argNames ...string) Rule
+
+	// Build creates a new ninja build statement.
 	Build(pctx PackageContext, params BuildParams)
 
+	// PrimaryModule returns the first variant of the current module.  Variants of a module are always visited in
+	// order by mutators and GenerateBuildActions, so the data created by the current mutator can be read from the
+	// Module returned by PrimaryModule without data races.  This can be used to perform singleton actions that are
+	// only done once for all variants of a module.
 	PrimaryModule() Module
+
+	// FinalModule returns the last variant of the current module.  Variants of a module are always visited in
+	// order by mutators and GenerateBuildActions, so the data created by the current mutator can be read from all
+	// variants using VisitAllModuleVariants if the current module == FinalModule().  This can be used to perform
+	// singleton actions that are only done once for all variants of a module.
 	FinalModule() Module
+
+	// VisitAllModuleVariants calls visit for each variant of the current module.  Variants of a module are always
+	// visited in order by mutators and GenerateBuildActions, so the data created by the current mutator can be read
+	// from all variants if the current module == FinalModule().  Otherwise, care must be taken to not access any
+	// data modified by the current mutator.
 	VisitAllModuleVariants(visit func(Module))
 
+	// GetMissingDependencies returns the list of dependencies that were passed to AddDependencies or related methods,
+	// but do not exist.  It can be used with Context.SetAllowMissingDependencies to allow the primary builder to
+	// handle missing dependencies on its own instead of having Blueprint treat them as an error.
 	GetMissingDependencies() []string
 }
 
@@ -199,6 +336,10 @@ func (d *baseModuleContext) moduleInfo() *moduleInfo {
 	return d.module
 }
 
+func (d *baseModuleContext) Module() Module {
+	return d.module.logicModule
+}
+
 func (d *baseModuleContext) ModuleName() string {
 	return d.module.Name()
 }
@@ -214,6 +355,10 @@ func (d *baseModuleContext) ContainsProperty(name string) bool {
 
 func (d *baseModuleContext) ModuleDir() string {
 	return filepath.Dir(d.module.relBlueprintsFile)
+}
+
+func (d *baseModuleContext) BlueprintsFile() string {
+	return d.module.relBlueprintsFile
 }
 
 func (d *baseModuleContext) Config() interface{} {
@@ -327,9 +472,6 @@ func (m *baseModuleContext) OtherModuleErrorf(logicModule Module, format string,
 	})
 }
 
-// OtherModuleDependencyTag returns the dependency tag used to depend on a module, or nil if there is no dependency
-// on the module.  When called inside a Visit* method with current module being visited, and there are multiple
-// dependencies on the module being visited, it returns the dependency tag used for the current dependency.
 func (m *baseModuleContext) OtherModuleDependencyTag(logicModule Module) DependencyTag {
 	// fast path for calling OtherModuleDependencyTag from inside VisitDirectDeps
 	if logicModule == m.visitingDep.module.logicModule {
@@ -345,9 +487,11 @@ func (m *baseModuleContext) OtherModuleDependencyTag(logicModule Module) Depende
 	return nil
 }
 
-// GetDirectDep returns the Module and DependencyTag for the  direct dependency with the specified
-// name, or nil if none exists.  If there are multiple dependencies on the same module it returns
-// the first DependencyTag.
+func (m *baseModuleContext) OtherModuleExists(name string) bool {
+	_, exists := m.context.nameInterface.ModuleFromName(name, m.module.namespace())
+	return exists
+}
+
 func (m *baseModuleContext) GetDirectDep(name string) (Module, DependencyTag) {
 	for _, dep := range m.module.directDeps {
 		if dep.module.Name() == name {
@@ -358,8 +502,6 @@ func (m *baseModuleContext) GetDirectDep(name string) (Module, DependencyTag) {
 	return nil, nil
 }
 
-// GetDirectDepWithTag returns the Module the direct dependency with the specified name, or nil if
-// none exists.  It panics if the dependency does not have the specified tag.
 func (m *baseModuleContext) GetDirectDepWithTag(name string, tag DependencyTag) Module {
 	var deps []depInfo
 	for _, dep := range m.module.directDeps {
@@ -378,8 +520,6 @@ func (m *baseModuleContext) GetDirectDepWithTag(name string, tag DependencyTag) 
 	return nil
 }
 
-// VisitDirectDeps calls visit for each direct dependency.  If there are multiple direct dependencies on the same module
-// visit will be called multiple times on that module and OtherModuleDependencyTag will return a different tag for each.
 func (m *baseModuleContext) VisitDirectDeps(visit func(Module)) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -399,9 +539,6 @@ func (m *baseModuleContext) VisitDirectDeps(visit func(Module)) {
 	m.visitingDep = depInfo{}
 }
 
-// VisitDirectDepsIf calls pred for each direct dependency, and if pred returns true calls visit.  If there are multiple
-// direct dependencies on the same module pred and visit will be called multiple times on that module and
-// OtherModuleDependencyTag will return a different tag for each.
 func (m *baseModuleContext) VisitDirectDepsIf(pred func(Module) bool, visit func(Module)) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -423,10 +560,6 @@ func (m *baseModuleContext) VisitDirectDepsIf(pred func(Module) bool, visit func
 	m.visitingDep = depInfo{}
 }
 
-// VisitDepsDepthFirst calls visit for each transitive dependency, traversing the dependency tree in depth first order.
-// visit will only be called once for any given module, even if there are multiple paths through the dependency tree
-// to the module or multiple direct dependencies with different tags.  OtherModuleDependencyTag will return the tag for
-// the first path found to the module.
 func (m *baseModuleContext) VisitDepsDepthFirst(visit func(Module)) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -445,11 +578,6 @@ func (m *baseModuleContext) VisitDepsDepthFirst(visit func(Module)) {
 	m.visitingDep = depInfo{}
 }
 
-// VisitDepsDepthFirst calls pred for each transitive dependency, and if pred returns true calls visit, traversing the
-// dependency tree in depth first order.  visit will only be called once for any given module, even if there are
-// multiple paths through the dependency tree to the module or multiple direct dependencies with different tags.
-// OtherModuleDependencyTag will return the tag for the first path found to the module.  The return value of pred does
-// not affect which branches of the tree are traversed.
 func (m *baseModuleContext) VisitDepsDepthFirstIf(pred func(Module) bool,
 	visit func(Module)) {
 
@@ -472,10 +600,6 @@ func (m *baseModuleContext) VisitDepsDepthFirstIf(pred func(Module) bool,
 	m.visitingDep = depInfo{}
 }
 
-// WalkDeps calls visit for each transitive dependency, traversing the dependency tree in top down order.  visit may be
-// called multiple times for the same (child, parent) pair if there are multiple direct dependencies between the
-// child and parent with different tags.  OtherModuleDependencyTag will return the tag for the currently visited
-// (child, parent) pair.  If visit returns false WalkDeps will not continue recursing down to child.
 func (m *baseModuleContext) WalkDeps(visit func(child, parent Module) bool) {
 	m.context.walkDeps(m.module, true, func(dep depInfo, parent *moduleInfo) bool {
 		m.visitingParent = parent
@@ -489,6 +613,14 @@ func (m *baseModuleContext) WalkDeps(visit func(child, parent Module) bool) {
 
 func (m *baseModuleContext) AddNinjaFileDeps(deps ...string) {
 	m.ninjaFileDeps = append(m.ninjaFileDeps, deps...)
+}
+
+func (m *baseModuleContext) ModuleFactories() map[string]ModuleFactory {
+	ret := make(map[string]ModuleFactory)
+	for k, v := range m.context.moduleFactories {
+		ret[k] = v
+	}
+	return ret
 }
 
 func (m *moduleContext) ModuleSubDir() string {
@@ -555,63 +687,137 @@ func (m *moduleContext) GetMissingDependencies() []string {
 
 type mutatorContext struct {
 	baseModuleContext
-	name          string
-	reverseDeps   []reverseDep
-	rename        []rename
-	replace       []replace
-	newVariations []*moduleInfo // new variants of existing modules
-	newModules    []*moduleInfo // brand new modules
+	name             string
+	reverseDeps      []reverseDep
+	rename           []rename
+	replace          []replace
+	newVariations    []*moduleInfo // new variants of existing modules
+	newModules       []*moduleInfo // brand new modules
+	defaultVariation *string
 }
 
-type baseMutatorContext interface {
+type BaseMutatorContext interface {
 	BaseModuleContext
 
-	OtherModuleExists(name string) bool
+	// Rename all variants of a module.  The new name is not visible to calls to ModuleName,
+	// AddDependency or OtherModuleName until after this mutator pass is complete.
 	Rename(name string)
-	Module() Module
+
+	// MutatorName returns the name that this mutator was registered with.
+	MutatorName() string
 }
 
 type EarlyMutatorContext interface {
-	baseMutatorContext
+	BaseMutatorContext
 
+	// CreateVariations splits  a module into mulitple variants, one for each name in the variationNames
+	// parameter.  It returns a list of new modules in the same order as the variationNames
+	// list.
+	//
+	// If any of the dependencies of the module being operated on were already split
+	// by calling CreateVariations with the same name, the dependency will automatically
+	// be updated to point the matching variant.
+	//
+	// If a module is split, and then a module depending on the first module is not split
+	// when the Mutator is later called on it, the dependency of the depending module will
+	// automatically be updated to point to the first variant.
 	CreateVariations(...string) []Module
+
+	// CreateLocationVariations splits a module into mulitple variants, one for each name in the variantNames
+	// parameter.  It returns a list of new modules in the same order as the variantNames
+	// list.
+	//
+	// Local variations do not affect automatic dependency resolution - dependencies added
+	// to the split module via deps or DynamicDependerModule must exactly match a variant
+	// that contains all the non-local variations.
 	CreateLocalVariations(...string) []Module
 }
 
 type TopDownMutatorContext interface {
-	baseMutatorContext
+	BaseMutatorContext
 
-	OtherModuleName(m Module) string
-	OtherModuleDir(m Module) string
-	OtherModuleSubDir(m Module) string
-	OtherModuleType(m Module) string
-	OtherModuleErrorf(m Module, fmt string, args ...interface{})
-	OtherModuleDependencyTag(m Module) DependencyTag
-
-	CreateModule(ModuleFactory, ...interface{})
-
-	GetDirectDepWithTag(name string, tag DependencyTag) Module
-	GetDirectDep(name string) (Module, DependencyTag)
-
-	VisitDirectDeps(visit func(Module))
-	VisitDirectDepsIf(pred func(Module) bool, visit func(Module))
-	VisitDepsDepthFirst(visit func(Module))
-	VisitDepsDepthFirstIf(pred func(Module) bool, visit func(Module))
-	WalkDeps(visit func(Module, Module) bool)
+	// CreateModule creates a new module by calling the factory method for the specified moduleType, and applies
+	// the specified property structs to it as if the properties were set in a blueprint file.
+	CreateModule(ModuleFactory, ...interface{}) Module
 }
 
 type BottomUpMutatorContext interface {
-	baseMutatorContext
+	BaseMutatorContext
 
+	// AddDependency adds a dependency to the given module.
+	// Does not affect the ordering of the current mutator pass, but will be ordered
+	// correctly for all future mutator passes.
 	AddDependency(module Module, tag DependencyTag, name ...string)
+
+	// AddReverseDependency adds a dependency from the destination to the given module.
+	// Does not affect the ordering of the current mutator pass, but will be ordered
+	// correctly for all future mutator passes.  All reverse dependencies for a destination module are
+	// collected until the end of the mutator pass, sorted by name, and then appended to the destination
+	// module's dependency list.
 	AddReverseDependency(module Module, tag DependencyTag, name string)
+
+	// CreateVariations splits  a module into mulitple variants, one for each name in the variationNames
+	// parameter.  It returns a list of new modules in the same order as the variationNames
+	// list.
+	//
+	// If any of the dependencies of the module being operated on were already split
+	// by calling CreateVariations with the same name, the dependency will automatically
+	// be updated to point the matching variant.
+	//
+	// If a module is split, and then a module depending on the first module is not split
+	// when the Mutator is later called on it, the dependency of the depending module will
+	// automatically be updated to point to the first variant.
 	CreateVariations(...string) []Module
+
+	// CreateLocationVariations splits a module into mulitple variants, one for each name in the variantNames
+	// parameter.  It returns a list of new modules in the same order as the variantNames
+	// list.
+	//
+	// Local variations do not affect automatic dependency resolution - dependencies added
+	// to the split module via deps or DynamicDependerModule must exactly match a variant
+	// that contains all the non-local variations.
 	CreateLocalVariations(...string) []Module
+
+	// SetDependencyVariation sets all dangling dependencies on the current module to point to the variation
+	// with given name. This function ignores the default variation set by SetDefaultDependencyVariation.
 	SetDependencyVariation(string)
+
+	// SetDefaultDependencyVariation sets the default variation when a dangling reference is detected
+	// during the subsequent calls on Create*Variations* functions. To reset, set it to nil.
+	SetDefaultDependencyVariation(*string)
+
+	// AddVariationDependencies adds deps as dependencies of the current module, but uses the variations
+	// argument to select which variant of the dependency to use.  A variant of the dependency must
+	// exist that matches the all of the non-local variations of the current module, plus the variations
+	// argument.
 	AddVariationDependencies([]Variation, DependencyTag, ...string)
+
+	// AddFarVariationDependencies adds deps as dependencies of the current module, but uses the
+	// variations argument to select which variant of the dependency to use.  A variant of the
+	// dependency must exist that matches the variations argument, but may also have other variations.
+	// For any unspecified variation the first variant will be used.
+	//
+	// Unlike AddVariationDependencies, the variations of the current module are ignored - the
+	// dependency only needs to match the supplied variations.
 	AddFarVariationDependencies([]Variation, DependencyTag, ...string)
+
+	// AddInterVariantDependency adds a dependency between two variants of the same module.  Variants are always
+	// ordered in the same orderas they were listed in CreateVariations, and AddInterVariantDependency does not change
+	// that ordering, but it associates a DependencyTag with the dependency and makes it visible to VisitDirectDeps,
+	// WalkDeps, etc.
 	AddInterVariantDependency(tag DependencyTag, from, to Module)
+
+	// ReplaceDependencies replaces all dependencies on the identical variant of the module with the
+	// specified name with the current variant of this module.  Replacements don't take effect until
+	// after the mutator pass is finished.
 	ReplaceDependencies(string)
+
+	// AliasVariation takes a variationName that was passed to CreateVariations for this module, and creates an
+	// alias from the current variant to the new variant.  The alias will be valid until the next time a mutator
+	// calls CreateVariations or CreateLocalVariations on this module without also calling AliasVariation.  The
+	// alias can be used to add dependencies on the newly created variant using the variant map from before
+	// CreateVariations was run.
+	AliasVariation(variationName string)
 }
 
 // A Mutator function is called for each Module, and can use
@@ -643,35 +849,21 @@ func (BaseDependencyTag) dependencyTag(DependencyTag) {
 
 var _ DependencyTag = BaseDependencyTag{}
 
-// Split a module into mulitple variants, one for each name in the variationNames
-// parameter.  It returns a list of new modules in the same order as the variationNames
-// list.
-//
-// If any of the dependencies of the module being operated on were already split
-// by calling CreateVariations with the same name, the dependency will automatically
-// be updated to point the matching variant.
-//
-// If a module is split, and then a module depending on the first module is not split
-// when the Mutator is later called on it, the dependency of the depending module will
-// automatically be updated to point to the first variant.
+func (mctx *mutatorContext) MutatorName() string {
+	return mctx.name
+}
+
 func (mctx *mutatorContext) CreateVariations(variationNames ...string) []Module {
 	return mctx.createVariations(variationNames, false)
 }
 
-// Split a module into mulitple variants, one for each name in the variantNames
-// parameter.  It returns a list of new modules in the same order as the variantNames
-// list.
-//
-// Local variations do not affect automatic dependency resolution - dependencies added
-// to the split module via deps or DynamicDependerModule must exactly match a variant
-// that contains all the non-local variations.
 func (mctx *mutatorContext) CreateLocalVariations(variationNames ...string) []Module {
 	return mctx.createVariations(variationNames, true)
 }
 
 func (mctx *mutatorContext) createVariations(variationNames []string, local bool) []Module {
 	ret := []Module{}
-	modules, errs := mctx.context.createVariations(mctx.module, mctx.name, variationNames)
+	modules, errs := mctx.context.createVariations(mctx.module, mctx.name, mctx.defaultVariation, variationNames)
 	if len(errs) > 0 {
 		mctx.errs = append(mctx.errs, errs...)
 	}
@@ -679,6 +871,9 @@ func (mctx *mutatorContext) createVariations(variationNames []string, local bool
 	for i, module := range modules {
 		ret = append(ret, module.logicModule)
 		if !local {
+			if module.dependencyVariant == nil {
+				module.dependencyVariant = make(variationMap)
+			}
 			module.dependencyVariant[mctx.name] = variationNames[i]
 		}
 	}
@@ -695,19 +890,37 @@ func (mctx *mutatorContext) createVariations(variationNames []string, local bool
 	return ret
 }
 
-// Set all dangling dependencies on the current module to point to the variation
-// with given name.
+func (mctx *mutatorContext) AliasVariation(variationName string) {
+	if mctx.module.aliasTarget != nil {
+		panic(fmt.Errorf("AliasVariation already called"))
+	}
+
+	for _, variant := range mctx.newVariations {
+		if variant.variant[mctx.name] == variationName {
+			mctx.module.aliasTarget = variant
+			return
+		}
+	}
+
+	var foundVariations []string
+	for _, variant := range mctx.newVariations {
+		foundVariations = append(foundVariations, variant.variant[mctx.name])
+	}
+	panic(fmt.Errorf("no %q variation in module variations %q", variationName, foundVariations))
+}
+
 func (mctx *mutatorContext) SetDependencyVariation(variationName string) {
-	mctx.context.convertDepsToVariation(mctx.module, mctx.name, variationName)
+	mctx.context.convertDepsToVariation(mctx.module, mctx.name, variationName, nil)
+}
+
+func (mctx *mutatorContext) SetDefaultDependencyVariation(variationName *string) {
+	mctx.defaultVariation = variationName
 }
 
 func (mctx *mutatorContext) Module() Module {
 	return mctx.module.logicModule
 }
 
-// Add a dependency to the given module.
-// Does not affect the ordering of the current mutator pass, but will be ordered
-// correctly for all future mutator passes.
 func (mctx *mutatorContext) AddDependency(module Module, tag DependencyTag, deps ...string) {
 	for _, dep := range deps {
 		modInfo := mctx.context.moduleInfo[module]
@@ -718,11 +931,6 @@ func (mctx *mutatorContext) AddDependency(module Module, tag DependencyTag, deps
 	}
 }
 
-// Add a dependency from the destination to the given module.
-// Does not affect the ordering of the current mutator pass, but will be ordered
-// correctly for all future mutator passes.  All reverse dependencies for a destination module are
-// collected until the end of the mutator pass, sorted by name, and then appended to the destination
-// module's dependency list.
 func (mctx *mutatorContext) AddReverseDependency(module Module, tag DependencyTag, destName string) {
 	if _, ok := tag.(BaseDependencyTag); ok {
 		panic("BaseDependencyTag is not allowed to be used directly!")
@@ -740,10 +948,6 @@ func (mctx *mutatorContext) AddReverseDependency(module Module, tag DependencyTa
 	})
 }
 
-// AddVariationDependencies adds deps as dependencies of the current module, but uses the variations
-// argument to select which variant of the dependency to use.  A variant of the dependency must
-// exist that matches the all of the non-local variations of the current module, plus the variations
-// argument.
 func (mctx *mutatorContext) AddVariationDependencies(variations []Variation, tag DependencyTag,
 	deps ...string) {
 
@@ -755,13 +959,6 @@ func (mctx *mutatorContext) AddVariationDependencies(variations []Variation, tag
 	}
 }
 
-// AddFarVariationDependencies adds deps as dependencies of the current module, but uses the
-// variations argument to select which variant of the dependency to use.  A variant of the
-// dependency must exist that matches the variations argument, but may also have other variations.
-// For any unspecified variation the first variant will be used.
-//
-// Unlike AddVariationDependencies, the variations of the current module are ignored - the
-// depdendency only needs to match the supplied variations.
 func (mctx *mutatorContext) AddFarVariationDependencies(variations []Variation, tag DependencyTag,
 	deps ...string) {
 
@@ -777,9 +974,6 @@ func (mctx *mutatorContext) AddInterVariantDependency(tag DependencyTag, from, t
 	mctx.context.addInterVariantDependency(mctx.module, tag, from, to)
 }
 
-// ReplaceDependencies replaces all dependencies on the identical variant of the module with the
-// specified name with the current variant of this module.  Replacements don't take effect until
-// after the mutator pass is finished.
 func (mctx *mutatorContext) ReplaceDependencies(name string) {
 	target := mctx.context.moduleMatchingVariant(mctx.module, name)
 
@@ -791,24 +985,17 @@ func (mctx *mutatorContext) ReplaceDependencies(name string) {
 	mctx.replace = append(mctx.replace, replace{target, mctx.module})
 }
 
-func (mctx *mutatorContext) OtherModuleExists(name string) bool {
-	_, exists := mctx.context.nameInterface.ModuleFromName(name, mctx.module.namespace())
-	return exists
-}
-
-// Rename all variants of a module.  The new name is not visible to calls to ModuleName,
-// AddDependency or OtherModuleName until after this mutator pass is complete.
 func (mctx *mutatorContext) Rename(name string) {
 	mctx.rename = append(mctx.rename, rename{mctx.module.group, name})
 }
 
-// Create a new module by calling the factory method for the specified moduleType, and apply
-// the specified property structs to it as if the properties were set in a blueprint file.
-func (mctx *mutatorContext) CreateModule(factory ModuleFactory, props ...interface{}) {
-	module := mctx.context.newModule(factory)
+func (mctx *mutatorContext) CreateModule(factory ModuleFactory, props ...interface{}) Module {
+	module := newModule(factory)
 
 	module.relBlueprintsFile = mctx.module.relBlueprintsFile
 	module.pos = mctx.module.pos
+	module.propertyPos = mctx.module.propertyPos
+	module.createdBy = mctx.module
 
 	for _, p := range props {
 		err := proptools.AppendMatchingProperties(module.properties, p, nil)
@@ -818,6 +1005,8 @@ func (mctx *mutatorContext) CreateModule(factory ModuleFactory, props ...interfa
 	}
 
 	mctx.newModules = append(mctx.newModules, module)
+
+	return module.logicModule
 }
 
 // SimpleName is an embeddable object to implement the ModuleContext.Name method using a property
@@ -831,4 +1020,149 @@ type SimpleName struct {
 
 func (s *SimpleName) Name() string {
 	return s.Properties.Name
+}
+
+// Load Hooks
+
+type LoadHookContext interface {
+	EarlyModuleContext
+
+	// CreateModule creates a new module by calling the factory method for the specified moduleType, and applies
+	// the specified property structs to it as if the properties were set in a blueprint file.
+	CreateModule(ModuleFactory, ...interface{}) Module
+
+	// RegisterScopedModuleType creates a new module type that is scoped to the current Blueprints
+	// file.
+	RegisterScopedModuleType(name string, factory ModuleFactory)
+}
+
+func (l *loadHookContext) CreateModule(factory ModuleFactory, props ...interface{}) Module {
+	module := newModule(factory)
+
+	module.relBlueprintsFile = l.module.relBlueprintsFile
+	module.pos = l.module.pos
+	module.propertyPos = l.module.propertyPos
+	module.createdBy = l.module
+
+	for _, p := range props {
+		err := proptools.AppendMatchingProperties(module.properties, p, nil)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	l.newModules = append(l.newModules, module)
+
+	return module.logicModule
+}
+
+func (l *loadHookContext) RegisterScopedModuleType(name string, factory ModuleFactory) {
+	if _, exists := l.context.moduleFactories[name]; exists {
+		panic(fmt.Errorf("A global module type named %q already exists", name))
+	}
+
+	if _, exists := (*l.scopedModuleFactories)[name]; exists {
+		panic(fmt.Errorf("A module type named %q already exists in this scope", name))
+	}
+
+	if *l.scopedModuleFactories == nil {
+		(*l.scopedModuleFactories) = make(map[string]ModuleFactory)
+	}
+
+	(*l.scopedModuleFactories)[name] = factory
+}
+
+type loadHookContext struct {
+	baseModuleContext
+	newModules            []*moduleInfo
+	scopedModuleFactories *map[string]ModuleFactory
+}
+
+type LoadHook func(ctx LoadHookContext)
+
+// Load hooks need to be added by module factories, which don't have any parameter to get to the
+// Context, and only produce a Module interface with no base implementation, so the load hooks
+// must be stored in a global map.  The key is a pointer allocated by the module factory, so there
+// is no chance of collisions even if tests are running in parallel with multiple contexts.  The
+// contents should be short-lived, they are added during a module factory and removed immediately
+// after the module factory returns.
+var pendingHooks sync.Map
+
+func AddLoadHook(module Module, hook LoadHook) {
+	// Only one goroutine can be processing a given module, so no additional locking is required
+	// for the slice stored in the sync.Map.
+	v, exists := pendingHooks.Load(module)
+	if !exists {
+		v, _ = pendingHooks.LoadOrStore(module, new([]LoadHook))
+	}
+	hooks := v.(*[]LoadHook)
+	*hooks = append(*hooks, hook)
+}
+
+func runAndRemoveLoadHooks(ctx *Context, config interface{}, module *moduleInfo,
+	scopedModuleFactories *map[string]ModuleFactory) (newModules []*moduleInfo, errs []error) {
+
+	if v, exists := pendingHooks.Load(module.logicModule); exists {
+		hooks := v.(*[]LoadHook)
+		mctx := &loadHookContext{
+			baseModuleContext: baseModuleContext{
+				context: ctx,
+				config:  config,
+				module:  module,
+			},
+			scopedModuleFactories: scopedModuleFactories,
+		}
+
+		for _, hook := range *hooks {
+			hook(mctx)
+			newModules = append(newModules, mctx.newModules...)
+			errs = append(errs, mctx.errs...)
+		}
+		pendingHooks.Delete(module.logicModule)
+
+		return newModules, errs
+	}
+
+	return nil, nil
+}
+
+// Check the syntax of a generated blueprint file.
+//
+// This is intended to perform a quick sanity check for generated blueprint
+// code to ensure that it is syntactically correct, where syntactically correct
+// means:
+// * No variable definitions.
+// * Valid module types.
+// * Valid property names.
+// * Valid values for the property type.
+//
+// It does not perform any semantic checking of properties, existence of referenced
+// files, or dependencies.
+//
+// At a low level it:
+// * Parses the contents.
+// * Invokes relevant factory to create Module instances.
+// * Unpacks the properties into the Module.
+// * Does not invoke load hooks or any mutators.
+//
+// The filename is only used for reporting errors.
+func CheckBlueprintSyntax(moduleFactories map[string]ModuleFactory, filename string, contents string) []error {
+	scope := parser.NewScope(nil)
+	file, errs := parser.Parse(filename, strings.NewReader(contents), scope)
+	if len(errs) != 0 {
+		return errs
+	}
+
+	for _, def := range file.Defs {
+		switch def := def.(type) {
+		case *parser.Module:
+			_, moduleErrs := processModuleDef(def, filename, moduleFactories, nil, false)
+			errs = append(errs, moduleErrs...)
+
+		default:
+			panic(fmt.Errorf("unknown definition type: %T", def))
+		}
+	}
+
+	return errs
 }

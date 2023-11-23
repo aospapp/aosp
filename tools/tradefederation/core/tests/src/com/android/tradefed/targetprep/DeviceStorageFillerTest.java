@@ -19,6 +19,9 @@ package com.android.tradefed.targetprep;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -32,12 +35,17 @@ public class DeviceStorageFillerTest {
     private DeviceStorageFiller mDeviceStorageFiller;
     private ITestDevice mMockDevice;
     private IBuildInfo mMockBuildInfo;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
         mDeviceStorageFiller = new DeviceStorageFiller();
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mMockDevice);
+        context.addDeviceBuildInfo("device", mMockBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     @Test
@@ -53,7 +61,7 @@ public class DeviceStorageFillerTest {
                 .once();
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
-        mDeviceStorageFiller.setUp(mMockDevice, mMockBuildInfo);
+        mDeviceStorageFiller.setUp(mTestInfo);
         EasyMock.verify(mMockBuildInfo, mMockDevice);
     }
 
@@ -66,7 +74,7 @@ public class DeviceStorageFillerTest {
         EasyMock.expect(mMockDevice.getPartitionFreeSpace("/p")).andReturn(1L).once();
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
-        mDeviceStorageFiller.setUp(mMockDevice, mMockBuildInfo);
+        mDeviceStorageFiller.setUp(mTestInfo);
         EasyMock.verify(mMockBuildInfo, mMockDevice);
     }
 
@@ -79,7 +87,7 @@ public class DeviceStorageFillerTest {
         EasyMock.expect(mMockDevice.executeShellCommand("rm -f /p/f")).andReturn(null).once();
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
-        mDeviceStorageFiller.tearDown(mMockDevice, mMockBuildInfo, null);
+        mDeviceStorageFiller.tearDown(mTestInfo, null);
         EasyMock.verify(mMockBuildInfo, mMockDevice);
     }
 }

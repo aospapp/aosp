@@ -28,6 +28,7 @@ import static android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CH
 import static org.hamcrest.Matchers.both;
 import static org.junit.Assert.assertEquals;
 
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibilityservice.cts.activities.AccessibilityEndToEndActivity;
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -45,6 +46,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 /**
@@ -58,9 +60,16 @@ public class AccessibilityPaneTest {
     private Activity mActivity;
     private View mPaneView;
 
-    @Rule
-    public ActivityTestRule<AccessibilityEndToEndActivity> mActivityRule =
+    private ActivityTestRule<AccessibilityEndToEndActivity> mActivityRule =
             new ActivityTestRule<>(AccessibilityEndToEndActivity.class, false, false);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mActivityRule)
+            .around(mDumpOnFailureRule);
 
     @BeforeClass
     public static void oneTimeSetup() throws Exception {

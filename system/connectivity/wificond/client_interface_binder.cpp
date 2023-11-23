@@ -28,8 +28,8 @@
 #include "wificond/client_interface_impl.h"
 
 using android::binder::Status;
-using android::net::wifi::ISendMgmtFrameEvent;
-using android::net::wifi::IWifiScannerImpl;
+using android::net::wifi::nl80211::ISendMgmtFrameEvent;
+using android::net::wifi::nl80211::IWifiScannerImpl;
 using std::vector;
 
 namespace android {
@@ -84,23 +84,6 @@ Status ClientInterfaceBinder::getWifiScannerImpl(
     return Status::ok();
   }
   *out_wifi_scanner_impl = impl_->GetScanner();
-  return Status::ok();
-}
-
-
-Status ClientInterfaceBinder::setMacAddress(const vector<uint8_t>& mac, bool* success) {
-  if (impl_ == nullptr) {
-    *success = false;
-    return Status::ok();
-  }
-  if (mac.size() != ETH_ALEN) {
-    LOG(ERROR) << "Invalid MAC length " << mac.size();
-    *success = false;
-    return Status::ok();
-  }
-  std::array<uint8_t, ETH_ALEN> mac_array;
-  std::copy_n(mac.begin(), ETH_ALEN, mac_array.begin());
-  *success = impl_->SetMacAddress(mac_array);
   return Status::ok();
 }
 

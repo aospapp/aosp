@@ -16,10 +16,11 @@ src_header = """/*
  * limitations under the License.
  */
 
-package android.cts.security;
+package android.security.cts;
 
 import android.platform.test.annotations.RestrictedBuildTest;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.compatibility.common.util.PropertyUtil;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -68,7 +69,7 @@ public class SELinuxNeverallowRulesTest extends DeviceTestCase implements IBuild
     protected void setUp() throws Exception {
         super.setUp();
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
-        sepolicyAnalyze = buildHelper.getTestFile("sepolicy-analyze");
+        sepolicyAnalyze = android.security.cts.SELinuxHostTest.copyResourceToTempFile("/sepolicy-analyze");
         sepolicyAnalyze.setExecutable(true);
 
         devicePolicyFile = android.security.cts.SELinuxHostTest.getDevicePolicyFile(mDevice);
@@ -89,6 +90,10 @@ public class SELinuxNeverallowRulesTest extends DeviceTestCase implements IBuild
         return android.security.cts.SELinuxHostTest.isFullTrebleDevice(mDevice);
     }
 
+    private boolean isDeviceLaunchingWithR() throws Exception {
+        return PropertyUtil.getFirstApiLevel(mDevice) > 29;
+    }
+
     private boolean isCompatiblePropertyEnforcedDevice() throws Exception {
         return android.security.cts.SELinuxHostTest.isCompatiblePropertyEnforcedDevice(mDevice);
     }
@@ -105,11 +110,16 @@ src_method = """
     @RestrictedBuildTest
     public void testNeverallowRules() throws Exception {
         String neverallowRule = "$NEVERALLOW_RULE_HERE$";
-        boolean fullTrebleOnly = $FULL_TREBLE_ONLY_BOOL_HERE$;
+        boolean fullTrebleOnly = $TREBLE_ONLY_BOOL_HERE$;
+        boolean launchingWithROnly = $LAUNCHING_WITH_R_ONLY_BOOL_HERE$;
         boolean compatiblePropertyOnly = $COMPATIBLE_PROPERTY_ONLY_BOOL_HERE$;
 
         if ((fullTrebleOnly) && (!isFullTrebleDevice())) {
             // This test applies only to Treble devices but this device isn't one
+            return;
+        }
+        if ((launchingWithROnly) && (!isDeviceLaunchingWithR())) {
+            // This test applies only to devices launching with R or later but this device isn't one
             return;
         }
         if ((compatiblePropertyOnly) && (!isCompatiblePropertyEnforcedDevice())) {

@@ -20,12 +20,33 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.provider.Telephony;
+import android.telephony.SmsMessage;
 
 public class SmsReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (intent != null && intent.getAction().equals(Telephony.Sms.Intents.SMS_DELIVER_ACTION)) {
-            context.sendBroadcast(new Intent(SmsManagerTest.SMS_DELIVER_DEFAULT_APP_ACTION));
+        if (intent == null) return;
+        switch (intent.getAction()) {
+            case Telephony.Sms.Intents.SMS_DELIVER_ACTION: {
+                // Send broadcast for SmsManagerTest cases
+                context.sendBroadcast(new Intent(SmsManagerTest.SMS_DELIVER_DEFAULT_APP_ACTION));
+                SmsMessage[] messages = Telephony.Sms.Intents.getMessagesFromIntent(intent);
+                if (messages != null && messages[0] != null) {
+                    AsyncSmsMessageListener.getInstance().offerSmsMessage(
+                            messages[0].getMessageBody());
+                }
+                break;
+            }
+            case SmsReceiverHelper.MESSAGE_SENT_ACTION: {
+                intent.putExtra(SmsReceiverHelper.EXTRA_RESULT_CODE, getResultCode());
+                AsyncSmsMessageListener.getInstance().offerMessageSentIntent(intent);
+                break;
+            }
+            case SmsReceiverHelper.MESSAGE_DELIVERED_ACTION: {
+                intent.putExtra(SmsReceiverHelper.EXTRA_RESULT_CODE, getResultCode());
+                AsyncSmsMessageListener.getInstance().offerMessageDeliveredIntent(intent);
+                break;
+            }
         }
     }
 }

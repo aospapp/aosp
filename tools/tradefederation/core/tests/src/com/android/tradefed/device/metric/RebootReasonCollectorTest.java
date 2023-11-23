@@ -123,7 +123,7 @@ public class RebootReasonCollectorTest {
                                         entry.getKey().contains(RebootReasonCollector.METRIC_PREFIX)
                                                 && entry.getKey().contains("bootloader_reason")
                                                 && entry.getKey().contains("system_reason_1")
-                                                && (!entry.getKey().contains(DEVICE_SERIAL_1))
+                                                && !entry.getKey().contains(DEVICE_SERIAL_1)
                                                 && Integer.valueOf(
                                                                 entry.getValue()
                                                                         .getMeasurements()
@@ -138,14 +138,27 @@ public class RebootReasonCollectorTest {
                                         entry.getKey().contains(RebootReasonCollector.METRIC_PREFIX)
                                                 && entry.getKey().contains("bootloader_reason")
                                                 && entry.getKey().contains("system_reason_2")
-                                                && (!entry.getKey().contains(DEVICE_SERIAL_1))
+                                                && !entry.getKey().contains(DEVICE_SERIAL_1)
                                                 && Integer.valueOf(
                                                                 entry.getValue()
                                                                         .getMeasurements()
                                                                         .getSingleString())
                                                         .equals(1));
+        boolean totalCountCorrect =
+                runMetrics
+                        .entrySet()
+                        .stream()
+                        .anyMatch(
+                                entry ->
+                                        entry.getKey().equals(RebootReasonCollector.COUNT_KEY)
+                                                && Integer.valueOf(
+                                                                entry.getValue()
+                                                                        .getMeasurements()
+                                                                        .getSingleString())
+                                                        .equals(3));
         Assert.assertTrue(reason1CountCorrect);
         Assert.assertTrue(reason2CountCorrect);
+        Assert.assertTrue(totalCountCorrect);
     }
 
     /** Test that the collector makes the correct callbacks when testing multiple devices. */
@@ -184,6 +197,8 @@ public class RebootReasonCollectorTest {
         ITestDevice testDevice1 = mockTestDevice(DEVICE_SERIAL_1);
         ITestDevice testDevice2 = mockTestDevice(DEVICE_SERIAL_2);
         doReturn(Arrays.asList(testDevice1, testDevice2)).when(mContext).getDevices();
+        doReturn(DEVICE_SERIAL_1).when(mContext).getDeviceName(testDevice1);
+        doReturn(DEVICE_SERIAL_2).when(mContext).getDeviceName(testDevice2);
         doReturn(CONFIG_ID_1).when(mCollector).pushStatsConfig(eq(testDevice1), any(List.class));
         doReturn(CONFIG_ID_2).when(mCollector).pushStatsConfig(eq(testDevice2), any(List.class));
         doReturn(Arrays.asList(mockBootEventMetric("bootloader_reason", "system_reason")))
@@ -214,6 +229,19 @@ public class RebootReasonCollectorTest {
                                                                         .getMeasurements()
                                                                         .getSingleString())
                                                         .equals(1));
+        boolean device1TotalCountCorrect =
+                runMetrics
+                        .entrySet()
+                        .stream()
+                        .anyMatch(
+                                entry ->
+                                        entry.getKey().contains(RebootReasonCollector.COUNT_KEY)
+                                                && entry.getKey().contains(DEVICE_SERIAL_1)
+                                                && Integer.valueOf(
+                                                                entry.getValue()
+                                                                        .getMeasurements()
+                                                                        .getSingleString())
+                                                        .equals(1));
         boolean device2CountCorrect =
                 runMetrics
                         .entrySet()
@@ -223,19 +251,34 @@ public class RebootReasonCollectorTest {
                                         entry.getKey().contains(RebootReasonCollector.METRIC_PREFIX)
                                                 && entry.getKey().contains("bootloader_reason")
                                                 && entry.getKey().contains("system_reason")
-                                                && entry.getKey().contains(DEVICE_SERIAL_1)
+                                                && entry.getKey().contains(DEVICE_SERIAL_2)
+                                                && Integer.valueOf(
+                                                                entry.getValue()
+                                                                        .getMeasurements()
+                                                                        .getSingleString())
+                                                        .equals(1));
+        boolean device2TotalCountCorrect =
+                runMetrics
+                        .entrySet()
+                        .stream()
+                        .anyMatch(
+                                entry ->
+                                        entry.getKey().contains(RebootReasonCollector.COUNT_KEY)
+                                                && entry.getKey().contains(DEVICE_SERIAL_2)
                                                 && Integer.valueOf(
                                                                 entry.getValue()
                                                                         .getMeasurements()
                                                                         .getSingleString())
                                                         .equals(1));
         Assert.assertTrue(device1CountCorrect);
+        Assert.assertTrue(device1TotalCountCorrect);
         Assert.assertTrue(device2CountCorrect);
+        Assert.assertTrue(device2TotalCountCorrect);
     }
 
-    /** Test that no metrics are added when no metrics are received. */
+    /** Test that only a count is added when no reboots were recorded. */
     @Test
-    public void testNoMetrics() throws Exception {
+    public void testCountOnlyWhenNoReboots() throws Exception {
         ITestDevice testDevice = mockTestDevice(DEVICE_SERIAL_1);
         when(mContext.getDevices()).thenReturn(Arrays.asList(testDevice));
         doReturn(CONFIG_ID_1)
@@ -255,6 +298,11 @@ public class RebootReasonCollectorTest {
                         .keySet()
                         .stream()
                         .noneMatch(key -> key.startsWith(RebootReasonCollector.METRIC_PREFIX)));
+        Assert.assertTrue(
+                runMetrics
+                        .keySet()
+                        .stream()
+                        .anyMatch(key -> key.contains(RebootReasonCollector.COUNT_KEY)));
     }
 
     private ITestDevice mockTestDevice(String serial) {

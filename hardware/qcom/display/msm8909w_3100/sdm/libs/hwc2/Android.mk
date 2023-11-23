@@ -12,7 +12,7 @@ LOCAL_C_INCLUDES              := $(common_includes)
 LOCAL_HEADER_LIBRARIES        := display_headers
 
 LOCAL_CFLAGS                  := -Wno-missing-field-initializers -Wno-unused-parameter \
-                                 -std=c++11 -fcolor-diagnostics\
+                                 -fcolor-diagnostics\
                                  -DLOG_TAG=\"SDM\" $(common_flags) \
                                  -I $(display_top)/sdm/libs/hwc
 
@@ -25,7 +25,7 @@ LOCAL_CLANG                   := true
 LOCAL_SHARED_LIBRARIES        := libsdmcore libqservice libbinder libhardware libhardware_legacy \
                                  libutils libcutils libsync libqdutils libqdMetaData libdl libdrmutils \
                                  libsdmutils libc++ liblog libgrallocutils libdl \
-                                 vendor.display.config@1.0 libhidlbase libhidltransport \
+                                 vendor.display.config@1.0 libhidlbase \
                                  libui libgpu_tonemapper
 
 ifneq ($(TARGET_USES_GRALLOC1), true)
@@ -33,7 +33,7 @@ ifneq ($(TARGET_USES_GRALLOC1), true)
 endif
 
 # Allow implicit fallthroughs in hwc_display.cpp until they are fixed.
-LOCAL_CFLAGS                  += -Wno-error=implicit-fallthrough
+LOCAL_CFLAGS                  += -Wno-implicit-fallthrough
 
 LOCAL_SRC_FILES               := hwc_session.cpp \
                                  hwc_session_services.cpp \

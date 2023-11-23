@@ -22,8 +22,8 @@
 
 namespace chre {
 
-template<typename RequestType>
-bool RequestMultiplexer<RequestType>::addRequest(const RequestType& request,
+template <typename RequestType>
+bool RequestMultiplexer<RequestType>::addRequest(const RequestType &request,
                                                  size_t *index,
                                                  bool *maximalRequestChanged) {
   CHRE_ASSERT(index);
@@ -38,9 +38,9 @@ bool RequestMultiplexer<RequestType>::addRequest(const RequestType& request,
   return requestStored;
 }
 
-template<typename RequestType>
+template <typename RequestType>
 void RequestMultiplexer<RequestType>::updateRequest(
-    size_t index, const RequestType& request, bool *maximalRequestChanged) {
+    size_t index, const RequestType &request, bool *maximalRequestChanged) {
   CHRE_ASSERT(maximalRequestChanged);
   CHRE_ASSERT(index < mRequests.size());
 
@@ -50,7 +50,7 @@ void RequestMultiplexer<RequestType>::updateRequest(
   }
 }
 
-template<typename RequestType>
+template <typename RequestType>
 void RequestMultiplexer<RequestType>::removeRequest(
     size_t index, bool *maximalRequestChanged) {
   CHRE_ASSERT(maximalRequestChanged);
@@ -62,7 +62,7 @@ void RequestMultiplexer<RequestType>::removeRequest(
   }
 }
 
-template<typename RequestType>
+template <typename RequestType>
 void RequestMultiplexer<RequestType>::removeAllRequests(
     bool *maximalRequestChanged) {
   CHRE_ASSERT(maximalRequestChanged);
@@ -71,19 +71,19 @@ void RequestMultiplexer<RequestType>::removeAllRequests(
   updateMaximalRequest(maximalRequestChanged);
 }
 
-template<typename RequestType>
-const DynamicVector<RequestType>&
-    RequestMultiplexer<RequestType>::getRequests() const {
+template <typename RequestType>
+const DynamicVector<RequestType> &RequestMultiplexer<RequestType>::getRequests()
+    const {
   return mRequests;
 }
 
-template<typename RequestType>
-const RequestType& RequestMultiplexer<RequestType>::getCurrentMaximalRequest()
+template <typename RequestType>
+const RequestType &RequestMultiplexer<RequestType>::getCurrentMaximalRequest()
     const {
   return mCurrentMaximalRequest;
 }
 
-template<typename RequestType>
+template <typename RequestType>
 void RequestMultiplexer<RequestType>::updateMaximalRequest(
     bool *maximalRequestChanged) {
   RequestType maximalRequest;
@@ -91,8 +91,8 @@ void RequestMultiplexer<RequestType>::updateMaximalRequest(
     maximalRequest.mergeWith(mRequests[i]);
   }
 
-  *maximalRequestChanged = !mCurrentMaximalRequest.isEquivalentTo(
-      maximalRequest);
+  *maximalRequestChanged =
+      !mCurrentMaximalRequest.isEquivalentTo(maximalRequest);
   if (*maximalRequestChanged) {
     mCurrentMaximalRequest = maximalRequest;
   }

@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# Run Android Runtime APEX tests.
+# Run ART APEX tests.
 
 SCRIPT_DIR=$(dirname $0)
 
@@ -33,15 +33,24 @@ function die {
   exit 1
 }
 
-[[ -n "$ANDROID_PRODUCT_OUT" ]] \
-  || die "You need to source and lunch before you can use this script."
+function setup_die {
+  die "You need to source and lunch before you can use this script."
+}
 
-[[ -n "$ANDROID_HOST_OUT" ]] \
-  || die "You need to source and lunch before you can use this script."
+[[ -n "$ANDROID_BUILD_TOP" ]] || setup_die
+[[ -n "$ANDROID_PRODUCT_OUT" ]] || setup_die
+[[ -n "$ANDROID_HOST_OUT" ]] || setup_die
 
-if [ ! -e "$ANDROID_HOST_OUT/bin/debugfs" ] ; then
-  say "Could not find debugfs, building now."
-  make debugfs-host || die "Cannot build debugfs"
+flattened_apex_p=$($ANDROID_BUILD_TOP/build/soong/soong_ui.bash --dumpvar-mode TARGET_FLATTEN_APEX)\
+  || setup_die
+
+have_debugfs_p=false
+if $flattened_apex_p; then :; else
+  if [ ! -e "$ANDROID_HOST_OUT/bin/debugfs" ] ; then
+    say "Could not find debugfs, building now."
+    build/soong/soong_ui.bash --make-mode debugfs-host || die "Cannot build debugfs"
+  fi
+  have_debugfs_p=true
 fi
 
 # Fail early.
@@ -50,15 +59,17 @@ set -e
 build_apex_p=true
 list_image_files_p=false
 print_image_tree_p=false
+print_file_sizes_p=false
 
 function usage {
   cat <<EOF
 Usage: $0 [OPTION]
-Build (optional) and run tests on Android Runtime APEX package (on host).
+Build (optional) and run tests on ART APEX package (on host).
 
-  -s, --skip-build    skip the build step
+  -B, --skip-build    skip the build step
   -l, --list-files    list the contents of the ext4 image (\`find\`-like style)
   -t, --print-tree    list the contents of the ext4 image (\`tree\`-like style)
+  -s, --print-sizes   print the size in bytes of each file when listing contents
   -h, --help          display this help and exit
 
 EOF
@@ -67,9 +78,10 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    (-s|--skip-build) build_apex_p=false;;
-    (-l|--list-files) list_image_files_p=true;;
-    (-t|--print-tree) print_image_tree_p=true;;
+    (-B|--skip-build)  build_apex_p=false;;
+    (-l|--list-files)  list_image_files_p=true;;
+    (-t|--print-tree)  print_image_tree_p=true;;
+    (-s|--print-sizes) print_file_sizes_p=true;;
     (-h|--help) usage;;
     (*) die "Unknown option: '$1'
 Try '$0 --help' for more information.";;
@@ -82,22 +94,27 @@ done
 # Build APEX packages APEX_MODULES.
 function build_apex {
   if $build_apex_p; then
-    say "Building $@" && make "$@" || die "Cannot build $@"
+    say "Building $@" && build/soong/soong_ui.bash --make-mode "$@" || die "Cannot build $@"
   fi
 }
 
 # maybe_list_apex_contents_apex APEX TMPDIR [other]
 function maybe_list_apex_contents_apex {
+  local print_options=()
+  if $print_file_sizes_p; then
+    print_options+=(--size)
+  fi
+
   # List the contents of the apex in list form.
   if $list_image_files_p; then
     say "Listing image files"
-    $SCRIPT_DIR/art_apex_test.py --list $@
+    $SCRIPT_DIR/art_apex_test.py --list ${print_options[@]} $@
   fi
 
   # List the contents of the apex in tree form.
   if $print_image_tree_p; then
     say "Printing image tree"
-    $SCRIPT_DIR/art_apex_test.py --tree $@
+    $SCRIPT_DIR/art_apex_test.py --tree ${print_options[@]} $@
   fi
 }
 
@@ -107,13 +124,18 @@ function fail_check {
   exit_status=1
 }
 
-# Test all modules
+# Test all modules, if possible.
 
 apex_modules=(
-  "com.android.runtime.release"
-  "com.android.runtime.debug"
-  "com.android.runtime.host"
+  "com.android.art.release"
+  "com.android.art.debug"
+  "com.android.art.testing"
 )
+if [[ "$HOST_PREFER_32_BIT" = true ]]; then
+  say "Skipping com.android.art.host, as \`HOST_PREFER_32_BIT\` equals \`true\`"
+else
+  apex_modules+=("com.android.art.host")
+fi
 
 # Build the APEX packages (optional).
 build_apex ${apex_modules[@]}
@@ -141,12 +163,24 @@ for apex_module in ${apex_modules[@]}; do
   if [[ $apex_module = *.host ]]; then
     apex_path="$ANDROID_HOST_OUT/apex/${apex_module}.zipapex"
     art_apex_test_args="$art_apex_test_args --host"
-    test_only_args="--debug"
+    test_only_args="--flavor debug"
   else
-    apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}.apex"
-    art_apex_test_args="$art_apex_test_args --debugfs $ANDROID_HOST_OUT/bin/debugfs"
-    [[ $apex_module = *.debug ]] && test_only_args="--debug"
+    if $flattened_apex_p; then
+      apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}"
+      art_apex_test_args="$art_apex_test_args --flattened"
+    else
+      apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}.apex"
+    fi
+    if $have_debugfs_p; then
+      art_apex_test_args="$art_apex_test_args --debugfs $ANDROID_HOST_OUT/bin/debugfs"
+    fi
+    case $apex_module in
+      (*.release) test_only_args="--flavor release";;
+      (*.debug)   test_only_args="--flavor debug";;
+      (*.testing) test_only_args="--flavor testing";;
+    esac
   fi
+  say "APEX package path: $apex_path"
 
   # List the contents of the APEX image (optional).
   maybe_list_apex_contents_apex $art_apex_test_args $apex_path
@@ -163,6 +197,6 @@ for apex_module in ${apex_modules[@]}; do
   echo
 done
 
-[[ "$exit_status" = 0 ]] && say "All Android Runtime APEX tests passed"
+[[ "$exit_status" = 0 ]] && say "All ART APEX tests passed"
 
 exit $exit_status

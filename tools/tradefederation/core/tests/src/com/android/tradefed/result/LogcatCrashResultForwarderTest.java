@@ -15,9 +15,12 @@
  */
 package com.android.tradefed.result;
 
+import static org.junit.Assert.assertTrue;
+
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 
+import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
@@ -93,8 +96,8 @@ public class LogcatCrashResultForwarderTest {
                                 + "\nCrash Message:Runtime"));
         mMockListener.testEnded(test, 5L, new HashMap<String, Metric>());
         // If a run failure follows, expect it to contain the additional stack too.
-        mMockListener.testRunFailed(
-                EasyMock.contains("Something went wrong.\nCrash Message:Runtime"));
+        Capture<FailureDescription> captured = new Capture<>();
+        mMockListener.testRunFailed(EasyMock.capture(captured));
 
         EasyMock.replay(mMockListener, mMockDevice);
         mReporter.testStarted(test, 0L);
@@ -102,6 +105,10 @@ public class LogcatCrashResultForwarderTest {
         mReporter.testEnded(test, 5L, new HashMap<String, Metric>());
         mReporter.testRunFailed("Something went wrong.");
         EasyMock.verify(mMockListener, mMockDevice);
+        assertTrue(
+                captured.getValue()
+                        .getErrorMessage()
+                        .contains("Something went wrong.\nCrash Message:Runtime"));
     }
 
     /**
@@ -134,10 +141,8 @@ public class LogcatCrashResultForwarderTest {
         mMockListener.testFailed(test, "Something went wrong.");
         mMockListener.testEnded(test, 5L, new HashMap<String, Metric>());
         // If a run failure comes with a crash detected, expect it to contain the additional stack.
-        mMockListener.testRunFailed(
-                EasyMock.contains(
-                        "instrumentation failed. reason: 'Process crashed.'"
-                                + "\nCrash Message:Runtime"));
+        Capture<FailureDescription> captured = new Capture<>();
+        mMockListener.testRunFailed(EasyMock.capture(captured));
 
         EasyMock.replay(mMockListener, mMockDevice);
         mReporter.testStarted(test, 0L);
@@ -145,6 +150,12 @@ public class LogcatCrashResultForwarderTest {
         mReporter.testEnded(test, 5L, new HashMap<String, Metric>());
         mReporter.testRunFailed("instrumentation failed. reason: 'Process crashed.'");
         EasyMock.verify(mMockListener, mMockDevice);
+        assertTrue(
+                captured.getValue()
+                        .getErrorMessage()
+                        .contains(
+                                "instrumentation failed. reason: 'Process crashed.'"
+                                        + "\nCrash Message:Runtime"));
     }
 
     /**
@@ -178,12 +189,8 @@ public class LogcatCrashResultForwarderTest {
         mMockListener.testFailed(test, "Something went wrong.");
         mMockListener.testEnded(test, 5L, new HashMap<String, Metric>());
         // If a run failure comes with a crash detected, expect it to contain the additional stack.
-        mMockListener.testRunFailed(
-                EasyMock.eq(
-                        "instrumentation failed. reason: 'Process crashed.'"
-                                + "\nCrash Message:test\njava.lang.Exception: test\n"
-                                + "\tat class.method1(Class.java:1)\n"
-                                + "\tat class.method2(Class.java:2)\n"));
+        Capture<FailureDescription> captured = new Capture<>();
+        mMockListener.testRunFailed(EasyMock.capture(captured));
 
         EasyMock.replay(mMockListener, mMockDevice);
         mReporter.testStarted(test, 0L);
@@ -191,5 +198,13 @@ public class LogcatCrashResultForwarderTest {
         mReporter.testEnded(test, 5L, new HashMap<String, Metric>());
         mReporter.testRunFailed("instrumentation failed. reason: 'Process crashed.'");
         EasyMock.verify(mMockListener, mMockDevice);
+        assertTrue(
+                captured.getValue()
+                        .getErrorMessage()
+                        .contains(
+                                "instrumentation failed. reason: 'Process crashed.'"
+                                        + "\nCrash Message:test\njava.lang.Exception: test\n"
+                                        + "\tat class.method1(Class.java:1)\n"
+                                        + "\tat class.method2(Class.java:2)\n"));
     }
 }

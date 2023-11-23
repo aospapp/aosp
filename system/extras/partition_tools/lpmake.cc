@@ -62,6 +62,14 @@ static int usage(int /* argc */, char* argv[]) {
             "                                house the super partition.\n"
             "  -x,--auto-slot-suffixing      Mark the block device and partition names needing\n"
             "                                slot suffixes before being used.\n"
+            "  -F,--force-full-image         Force a full image to be written even if no\n"
+            "                                partition images were specified. Normally, this\n"
+            "                                would produce a minimal super_empty.img which\n"
+            "                                cannot be flashed; force-full-image will produce\n"
+            "                                a flashable image.\n"
+            "  --virtual-ab                  Add the VIRTUAL_AB_DEVICE flag to the metadata\n"
+            "                                header. Note that the resulting super.img will\n"
+            "                                require a liblp capable of parsing a v1.2 header.\n"
             "\n"
             "Partition data format:\n"
             "  <name>:<attributes>:<size>[:group]\n"
@@ -77,23 +85,48 @@ static int usage(int /* argc */, char* argv[]) {
     return EX_USAGE;
 }
 
+enum class Option : int {
+    // Long-only options.
+    kVirtualAB = 1,
+
+    // Short character codes.
+    kDeviceSize = 'd',
+    kMetadataSize = 'm',
+    kMetadataSlots = 's',
+    kPartition = 'p',
+    kOutput = 'o',
+    kHelp = 'h',
+    kAlignmentOffset = 'O',
+    kAlignment = 'a',
+    kSparse = 'S',
+    kBlockSize = 'b',
+    kImage = 'i',
+    kGroup = 'g',
+    kDevice = 'D',
+    kSuperName = 'n',
+    kAutoSlotSuffixing = 'x',
+    kForceFullImage = 'F',
+};
+
 int main(int argc, char* argv[]) {
     struct option options[] = {
-        { "device-size", required_argument, nullptr, 'd' },
-        { "metadata-size", required_argument, nullptr, 'm' },
-        { "metadata-slots", required_argument, nullptr, 's' },
-        { "partition", required_argument, nullptr, 'p' },
-        { "output", required_argument, nullptr, 'o' },
-        { "help", no_argument, nullptr, 'h' },
-        { "alignment-offset", required_argument, nullptr, 'O' },
-        { "alignment", required_argument, nullptr, 'a' },
-        { "sparse", no_argument, nullptr, 'S' },
-        { "block-size", required_argument, nullptr, 'b' },
-        { "image", required_argument, nullptr, 'i' },
-        { "group", required_argument, nullptr, 'g' },
-        { "device", required_argument, nullptr, 'D' },
-        { "super-name", required_argument, nullptr, 'n' },
-        { "auto-slot-suffixing", no_argument, nullptr, 'x' },
+        { "device-size", required_argument, nullptr, (int)Option::kDeviceSize },
+        { "metadata-size", required_argument, nullptr, (int)Option::kMetadataSize },
+        { "metadata-slots", required_argument, nullptr, (int)Option::kMetadataSlots },
+        { "partition", required_argument, nullptr, (int)Option::kPartition },
+        { "output", required_argument, nullptr, (int)Option::kOutput },
+        { "help", no_argument, nullptr, (int)Option::kOutput },
+        { "alignment-offset", required_argument, nullptr, (int)Option::kAlignmentOffset },
+        { "alignment", required_argument, nullptr, (int)Option::kAlignment },
+        { "sparse", no_argument, nullptr, (int)Option::kSparse },
+        { "block-size", required_argument, nullptr, (int)Option::kBlockSize },
+        { "image", required_argument, nullptr, (int)Option::kImage },
+        { "group", required_argument, nullptr, (int)Option::kGroup },
+        { "device", required_argument, nullptr, (int)Option::kDevice },
+        { "super-name", required_argument, nullptr, (int)Option::kSuperName },
+        { "auto-slot-suffixing", no_argument, nullptr, (int)Option::kAutoSlotSuffixing },
+        { "force-full-image", no_argument, nullptr, (int)Option::kForceFullImage },
+        { "virtual-ab", no_argument, nullptr, (int)Option::kVirtualAB },
         { nullptr, 0, nullptr, 0 },
     };
 
@@ -112,65 +145,67 @@ int main(int argc, char* argv[]) {
     bool output_sparse = false;
     bool has_implied_super = false;
     bool auto_slot_suffixing = false;
+    bool force_full_image = false;
+    bool virtual_ab = false;
 
     int rv;
     int index;
-    while ((rv = getopt_long_only(argc, argv, "d:m:s:p:o:h", options, &index)) != -1) {
-        switch (rv) {
-            case 'h':
+    while ((rv = getopt_long_only(argc, argv, "d:m:s:p:o:h:FSx", options, &index)) != -1) {
+        switch ((Option)rv) {
+            case Option::kHelp:
                 return usage(argc, argv);
-            case 'd':
+            case Option::kDeviceSize:
                 if (!android::base::ParseUint(optarg, &blockdevice_size) || !blockdevice_size) {
                     fprintf(stderr, "Invalid argument to --device-size.\n");
                     return EX_USAGE;
                 }
                 has_implied_super = true;
                 break;
-            case 'm':
+            case Option::kMetadataSize:
                 if (!android::base::ParseUint(optarg, &metadata_size)) {
                     fprintf(stderr, "Invalid argument to --metadata-size.\n");
                     return EX_USAGE;
                 }
                 break;
-            case 's':
+            case Option::kMetadataSlots:
                 if (!android::base::ParseUint(optarg, &metadata_slots)) {
                     fprintf(stderr, "Invalid argument to --metadata-slots.\n");
                     return EX_USAGE;
                 }
                 break;
-            case 'p':
+            case Option::kPartition:
                 partitions.push_back(optarg);
                 break;
-            case 'g':
+            case Option::kGroup:
                 groups.push_back(optarg);
                 break;
-            case 'o':
+            case Option::kOutput:
                 output_path = optarg;
                 break;
-            case 'O':
+            case Option::kAlignmentOffset:
                 if (!android::base::ParseUint(optarg, &alignment_offset)) {
                     fprintf(stderr, "Invalid argument to --alignment-offset.\n");
                     return EX_USAGE;
                 }
                 has_implied_super = true;
                 break;
-            case 'a':
+            case Option::kAlignment:
                 if (!android::base::ParseUint(optarg, &alignment)) {
                     fprintf(stderr, "Invalid argument to --alignment.\n");
                     return EX_USAGE;
                 }
                 has_implied_super = true;
                 break;
-            case 'S':
+            case Option::kSparse:
                 output_sparse = true;
                 break;
-            case 'b':
+            case Option::kBlockSize:
                 if (!android::base::ParseUint(optarg, &block_size) || !block_size) {
                     fprintf(stderr, "Invalid argument to --block-size.\n");
                     return EX_USAGE;
                 }
                 break;
-            case 'i':
+            case Option::kImage:
             {
                 char* separator = strchr(optarg, '=');
                 if (!separator || separator == optarg || !strlen(separator + 1)) {
@@ -184,10 +219,10 @@ int main(int argc, char* argv[]) {
                 images[partition_name] = file;
                 break;
             }
-            case 'n':
+            case Option::kSuperName:
                 super_name = optarg;
                 break;
-            case 'D':
+            case Option::kDevice:
             {
                 std::vector<std::string> parts = android::base::Split(optarg, ":");
                 if (parts.size() < 2) {
@@ -215,8 +250,14 @@ int main(int argc, char* argv[]) {
                 block_devices.emplace_back(info);
                 break;
             }
-            case 'x':
+            case Option::kAutoSlotSuffixing:
                 auto_slot_suffixing = true;
+                break;
+            case Option::kForceFullImage:
+                force_full_image = true;
+                break;
+            case Option::kVirtualAB:
+                virtual_ab = true;
                 break;
             default:
                 break;
@@ -274,6 +315,9 @@ int main(int argc, char* argv[]) {
 
     if (auto_slot_suffixing) {
         builder->SetAutoSlotSuffixing();
+    }
+    if (virtual_ab) {
+        builder->SetVirtualABDeviceFlag();
     }
 
     for (const auto& group_info : groups) {
@@ -347,7 +391,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::unique_ptr<LpMetadata> metadata = builder->Export();
-    if (!images.empty()) {
+    if (!images.empty() || force_full_image) {
         if (block_devices.size() == 1) {
             if (!WriteToImageFile(output_path.c_str(), *metadata.get(), block_size, images,
                                   output_sparse)) {

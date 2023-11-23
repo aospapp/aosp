@@ -16,11 +16,21 @@
 """This file contains ELF utility functions."""
 
 
+def ByteToInt(obj):
+    """Converts an element of a bytes object to an integer."""
+    return obj if isinstance(obj, int) else ord(obj)
+
+
+def BytesToString(obj):
+    """Converts bytes to a python3 string."""
+    return obj if isinstance(obj, str) else obj.decode("utf-8")
+
+
 def DecodeSLEB128(data, begin_offset=0):
     """Decode one int64 from SLEB128 encoded bytes.
 
     Args:
-        data: A str, bytes to decode.
+        data: A bytes object to decode.
         begin_offset: An integer, offset in data to start decode from.
 
     Returns:
@@ -34,7 +44,7 @@ def DecodeSLEB128(data, begin_offset=0):
     shift = 0
     while True:
         try:
-            byte, cur = ord(data[cur]), cur + 1
+            byte, cur = ByteToInt(data[cur]), cur + 1
         except IndexError:
             raise
         value |= (byte & 0x7F) << shift

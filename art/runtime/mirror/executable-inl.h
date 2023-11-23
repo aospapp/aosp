@@ -20,6 +20,8 @@
 #include "executable.h"
 
 #include "object-inl.h"
+#include "reflective_value_visitor.h"
+#include "verify_object.h"
 
 namespace art {
 namespace mirror {
@@ -34,6 +36,19 @@ inline void Executable::SetArtMethod(ArtMethod* method) {
 
 inline ObjPtr<mirror::Class> Executable::GetDeclaringClass() {
   return GetFieldObject<mirror::Class>(DeclaringClassOffset());
+}
+
+template<VerifyObjectFlags kVerifiyFlags>
+inline void Executable::VisitTarget(ReflectiveValueVisitor* v) {
+  HeapReflectiveSourceInfo hrsi(kSourceJavaLangReflectExecutable, this);
+  ArtMethod* orig = GetArtMethod<kVerifiyFlags>();
+  ArtMethod* new_target = v->VisitMethod(orig, hrsi);
+  if (orig != new_target) {
+    SetArtMethod(new_target);
+    SetDexMethodIndex(new_target->GetDexMethodIndex());
+    SetDeclaringClass(new_target->GetDeclaringClass());
+    WriteBarrier::ForEveryFieldWrite(this);
+  }
 }
 
 }  // namespace mirror

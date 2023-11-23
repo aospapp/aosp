@@ -17,6 +17,7 @@
 package com.android.cts.verifier;
 
 import com.android.compatibility.common.util.ReportLog;
+import com.android.compatibility.common.util.TestResultHistory;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -38,11 +39,13 @@ public class TestResult {
     private static final String TEST_RESULT = "result";
     private static final String TEST_DETAILS = "details";
     private static final String TEST_METRICS = "metrics";
+    private static final String TEST_HISTORY_COLLECTION = "historyCollection";
 
     private final String mName;
     private final int mResult;
     private final String mDetails;
     private final ReportLog mReportLog;
+    private final TestResultHistoryCollection mHistoryCollection;
 
     /** Sets the test activity's result to pass. */
     public static void setPassedResult(Activity activity, String testId, String testDetails) {
@@ -53,7 +56,14 @@ public class TestResult {
     public static void setPassedResult(Activity activity, String testId, String testDetails,
             ReportLog reportLog) {
         activity.setResult(Activity.RESULT_OK, createResult(activity, TEST_RESULT_PASSED, testId,
-                testDetails, reportLog));
+            testDetails, reportLog, null /*history*/));
+    }
+
+    /** Sets the test activity's result to pass including a test report log result and history. */
+    public static void setPassedResult(Activity activity, String testId, String testDetails,
+            ReportLog reportLog, TestResultHistoryCollection historyCollection) {
+        activity.setResult(Activity.RESULT_OK, createResult(activity, TEST_RESULT_PASSED, testId,
+                testDetails, reportLog, historyCollection));
     }
 
     /** Sets the test activity's result to failed. */
@@ -65,22 +75,30 @@ public class TestResult {
     public static void setFailedResult(Activity activity, String testId, String testDetails,
             ReportLog reportLog) {
         activity.setResult(Activity.RESULT_OK, createResult(activity, TEST_RESULT_FAILED, testId,
-                testDetails, reportLog));
+                testDetails, reportLog, null /*history*/));
+    }
+
+    /** Sets the test activity's result to failed including a test report log result and history. */
+    public static void setFailedResult(Activity activity, String testId, String testDetails,
+            ReportLog reportLog, TestResultHistoryCollection historyCollection) {
+        activity.setResult(Activity.RESULT_OK, createResult(activity, TEST_RESULT_FAILED, testId,
+            testDetails, reportLog, historyCollection));
     }
 
     public static Intent createResult(Activity activity, int testResult, String testName,
-            String testDetails, ReportLog reportLog) {
+            String testDetails, ReportLog reportLog, TestResultHistoryCollection historyCollection) {
         Intent data = new Intent(activity, activity.getClass());
-        addResultData(data, testResult, testName, testDetails, reportLog);
+        addResultData(data, testResult, testName, testDetails, reportLog, historyCollection);
         return data;
     }
 
     public static void addResultData(Intent intent, int testResult, String testName,
-            String testDetails, ReportLog reportLog) {
+            String testDetails, ReportLog reportLog, TestResultHistoryCollection historyCollection) {
         intent.putExtra(TEST_NAME, testName);
         intent.putExtra(TEST_RESULT, testResult);
         intent.putExtra(TEST_DETAILS, testDetails);
         intent.putExtra(TEST_METRICS, reportLog);
+        intent.putExtra(TEST_HISTORY_COLLECTION, historyCollection);
     }
 
     /**
@@ -92,15 +110,20 @@ public class TestResult {
         int result = data.getIntExtra(TEST_RESULT, TEST_RESULT_NOT_EXECUTED);
         String details = data.getStringExtra(TEST_DETAILS);
         ReportLog reportLog = (ReportLog) data.getSerializableExtra(TEST_METRICS);
-        return new TestResult(name, result, details, reportLog);
+        TestResultHistoryCollection historyCollection =
+            (TestResultHistoryCollection) data.getSerializableExtra(TEST_HISTORY_COLLECTION);
+        return new TestResult(name, result, details, reportLog, historyCollection);
     }
 
     private TestResult(
-            String name, int result, String details, ReportLog reportLog) {
+            String name, int result, String details, ReportLog reportLog,
+            TestResultHistoryCollection historyCollection) {
         this.mName = name;
         this.mResult = result;
         this.mDetails = details;
         this.mReportLog = reportLog;
+        this.mHistoryCollection =
+            historyCollection == null ? new TestResultHistoryCollection() : historyCollection;
     }
 
     /** Return the name of the test like "com.android.cts.verifier.foo.FooTest" */
@@ -121,5 +144,10 @@ public class TestResult {
     /** @return the {@link ReportLog} or null if not set */
     public ReportLog getReportLog() {
         return mReportLog;
+    }
+
+    /** @return the {@link TestResultHistoryCollection} containing test history */
+    public TestResultHistoryCollection getHistoryCollection() {
+        return mHistoryCollection;
     }
 }

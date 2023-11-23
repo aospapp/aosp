@@ -16,6 +16,8 @@
 package com.android.cts.verifier.instantapps;
 
 import android.os.Bundle;
+import android.os.SystemProperties;
+import android.content.pm.PackageManager;
 import android.widget.TextView;
 
 import com.android.cts.verifier.R;
@@ -34,6 +36,18 @@ public class NotificationTestActivity extends BaseTestActivity {
 
         setInfoResources(R.string.ia_notification, R.string.ia_notification_info, -1);
         TextView extraText = (TextView) findViewById(R.id.instruction_extra_text);
-        extraText.setText(R.string.ia_notification_instruction_label);
+        if (isNoGooglePlayStore()) {
+            extraText.setText(R.string.ia_notification_instruction_label_no_app_market_version);
+        } else {
+            extraText.setText(R.string.ia_notification_instruction_label);
+        }
+    }
+
+    private boolean isNoGooglePlayStore() {
+        boolean isCnGmsVersion =
+                getApplicationContext().getPackageManager().hasSystemFeature("cn.google.services");
+        boolean isNoGmsVersion =
+                (SystemProperties.get("ro.com.google.gmsversion", null) == null);
+        return isCnGmsVersion || isNoGmsVersion;
     }
 }

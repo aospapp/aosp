@@ -19,8 +19,6 @@
 #include "arch/arm/instruction_set_features_arm.h"
 #include "arch/arm64/instruction_set_features_arm64.h"
 #include "arch/instruction_set.h"
-#include "arch/mips/instruction_set_features_mips.h"
-#include "arch/mips64/instruction_set_features_mips64.h"
 #include "arch/x86/instruction_set_features_x86.h"
 #include "arch/x86_64/instruction_set_features_x86_64.h"
 #include "driver/compiler_options.h"
@@ -351,7 +349,7 @@ static bool HasReductionFormat(HInstruction* reduction, HInstruction* phi) {
 
 // Translates vector operation to reduction kind.
 static HVecReduce::ReductionKind GetReductionKind(HVecOperation* reduction) {
-  if (reduction->IsVecAdd() ||
+  if (reduction->IsVecAdd()  ||
       reduction->IsVecSub() ||
       reduction->IsVecSADAccumulate() ||
       reduction->IsVecDotProd()) {
@@ -763,6 +761,11 @@ bool HLoopOptimization::TryOptimizeInnerLoopFinite(LoopNode* node) {
   }
   // Vectorize loop, if possible and valid.
   if (kEnableVectorization &&
+      // Disable vectorization for debuggable graphs: this is a workaround for the bug
+      // in 'GenerateNewLoop' which caused the SuspendCheck environment to be invalid.
+      // TODO: b/138601207, investigate other possible cases with wrong environment values and
+      // possibly switch back vectorization on for debuggable graphs.
+      !graph_->IsDebuggable() &&
       TrySetSimpleLoopHeader(header, &main_phi) &&
       ShouldVectorize(node, body, trip_count) &&
       TryAssignLastValue(node->loop_info, main_phi, preheader, /*collect_loop_uses*/ true)) {
@@ -1278,6 +1281,10 @@ bool HLoopOptimization::VectorizeDef(LoopNode* node,
   // (3) unit stride index,
   // (4) vectorizable right-hand-side value.
   uint64_t restrictions = kNone;
+  // Don't accept expressions that can throw.
+  if (instruction->CanThrow()) {
+    return false;
+  }
   if (instruction->IsArraySet()) {
     DataType::Type type = instruction->AsArraySet()->GetComponentType();
     HInstruction* base = instruction->InputAt(0);
@@ -1329,7 +1336,8 @@ bool HLoopOptimization::VectorizeDef(LoopNode* node,
   }
   // Otherwise accept only expressions with no effects outside the immediate loop-body.
   // Note that actual uses are inspected during right-hand-side tree traversal.
-  return !IsUsedOutsideLoop(node->loop_info, instruction) && !instruction->DoesAnyWrite();
+  return !IsUsedOutsideLoop(node->loop_info, instruction)
+         && !instruction->DoesAnyWrite();
 }
 
 bool HLoopOptimization::VectorizeUse(LoopNode* node,
@@ -1613,77 +1621,25 @@ bool HLoopOptimization::TrySetVectorType(DataType::Type type, uint64_t* restrict
                              kNoDotProd;
             return TrySetVectorLength(16);
           case DataType::Type::kUint16:
+            *restrictions |= kNoDiv |
+                             kNoAbs |
+                             kNoSignedHAdd |
+                             kNoUnroundedHAdd |
+                             kNoSAD |
+                             kNoDotProd;
+            return TrySetVectorLength(8);
           case DataType::Type::kInt16:
             *restrictions |= kNoDiv |
                              kNoAbs |
                              kNoSignedHAdd |
                              kNoUnroundedHAdd |
-                             kNoSAD|
-                             kNoDotProd;
+                             kNoSAD;
             return TrySetVectorLength(8);
           case DataType::Type::kInt32:
             *restrictions |= kNoDiv | kNoSAD;
             return TrySetVectorLength(4);
           case DataType::Type::kInt64:
             *restrictions |= kNoMul | kNoDiv | kNoShr | kNoAbs | kNoSAD;
-            return TrySetVectorLength(2);
-          case DataType::Type::kFloat32:
-            *restrictions |= kNoReduction;
-            return TrySetVectorLength(4);
-          case DataType::Type::kFloat64:
-            *restrictions |= kNoReduction;
-            return TrySetVectorLength(2);
-          default:
-            break;
-        }  // switch type
-      }
-      return false;
-    case InstructionSet::kMips:
-      if (features->AsMipsInstructionSetFeatures()->HasMsa()) {
-        switch (type) {
-          case DataType::Type::kBool:
-          case DataType::Type::kUint8:
-          case DataType::Type::kInt8:
-            *restrictions |= kNoDiv | kNoDotProd;
-            return TrySetVectorLength(16);
-          case DataType::Type::kUint16:
-          case DataType::Type::kInt16:
-            *restrictions |= kNoDiv | kNoStringCharAt | kNoDotProd;
-            return TrySetVectorLength(8);
-          case DataType::Type::kInt32:
-            *restrictions |= kNoDiv;
-            return TrySetVectorLength(4);
-          case DataType::Type::kInt64:
-            *restrictions |= kNoDiv;
-            return TrySetVectorLength(2);
-          case DataType::Type::kFloat32:
-            *restrictions |= kNoReduction;
-            return TrySetVectorLength(4);
-          case DataType::Type::kFloat64:
-            *restrictions |= kNoReduction;
-            return TrySetVectorLength(2);
-          default:
-            break;
-        }  // switch type
-      }
-      return false;
-    case InstructionSet::kMips64:
-      if (features->AsMips64InstructionSetFeatures()->HasMsa()) {
-        switch (type) {
-          case DataType::Type::kBool:
-          case DataType::Type::kUint8:
-          case DataType::Type::kInt8:
-            *restrictions |= kNoDiv | kNoDotProd;
-            return TrySetVectorLength(16);
-          case DataType::Type::kUint16:
-          case DataType::Type::kInt16:
-            *restrictions |= kNoDiv | kNoStringCharAt | kNoDotProd;
-            return TrySetVectorLength(8);
-          case DataType::Type::kInt32:
-            *restrictions |= kNoDiv;
-            return TrySetVectorLength(4);
-          case DataType::Type::kInt64:
-            *restrictions |= kNoDiv;
             return TrySetVectorLength(2);
           case DataType::Type::kFloat32:
             *restrictions |= kNoReduction;
@@ -2156,7 +2112,7 @@ bool HLoopOptimization::VectorizeDotProdIdiom(LoopNode* node,
                                               bool generate_code,
                                               DataType::Type reduction_type,
                                               uint64_t restrictions) {
-  if (!instruction->IsAdd() || (reduction_type != DataType::Type::kInt32)) {
+  if (!instruction->IsAdd() || reduction_type != DataType::Type::kInt32) {
     return false;
   }
 

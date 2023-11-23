@@ -35,7 +35,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 5700383053117599563 (0x4f1bd42f54bb2f4b)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=CH, O=SwissSign AG, CN=SwissSign Silver CA - G2
         Validity
             Not Before: Oct 25 08:32:46 2006 GMT
@@ -43,7 +43,7 @@ Certificate:
         Subject: C=CH, O=SwissSign AG, CN=SwissSign Silver CA - G2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:c4:f1:87:7f:d3:78:31:f7:38:c9:f8:c3:99:43:
                     bc:c7:f7:bc:37:e7:4e:71:ba:4b:8f:a5:73:1d:5c:

@@ -26,7 +26,11 @@ public final class Timeouts {
     private static final long ONE_TIMEOUT_TO_RULE_THEN_ALL_MS = 20_000;
     private static final long ONE_NAPTIME_TO_RULE_THEN_ALL_MS = 2_000;
 
-    static final long MOCK_IME_TIMEOUT_MS = 5_000;
+    public static final long MOCK_IME_TIMEOUT_MS = 5_000;
+    public static final long DRAWABLE_TIMEOUT_MS = 5_000;
+
+    public static final long LONG_PRESS_MS = 3000;
+    public static final long RESPONSE_DELAY_MS = 1000;
 
     /**
      * Timeout until framework binds / unbinds from service.
@@ -51,7 +55,7 @@ public final class Timeouts {
     /**
      * Timeout to get the expected number of fill events.
      */
-    static final Timeout FILL_EVENTS_TIMEOUT = new Timeout("FILL_EVENTS_TIMEOUT",
+    public static final Timeout FILL_EVENTS_TIMEOUT = new Timeout("FILL_EVENTS_TIMEOUT",
             ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
@@ -75,8 +79,8 @@ public final class Timeouts {
     /**
      * Timeout for UI operations. Typically used by {@link UiBot}.
      */
-    static final Timeout UI_TIMEOUT = new Timeout("UI_TIMEOUT", ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F,
-            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
+    public static final Timeout UI_TIMEOUT = new Timeout("UI_TIMEOUT",
+            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
      * Timeout for a11y window change events.
@@ -111,7 +115,7 @@ public final class Timeouts {
      * Timeout used when the dataset picker is not expected to be shown - test will sleep for that
      * amount of time as there is no callback that be received to assert it's not shown.
      */
-    static final long DATASET_PICKER_NOT_SHOWN_NAPTIME_MS = ONE_NAPTIME_TO_RULE_THEN_ALL_MS;
+    public static final long DATASET_PICKER_NOT_SHOWN_NAPTIME_MS = ONE_NAPTIME_TO_RULE_THEN_ALL_MS;
 
     /**
      * Timeout (in milliseconds) for an activity to be brought out to top.

@@ -36,7 +36,7 @@
     <template src="Wear"/>
 
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Wearable</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>
@@ -52,46 +52,18 @@
         </api_refs>
 
         <description>
-<![CDATA[
-A basic sample showing how to use the Gravity sensor on the wearable device
-by counting how many jumping jacks you have performed.
+            <![CDATA[
+Sample moved to [github.com/android/wear-os][1].
+
+[1]: https://github.com/android/wear-os
 ]]>
         </description>
 
         <intro>
-<![CDATA[
-[SensorEventListener][1] offers you methods used for receiving notifications from the
-[SensorManager][2] when sensor values have changed.
+            <![CDATA[
+This repo and all Wear OS samples have been moved to [github.com/android/wear-os][1]. Please check out the code there. Thank you!
 
-This example counts how many times Jumping Jacks are performed by detecting the value
-of the Gravity sensor by the following code:
-
-```java
-@Override
-public void onSensorChanged(SensorEvent event) {
-    detectJump(event.values[0], event.timestamp);
-}
-
-private void detectJump(float xValue, long timestamp) {
-    if ((Math.abs(xValue) > GRAVITY_THRESHOLD)) {
-        if(timestamp - mLastTime < TIME_THRESHOLD_NS && mUp != (xValue > 0)) {
-            onJumpDetected(!mUp);
-        }
-        mUp = xValue > 0;
-        mLastTime = timestamp;
-    }
-}
-```
-
-The detectJump method above assumes that when a person is wearing the watch, the x-component of gravity
-as measured by the Gravity Sensor is +9.8 when the hand is downward and -9.8 when the hand
-is upward (signs are reversed if the watch is worn on the right hand). Since the upward or
-downward may not be completely accurate, we leave some room and instead of 9.8, we use
-GRAVITY_THRESHOLD (7.0f). We also consider the up <-> down movement successful if it takes less than
-TIME_THRESHOLD_NS (2000000000 nanoseconds).
-
-[1]: http://developer.android.com/reference/android/hardware/SensorEventListener.html
-[2]: http://developer.android.com/reference/android/hardware/SensorManager.html
+[1]: https://github.com/android/wear-os
 ]]>
         </intro>
     </metadata>

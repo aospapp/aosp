@@ -26,7 +26,7 @@
 #include <selinux/selinux.h>
 
 #include "builtin_arguments.h"
-#include "test_function_map.h"
+#include "util.h"
 
 using namespace std::literals;
 
@@ -39,24 +39,12 @@ using android::base::WaitForProperty;
 namespace android {
 namespace init {
 
-// I would use test fixtures, but I cannot skip the test if not root with them, so instead we have
-// this test runner.
 template <typename F>
 void RunTest(F&& test_function) {
-    if (getuid() != 0) {
-        GTEST_LOG_(INFO) << "Skipping test, must be run as root.";
-        return;
-    }
-
-    char* context;
-    ASSERT_EQ(0, getcon(&context));
-    auto context_string = std::string(context);
-    free(context);
-
-    auto subcontext = Subcontext("dummy_path", context_string);
+    auto subcontext = Subcontext({"dummy_path"}, kTestContext);
     ASSERT_NE(0, subcontext.pid());
 
-    test_function(subcontext, context_string);
+    test_function(subcontext);
 
     if (subcontext.pid() > 0) {
         kill(subcontext.pid(), SIGTERM);
@@ -65,11 +53,11 @@ void RunTest(F&& test_function) {
 }
 
 TEST(subcontext, CheckDifferentPid) {
-    RunTest([](auto& subcontext, auto& context_string) {
+    RunTest([](auto& subcontext) {
         auto result = subcontext.Execute(std::vector<std::string>{"return_pids_as_error"});
-        ASSERT_FALSE(result);
+        ASSERT_FALSE(result.ok());
 
-        auto pids = Split(result.error_string(), " ");
+        auto pids = Split(result.error().message(), " ");
         ASSERT_EQ(2U, pids.size());
         auto our_pid = std::to_string(getpid());
         EXPECT_NE(our_pid, pids[0]);
@@ -78,7 +66,12 @@ TEST(subcontext, CheckDifferentPid) {
 }
 
 TEST(subcontext, SetProp) {
-    RunTest([](auto& subcontext, auto& context_string) {
+    if (getuid() != 0) {
+        GTEST_SKIP() << "Skipping test, must be run as root.";
+        return;
+    }
+
+    RunTest([](auto& subcontext) {
         SetProperty("init.test.subcontext", "fail");
         WaitForProperty("init.test.subcontext", "fail");
 
@@ -88,14 +81,14 @@ TEST(subcontext, SetProp) {
             "success",
         };
         auto result = subcontext.Execute(args);
-        ASSERT_TRUE(result) << result.error();
+        ASSERT_RESULT_OK(result);
 
         EXPECT_TRUE(WaitForProperty("init.test.subcontext", "success", 10s));
     });
 }
 
 TEST(subcontext, MultipleCommands) {
-    RunTest([](auto& subcontext, auto& context_string) {
+    RunTest([](auto& subcontext) {
         auto first_pid = subcontext.pid();
 
         auto expected_words = std::vector<std::string>{
@@ -111,47 +104,59 @@ TEST(subcontext, MultipleCommands) {
                 word,
             };
             auto result = subcontext.Execute(args);
-            ASSERT_TRUE(result) << result.error();
+            ASSERT_RESULT_OK(result);
         }
 
         auto result = subcontext.Execute(std::vector<std::string>{"return_words_as_error"});
-        ASSERT_FALSE(result);
-        EXPECT_EQ(Join(expected_words, " "), result.error_string());
+        ASSERT_FALSE(result.ok());
+        EXPECT_EQ(Join(expected_words, " "), result.error().message());
         EXPECT_EQ(first_pid, subcontext.pid());
     });
 }
 
 TEST(subcontext, RecoverAfterAbort) {
-    RunTest([](auto& subcontext, auto& context_string) {
+    RunTest([](auto& subcontext) {
         auto first_pid = subcontext.pid();
 
         auto result = subcontext.Execute(std::vector<std::string>{"cause_log_fatal"});
-        ASSERT_FALSE(result);
+        ASSERT_FALSE(result.ok());
 
         auto result2 = subcontext.Execute(std::vector<std::string>{"generate_sane_error"});
-        ASSERT_FALSE(result2);
-        EXPECT_EQ("Sane error!", result2.error_string());
+        ASSERT_FALSE(result2.ok());
+        EXPECT_EQ("Sane error!", result2.error().message());
         EXPECT_NE(subcontext.pid(), first_pid);
     });
 }
 
 TEST(subcontext, ContextString) {
-    RunTest([](auto& subcontext, auto& context_string) {
+    RunTest([](auto& subcontext) {
         auto result = subcontext.Execute(std::vector<std::string>{"return_context_as_error"});
-        ASSERT_FALSE(result);
-        ASSERT_EQ(context_string, result.error_string());
+        ASSERT_FALSE(result.ok());
+        ASSERT_EQ(kTestContext, result.error().message());
     });
 }
 
+TEST(subcontext, TriggerShutdown) {
+    static constexpr const char kTestShutdownCommand[] = "reboot,test-shutdown-command";
+    static std::string trigger_shutdown_command;
+    trigger_shutdown = [](const std::string& command) { trigger_shutdown_command = command; };
+    RunTest([](auto& subcontext) {
+        auto result = subcontext.Execute(
+                std::vector<std::string>{"trigger_shutdown", kTestShutdownCommand});
+        ASSERT_RESULT_OK(result);
+    });
+    EXPECT_EQ(kTestShutdownCommand, trigger_shutdown_command);
+}
+
 TEST(subcontext, ExpandArgs) {
-    RunTest([](auto& subcontext, auto& context_string) {
+    RunTest([](auto& subcontext) {
         auto args = std::vector<std::string>{
             "first",
             "${ro.hardware}",
             "$$third",
         };
         auto result = subcontext.ExpandArgs(args);
-        ASSERT_TRUE(result) << result.error();
+        ASSERT_RESULT_OK(result);
         ASSERT_EQ(3U, result->size());
         EXPECT_EQ(args[0], result->at(0));
         EXPECT_EQ(GetProperty("ro.hardware", ""), result->at(1));
@@ -160,69 +165,79 @@ TEST(subcontext, ExpandArgs) {
 }
 
 TEST(subcontext, ExpandArgsFailure) {
-    RunTest([](auto& subcontext, auto& context_string) {
+    RunTest([](auto& subcontext) {
         auto args = std::vector<std::string>{
             "first",
             "${",
         };
         auto result = subcontext.ExpandArgs(args);
-        ASSERT_FALSE(result);
-        EXPECT_EQ("Failed to expand '" + args[1] + "'", result.error_string());
+        ASSERT_FALSE(result.ok());
+        EXPECT_EQ("unexpected end of string in '" + args[1] + "', looking for }",
+                  result.error().message());
     });
 }
 
-TestFunctionMap BuildTestFunctionMap() {
-    TestFunctionMap test_function_map;
+BuiltinFunctionMap BuildTestFunctionMap() {
     // For CheckDifferentPid
-    test_function_map.Add("return_pids_as_error", 0, 0, true,
-                          [](const BuiltinArguments& args) -> Result<Success> {
-                              return Error() << getpid() << " " << getppid();
-                          });
+    auto do_return_pids_as_error = [](const BuiltinArguments& args) -> Result<void> {
+        return Error() << getpid() << " " << getppid();
+    };
 
     // For SetProp
-    test_function_map.Add("setprop", 2, 2, true, [](const BuiltinArguments& args) {
+    auto do_setprop = [](const BuiltinArguments& args) {
         android::base::SetProperty(args[1], args[2]);
-        return Success();
-    });
+        return Result<void>{};
+    };
 
     // For MultipleCommands
     // Using a shared_ptr to extend lifetime of words to both lambdas
     auto words = std::make_shared<std::vector<std::string>>();
-    test_function_map.Add("add_word", 1, 1, true, [words](const BuiltinArguments& args) {
+    auto do_add_word = [words](const BuiltinArguments& args) {
         words->emplace_back(args[1]);
-        return Success();
-    });
-    test_function_map.Add("return_words_as_error", 0, 0, true,
-                          [words](const BuiltinArguments& args) -> Result<Success> {
-                              return Error() << Join(*words, " ");
-                          });
+        return Result<void>{};
+    };
+    auto do_return_words_as_error = [words](const BuiltinArguments& args) -> Result<void> {
+        return Error() << Join(*words, " ");
+    };
 
     // For RecoverAfterAbort
-    test_function_map.Add("cause_log_fatal", 0, 0, true,
-                          [](const BuiltinArguments& args) -> Result<Success> {
-                              return Error() << std::string(4097, 'f');
-                          });
-    test_function_map.Add(
-        "generate_sane_error", 0, 0, true,
-        [](const BuiltinArguments& args) -> Result<Success> { return Error() << "Sane error!"; });
+    auto do_cause_log_fatal = [](const BuiltinArguments& args) -> Result<void> {
+        return Error() << std::string(4097, 'f');
+    };
+    auto do_generate_sane_error = [](const BuiltinArguments& args) -> Result<void> {
+        return Error() << "Sane error!";
+    };
 
     // For ContextString
-    test_function_map.Add(
-        "return_context_as_error", 0, 0, true,
-        [](const BuiltinArguments& args) -> Result<Success> { return Error() << args.context; });
+    auto do_return_context_as_error = [](const BuiltinArguments& args) -> Result<void> {
+        return Error() << args.context;
+    };
 
+    auto do_trigger_shutdown = [](const BuiltinArguments& args) -> Result<void> {
+        trigger_shutdown(args[1]);
+        return {};
+    };
+
+    // clang-format off
+    BuiltinFunctionMap test_function_map = {
+        {"return_pids_as_error",        {0,     0,      {true,  do_return_pids_as_error}}},
+        {"setprop",                     {2,     2,      {true,  do_setprop}}},
+        {"add_word",                    {1,     1,      {true,  do_add_word}}},
+        {"return_words_as_error",       {0,     0,      {true,  do_return_words_as_error}}},
+        {"cause_log_fatal",             {0,     0,      {true,  do_cause_log_fatal}}},
+        {"generate_sane_error",         {0,     0,      {true,  do_generate_sane_error}}},
+        {"return_context_as_error",     {0,     0,      {true,  do_return_context_as_error}}},
+        {"trigger_shutdown",            {1,     1,      {true,  do_trigger_shutdown}}},
+    };
+    // clang-format on
     return test_function_map;
 }
 
 }  // namespace init
 }  // namespace android
 
-int main(int argc, char** argv) {
-    if (argc > 1 && !strcmp(basename(argv[1]), "subcontext")) {
-        auto test_function_map = android::init::BuildTestFunctionMap();
-        return android::init::SubcontextMain(argc, argv, &test_function_map);
-    }
-
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+// init_test.cpp contains the main entry point for all init tests.
+int SubcontextTestChildMain(int argc, char** argv) {
+    auto test_function_map = android::init::BuildTestFunctionMap();
+    return android::init::SubcontextMain(argc, argv, &test_function_map);
 }

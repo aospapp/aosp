@@ -74,6 +74,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 
 public class AppWidgetTest extends AppWidgetTestCase {
 
@@ -732,6 +733,96 @@ public class AppWidgetTest extends AppWidgetTestCase {
         } finally {
             // Clean up.
             host.deleteAppWidgetId(appWidgetId);
+            host.deleteHost();
+            revokeBindAppWidgetPermission();
+        }
+    }
+
+    @AppModeFull(reason = "Instant apps cannot provide or host app widgets")
+    @Test
+    public void testAppWidgetRemoved() throws Exception {
+
+        // We want to bind widgets.
+        grantBindAppWidgetPermission();
+
+        final AtomicInteger onAppWidgetRemovedCounter = new AtomicInteger();
+        IntConsumer callback = mock(IntConsumer.class);
+
+        // Create a host and start listening.
+        AppWidgetHost host = new AppWidgetHost(
+            getInstrumentation().getTargetContext(), 0) {
+            @Override
+            public void onAppWidgetRemoved(int widgetId) {
+                synchronized (mLock) {
+                    onAppWidgetRemovedCounter.incrementAndGet();
+                    mLock.notifyAll();
+                    callback.accept(widgetId);
+                }
+            }
+        };
+        host.deleteHost();
+        host.startListening();
+
+        int firstAppWidgetId = 0;
+        int secondAppWidgetId = 0;
+
+        try {
+            // Grab the provider we defined to be bound.
+            AppWidgetProviderInfo firstProviderInfo = getFirstAppWidgetProviderInfo();
+            AppWidgetProviderInfo secondProviderInfo = getSecondAppWidgetProviderInfo();
+
+            // Allocate widget id to bind.
+            firstAppWidgetId = host.allocateAppWidgetId();
+            secondAppWidgetId = host.allocateAppWidgetId();
+
+            //create listeners
+            MyAppWidgetHostView.OnUpdateAppWidgetListener secondAppHostViewListener =
+                mock(MyAppWidgetHostView.OnUpdateAppWidgetListener.class);
+
+            // Bind the first app widget.
+            getAppWidgetManager().bindAppWidgetIdIfAllowed(firstAppWidgetId,
+                firstProviderInfo.getProfile(), firstProviderInfo.provider, null);
+            getAppWidgetManager().bindAppWidgetIdIfAllowed(secondAppWidgetId,
+                secondProviderInfo.getProfile(), secondProviderInfo.provider, null);
+
+            // Disable the first widget while host is listening
+            PackageManager packageManager = getInstrumentation().getTargetContext()
+                .getApplicationContext().getPackageManager();
+            packageManager.setComponentEnabledSetting(firstProviderInfo.provider,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+
+            waitForCallCount(onAppWidgetRemovedCounter, 1);
+
+            // Disable the second widget while host is paused
+            host.stopListening();
+            packageManager.setComponentEnabledSetting(secondProviderInfo.provider,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+
+
+            assertEquals(onAppWidgetRemovedCounter.get(),1);
+            verify(callback).accept(eq(firstAppWidgetId));
+
+            // resume listening
+            host.startListening();
+
+            // Wait for the package change to propagate.
+            waitForCallCount(onAppWidgetRemovedCounter, 2);
+            verify(callback).accept(eq(secondAppWidgetId));
+
+            // Reenable disabled items
+            packageManager.setComponentEnabledSetting(secondProviderInfo.provider,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+            packageManager.setComponentEnabledSetting(firstProviderInfo.provider,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+
+        } finally {
+            // Clean up.
+            host.deleteAppWidgetId(firstAppWidgetId);
+            host.deleteAppWidgetId(secondAppWidgetId);
             host.deleteHost();
             revokeBindAppWidgetPermission();
         }
@@ -1501,7 +1592,6 @@ public class AppWidgetTest extends AppWidgetTestCase {
 
     private static class MyAppWidgetHostView extends AppWidgetHostView {
         private OnUpdateAppWidgetListener mOnUpdateAppWidgetListener;
-
 
         public interface OnUpdateAppWidgetListener {
             public void onUpdateAppWidget(RemoteViews remoteViews);

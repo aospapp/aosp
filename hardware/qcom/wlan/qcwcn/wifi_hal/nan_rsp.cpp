@@ -350,7 +350,7 @@ void NanCommand::NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
     char tlvInfo[NAN_ERROR_STR_LEN];
     tlvInfo[0] = '\0';
 
-    if (isNanResponse() || (is_ndp_rsp == true)){
+    if ((is_ndp_rsp == true) || isNanResponse()) {
         pRsp = (NanResponseMsg*)pResponse;
         for (i = 0; i < (int)(sizeof(errorCodeTranslation)/ sizeof(errorCode)); i++) {
             if (errorCodeTranslation[i].firmwareError == firmwareErrorRecvd) {

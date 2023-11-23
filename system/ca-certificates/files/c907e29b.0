@@ -36,7 +36,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             0a:7e:a6:df:4b:44:9e:da:6a:24:85:9e:e6:b8:15:d3:16:7f:bb:b1
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=LU, O=LuxTrust S.A., CN=LuxTrust Global Root 2
         Validity
             Not Before: Mar  5 13:21:57 2015 GMT
@@ -44,7 +44,7 @@ Certificate:
         Subject: C=LU, O=LuxTrust S.A., CN=LuxTrust Global Root 2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:d7:85:97:bf:11:98:e9:f0:62:83:4c:3c:87:f9:
                     53:6a:37:0b:f2:0f:3c:87:ce:6f:dc:26:29:bd:c5:

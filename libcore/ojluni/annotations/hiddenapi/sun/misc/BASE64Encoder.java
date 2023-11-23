@@ -28,7 +28,7 @@ package sun.misc;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class BASE64Encoder extends sun.misc.CharacterEncoder {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public BASE64Encoder() {
         throw new RuntimeException("Stub!");
     }
@@ -46,7 +46,7 @@ public class BASE64Encoder extends sun.misc.CharacterEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private static final char[] pem_array;
+    @android.compat.annotation.UnsupportedAppUsage private static final char[] pem_array;
 
     static {
         pem_array = new char[0];

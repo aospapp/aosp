@@ -15,24 +15,29 @@
  */
 package com.android.tradefed.device;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
 import com.android.ddmlib.IDevice;
 import com.android.tradefed.device.IManagedTestDevice.DeviceEventResponse;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Unit tests for {@link ManagedDeviceList}.
- */
-public class ManagedDeviceListTest extends TestCase {
+/** Unit tests for {@link ManagedDeviceList}. */
+@RunWith(JUnit4.class)
+public class ManagedDeviceListTest {
 
     private ManagedDeviceList mManagedDeviceList;
 
-    @Override
+    @Before
     public void setUp() {
         mManagedDeviceList = new ManagedDeviceList(new IManagedTestDeviceFactory() {
 
@@ -51,9 +56,10 @@ public class ManagedDeviceListTest extends TestCase {
     }
 
     /**
-     * Basic test for {@link ManagedDeviceList#find(String)} and
-     * {@link ManagedDeviceList#findOrCreate(IDevice)}
+     * Basic test for {@link ManagedDeviceList#find(String)} and {@link
+     * ManagedDeviceList#findOrCreate(IDevice)}
      */
+    @Test
     public void testFindOrCreate() {
         // verify find returns null when list is empty
         assertNull(mManagedDeviceList.find("foo"));
@@ -71,13 +77,13 @@ public class ManagedDeviceListTest extends TestCase {
      * Test that {@link ManagedDeviceList#findOrCreate(IDevice)} ignores devices with invalid
      * serials
      */
+    @Test
     public void testFindOrCreate_invalidSerial() {
         assertNull(mManagedDeviceList.findOrCreate(new StubDevice("????")));
     }
 
-    /**
-     * Basic test for {@link ManagedDeviceList#allocate(IDeviceSelection)}
-     */
+    /** Basic test for {@link ManagedDeviceList#allocate(IDeviceSelection)} */
+    @Test
     public void testAllocate() {
         // verify allocate fails when no devices are in list
         assertNull(mManagedDeviceList.allocate(DeviceManager.ANY_DEVICE_OPTIONS));
@@ -95,6 +101,7 @@ public class ManagedDeviceListTest extends TestCase {
     /**
      * Basic test for {@link ManagedDeviceList#handleDeviceEvent(IManagedTestDevice, DeviceEvent)}
      */
+    @Test
     public void testHandleDeviceEvent() {
         // verify new device can be created
         IManagedTestDevice d = mManagedDeviceList.findOrCreate(new StubDevice("foo"));
@@ -110,9 +117,10 @@ public class ManagedDeviceListTest extends TestCase {
     }
 
     /**
-     * Test for {@link ManagedDeviceList#updateFastbootStates(Set)} when device switch to fastboot
-     * state.
+     * Test for {@link ManagedDeviceList#updateFastbootStates(Set, boolean)} when device switch to
+     * fastboot state.
      */
+    @Test
     public void testUpdateFastbootState() {
         IManagedTestDevice mockDevice = EasyMock.createMock(IManagedTestDevice.class);
         EasyMock.expect(mockDevice.getSerialNumber()).andReturn("serial1");
@@ -123,16 +131,17 @@ public class ManagedDeviceListTest extends TestCase {
         EasyMock.replay(mockDevice);
         Set<String> serialFastbootSet = new HashSet<>();
         serialFastbootSet.add("serial1");
-        mManagedDeviceList.updateFastbootStates(serialFastbootSet);
+        mManagedDeviceList.updateFastbootStates(serialFastbootSet, false);
         EasyMock.verify(mockDevice);
         // Device is still showing in the list of device
         assertEquals(1, mManagedDeviceList.size());
     }
 
     /**
-     * Test for {@link ManagedDeviceList#updateFastbootStates(Set)} when device was in fastboot and
-     * appears to be gone now.
+     * Test for {@link ManagedDeviceList#updateFastbootStates(Set, boolean)} when device was in
+     * fastboot and appears to be gone now.
      */
+    @Test
     public void testUpdateFastbootState_gone() {
         IManagedTestDevice mockDevice = EasyMock.createMock(IManagedTestDevice.class);
         EasyMock.expect(mockDevice.getSerialNumber()).andStubReturn("serial1");
@@ -145,7 +154,7 @@ public class ManagedDeviceListTest extends TestCase {
         assertEquals(1, mManagedDeviceList.size());
         EasyMock.replay(mockDevice);
         Set<String> serialFastbootSet = new HashSet<>();
-        mManagedDeviceList.updateFastbootStates(serialFastbootSet);
+        mManagedDeviceList.updateFastbootStates(serialFastbootSet, false);
         EasyMock.verify(mockDevice);
         // Device has been removed from list
         assertEquals(0, mManagedDeviceList.size());

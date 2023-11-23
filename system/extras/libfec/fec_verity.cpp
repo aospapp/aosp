@@ -16,7 +16,14 @@
 
 #include <ctype.h>
 #include <stdlib.h>
+
+#include <algorithm>
+#include <string>
+#include <vector>
+
 #include <android-base/strings.h>
+#include <openssl/evp.h>
+
 #include "fec_private.h"
 
 /* converts a hex nibble into an int */
@@ -88,10 +95,9 @@ static int parse_uint64(const char *src, uint64_t maxval, uint64_t *dst)
    number of hash tree levels in `verity_levels,' and the number of hashes per
    level in `level_hashes', if the parameters are non-NULL */
 uint64_t verity_get_size(uint64_t file_size, uint32_t *verity_levels,
-        uint32_t *level_hashes)
-{
-    /* we assume a known metadata size, 4 KiB block size, and SHA-256 to avoid
-       relying on disk content */
+                         uint32_t *level_hashes, uint32_t padded_digest_size) {
+    // we assume a known metadata size, 4 KiB block size, and SHA-256 or SHA1 to
+    // avoid relying on disk content.
 
     uint32_t level = 0;
     uint64_t total = 0;
@@ -102,7 +108,7 @@ uint64_t verity_get_size(uint64_t file_size, uint32_t *verity_levels,
             level_hashes[level] = hashes;
         }
 
-        hashes = fec_div_round_up(hashes * SHA256_DIGEST_LENGTH, FEC_BLOCKSIZE);
+        hashes = fec_div_round_up(hashes * padded_digest_size, FEC_BLOCKSIZE);
         total += hashes;
 
         ++level;
@@ -115,56 +121,72 @@ uint64_t verity_get_size(uint64_t file_size, uint32_t *verity_levels,
     return total * FEC_BLOCKSIZE;
 }
 
-/* computes a SHA-256 salted with `f->verity.salt' from a FEC_BLOCKSIZE byte
-   buffer `block', and copies the hash to `hash' */
-static inline int verity_hash(fec_handle *f, const uint8_t *block,
-        uint8_t *hash)
-{
-    SHA256_CTX ctx;
-    SHA256_Init(&ctx);
+int hashtree_info::get_hash(const uint8_t *block, uint8_t *hash) {
+    auto md = EVP_get_digestbynid(nid_);
+    check(md)
+    auto mdctx = EVP_MD_CTX_new();
+    check(mdctx)
 
-    check(f);
-    check(f->verity.salt);
-    SHA256_Update(&ctx, f->verity.salt, f->verity.salt_size);
+    EVP_DigestInit_ex(mdctx, md, nullptr);
+    EVP_DigestUpdate(mdctx, salt.data(), salt.size());
+    EVP_DigestUpdate(mdctx, block, FEC_BLOCKSIZE);
+    unsigned int hash_size;
+    EVP_DigestFinal_ex(mdctx, hash, &hash_size);
+    EVP_MD_CTX_free(mdctx);
 
-    check(block);
-    SHA256_Update(&ctx, block, FEC_BLOCKSIZE);
-
-    check(hash);
-    SHA256_Final(hash, &ctx);
+    check(hash_size == digest_length_)
     return 0;
 }
 
-/* computes a verity hash for FEC_BLOCKSIZE bytes from buffer `block' and
-   compares it to the expected value in `expected' */
-bool verity_check_block(fec_handle *f, const uint8_t *expected,
-        const uint8_t *block)
-{
-    check(f);
+int hashtree_info::initialize(uint64_t hash_start, uint64_t data_blocks,
+                              const std::vector<uint8_t> &salt, int nid) {
+    check(nid == NID_sha256 || nid == NID_sha1);
+
+    this->hash_start = hash_start;
+    this->data_blocks = data_blocks;
+    this->salt = salt;
+    this->nid_ = nid;
+
+    digest_length_ = nid == NID_sha1 ? SHA_DIGEST_LENGTH : SHA256_DIGEST_LENGTH;
+    // The padded digest size for both sha256 and sha1 are 256 bytes.
+    padded_digest_length_ = SHA256_DIGEST_LENGTH;
+
+    return 0;
+}
+
+bool hashtree_info::check_block_hash(const uint8_t *expected,
+                                     const uint8_t *block) {
     check(block);
+    std::vector<uint8_t> hash(digest_length_, 0);
 
-    uint8_t hash[SHA256_DIGEST_LENGTH];
-
-    if (unlikely(verity_hash(f, block, hash) == -1)) {
+    if (unlikely(get_hash(block, hash.data()) == -1)) {
         error("failed to hash");
         return false;
     }
 
     check(expected);
-    return !memcmp(expected, hash, SHA256_DIGEST_LENGTH);
+    return !memcmp(expected, hash.data(), digest_length_);
 }
 
-/* reads a verity hash and the corresponding data block using error correction,
-   if available */
-static bool ecc_read_hashes(fec_handle *f, uint64_t hash_offset,
-        uint8_t *hash, uint64_t data_offset, uint8_t *data)
-{
+bool hashtree_info::check_block_hash_with_index(uint64_t index,
+                                                const uint8_t *block) {
+    check(index < data_blocks)
+
+    const uint8_t *expected = &hash_data[index * padded_digest_length_];
+    return check_block_hash(expected, block);
+}
+
+// Reads the hash and the corresponding data block using error correction, if
+// available.
+bool hashtree_info::ecc_read_hashes(fec_handle *f, uint64_t hash_offset,
+                                    uint8_t *hash, uint64_t data_offset,
+                                    uint8_t *data) {
     check(f);
 
-    if (hash && fec_pread(f, hash, SHA256_DIGEST_LENGTH, hash_offset) !=
-                    SHA256_DIGEST_LENGTH) {
+    if (hash &&
+        fec_pread(f, hash, digest_length_, hash_offset) != digest_length_) {
         error("failed to read hash tree: offset %" PRIu64 ": %s", hash_offset,
-            strerror(errno));
+              strerror(errno));
         return false;
     }
 
@@ -172,49 +194,42 @@ static bool ecc_read_hashes(fec_handle *f, uint64_t hash_offset,
 
     if (fec_pread(f, data, FEC_BLOCKSIZE, data_offset) != FEC_BLOCKSIZE) {
         error("failed to read hash tree: data_offset %" PRIu64 ": %s",
-            data_offset, strerror(errno));
+              data_offset, strerror(errno));
         return false;
     }
 
     return true;
 }
 
-/* reads the verity hash tree, validates it against the root hash in `root',
-   corrects errors if necessary, and copies valid data blocks for later use
-   to `f->verity.hash' */
-static int verify_tree(fec_handle *f, const uint8_t *root)
-{
-    uint8_t data[FEC_BLOCKSIZE];
-    uint8_t hash[SHA256_DIGEST_LENGTH];
-
+int hashtree_info::verify_tree(const fec_handle *f, const uint8_t *root) {
     check(f);
     check(root);
 
-    verity_info *v = &f->verity;
+    uint8_t data[FEC_BLOCKSIZE];
+
     uint32_t levels = 0;
 
     /* calculate the size and the number of levels in the hash tree */
-    v->hash_size =
-        verity_get_size(v->data_blocks * FEC_BLOCKSIZE, &levels, NULL);
+    uint64_t hash_size = verity_get_size(data_blocks * FEC_BLOCKSIZE, &levels,
+                                         NULL, padded_digest_length_);
 
-    check(v->hash_start < UINT64_MAX - v->hash_size);
-    check(v->hash_start + v->hash_size <= f->data_size);
+    check(hash_start < UINT64_MAX - hash_size);
+    check(hash_start + hash_size <= f->data_size);
 
-    uint64_t hash_offset = v->hash_start;
+    uint64_t hash_offset = hash_start;
     uint64_t data_offset = hash_offset + FEC_BLOCKSIZE;
 
-    v->hash_data_offset = data_offset;
-
     /* validate the root hash */
-    if (!raw_pread(f, data, FEC_BLOCKSIZE, hash_offset) ||
-            !verity_check_block(f, root, data)) {
+    if (!raw_pread(f->fd, data, FEC_BLOCKSIZE, hash_offset) ||
+        !check_block_hash(root, data)) {
         /* try to correct */
-        if (!ecc_read_hashes(f, 0, NULL, hash_offset, data) ||
-                !verity_check_block(f, root, data)) {
+        if (!ecc_read_hashes(const_cast<fec_handle *>(f), 0, nullptr,
+                             hash_offset, data) ||
+            !check_block_hash(root, data)) {
             error("root hash invalid");
             return -1;
         } else if (f->mode & O_RDWR &&
-                    !raw_pwrite(f, data, FEC_BLOCKSIZE, hash_offset)) {
+                   !raw_pwrite(f->fd, data, FEC_BLOCKSIZE, hash_offset)) {
             error("failed to rewrite the root block: %s", strerror(errno));
             return -1;
         }
@@ -225,84 +240,82 @@ static int verify_tree(fec_handle *f, const uint8_t *root)
     /* calculate the number of hashes on each level */
     uint32_t hashes[levels];
 
-    verity_get_size(v->data_blocks * FEC_BLOCKSIZE, NULL, hashes);
+    verity_get_size(data_blocks * FEC_BLOCKSIZE, NULL, hashes,
+                    padded_digest_length_);
 
+    uint64_t hash_data_offset = data_offset;
+    uint32_t hash_data_blocks = 0;
     /* calculate the size and offset for the data hashes */
     for (uint32_t i = 1; i < levels; ++i) {
         uint32_t blocks = hashes[levels - i];
         debug("%u hash blocks on level %u", blocks, levels - i);
 
-        v->hash_data_offset = data_offset;
-        v->hash_data_blocks = blocks;
+        hash_data_offset = data_offset;
+        hash_data_blocks = blocks;
 
         data_offset += blocks * FEC_BLOCKSIZE;
     }
 
-    check(v->hash_data_blocks);
-    check(v->hash_data_blocks <= v->hash_size / FEC_BLOCKSIZE);
+    check(hash_data_blocks);
+    check(hash_data_blocks <= hash_size / FEC_BLOCKSIZE);
 
-    check(v->hash_data_offset);
-    check(v->hash_data_offset <=
-        UINT64_MAX - (v->hash_data_blocks * FEC_BLOCKSIZE));
-    check(v->hash_data_offset < f->data_size);
-    check(v->hash_data_offset + v->hash_data_blocks * FEC_BLOCKSIZE <=
-        f->data_size);
+    check(hash_data_offset);
+    check(hash_data_offset <= UINT64_MAX - (hash_data_blocks * FEC_BLOCKSIZE));
+    check(hash_data_offset < f->data_size);
+    check(hash_data_offset + hash_data_blocks * FEC_BLOCKSIZE <= f->data_size);
 
     /* copy data hashes to memory in case they are corrupted, so we don't
        have to correct them every time they are needed */
-    std::unique_ptr<uint8_t[]> data_hashes(
-       new (std::nothrow) uint8_t[f->verity.hash_data_blocks * FEC_BLOCKSIZE]);
-
-    if (!data_hashes) {
-        errno = ENOMEM;
-        return -1;
-    }
+    std::vector<uint8_t> data_hashes(hash_data_blocks * FEC_BLOCKSIZE, 0);
 
     /* validate the rest of the hash tree */
     data_offset = hash_offset + FEC_BLOCKSIZE;
 
+    std::vector<uint8_t> buffer(padded_digest_length_, 0);
     for (uint32_t i = 1; i < levels; ++i) {
         uint32_t blocks = hashes[levels - i];
 
         for (uint32_t j = 0; j < blocks; ++j) {
             /* ecc reads are very I/O intensive, so read raw hash tree and do
                error correcting only if it doesn't validate */
-            if (!raw_pread(f, hash, SHA256_DIGEST_LENGTH,
-                    hash_offset + j * SHA256_DIGEST_LENGTH) ||
-                !raw_pread(f, data, FEC_BLOCKSIZE,
-                    data_offset + j * FEC_BLOCKSIZE)) {
+            if (!raw_pread(f->fd, buffer.data(), padded_digest_length_,
+                           hash_offset + j * padded_digest_length_) ||
+                !raw_pread(f->fd, data, FEC_BLOCKSIZE,
+                           data_offset + j * FEC_BLOCKSIZE)) {
                 error("failed to read hashes: %s", strerror(errno));
                 return -1;
             }
 
-            if (!verity_check_block(f, hash, data)) {
+            if (!check_block_hash(buffer.data(), data)) {
                 /* try to correct */
-                if (!ecc_read_hashes(f,
-                        hash_offset + j * SHA256_DIGEST_LENGTH, hash,
-                        data_offset + j * FEC_BLOCKSIZE, data) ||
-                    !verity_check_block(f, hash, data)) {
-                    error("invalid hash tree: hash_offset %" PRIu64 ", "
-                        "data_offset %" PRIu64 ", block %u",
-                        hash_offset, data_offset, j);
+                if (!ecc_read_hashes(const_cast<fec_handle *>(f),
+                                     hash_offset + j * padded_digest_length_,
+                                     buffer.data(),
+                                     data_offset + j * FEC_BLOCKSIZE, data) ||
+                    !check_block_hash(buffer.data(), data)) {
+                    error("invalid hash tree: hash_offset %" PRIu64
+                          ", "
+                          "data_offset %" PRIu64 ", block %u",
+                          hash_offset, data_offset, j);
                     return -1;
                 }
 
                 /* update the corrected blocks to the file if we are in r/w
                    mode */
                 if (f->mode & O_RDWR) {
-                    if (!raw_pwrite(f, hash, SHA256_DIGEST_LENGTH,
-                            hash_offset + j * SHA256_DIGEST_LENGTH) ||
-                        !raw_pwrite(f, data, FEC_BLOCKSIZE,
-                            data_offset + j * FEC_BLOCKSIZE)) {
+                    if (!raw_pwrite(f->fd, buffer.data(), padded_digest_length_,
+                                    hash_offset + j * padded_digest_length_) ||
+                        !raw_pwrite(f->fd, data, FEC_BLOCKSIZE,
+                                    data_offset + j * FEC_BLOCKSIZE)) {
                         error("failed to write hashes: %s", strerror(errno));
                         return -1;
                     }
                 }
             }
 
-            if (blocks == v->hash_data_blocks) {
-                memcpy(data_hashes.get() + j * FEC_BLOCKSIZE, data,
-                    FEC_BLOCKSIZE);
+            if (blocks == hash_data_blocks) {
+                std::copy(data, data + FEC_BLOCKSIZE,
+                          data_hashes.begin() + j * FEC_BLOCKSIZE);
             }
         }
 
@@ -312,12 +325,14 @@ static int verify_tree(fec_handle *f, const uint8_t *root)
 
     debug("valid");
 
-    if (v->hash) {
-        delete[] v->hash;
-        v->hash = NULL;
-    }
+    this->hash_data = std::move(data_hashes);
 
-    v->hash = data_hashes.release();
+    std::vector<uint8_t> zero_block(FEC_BLOCKSIZE, 0);
+    zero_hash.resize(padded_digest_length_, 0);
+    if (get_hash(zero_block.data(), zero_hash.data()) == -1) {
+        error("failed to hash");
+        return -1;
+    }
     return 0;
 }
 
@@ -332,32 +347,28 @@ static int parse_table(fec_handle *f, uint64_t offset, uint32_t size, bool useec
 
     debug("offset = %" PRIu64 ", size = %u", offset, size);
 
-    verity_info *v = &f->verity;
-    std::unique_ptr<char[]> table(new (std::nothrow) char[size + 1]);
-
-    if (!table) {
-        errno = ENOMEM;
-        return -1;
-    }
+    std::string table(size, 0);
 
     if (!useecc) {
-        if (!raw_pread(f, table.get(), size, offset)) {
+        if (!raw_pread(f->fd, const_cast<char *>(table.data()), size, offset)) {
             error("failed to read verity table: %s", strerror(errno));
             return -1;
         }
-    } else if (fec_pread(f, table.get(), size, offset) != (ssize_t)size) {
+    } else if (fec_pread(f, const_cast<char *>(table.data()), size, offset) !=
+               (ssize_t)size) {
         error("failed to ecc read verity table: %s", strerror(errno));
         return -1;
     }
 
-    table[size] = '\0';
-    debug("verity table: '%s'", table.get());
+    debug("verity table: '%s'", table.c_str());
 
     int i = 0;
-    std::unique_ptr<uint8_t[]> salt;
+    std::vector<uint8_t> salt;
     uint8_t root[SHA256_DIGEST_LENGTH];
+    uint64_t hash_start = 0;
+    uint64_t data_blocks = 0;
 
-    auto tokens = android::base::Split(table.get(), " ");
+    auto tokens = android::base::Split(table, " ");
 
     for (const auto& token : tokens) {
         switch (i++) {
@@ -377,7 +388,7 @@ static int parse_table(fec_handle *f, uint64_t offset, uint32_t size, bool useec
             break;
         case 5: /* num_data_blocks */
             if (parse_uint64(token.c_str(), f->data_size / FEC_BLOCKSIZE,
-                    &v->data_blocks) == -1) {
+                             &data_blocks) == -1) {
                 error("invalid number of verity data blocks: %s",
                     token.c_str());
                 return -1;
@@ -385,12 +396,12 @@ static int parse_table(fec_handle *f, uint64_t offset, uint32_t size, bool useec
             break;
         case 6: /* hash_start_block */
             if (parse_uint64(token.c_str(), f->data_size / FEC_BLOCKSIZE,
-                    &v->hash_start) == -1) {
+                             &hash_start) == -1) {
                 error("invalid verity hash start block: %s", token.c_str());
                 return -1;
             }
 
-            v->hash_start *= FEC_BLOCKSIZE;
+            hash_start *= FEC_BLOCKSIZE;
             break;
         case 7: /* algorithm */
             if (token != "sha256") {
@@ -405,22 +416,19 @@ static int parse_table(fec_handle *f, uint64_t offset, uint32_t size, bool useec
             }
             break;
         case 9: /* salt */
-            v->salt_size = token.size();
-            check(v->salt_size % 2 == 0);
-            v->salt_size /= 2;
+        {
+            uint32_t salt_size = token.size();
+            check(salt_size % 2 == 0);
+            salt_size /= 2;
 
-            salt.reset(new (std::nothrow) uint8_t[v->salt_size]);
+            salt.resize(salt_size, 0);
 
-            if (!salt) {
-                errno = ENOMEM;
-                return -1;
-            }
-
-            if (parse_hex(salt.get(), v->salt_size, token.c_str()) == -1) {
+            if (parse_hex(salt.data(), salt_size, token.c_str()) == -1) {
                 error("invalid verity salt: %s", token.c_str());
                 return -1;
             }
             break;
+        }
         default:
             break;
         }
@@ -432,42 +440,25 @@ static int parse_table(fec_handle *f, uint64_t offset, uint32_t size, bool useec
         return -1;
     }
 
-    check(v->hash_start < f->data_size);
+    check(hash_start < f->data_size);
 
-    if (v->metadata_start < v->hash_start) {
-        check(v->data_blocks == v->metadata_start / FEC_BLOCKSIZE);
+    verity_info *v = &f->verity;
+    if (v->metadata_start < hash_start) {
+        check(data_blocks == v->metadata_start / FEC_BLOCKSIZE);
     } else {
-        check(v->data_blocks == v->hash_start / FEC_BLOCKSIZE);
+        check(data_blocks == hash_start / FEC_BLOCKSIZE);
     }
 
-    if (v->salt) {
-        delete[] v->salt;
-        v->salt = NULL;
-    }
+    v->table = std::move(table);
 
-    v->salt = salt.release();
-
-    if (v->table) {
-        delete[] v->table;
-        v->table = NULL;
-    }
-
-    v->table = table.release();
-
+    v->hashtree.initialize(hash_start, data_blocks, salt, NID_sha256);
     if (!(f->flags & FEC_VERITY_DISABLE)) {
-        if (verify_tree(f, root) == -1) {
+        if (v->hashtree.verify_tree(f, root) == -1) {
             return -1;
         }
 
-        check(v->hash);
-
-        uint8_t zero_block[FEC_BLOCKSIZE];
-        memset(zero_block, 0, FEC_BLOCKSIZE);
-
-        if (verity_hash(f, zero_block, v->zero_hash) == -1) {
-            error("failed to hash");
-            return -1;
-        }
+        check(!v->hashtree.hash_data.empty());
+        check(!v->hashtree.zero_hash.empty());
     }
 
     return 0;
@@ -493,13 +484,13 @@ static int rewrite_metadata(fec_handle *f, uint64_t offset)
     verity_info *v = &f->verity;
     memcpy(metadata.get(), &v->header, sizeof(v->header));
 
-    check(v->table);
-    size_t len = strlen(v->table);
+    check(!v->table.empty());
+    size_t len = v->table.size();
 
     check(sizeof(v->header) + len <= VERITY_METADATA_SIZE);
-    memcpy(metadata.get() + sizeof(v->header), v->table, len);
+    memcpy(metadata.get() + sizeof(v->header), v->table.data(), len);
 
-    return raw_pwrite(f, metadata.get(), VERITY_METADATA_SIZE, offset);
+    return raw_pwrite(f->fd, metadata.get(), VERITY_METADATA_SIZE, offset);
 }
 
 static int validate_header(const fec_handle *f, const verity_header *header,
@@ -557,7 +548,7 @@ int verity_parse_header(fec_handle *f, uint64_t offset)
     verity_info *v = &f->verity;
     uint64_t errors = f->errors;
 
-    if (!raw_pread(f, &v->header, sizeof(v->header), offset)) {
+    if (!raw_pread(f->fd, &v->header, sizeof(v->header), offset)) {
         error("failed to read verity header: %s", strerror(errno));
         return -1;
     }
@@ -624,10 +615,10 @@ int verity_parse_header(fec_handle *f, uint64_t offset)
         warn("failed to rewrite verity metadata: %s", strerror(errno));
     }
 
-    if (v->metadata_start < v->hash_start) {
+    if (v->metadata_start < v->hashtree.hash_start) {
         f->data_size = v->metadata_start;
     } else {
-        f->data_size = v->hash_start;
+        f->data_size = v->hashtree.hash_start;
     }
 
     return 0;
@@ -657,9 +648,9 @@ int fec_verity_set_status(struct fec_handle *f, bool enabled)
 
     uint32_t magic = enabled ? VERITY_MAGIC : VERITY_MAGIC_DISABLE;
 
-    if (!raw_pwrite(f, &magic, sizeof(magic), v->metadata_start)) {
+    if (!raw_pwrite(f->fd, &magic, sizeof(magic), v->metadata_start)) {
         error("failed to update verity magic to %08x: %s", magic,
-            strerror(errno));
+              strerror(errno));
         return -1;
     }
 

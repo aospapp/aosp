@@ -16,16 +16,22 @@
 
 package com.android.compatibility.common.util;
 
+import static org.junit.Assume.assumeTrue;
+
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
+import org.junit.AssumptionViolatedException;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
 /**
  * Custom JUnit4 rule that does not run a test case if the device does not have a given feature.
+ *
+ * <p>The tests are skipped by throwing a {@link AssumptionViolatedException}.  CTS test runners
+ * will report this as a {@code ASSUMPTION_FAILED}.
  */
 public class RequiredFeatureRule implements TestRule {
     private static final String TAG = "RequiredFeatureRule";
@@ -48,11 +54,18 @@ public class RequiredFeatureRule implements TestRule {
                     Log.d(TAG, "skipping "
                             + description.getClassName() + "#" + description.getMethodName()
                             + " because device does not have feature '" + mFeature + "'");
+                    assumeTrue("Device does not have feature '" + mFeature + "'",
+                            mHasFeature);
                     return;
                 }
                 base.evaluate();
             }
         };
+    }
+
+    @Override
+    public String toString() {
+        return "RequiredFeatureRule[" + mFeature + "]";
     }
 
     public static boolean hasFeature(String feature) {

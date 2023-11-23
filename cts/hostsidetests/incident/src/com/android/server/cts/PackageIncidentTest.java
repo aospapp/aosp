@@ -23,9 +23,9 @@ import java.util.regex.Pattern;
 
 /** Test for "dumpsys package --proto" */
 public class PackageIncidentTest extends ProtoDumpTestCase {
-    // Use the test apk from the NetstatsIncidentTest
-    private static final String DEVICE_SIDE_TEST_APK = "CtsNetStatsApp.apk";
-    private static final String DEVICE_SIDE_TEST_PACKAGE = "com.android.server.cts.netstats";
+    // Use the test apk from the BatteryStatsIncidentTest
+    private static final String DEVICE_SIDE_TEST_APK = "CtsBatteryStatsApp.apk";
+    private static final String DEVICE_SIDE_TEST_PACKAGE = "com.android.server.cts.device.batterystats";
 
     @Override
     protected void tearDown() throws Exception {

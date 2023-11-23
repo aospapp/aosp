@@ -26,13 +26,13 @@ namespace chre {
  * locks that follow the scope of the guard. The concept is the same as
  * std::lock_guard.
  */
-template<typename MutexType>
+template <typename MutexType>
 class LockGuard : public NonCopyable {
  public:
   /**
    * Constructs a LockGuard and acquires the lock.
    */
-  LockGuard(MutexType& mutex);
+  LockGuard(MutexType &mutex);
 
   /**
    * Deconstructs a LockGuard and releases the lock.
@@ -41,7 +41,7 @@ class LockGuard : public NonCopyable {
 
  private:
   //! The mutex to lock and unlock on destruction.
-  MutexType& mMutex;
+  MutexType &mMutex;
 };
 
 }  // namespace chre

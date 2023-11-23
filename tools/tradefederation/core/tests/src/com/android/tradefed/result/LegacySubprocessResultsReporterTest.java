@@ -18,6 +18,7 @@ package com.android.tradefed.result;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.util.SubprocessTestResultsParser;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
@@ -73,7 +74,8 @@ public class LegacySubprocessResultsReporterTest {
             // mirror calls between receiver and sender.
             mMockListener.testIgnored(testDescrip);
             mMockListener.testAssumptionFailure(testDescrip, "fake trace");
-            mMockListener.testRunFailed("no reason");
+            mMockListener.testRunFailed(
+                    FailureDescription.create("no reason", FailureStatus.UNSET));
             mMockListener.invocationFailed((Throwable) EasyMock.anyObject());
             EasyMock.replay(mMockListener);
             mReporter.testIgnored(testId);
@@ -105,7 +107,8 @@ public class LegacySubprocessResultsReporterTest {
             Map<String, String> map = new HashMap<>();
             map.put("key1", "value1");
             map.put("key2", "value2");
-            mMockListener.testRunStarted("test run", 2);
+            mMockListener.testRunStarted(
+                    EasyMock.eq("test run"), EasyMock.eq(2), EasyMock.eq(0), EasyMock.anyLong());
             mMockListener.testRunEnded(50, TfMetricProtoUtil.upgradeConvert(map));
             EasyMock.replay(mMockListener);
             mReporter.testRunStarted("test run", 2);

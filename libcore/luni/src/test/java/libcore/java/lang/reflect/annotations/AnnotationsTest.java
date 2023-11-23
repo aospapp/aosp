@@ -15,7 +15,6 @@
  */
 package libcore.java.lang.reflect.annotations;
 
-import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
@@ -23,18 +22,11 @@ import libcore.java.lang.reflect.annotations.AnnotatedElementTestSupport.Annotat
 import libcore.java.lang.reflect.annotations.AnnotatedElementTestSupport.AnnotationB;
 
 import libcore.junit.junit3.TestCaseWithRules;
-import libcore.junit.util.SwitchTargetSdkVersionRule;
-import libcore.junit.util.SwitchTargetSdkVersionRule.TargetSdkVersion;
-import org.junit.Rule;
-import org.junit.rules.TestRule;
 
 /**
  * Tests for the behavior of Annotation instances at runtime.
  */
 public class AnnotationsTest extends TestCaseWithRules {
-
-    @Rule
-    public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
 
     enum Breakfast { WAFFLES, PANCAKES }
 
@@ -79,40 +71,5 @@ public class AnnotationsTest extends TestCaseWithRules {
 
     private static Object defaultValue(String name) throws NoSuchMethodException {
         return HasDefaultsAnnotation.class.getMethod(name).getDefaultValue();
-    }
-
-    @Retention(RetentionPolicy.CLASS)
-    public @interface ClassRetentionAnnotation {}
-
-    @Retention(RetentionPolicy.RUNTIME)
-    public @interface RuntimeRetentionAnnotation {}
-
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface SourceRetentionAnnotation {}
-
-    @ClassRetentionAnnotation @RuntimeRetentionAnnotation @SourceRetentionAnnotation
-    public static class RetentionAnnotations {}
-
-    // b/29500035
-    @TargetSdkVersion(23)
-    public void testRetentionPolicy_targetSdkVersion_23() {
-        // Test pre-N behavior
-        Annotation classRetentionAnnotation =
-                RetentionAnnotations.class.getAnnotation(ClassRetentionAnnotation.class);
-        assertNotNull(classRetentionAnnotation);
-    }
-
-    // b/29500035
-    @TargetSdkVersion(24)
-    public void testRetentionPolicy_targetSdkVersion_24() {
-        // Test N and later behavior
-        Annotation classRetentionAnnotation =
-            RetentionAnnotations.class.getAnnotation(ClassRetentionAnnotation.class);
-        assertNull(classRetentionAnnotation);
-    }
-
-    public void testRetentionPolicy() {
-        assertNotNull(RetentionAnnotations.class.getAnnotation(RuntimeRetentionAnnotation.class));
-        assertNull(RetentionAnnotations.class.getAnnotation(SourceRetentionAnnotation.class));
     }
 }

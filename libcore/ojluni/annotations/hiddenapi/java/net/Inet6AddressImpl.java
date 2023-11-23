@@ -81,7 +81,7 @@ class Inet6AddressImpl implements java.net.InetAddressImpl {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static final java.net.AddressCache addressCache;
 
     static {

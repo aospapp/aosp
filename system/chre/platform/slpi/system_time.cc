@@ -29,7 +29,7 @@ namespace {
 
 int64_t gEstimatedHostTimeOffset = 0;
 
-} // anonymous namespace
+}  // anonymous namespace
 
 namespace chre {
 

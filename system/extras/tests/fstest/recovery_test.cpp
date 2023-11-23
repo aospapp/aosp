@@ -217,9 +217,8 @@ class FsRecoveryTest : public ::testing::Test {
       UMOUNT_BIN,
       cache_str,
     };
-    return android_fork_execvp_ext(ARRAY_SIZE(umount_argv), umount_argv,
-                                   NULL, true, LOG_KLOG, false, NULL,
-                                   NULL, 0) >= 0;
+    return logwrap_fork_execvp(ARRAY_SIZE(umount_argv), umount_argv, nullptr,
+                               false, LOG_KLOG, false, nullptr) >= 0;
   }
 
   bool mountAll() {
@@ -230,9 +229,8 @@ class FsRecoveryTest : public ::testing::Test {
       storage_str,
       mountall_str,
     };
-    return android_fork_execvp_ext(ARRAY_SIZE(mountall_argv), mountall_argv,
-                                   NULL, true, LOG_KLOG, false, NULL,
-                                   NULL, 0) >= 0;
+    return logwrap_fork_execvp(ARRAY_SIZE(mountall_argv), mountall_argv, nullptr,
+                               false, LOG_KLOG, false, nullptr) >= 0;
   }
 
   int getCacheBlkFd() {

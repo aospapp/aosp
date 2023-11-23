@@ -57,6 +57,16 @@ import java.lang.annotation.Target;
  * </p>
  *
  * <p>
+ * Note that even in FastNative methods you <b>are</b> allowed to
+ * allocate objects and make upcalls into Java code. A call from Java to
+ * a FastNative function and back to Java is equivalent to a call from one Java
+ * method to another. What's forbidden in a FastNative method is blocking
+ * the calling thread in some non-Java code and thereby preventing the thread
+ * from responding to requests from the garbage collector to enter the suspended
+ * state.
+ * </p>
+ *
+ * <p>
  * Has no effect when used with non-native methods.
  * </p>
  *

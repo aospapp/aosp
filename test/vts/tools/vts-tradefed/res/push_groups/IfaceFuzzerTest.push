@@ -24,6 +24,7 @@ DATA/asan/system/lib64/libvts_codecoverage.so->/data/local/tmp/64/libvts_codecov
 
 DATA/lib/libclang_rt.asan-arm-android.so->/data/local/tmp/32/libclang_rt.asan-arm-android.so
 DATA/lib64/libclang_rt.asan-aarch64-android.so->/data/local/tmp/64/libclang_rt.asan-aarch64-android.so
+DATA/lib64/libclang_rt.asan-x86_64-android.so->/data/local/tmp/64/libclang_rt.asan-x86_64-android.so
 
 DATA/asan/system/lib/libvts_proto_fuzzer.so->/data/local/tmp/32/libvts_proto_fuzzer.so
 DATA/asan/system/lib64/libvts_proto_fuzzer.so->/data/local/tmp/64/libvts_proto_fuzzer.so

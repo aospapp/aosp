@@ -26,7 +26,7 @@
 
 package java.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class EnumMap<K extends java.lang.Enum<K>, V> extends java.util.AbstractMap<K, V>

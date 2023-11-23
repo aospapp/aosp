@@ -3,6 +3,7 @@
 cc_library {
     name: "libsparse",
     host_supported: true,
+    ramdisk_available: true,
     recovery_available: true,
     unique_host_soname: true,
     srcs: [
@@ -81,4 +82,16 @@ python_binary_host {
             enabled: false,
         },
     },
+}
+
+cc_fuzz {
+    name: "sparse_fuzzer",
+    host_supported: false,
+    srcs: [
+        "sparse_fuzzer.cpp",
+    ],
+    static_libs: [
+        "libsparse",
+        "liblog",
+    ],
 }

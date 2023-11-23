@@ -17,22 +17,18 @@
 
 package android.permission.cts;
 
+import static android.app.WallpaperManager.FLAG_LOCK;
+import static android.app.WallpaperManager.FLAG_SYSTEM;
+
 import android.app.WallpaperManager;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.media.MediaPlayer;
-import android.net.wifi.WifiManager;
-import android.net.wifi.WifiManager.WifiLock;
-import android.os.PowerManager;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-
-import static android.app.WallpaperManager.FLAG_SYSTEM;
-import static android.app.WallpaperManager.FLAG_LOCK;
 
 /**
  * Verify that Wallpaper-related operations enforce the correct permissions.

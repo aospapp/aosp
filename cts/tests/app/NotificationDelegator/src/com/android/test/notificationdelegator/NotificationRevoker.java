@@ -32,6 +32,7 @@ public class NotificationRevoker extends Activity {
         NotificationManager nm = getSystemService(NotificationManager.class);
         nm.setNotificationDelegate(null);
         Log.d(TAG, "Removed delegate: " + nm.getNotificationDelegate());
+        nm.cancelAll();
         finish();
     }
 }

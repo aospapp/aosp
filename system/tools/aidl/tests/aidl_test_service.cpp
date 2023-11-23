@@ -27,7 +27,6 @@
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 #include <binder/Status.h>
-#include <binder/Value.h>
 #include <utils/Errors.h>
 #include <utils/Log.h>
 #include <utils/Looper.h>
@@ -65,9 +64,12 @@ using android::binder::Status;
 // Generated code:
 using android::aidl::tests::BnNamedCallback;
 using android::aidl::tests::BnTestService;
+using android::aidl::tests::ByteEnum;
+using android::aidl::tests::ConstantExpressionEnum;
 using android::aidl::tests::INamedCallback;
+using android::aidl::tests::IntEnum;
+using android::aidl::tests::LongEnum;
 using android::aidl::tests::SimpleParcelable;
-using android::binder::Map;
 using android::os::ParcelFileDescriptor;
 using android::os::PersistableBundle;
 
@@ -120,10 +122,6 @@ class NativeService : public BnTestService {
     ALOGI("Repeating token %s", token_str.str().c_str());
   }
 
-  void LogRepeatedMapToken(const Map& token) {
-    ALOGI("Repeating Map with %d elements", (int)token.size());
-  }
-
   Status RepeatBoolean(bool token, bool* _aidl_return) override {
     LogRepeatedToken(token ? 1 : 0);
     *_aidl_return = token;
@@ -164,8 +162,18 @@ class NativeService : public BnTestService {
     *_aidl_return = token;
     return Status::ok();
   }
-  Status RepeatMap(const Map& token, Map* _aidl_return) override {
-    LogRepeatedMapToken(token);
+  Status RepeatByteEnum(ByteEnum token, ByteEnum* _aidl_return) override {
+    ALOGI("Repeating ByteEnum token %s", toString(token).c_str());
+    *_aidl_return = token;
+    return Status::ok();
+  }
+  Status RepeatIntEnum(IntEnum token, IntEnum* _aidl_return) override {
+    ALOGI("Repeating IntEnum token %s", toString(token).c_str());
+    *_aidl_return = token;
+    return Status::ok();
+  }
+  Status RepeatLongEnum(LongEnum token, LongEnum* _aidl_return) override {
+    ALOGI("Repeating LongEnum token %s", toString(token).c_str());
     *_aidl_return = token;
     return Status::ok();
   }
@@ -249,6 +257,18 @@ class NativeService : public BnTestService {
                        vector<String16>* _aidl_return) override {
     return ReverseArray(input, repeated, _aidl_return);
   }
+  Status ReverseByteEnum(const vector<ByteEnum>& input, vector<ByteEnum>* repeated,
+                         vector<ByteEnum>* _aidl_return) override {
+    return ReverseArray(input, repeated, _aidl_return);
+  }
+  Status ReverseIntEnum(const vector<IntEnum>& input, vector<IntEnum>* repeated,
+                        vector<IntEnum>* _aidl_return) override {
+    return ReverseArray(input, repeated, _aidl_return);
+  }
+  Status ReverseLongEnum(const vector<LongEnum>& input, vector<LongEnum>* repeated,
+                         vector<LongEnum>* _aidl_return) override {
+    return ReverseArray(input, repeated, _aidl_return);
+  }
   Status ReverseSimpleParcelables(
       const vector<SimpleParcelable>& input,
       vector<SimpleParcelable>* repeated,
@@ -297,7 +317,7 @@ class NativeService : public BnTestService {
     return ReverseArray(input, repeated, _aidl_return);
   }
 
-  Status RepeatFileDescriptor(const unique_fd& read,
+  Status RepeatFileDescriptor(unique_fd read,
                               unique_fd* _aidl_return) override {
     ALOGE("Repeating file descriptor");
     *_aidl_return = unique_fd(dup(read.get()));
@@ -343,6 +363,21 @@ class NativeService : public BnTestService {
 
   Status RepeatNullableIntArray(const unique_ptr<vector<int32_t>>& input,
                                 unique_ptr<vector<int32_t>>* _aidl_return) {
+    return RepeatNullable(input, _aidl_return);
+  }
+
+  Status RepeatNullableByteEnumArray(const unique_ptr<vector<ByteEnum>>& input,
+                                     unique_ptr<vector<ByteEnum>>* _aidl_return) {
+    return RepeatNullable(input, _aidl_return);
+  }
+
+  Status RepeatNullableIntEnumArray(const unique_ptr<vector<IntEnum>>& input,
+                                    unique_ptr<vector<IntEnum>>* _aidl_return) {
+    return RepeatNullable(input, _aidl_return);
+  }
+
+  Status RepeatNullableLongEnumArray(const unique_ptr<vector<LongEnum>>& input,
+                                     unique_ptr<vector<LongEnum>>* _aidl_return) {
     return RepeatNullable(input, _aidl_return);
   }
 
@@ -464,6 +499,24 @@ class NativeService : public BnTestService {
       ::android::aidl::tests::StructuredParcelable* parcelable) {
     parcelable->shouldBeJerry = "Jerry";
     parcelable->shouldContainThreeFs = {parcelable->f, parcelable->f, parcelable->f};
+    parcelable->shouldBeByteBar = ByteEnum::BAR;
+    parcelable->shouldBeIntBar = IntEnum::BAR;
+    parcelable->shouldBeLongBar = LongEnum::BAR;
+    parcelable->shouldContainTwoByteFoos = {ByteEnum::FOO, ByteEnum::FOO};
+    parcelable->shouldContainTwoIntFoos = {IntEnum::FOO, IntEnum::FOO};
+    parcelable->shouldContainTwoLongFoos = {LongEnum::FOO, LongEnum::FOO};
+
+    parcelable->const_exprs_1 = ConstantExpressionEnum::decInt32_1;
+    parcelable->const_exprs_2 = ConstantExpressionEnum::decInt32_2;
+    parcelable->const_exprs_3 = ConstantExpressionEnum::decInt64_1;
+    parcelable->const_exprs_4 = ConstantExpressionEnum::decInt64_2;
+    parcelable->const_exprs_5 = ConstantExpressionEnum::decInt64_3;
+    parcelable->const_exprs_6 = ConstantExpressionEnum::decInt64_4;
+    parcelable->const_exprs_7 = ConstantExpressionEnum::hexInt32_1;
+    parcelable->const_exprs_8 = ConstantExpressionEnum::hexInt32_2;
+    parcelable->const_exprs_9 = ConstantExpressionEnum::hexInt32_3;
+    parcelable->const_exprs_10 = ConstantExpressionEnum::hexInt64_1;
+
     return Status::ok();
   }
 
@@ -473,7 +526,7 @@ class NativeService : public BnTestService {
 
   android::status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
                                uint32_t flags) override {
-    if (code == ::android::IBinder::FIRST_CALL_TRANSACTION + 45 /* UnimplementedMethod */) {
+    if (code == ::android::IBinder::FIRST_CALL_TRANSACTION + 53 /* UnimplementedMethod */) {
       // pretend that UnimplementedMethod isn't implemented by this service.
       return android::UNKNOWN_TRANSACTION;
     } else {

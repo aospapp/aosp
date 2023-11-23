@@ -26,47 +26,32 @@ cc_defaults {
     compile_multilib: "both",
 
     shared_libs: [
-      "libz",
-      "liblog",
+        "libz",
+        "liblog",
     ],
     header_libs: [
         "libopenjdkjvmti_headers",
-        // Annoyingly you aren't allowed to include even header-only non-ndk libs into an ndk build.
-        // Instead we put the directories this would bring in below in 'include_dirs'
-        // "libnativehelper_header_only",
-    ],
-    include_dirs: [
-        // NDK headers aren't available in platform NDK builds.
-        "libnativehelper/include_jni",
-        "libnativehelper/header_only_include",
+        "libnativehelper_header_only",
+        "jni_headers",
     ],
     sdk_version: "current",
     stl: "libc++_static",
     target: {
-      android: {
-        static_libs: [
-          "slicer_ndk_no_rtti",
-          "libbase_ndk",
-        ],
-      },
-      host: {
-        static_libs: [
-          "slicer_no_rtti",
-        ],
-        shared_libs: [
-          "libbase",
-        ],
-      },
-    },
-    multilib: {
-        lib32: {
-            suffix: "32",
+        android: {
+            static_libs: [
+                "slicer_ndk_no_rtti",
+                "libbase_ndk",
+            ],
         },
-        lib64: {
-            suffix: "64",
+        host: {
+            static_libs: [
+                "slicer_no_rtti",
+            ],
+            shared_libs: [
+                "libbase",
+            ],
         },
     },
-    symlink_preferred_arch: true,
 }
 
 art_cc_library {

@@ -112,6 +112,7 @@ interface DeviceAllocationEventHandler {
         public DeviceAllocationState handleDeviceEvent(DeviceEvent event) {
             switch (event) {
                 case ALLOCATE_REQUEST:
+                case EXPLICIT_ALLOCATE_REQUEST:
                 case FORCE_ALLOCATE_REQUEST:
                     return DeviceAllocationState.Allocated;
                 case STATE_CHANGE_OFFLINE:
@@ -194,6 +195,8 @@ interface DeviceAllocationEventHandler {
             switch (event) {
                 case DISCONNECTED:
                     return DeviceAllocationState.Unknown;
+                case EXPLICIT_ALLOCATE_REQUEST:
+                    return DeviceAllocationState.Allocated;
                 default:
                     return DeviceAllocationState.Ignored;
             }

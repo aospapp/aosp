@@ -15,16 +15,20 @@
  */
 package com.android.tradefed.testtype.suite;
 
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.config.OptionCopier;
+import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -57,6 +61,7 @@ public class ModuleSplitter {
      * Create a List of executable unit {@link ModuleDefinition}s based on the map of configuration
      * that was loaded.
      *
+     * @param testInfo the current {@link TestInformation} to proceed with sharding.
      * @param runConfig {@link LinkedHashMap} loaded from {@link ITestSuite#loadTests()}.
      * @param shardCount a shard count hint to help with sharding.
      * @param dynamicModule Whether or not module can be shared in pool or must be independent
@@ -65,6 +70,7 @@ public class ModuleSplitter {
      * @return List of {@link ModuleDefinition}
      */
     public static List<ModuleDefinition> splitConfiguration(
+            TestInformation testInfo,
             LinkedHashMap<String, IConfiguration> runConfig,
             int shardCount,
             boolean dynamicModule,
@@ -79,52 +85,64 @@ public class ModuleSplitter {
             // Check that it's a valid configuration for suites, throw otherwise.
             ValidateSuiteConfigHelper.validateConfig(configMap.getValue());
 
-            createAndAddModule(
-                    runModules,
-                    configMap.getKey(),
-                    configMap.getValue(),
-                    shardCount,
-                    dynamicModule,
-                    intraModuleSharding);
+            try {
+                createAndAddModule(
+                        testInfo,
+                        runModules,
+                        configMap.getKey(),
+                        configMap.getValue(),
+                        shardCount,
+                        dynamicModule,
+                        intraModuleSharding);
+            } catch (RuntimeException e) {
+                CLog.e("Exception while creating module for '%s'", configMap.getKey());
+                throw e;
+            }
         }
         return runModules;
     }
 
     private static void createAndAddModule(
+            TestInformation testInfo,
             List<ModuleDefinition> currentList,
             String moduleName,
             IConfiguration config,
             int shardCount,
             boolean dynamicModule,
             boolean intraModuleSharding) {
+        List<IRemoteTest> tests = config.getTests();
+        // Get rid of the IRemoteTest reference on the shared configuration. It will not be used
+        // to run.
+        config.setTests(new ArrayList<>());
         // If this particular configuration module is declared as 'not shardable' we take it whole
         // but still split the individual IRemoteTest in a pool.
         if (!intraModuleSharding
                 || config.getConfigurationDescription().isNotShardable()
                 || (!dynamicModule
                         && config.getConfigurationDescription().isNotStrictShardable())) {
-            for (int i = 0; i < config.getTests().size(); i++) {
+            for (int i = 0; i < tests.size(); i++) {
                 if (dynamicModule) {
                     ModuleDefinition module =
                             new ModuleDefinition(
                                     moduleName,
-                                    config.getTests(),
+                                    tests,
                                     clonePreparersMap(config),
                                     clonePreparers(config.getMultiTargetPreparers()),
                                     config);
                     currentList.add(module);
                 } else {
-                    addModuleToListFromSingleTest(
-                            currentList, config.getTests().get(i), moduleName, config);
+                    addModuleToListFromSingleTest(currentList, tests.get(i), moduleName, config);
                 }
             }
+            clearPreparersFromConfig(config);
             return;
         }
 
         // If configuration is possibly shardable we attempt to shard it.
-        for (IRemoteTest test : config.getTests()) {
+        for (IRemoteTest test : tests) {
             if (test instanceof IShardableTest) {
-                Collection<IRemoteTest> shardedTests = ((IShardableTest) test).split(shardCount);
+                Collection<IRemoteTest> shardedTests =
+                        ((IShardableTest) test).split(shardCount, testInfo);
                 if (shardedTests != null) {
                     // Test did shard we put the shard pool in ModuleDefinition which has a polling
                     // behavior on the pool.
@@ -152,6 +170,7 @@ public class ModuleSplitter {
             // test is not shardable or did not shard
             addModuleToListFromSingleTest(currentList, test, moduleName, config);
         }
+        clearPreparersFromConfig(config);
     }
 
     /**
@@ -186,14 +205,18 @@ public class ModuleSplitter {
         for (T prep : preparerList) {
             try {
                 @SuppressWarnings("unchecked")
-                T clone = (T) prep.getClass().newInstance();
+                T clone = (T) prep.getClass().getDeclaredConstructor().newInstance();
                 OptionCopier.copyOptions(prep, clone);
                 // Ensure we copy the Abi too.
                 if (clone instanceof IAbiReceiver) {
                     ((IAbiReceiver) clone).setAbi(((IAbiReceiver) prep).getAbi());
                 }
                 clones.add(clone);
-            } catch (InstantiationException | IllegalAccessException | ConfigurationException e) {
+            } catch (InstantiationException
+                    | IllegalAccessException
+                    | ConfigurationException
+                    | InvocationTargetException
+                    | NoSuchMethodException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -209,5 +232,16 @@ public class ModuleSplitter {
             preparers.addAll(clonePreparers(holder.getTargetPreparers()));
         }
         return res;
+    }
+
+    private static void clearPreparersFromConfig(IConfiguration config) {
+        try {
+            for (IDeviceConfiguration holder : config.getDeviceConfig()) {
+                holder.removeObjectType(Configuration.TARGET_PREPARER_TYPE_NAME);
+            }
+            config.setMultiTargetPreparers(new ArrayList<>());
+        } catch (ConfigurationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

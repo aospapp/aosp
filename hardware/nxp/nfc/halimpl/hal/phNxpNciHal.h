@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014 NXP Semiconductors
+ * Copyright (C) 2010-2019 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 #ifndef _PHNXPNCIHAL_H_
 #define _PHNXPNCIHAL_H_
 
+#include "NxpMfcReader.h"
+#include "NxpNfcCapability.h"
 #include <hardware/nfc.h>
 #include <phNxpNciHal_utils.h>
-#include "NxpNfcCapability.h"
 
 /********************* Definitions and structures *****************************/
 #define MAX_RETRY_COUNT 5
@@ -50,6 +51,7 @@ typedef void(phNxpNciHal_control_granted_callback_t)();
 #define NCI_OID_MASK 0x3F
 
 #define NXP_MAX_CONFIG_STRING_LEN 260
+#define NCI_HEADER_SIZE 3
 
 typedef struct nci_data {
   uint16_t len;

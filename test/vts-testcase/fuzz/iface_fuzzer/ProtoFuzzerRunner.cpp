@@ -37,28 +37,30 @@ namespace android {
 namespace vts {
 namespace fuzzer {
 
+static string GetVersionString(const CompSpec &comp_spec) {
+  stringstream version_major, version_minor;
+  version_major << comp_spec.component_type_version_major();
+  version_minor << comp_spec.component_type_version_minor();
+  return version_major.str() + "." + version_minor.str();
+}
+
 static string GetDriverName(const CompSpec &comp_spec) {
-  stringstream version;
-  version.precision(1);
-  version << fixed << comp_spec.component_type_version();
+  string version_string = GetVersionString(comp_spec);
   string driver_name =
-      comp_spec.package() + "@" + version.str() + "-vts.driver.so";
+      comp_spec.package() + "@" + version_string + "-vts.driver.so";
   return driver_name;
 }
 
 static string GetServiceName(const CompSpec &comp_spec) {
   string hal_name = comp_spec.package();
-  string hal_version = GetVersionString(comp_spec.component_type_version());
   string iface_name = comp_spec.component_name();
 
-  size_t major_version =
-      std::stoul(hal_version.substr(0, hal_version.find(".")));
-  size_t minor_version =
-      std::stoul(hal_version.substr(hal_version.find(".") + 1));
-
   auto instance_names =
-      ::android::vintf::VintfObject::GetDeviceHalManifest()->getInstances(
-          hal_name, Version(major_version, minor_version), iface_name);
+      ::android::vintf::VintfObject::GetDeviceHalManifest()->getHidlInstances(
+          hal_name,
+          Version(comp_spec.component_type_version_major(),
+                  comp_spec.component_type_version_minor()),
+          iface_name);
   if (instance_names.empty()) {
     cerr << "HAL service name not available in VINTF." << endl;
     std::abort();
@@ -146,9 +148,11 @@ DriverBase *ProtoFuzzerRunner::LoadInterface(const CompSpec &comp_spec,
   return hal;
 }
 
-ProtoFuzzerRunner::ProtoFuzzerRunner(const vector<CompSpec> &comp_specs) {
+ProtoFuzzerRunner::ProtoFuzzerRunner(const vector<CompSpec> &comp_specs,
+                                     const string version_iface) {
   for (const auto &comp_spec : comp_specs) {
-    if (comp_spec.has_interface()) {
+    string target_version = GetVersionString(comp_spec);
+    if (comp_spec.has_interface() && target_version == version_iface) {
       string name = comp_spec.component_name();
       comp_specs_[name] = comp_spec;
     }
@@ -178,7 +182,6 @@ void ProtoFuzzerRunner::Init(const string &iface_name, bool binder_mode) {
 
 void ProtoFuzzerRunner::Execute(const ExecSpec &exec_spec) {
   for (const auto &func_call : exec_spec.function_call()) {
-    cout << func_call.DebugString() << endl;
     Execute(func_call);
   }
 }

@@ -28,6 +28,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -45,7 +46,7 @@ import java.util.HashMap;
 
 /** Functional tests for {@link InstrumentationTest}. */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class InstrumentationTestFuncTest implements IDeviceTest {
+public class InstrumentationTestFuncTest implements IDeviceTest, ITestInformationReceiver {
 
     private static final String LOG_TAG = "InstrumentationTestFuncTest";
     private static final long SHELL_TIMEOUT = 2500;
@@ -53,11 +54,22 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
     private static final long WAIT_FOR_DEVICE_AVAILABLE = 5 * 60 * 1000;
 
     private ITestDevice mDevice;
+    private TestInformation mTestInfo;
 
     /** The {@link InstrumentationTest} under test */
     private InstrumentationTest mInstrumentationTest;
 
     private ITestInvocationListener mMockListener;
+
+    @Override
+    public void setTestInformation(TestInformation testInformation) {
+        mTestInfo = testInformation;
+    }
+
+    @Override
+    public TestInformation getTestInformation() {
+        return mTestInfo;
+    }
 
     @Override
     public void setDevice(ITestDevice device) {
@@ -96,11 +108,11 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
         mMockListener.testRunStarted(TestAppConstants.TESTAPP_PACKAGE, 1);
         mMockListener.testStarted(EasyMock.eq(expectedTest));
         mMockListener.testEnded(
-                EasyMock.eq(expectedTest), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.eq(expectedTest), EasyMock.<HashMap<String, Metric>>anyObject());
         mMockListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mMockListener);
-        mInstrumentationTest.run(mMockListener);
+        mInstrumentationTest.run(getTestInformation(), mMockListener);
         EasyMock.verify(mMockListener);
     }
 
@@ -115,6 +127,7 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
         String[] error = new String[1];
         error[0] = null;
         mInstrumentationTest.run(
+                getTestInformation(),
                 new ITestInvocationListener() {
                     @Override
                     public void testFailed(TestDescription test, String trace) {
@@ -143,22 +156,22 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
             mMockListener.testFailed(
                     EasyMock.eq(expectedTest), EasyMock.contains("RuntimeException"));
             mMockListener.testEnded(
-                    EasyMock.eq(expectedTest), (HashMap<String, Metric>) EasyMock.anyObject());
+                    EasyMock.eq(expectedTest), EasyMock.<HashMap<String, Metric>>anyObject());
             mMockListener.testRunFailed(
                     EasyMock.eq("Instrumentation run failed due to 'java.lang.RuntimeException'"));
         } else {
             mMockListener.testFailed(
                     EasyMock.eq(expectedTest), EasyMock.contains("Process crashed."));
             mMockListener.testEnded(
-                    EasyMock.eq(expectedTest), (HashMap<String, Metric>) EasyMock.anyObject());
+                    EasyMock.eq(expectedTest), EasyMock.<HashMap<String, Metric>>anyObject());
             mMockListener.testRunFailed(
                     EasyMock.eq("Instrumentation run failed due to 'Process crashed.'"));
         }
         mMockListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         try {
             EasyMock.replay(mMockListener);
-            mInstrumentationTest.run(mMockListener);
+            mInstrumentationTest.run(getTestInformation(), mMockListener);
             EasyMock.verify(mMockListener);
         } finally {
             getDevice().waitForDeviceAvailable();
@@ -180,6 +193,7 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
             String[] error = new String[1];
             error[0] = null;
             mInstrumentationTest.run(
+                    getTestInformation(),
                     new ITestInvocationListener() {
                         @Override
                         public void testFailed(TestDescription test, String trace) {
@@ -232,6 +246,7 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
             String[] error = new String[1];
             error[0] = null;
             mInstrumentationTest.run(
+                    getTestInformation(),
                     new ITestInvocationListener() {
                         @Override
                         public void testRunFailed(String errorMessage) {
@@ -260,6 +275,7 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
         final String[] called = new String[1];
         called[0] = null;
         mInstrumentationTest.run(
+                getTestInformation(),
                 new ITestInvocationListener() {
                     @Override
                     public void testRunFailed(String errorMessage) {
@@ -313,6 +329,7 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
             String[] error = new String[1];
             error[0] = null;
             mInstrumentationTest.run(
+                    getTestInformation(),
                     new ITestInvocationListener() {
                         @Override
                         public void testRunFailed(String errorMessage) {
@@ -349,7 +366,7 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
             mInstrumentationTest.setShellTimeout(SHELL_TIMEOUT);
             mInstrumentationTest.setTestTimeout(TEST_TIMEOUT);
             CollectingTestListener listener = new CollectingTestListener();
-            mInstrumentationTest.run(listener);
+            mInstrumentationTest.run(getTestInformation(), listener);
             assertEquals(TestAppConstants.TOTAL_TEST_CLASS_TESTS, listener.getNumTotalTests());
             assertEquals(
                     TestAppConstants.TOTAL_TEST_CLASS_PASSED_TESTS,
@@ -373,7 +390,7 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
         mInstrumentationTest.setShellTimeout(SHELL_TIMEOUT);
         mInstrumentationTest.setTestTimeout(TEST_TIMEOUT);
         CollectingTestListener listener = new CollectingTestListener();
-        mInstrumentationTest.run(listener);
+        mInstrumentationTest.run(getTestInformation(), listener);
         assertEquals(0, listener.getNumTotalTests());
         assertNotNull(listener.getCurrentRunResults());
         assertEquals(TestAppConstants.TESTAPP_PACKAGE, listener.getCurrentRunResults().getName());
@@ -399,7 +416,7 @@ public class InstrumentationTestFuncTest implements IDeviceTest {
             mInstrumentationTest.setShellTimeout(SHELL_TIMEOUT);
             mInstrumentationTest.setTestTimeout(TEST_TIMEOUT);
             CollectingTestListener listener = new CollectingTestListener();
-            mInstrumentationTest.run(listener);
+            mInstrumentationTest.run(getTestInformation(), listener);
             assertEquals(0, listener.getNumTotalTests());
             assertEquals(
                     TestAppConstants.TESTAPP_PACKAGE, listener.getCurrentRunResults().getName());

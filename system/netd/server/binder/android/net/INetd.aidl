@@ -18,6 +18,10 @@ package android.net;
 
 import android.net.INetdUnsolicitedEventListener;
 import android.net.InterfaceConfigurationParcel;
+import android.net.MarkMaskParcel;
+import android.net.RouteInfoParcel;
+import android.net.TetherConfigParcel;
+import android.net.TetherOffloadRuleParcel;
 import android.net.TetherStatsParcel;
 import android.net.UidRangeParcel;
 
@@ -188,7 +192,7 @@ interface INetd {
      * Return tethering statistics.
      *
      * @return an array of TetherStatsParcel, where each entry contains the upstream interface
-     *         name and its tethering statistics.
+     *         name and its tethering statistics since netd startup.
      *         There will only ever be one entry for a given interface.
      * @throws ServiceSpecificException in case of failure, with an error code indicating the
      *         cause of the failure.
@@ -1194,4 +1198,115 @@ interface INetd {
     * @return a IBinder object, it could be casted to oem specific interface.
     */
     IBinder getOemNetd();
+
+   /**
+    * Start tethering with given configuration
+    *
+    * @param config config to start tethering.
+    * @throws ServiceSpecificException in case of failure, with an error code indicating the
+    *         cause of the failure.
+    */
+    void tetherStartWithConfiguration(in TetherConfigParcel config);
+
+
+    /**
+     * Get the fwmark and its net id mask for the given network id.
+     *
+     * @param netId the network to get the fwmark and mask for.
+     * @return A MarkMaskParcel of the given network id.
+     */
+    MarkMaskParcel getFwmarkForNetwork(int netId);
+
+    /**
+    * Add a route for specific network
+    *
+    * @param netId the network to add the route to
+    * @param routeInfo parcelable with route information
+    * @throws ServiceSpecificException in case of failure, with an error code indicating the
+    *         cause of the failure.
+    */
+    void networkAddRouteParcel(int netId, in android.net.RouteInfoParcel routeInfo);
+
+    /**
+    * Update a route for specific network
+    *
+    * @param routeInfo parcelable with route information
+    * @throws ServiceSpecificException in case of failure, with an error code indicating the
+    *         cause of the failure.
+    */
+    void networkUpdateRouteParcel(int netId, in android.net.RouteInfoParcel routeInfo);
+
+    /**
+    * Remove a route for specific network
+    *
+    * @param routeInfo parcelable with route information
+    * @throws ServiceSpecificException in case of failure, with an error code indicating the
+    *         cause of the failure.
+    */
+    void networkRemoveRouteParcel(int netId, in android.net.RouteInfoParcel routeInfo);
+
+    /**
+     * Adds a tethering offload rule, or updates it if it already exists.
+     *
+     * Currently, only downstream /128 IPv6 entries are supported. An existing rule will be updated
+     * if the input interface and destination prefix match. Otherwise, a new rule will be created.
+     *
+     * @param rule The rule to add or update.
+     * @throws ServiceSpecificException in case of failure, with an error code indicating the
+     *                                  cause of the failure.
+     */
+    void tetherOffloadRuleAdd(in TetherOffloadRuleParcel rule);
+
+    /**
+     * Deletes a tethering offload rule.
+     *
+     * Currently, only downstream /128 IPv6 entries are supported. An existing rule will be deleted
+     * if the destination IP address and the source interface match. It is not an error if there is
+     * no matching rule to delete.
+     *
+     * @param rule The rule to delete.
+     * @throws ServiceSpecificException in case of failure, with an error code indicating the
+     *                                  cause of the failure.
+     */
+    void tetherOffloadRuleRemove(in TetherOffloadRuleParcel rule);
+
+    /**
+     * Return BPF tethering offload statistics.
+     *
+     * @return an array of TetherStatsParcel's, where each entry contains the upstream interface
+     *         index and its tethering statistics since tethering was first started.
+     *         There will only ever be one entry for a given interface index.
+     * @throws ServiceSpecificException in case of failure, with an error code indicating the
+     *         cause of the failure.
+     */
+    TetherStatsParcel[] tetherOffloadGetStats();
+
+   /**
+    * Set a per-interface quota for tethering offload.
+    *
+    * @param ifIndex Index of upstream interface
+    * @param quotaBytes The quota defined as the number of bytes, starting from zero and counting
+     *       from *now*. A value of QUOTA_UNLIMITED (-1) indicates there is no limit.
+    * @throws ServiceSpecificException in case of failure, with an error code indicating the
+    *         cause of the failure.
+    */
+    void tetherOffloadSetInterfaceQuota(int ifIndex, long quotaBytes);
+
+    /**
+     * Return BPF tethering offload statistics and clear the stats for a given upstream.
+     *
+     * Must only be called once all offload rules have already been deleted for the given upstream
+     * interface. The existing stats will be fetched and returned. The stats and the limit for the
+     * given upstream interface will be deleted as well.
+     *
+     * The stats and limit for a given upstream interface must be initialized (using
+     * tetherOffloadSetInterfaceQuota) before any offload will occur on that interface.
+     *
+     * @param ifIndex Index of upstream interface.
+     * @return TetherStatsParcel, which contains the given upstream interface index and its
+     *         tethering statistics since tethering was first started on that upstream interface.
+     * @throws ServiceSpecificException in case of failure, with an error code indicating the
+     *                                  cause of the failure.
+     */
+     TetherStatsParcel tetherOffloadGetAndClearStats(int ifIndex);
 }

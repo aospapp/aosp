@@ -26,7 +26,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include <android-base/file.h>
 #include <android-base/parseint.h>
+#include <android-base/strings.h>
 #include <gtest/gtest.h>
 
 #include "Options.h"
@@ -43,10 +45,9 @@ constexpr uint64_t kDefaultSlowThresholdMs = 2000;
 const std::unordered_map<std::string, Options::ArgInfo> Options::kArgs = {
     {"deadline_threshold_ms", {FLAG_REQUIRES_VALUE, &Options::SetNumeric}},
     {"slow_threshold_ms", {FLAG_REQUIRES_VALUE, &Options::SetNumeric}},
-    {"gtest_format", {FLAG_NONE, &Options::SetBool}},
-    {"no_gtest_format", {FLAG_NONE, &Options::SetBool}},
     {"gtest_list_tests", {FLAG_NONE, &Options::SetBool}},
     {"gtest_filter", {FLAG_ENVIRONMENT_VARIABLE | FLAG_REQUIRES_VALUE, &Options::SetString}},
+    {"gtest_flagfile", {FLAG_REQUIRES_VALUE, &Options::SetString}},
     {
         "gtest_repeat",
         {FLAG_ENVIRONMENT_VARIABLE | FLAG_REQUIRES_VALUE, &Options::SetIterations},
@@ -71,6 +72,8 @@ const std::unordered_map<std::string, Options::ArgInfo> Options::kArgs = {
      {FLAG_ENVIRONMENT_VARIABLE | FLAG_REQUIRES_VALUE, &Options::SetNumericEnvOnly}},
     {"gtest_total_shards",
      {FLAG_ENVIRONMENT_VARIABLE | FLAG_REQUIRES_VALUE, &Options::SetNumericEnvOnly}},
+    // This does nothing, only added so that passing this option does not exit.
+    {"gtest_format", {FLAG_NONE, &Options::SetBool}},
 };
 
 static void PrintError(const std::string& arg, std::string msg, bool from_env) {
@@ -211,7 +214,84 @@ bool Options::HandleArg(const std::string& arg, const std::string& value, const 
   return true;
 }
 
-bool Options::Process(const std::vector<const char*>& args, std::vector<const char*>* child_args) {
+bool Options::ProcessFlagfile(const std::string& file, std::vector<char*>* child_args) {
+  std::string contents;
+  if (!android::base::ReadFileToString(file, &contents)) {
+    printf("Unable to read data from file %s\n", file.c_str());
+    return false;
+  }
+
+  size_t idx = 0;
+  while (idx < contents.size()) {
+    size_t newline_idx = contents.find('\n', idx);
+    if (newline_idx == std::string::npos) {
+      newline_idx = contents.size();
+    }
+    std::string line(&contents[idx], newline_idx - idx);
+    idx = newline_idx + 1;
+    line = android::base::Trim(line);
+    if (line.empty()) {
+      // Skip lines with only whitespace.
+      continue;
+    }
+    if (!ProcessSingle(line.c_str(), child_args, false)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Options::ProcessSingle(const char* arg, std::vector<char*>* child_args, bool allow_flagfile) {
+  if (strncmp("--", arg, 2) != 0) {
+    if (arg[0] == '-') {
+      printf("Unknown argument: %s\n", arg);
+      return false;
+    } else {
+      printf("Unexpected argument '%s'\n", arg);
+      return false;
+    }
+  }
+
+  // See if this is a name=value argument.
+  std::string name;
+  std::string value;
+  const char* equal = strchr(arg, '=');
+  if (equal != nullptr) {
+    name = std::string(&arg[2], static_cast<size_t>(equal - arg) - 2);
+    value = equal + 1;
+  } else {
+    name = &arg[2];
+  }
+  auto entry = kArgs.find(name);
+  if (entry == kArgs.end()) {
+    printf("Unknown argument: %s\n", arg);
+    return false;
+  }
+
+  if (entry->second.flags & FLAG_CHILD) {
+    child_args->push_back(strdup(arg));
+  }
+
+  if (!HandleArg(name, value, entry->second)) {
+    return false;
+  }
+
+  // Special case, if gtest_flagfile is set, then we need to read the
+  // file and treat each line as a flag.
+  if (name == "gtest_flagfile") {
+    if (!allow_flagfile) {
+      printf("Argument: %s is not allowed in flag file.\n", arg);
+      return false;
+    }
+    if (!ProcessFlagfile(value, child_args)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool Options::Process(const std::vector<const char*>& args, std::vector<char*>* child_args) {
   // Initialize the variables.
   job_count_ = static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN));
   num_iterations_ = ::testing::GTEST_FLAG(repeat);
@@ -224,14 +304,14 @@ bool Options::Process(const std::vector<const char*>& args, std::vector<const ch
   strings_["gtest_color"] = ::testing::GTEST_FLAG(color);
   strings_["xml_file"] = ::testing::GTEST_FLAG(output);
   strings_["gtest_filter"] = "";
+  strings_["gtest_flagfile"] = "";
   bools_.clear();
   bools_["gtest_print_time"] = ::testing::GTEST_FLAG(print_time);
-  bools_["gtest_format"] = true;
-  bools_["no_gtest_format"] = false;
   bools_["gtest_also_run_disabled_tests"] = ::testing::GTEST_FLAG(also_run_disabled_tests);
   bools_["gtest_list_tests"] = false;
 
-  child_args->clear();
+  // This does nothing, only added so that passing this option does not exit.
+  bools_["gtest_format"] = true;
 
   // Loop through all of the possible environment variables.
   for (const auto& entry : kArgs) {
@@ -250,11 +330,12 @@ bool Options::Process(const std::vector<const char*>& args, std::vector<const ch
     }
   }
 
-  child_args->push_back(args[0]);
+  child_args->push_back(strdup(args[0]));
 
   // Assumes the first value is not an argument, so skip it.
   for (size_t i = 1; i < args.size(); i++) {
-    // Special handle of -j or -jXX.
+    // Special handle of -j or -jXX. This flag is not allowed to be present
+    // in a --gtest_flagfile.
     if (strncmp(args[i], "-j", 2) == 0) {
       const char* value = &args[i][2];
       if (*value == '\0') {
@@ -269,43 +350,13 @@ bool Options::Process(const std::vector<const char*>& args, std::vector<const ch
       if (!GetNumeric<size_t>("-j", value, &job_count_, false)) {
         return false;
       }
-    } else if (strncmp("--", args[i], 2) == 0) {
-      // See if this is a name=value argument.
-      std::string name;
-      std::string value;
-      const char* equal = strchr(args[i], '=');
-      if (equal != nullptr) {
-        name = std::string(&args[i][2], static_cast<size_t>(equal - args[i]) - 2);
-        value = equal + 1;
-      } else {
-        name = args[i] + 2;
-      }
-      auto entry = kArgs.find(name);
-      if (entry == kArgs.end()) {
-        printf("Unknown argument: %s\n", args[i]);
-        return false;
-      }
-
-      if (entry->second.flags & FLAG_CHILD) {
-        child_args->push_back(args[i]);
-      }
-
-      if (!HandleArg(name, value, entry->second)) {
-        return false;
-      }
-    } else if (args[i][0] == '-') {
-      printf("Unknown argument: %s\n", args[i]);
-      return false;
     } else {
-      printf("Unexpected argument '%s'\n", args[i]);
-      return false;
+      if (!ProcessSingle(args[i], child_args, true)) {
+        return false;
+      }
     }
   }
 
-  // If no_gtest_format was specified, it overrides gtest_format.
-  if (bools_.at("no_gtest_format")) {
-    bools_["gtest_format"] = false;
-  }
   return true;
 }
 

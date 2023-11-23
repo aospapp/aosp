@@ -15,11 +15,13 @@
  */
 package android.signature.cts;
 
+import android.signature.cts.JDiffClassDescription.JDiffField;
+import android.signature.cts.ReflectionHelper.DefaultTypeComparator;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Type;
+import java.util.Formatter;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -61,6 +63,9 @@ public class ApiComplianceChecker extends AbstractApiChecker {
     /** Indicates that the method is a synthetic method. */
     private static final int METHOD_MODIFIER_SYNTHETIC = 0x00001000;
 
+    /** Indicates that a field is an enum value. */
+    public static final int FIELD_MODIFIER_ENUM_VALUE = 0x00004000;
+
     private final InterfaceChecker interfaceChecker;
 
     public ApiComplianceChecker(ResultObserver resultObserver, ClassProvider classProvider) {
@@ -99,14 +104,16 @@ public class ApiComplianceChecker extends AbstractApiChecker {
             // check father class
             if (!checkClassExtendsCompliance(classDescription, runtimeClass)) {
                 resultObserver.notifyFailure(FailureType.mismatch(classDescription),
-                        classDescription.getAbsoluteClassName(), "Extends mismatch");
+                        classDescription.getAbsoluteClassName(),
+                        "Extends mismatch, expected " + classDescription.getExtendedClass());
                 return false;
             }
 
             // check implements interface
             if (!checkClassImplementsCompliance(classDescription, runtimeClass)) {
                 resultObserver.notifyFailure(FailureType.mismatch(classDescription),
-                        classDescription.getAbsoluteClassName(), "Implements mismatch");
+                        classDescription.getAbsoluteClassName(),
+                        "Implements mismatch, expected " + classDescription.getImplInterfaces());
                 return false;
             }
         }
@@ -162,7 +169,7 @@ public class ApiComplianceChecker extends AbstractApiChecker {
             return null;
         } else {
             return String.format("modifier mismatch - description (%s), class (%s)",
-                    Modifier.toString(apiModifiers), Modifier.toString(reflectionModifiers));
+                    getModifierString(apiModifiers), getModifierString(reflectionModifiers));
         }
     }
 
@@ -254,33 +261,72 @@ public class ApiComplianceChecker extends AbstractApiChecker {
 
     @Override
     protected void checkField(JDiffClassDescription classDescription, Class<?> runtimeClass,
-            JDiffClassDescription.JDiffField fieldDescription, Field field) {
-        if (field.getModifiers() != fieldDescription.mModifier) {
+            JDiffField fieldDescription, Field field) {
+        int expectedModifiers = fieldDescription.mModifier;
+        int actualModifiers = field.getModifiers();
+        if (actualModifiers != expectedModifiers) {
             resultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
                     fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
-                    "Non-compatible field modifiers found when looking for " +
-                            fieldDescription.toSignatureString());
-        } else if (!checkFieldValueCompliance(fieldDescription, field)) {
-            resultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
-                    fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
-                    "Incorrect field value found when looking for " +
-                            fieldDescription.toSignatureString());
-        } else if (!field.getType().getCanonicalName().equals(fieldDescription.mFieldType)) {
-            // type name does not match, but this might be a generic
-            String genericTypeName = null;
-            Type type = field.getGenericType();
-            if (type != null) {
-                genericTypeName = type instanceof Class ? ((Class<?>) type).getName() :
-                        type.toString().replace('$', '.');
-            }
-            if (genericTypeName == null || !genericTypeName.equals(fieldDescription.mFieldType)) {
-                resultObserver.notifyFailure(
-                        FailureType.MISMATCH_FIELD,
-                        fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
-                        "Non-compatible field type found when looking for " +
-                                fieldDescription.toSignatureString());
-            }
+                    String.format(
+                            "Incompatible field modifiers, expected %s, found %s",
+                            getModifierString(expectedModifiers),
+                            getModifierString(actualModifiers)));
         }
+
+        String expectedFieldType = fieldDescription.mFieldType;
+        String actualFieldType = ReflectionHelper.typeToString(field.getGenericType());
+        if (!DefaultTypeComparator.INSTANCE.compare(expectedFieldType, actualFieldType)) {
+            resultObserver.notifyFailure(
+                    FailureType.MISMATCH_FIELD,
+                    fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
+                    String.format("Incompatible field type found, expected %s, found %s",
+                            expectedFieldType, actualFieldType));
+        }
+
+        String message = checkFieldValueCompliance(fieldDescription, field);
+        if (message != null) {
+            resultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
+                    fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
+                    message);
+        }
+    }
+
+    private static final int BRIDGE    = 0x00000040;
+    private static final int VARARGS   = 0x00000080;
+    private static final int SYNTHETIC = 0x00001000;
+    private static final int ANNOTATION  = 0x00002000;
+    private static final int ENUM      = 0x00004000;
+    private static final int MANDATED  = 0x00008000;
+
+    private static String getModifierString(int modifiers) {
+        Formatter formatter = new Formatter();
+        String m = Modifier.toString(modifiers);
+        formatter.format("<%s", m);
+        String sep = m.isEmpty() ? "" : " ";
+        if ((modifiers & BRIDGE) != 0) {
+            formatter.format("%senum", sep);
+            sep = " ";
+        }
+        if ((modifiers & VARARGS) != 0) {
+            formatter.format("%svarargs", sep);
+            sep = " ";
+        }
+        if ((modifiers & SYNTHETIC) != 0) {
+            formatter.format("%ssynthetic", sep);
+            sep = " ";
+        }
+        if ((modifiers & ANNOTATION) != 0) {
+            formatter.format("%sannotation", sep);
+            sep = " ";
+        }
+        if ((modifiers & ENUM) != 0) {
+            formatter.format("%senum", sep);
+            sep = " ";
+        }
+        if ((modifiers & MANDATED) != 0) {
+            formatter.format("%smandated", sep);
+        }
+        return formatter.format("> (0x%x)", modifiers).toString();
     }
 
     /**
@@ -289,57 +335,69 @@ public class ApiComplianceChecker extends AbstractApiChecker {
      * @param apiField The field as defined by the platform API.
      * @param deviceField The field as defined by the device under test.
      */
-    private static boolean checkFieldValueCompliance(JDiffClassDescription.JDiffField apiField, Field deviceField) {
+    private static String checkFieldValueCompliance(JDiffField apiField, Field deviceField) {
         if ((apiField.mModifier & Modifier.FINAL) == 0 ||
                 (apiField.mModifier & Modifier.STATIC) == 0) {
             // Only final static fields can have fixed values.
-            return true;
+            return null;
         }
-        if (apiField.getValueString() == null) {
+        String apiFieldValue = apiField.getValueString();
+        if (apiFieldValue == null) {
             // If we don't define a constant value for it, then it can be anything.
-            return true;
+            return null;
         }
+
+        // Convert char into a number to match the value returned from device field. The device
+        // field does not
+        if (deviceField.getType() == char.class) {
+            apiFieldValue = convertCharToCanonicalValue(apiFieldValue.charAt(0));
+        }
+
+        String deviceFieldValue = getFieldValueAsString(deviceField);
+        if (!Objects.equals(apiFieldValue, deviceFieldValue)) {
+            return String.format("Incorrect field value, expected <%s>, found <%s>",
+                    apiFieldValue, deviceFieldValue);
+
+        }
+
+        return null;
+    }
+
+    private static String getFieldValueAsString(Field deviceField) {
         // Some fields may be protected or package-private
         deviceField.setAccessible(true);
         try {
-            switch (apiField.mFieldType) {
-                case "byte":
-                    return Objects.equals(apiField.getValueString(),
-                            Byte.toString(deviceField.getByte(null)));
-                case "char":
-                    return Objects.equals(apiField.getValueString(),
-                            Integer.toString(deviceField.getChar(null)));
-                case "short":
-                    return Objects.equals(apiField.getValueString(),
-                            Short.toString(deviceField.getShort(null)));
-                case "int":
-                    return Objects.equals(apiField.getValueString(),
-                            Integer.toString(deviceField.getInt(null)));
-                case "long":
-                    return Objects.equals(apiField.getValueString(),
-                            Long.toString(deviceField.getLong(null)) + "L");
-                case "float":
-                    return Objects.equals(apiField.getValueString(),
-                            canonicalizeFloatingPoint(
-                                    Float.toString(deviceField.getFloat(null)), "f"));
-                case "double":
-                    return Objects.equals(apiField.getValueString(),
-                            canonicalizeFloatingPoint(
-                                    Double.toString(deviceField.getDouble(null)), ""));
-                case "boolean":
-                    return Objects.equals(apiField.getValueString(),
-                            Boolean.toString(deviceField.getBoolean(null)));
-                case "java.lang.String":
-                    String value = apiField.getValueString();
-                    // Remove the quotes the value string is wrapped in
-                    value = unescapeFieldStringValue(value.substring(1, value.length() - 1));
-                    return Objects.equals(value, deviceField.get(null));
-                default:
-                    return true;
+            Class<?> fieldType = deviceField.getType();
+            if (fieldType == byte.class) {
+                return Byte.toString(deviceField.getByte(null));
+            } else if (fieldType == char.class) {
+                return convertCharToCanonicalValue(deviceField.getChar(null));
+            } else if (fieldType == short.class) {
+                return  Short.toString(deviceField.getShort(null));
+            } else if (fieldType == int.class) {
+                return  Integer.toString(deviceField.getInt(null));
+            } else if (fieldType == long.class) {
+                return Long.toString(deviceField.getLong(null));
+            } else if (fieldType == float.class) {
+                return  canonicalizeFloatingPoint(
+                                Float.toString(deviceField.getFloat(null)));
+            } else if (fieldType == double.class) {
+                return  canonicalizeFloatingPoint(
+                                Double.toString(deviceField.getDouble(null)));
+            } else if (fieldType == boolean.class) {
+                return  Boolean.toString(deviceField.getBoolean(null));
+            } else if (fieldType == java.lang.String.class) {
+                return (String) deviceField.get(null);
+            } else {
+                return null;
             }
         } catch (IllegalAccessException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static String convertCharToCanonicalValue(char c) {
+        return String.format("'%c' (0x%x)", c, (int) c);
     }
 
     /**
@@ -347,18 +405,16 @@ public class ApiComplianceChecker extends AbstractApiChecker {
      *
      * This needs to be kept in sync with the doclava canonicalization.
      */
-    private static String canonicalizeFloatingPoint(String val, String suffix) {
+    private static String canonicalizeFloatingPoint(String val) {
         switch (val) {
             case "Infinity":
-                return "(1.0" + suffix + "/0.0" + suffix + ")";
             case "-Infinity":
-                return "(-1.0" + suffix + "/0.0" + suffix + ")";
             case "NaN":
-                return "(0.0" + suffix + "/0.0" + suffix + ")";
+                return val;
         }
 
         if (val.indexOf('E') != -1) {
-            return val + suffix;
+            return val;
         }
 
         // 1.0 is the only case where a trailing "0" is allowed.
@@ -368,108 +424,7 @@ public class ApiComplianceChecker extends AbstractApiChecker {
         while (i >= d + 2 && val.charAt(i) == '0') {
             val = val.substring(0, i--);
         }
-        return val + suffix;
-    }
-
-    // This unescapes the string format used by doclava and so needs to be kept in sync with any
-    // changes made to that format.
-    private static String unescapeFieldStringValue(String str) {
-        final int N = str.length();
-
-        // If there's no special encoding strings in the string then just return it.
-        if (str.indexOf('\\') == -1) {
-            return str;
-        }
-
-        final StringBuilder buf = new StringBuilder(str.length());
-        char escaped = 0;
-        final int START = 0;
-        final int CHAR1 = 1;
-        final int CHAR2 = 2;
-        final int CHAR3 = 3;
-        final int CHAR4 = 4;
-        final int ESCAPE = 5;
-        int state = START;
-
-        for (int i = 0; i < N; i++) {
-            final char c = str.charAt(i);
-            switch (state) {
-                case START:
-                    if (c == '\\') {
-                        state = ESCAPE;
-                    } else {
-                        buf.append(c);
-                    }
-                    break;
-                case ESCAPE:
-                    switch (c) {
-                        case '\\':
-                            buf.append('\\');
-                            state = START;
-                            break;
-                        case 't':
-                            buf.append('\t');
-                            state = START;
-                            break;
-                        case 'b':
-                            buf.append('\b');
-                            state = START;
-                            break;
-                        case 'r':
-                            buf.append('\r');
-                            state = START;
-                            break;
-                        case 'n':
-                            buf.append('\n');
-                            state = START;
-                            break;
-                        case 'f':
-                            buf.append('\f');
-                            state = START;
-                            break;
-                        case '\'':
-                            buf.append('\'');
-                            state = START;
-                            break;
-                        case '\"':
-                            buf.append('\"');
-                            state = START;
-                            break;
-                        case 'u':
-                            state = CHAR1;
-                            escaped = 0;
-                            break;
-                    }
-                    break;
-                case CHAR1:
-                case CHAR2:
-                case CHAR3:
-                case CHAR4:
-                    escaped <<= 4;
-                    if (c >= '0' && c <= '9') {
-                        escaped |= c - '0';
-                    } else if (c >= 'a' && c <= 'f') {
-                        escaped |= 10 + (c - 'a');
-                    } else if (c >= 'A' && c <= 'F') {
-                        escaped |= 10 + (c - 'A');
-                    } else {
-                        throw new RuntimeException(
-                                "bad escape sequence: '" + c + "' at pos " + i + " in: \""
-                                        + str + "\"");
-                    }
-                    if (state == CHAR4) {
-                        buf.append(escaped);
-                        state = START;
-                    } else {
-                        state++;
-                    }
-                    break;
-            }
-        }
-        if (state != START) {
-            throw new RuntimeException("unfinished escape sequence: " + str);
-        }
-        return buf.toString();
+        return val;
     }
 
     @Override
@@ -537,6 +492,11 @@ public class ApiComplianceChecker extends AbstractApiChecker {
         int reflectionModifiers = reflectedMethod.getModifiers() & ~ignoredMods;
         int apiModifiers = apiMethod.mModifier & ~ignoredMods;
 
+        // A method can become non-abstract
+        if ((reflectionModifiers & Modifier.ABSTRACT) == 0) {
+            apiModifiers &= ~Modifier.ABSTRACT;
+        }
+
         // We can ignore FINAL for classes
         if ((classDescription.getModifier() & Modifier.FINAL) != 0) {
             reflectionModifiers &= ~Modifier.FINAL;
@@ -553,7 +513,7 @@ public class ApiComplianceChecker extends AbstractApiChecker {
             return null;
         } else {
             return String.format("modifier mismatch - description (%s), method (%s), for %s",
-                Modifier.toString(apiModifiers), Modifier.toString(reflectionModifiers), genericString);
+                    getModifierString(apiModifiers), getModifierString(reflectionModifiers), genericString);
         }
     }
 

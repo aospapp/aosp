@@ -25,11 +25,13 @@
 #include "object-inl.h"
 #include "object.h"
 #include "object_array-inl.h"
+#include "reflective_value_visitor.h"
 #include "runtime.h"
 #include "runtime_globals.h"
 #include "string.h"
 #include "thread.h"
 #include "utils/dex_cache_arrays_layout-inl.h"
+#include "write_barrier.h"
 
 namespace art {
 namespace mirror {
@@ -172,23 +174,66 @@ void DexCache::InitializeDexCache(Thread* self,
                   dex_file->NumCallSiteIds());
 }
 
+void DexCache::VisitReflectiveTargets(ReflectiveValueVisitor* visitor) {
+  bool wrote = false;
+  for (size_t i = 0; i < NumResolvedFields(); i++) {
+    auto pair(GetNativePairPtrSize(GetResolvedFields(), i, kRuntimePointerSize));
+    if (pair.index == FieldDexCachePair::InvalidIndexForSlot(i)) {
+      continue;
+    }
+    ArtField* new_val = visitor->VisitField(
+        pair.object, DexCacheSourceInfo(kSourceDexCacheResolvedField, pair.index, this));
+    if (UNLIKELY(new_val != pair.object)) {
+      if (new_val == nullptr) {
+        pair = FieldDexCachePair(nullptr, FieldDexCachePair::InvalidIndexForSlot(i));
+      } else {
+        pair.object = new_val;
+      }
+      SetNativePairPtrSize(GetResolvedFields(), i, pair, kRuntimePointerSize);
+      wrote = true;
+    }
+  }
+  for (size_t i = 0; i < NumResolvedMethods(); i++) {
+    auto pair(GetNativePairPtrSize(GetResolvedMethods(), i, kRuntimePointerSize));
+    if (pair.index == MethodDexCachePair::InvalidIndexForSlot(i)) {
+      continue;
+    }
+    ArtMethod* new_val = visitor->VisitMethod(
+        pair.object, DexCacheSourceInfo(kSourceDexCacheResolvedMethod, pair.index, this));
+    if (UNLIKELY(new_val != pair.object)) {
+      if (new_val == nullptr) {
+        pair = MethodDexCachePair(nullptr, MethodDexCachePair::InvalidIndexForSlot(i));
+      } else {
+        pair.object = new_val;
+      }
+      SetNativePairPtrSize(GetResolvedMethods(), i, pair, kRuntimePointerSize);
+      wrote = true;
+    }
+  }
+  if (wrote) {
+    WriteBarrier::ForEveryFieldWrite(this);
+  }
+}
+
 bool DexCache::AddPreResolvedStringsArray() {
   DCHECK_EQ(NumPreResolvedStrings(), 0u);
   Thread* const self = Thread::Current();
   LinearAlloc* linear_alloc = Runtime::Current()->GetLinearAlloc();
   const size_t num_strings = GetDexFile()->NumStringIds();
-  GcRoot<mirror::String>* strings =
-      linear_alloc->AllocArray<GcRoot<mirror::String>>(self, num_strings);
-  if (strings == nullptr) {
-    // Failed to allocate pre-resolved string array (probably due to address fragmentation), bail.
-    return false;
-  }
-  SetField32<false>(NumPreResolvedStringsOffset(), num_strings);
+  if (num_strings != 0) {
+    GcRoot<mirror::String>* strings =
+        linear_alloc->AllocArray<GcRoot<mirror::String>>(self, num_strings);
+    if (strings == nullptr) {
+      // Failed to allocate pre-resolved string array (probably due to address fragmentation), bail.
+      return false;
+    }
+    SetField32<false>(NumPreResolvedStringsOffset(), num_strings);
 
-  CHECK(strings != nullptr);
-  SetPreResolvedStrings(strings);
-  for (size_t i = 0; i < GetDexFile()->NumStringIds(); ++i) {
-    CHECK(GetPreResolvedStrings()[i].Read() == nullptr);
+    CHECK(strings != nullptr);
+    SetPreResolvedStrings(strings);
+    for (size_t i = 0; i < GetDexFile()->NumStringIds(); ++i) {
+      CHECK(GetPreResolvedStrings()[i].Read() == nullptr);
+    }
   }
   return true;
 }
@@ -236,7 +281,11 @@ void DexCache::SetLocation(ObjPtr<mirror::String> location) {
   SetFieldObject<false>(OFFSET_OF_OBJECT_MEMBER(DexCache, location_), location);
 }
 
-#if !defined(__aarch64__) && !defined(__x86_64__) && !defined(__mips__)
+void DexCache::SetClassLoader(ObjPtr<ClassLoader> class_loader) {
+  SetFieldObject<false>(OFFSET_OF_OBJECT_MEMBER(DexCache, class_loader_), class_loader);
+}
+
+#if !defined(__aarch64__) && !defined(__x86_64__)
 static pthread_mutex_t dex_cache_slow_atomic_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 DexCache::ConversionPair64 DexCache::AtomicLoadRelaxed16B(std::atomic<ConversionPair64>* target) {

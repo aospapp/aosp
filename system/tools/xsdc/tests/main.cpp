@@ -24,6 +24,8 @@
 #include "predefined_types.h"
 #include "reference.h"
 #include "simple_type.h"
+#include "attr_group_simple.h"
+#include "group.h"
 
 using namespace std;
 
@@ -44,7 +46,8 @@ TEST_F(XmlTest, Simpletype) {
     EXPECT_EQ(simple.getListInt()[i], i + 1);
   }
   EXPECT_EQ(*simple.getFirstUnionTest(), "100");
-  EXPECT_EQ(simple.getYesOrNo(), EnumType::YES);
+  EXPECT_EQ(simple.getYesOrNo()[0], EnumType::YES);
+  EXPECT_EQ(simple.getYesOrNo()[1], EnumType::EMPTY);
 }
 
 TEST_F(XmlTest, Predefinedtypes) {
@@ -197,6 +200,25 @@ TEST_F(XmlTest, Simplecomplexcontent) {
   EXPECT_EQ(kRAddress.getCity(), "Seoul");
 
   EXPECT_EQ(subAddress.getChoice1_optional(), "Temp");
+}
+
+TEST_F(XmlTest, Attrgroupsimple) {
+  using namespace attr::group::simple;
+  Student student = *read("resources/attr_group_simple.xml");
+
+  EXPECT_EQ(student.getName(), "Jun");
+  EXPECT_EQ(student.getCity(), "Mountain View");
+  EXPECT_EQ(student.getState(), "CA");
+  EXPECT_EQ(student.getRoad(), "Street 101");
+}
+
+TEST_F(XmlTest, Group) {
+  using namespace group;
+  Student student = *read("resources/group.xml");
+
+  EXPECT_EQ(student.getCity(), "Mountain View");
+  EXPECT_EQ(student.getState(), "CA");
+  EXPECT_EQ(student.getRoad(), "Street 101");
 }
 
 int main(int argc, char **argv) {

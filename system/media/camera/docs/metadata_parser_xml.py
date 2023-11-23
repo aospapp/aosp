@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 #
 # Copyright (C) 2012 The Android Open Source Project
@@ -37,10 +37,11 @@ Dependencies:
 
 import sys
 import os
-import StringIO
 
 from bs4 import BeautifulSoup
 from bs4 import NavigableString
+
+from io import StringIO
 
 from mako.template import Template
 from mako.lookup import TemplateLookup
@@ -96,7 +97,7 @@ class MetadataParserXml:
     Returns:
       MetadataParserXml instance representing the XML file.
     """
-    return MetadataParserXml(file(file_name).read(), file_name)
+    return MetadataParserXml(open(file_name).read(), file_name)
 
   @property
   def soup(self):
@@ -163,7 +164,7 @@ class MetadataParserXml:
 
       d3 = self._parse_entry_optional(entry)
 
-      entry_dict = dict(d.items() + d2.items() + d3.items())
+      entry_dict = {**d, **d2, **d3}
       insert(entry_dict)
 
     self.metadata.construct_graph()
@@ -331,7 +332,7 @@ class MetadataParserXml:
       hal_version: target HAL version, used when generating HIDL HAL outputs.
                    Must be a string of form "X.Y" where X and Y are integers.
     """
-    buf = StringIO.StringIO()
+    buf = StringIO()
     metadata_helpers._context_buf = buf
     metadata_helpers._hal_major_version = int(hal_version.partition('.')[0])
     metadata_helpers._hal_minor_version = int(hal_version.partition('.')[2])
@@ -351,18 +352,17 @@ class MetadataParserXml:
     buf.close()
 
     if output_name is None:
-      print tpl_data
+      print(tpl_data)
     else:
-      file(output_name, "w").write(tpl_data.encode('utf-8'))
+      open(output_name, "w").write(tpl_data)
 
 #####################
 #####################
 
 if __name__ == "__main__":
   if len(sys.argv) <= 2:
-    print >> sys.stderr,                                                       \
-           "Usage: %s <filename.xml> <template.mako> [<output_file>] [<hal_version>]"          \
-           % (sys.argv[0])
+    print("Usage: %s <filename.xml> <template.mako> [<output_file>] [<hal_version>]"          \
+          % (sys.argv[0]), file=sys.stderr)
     sys.exit(0)
 
   file_name = sys.argv[1]

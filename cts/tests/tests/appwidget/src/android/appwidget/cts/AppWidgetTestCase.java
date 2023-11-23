@@ -51,10 +51,10 @@ public abstract class AppWidgetTestCase {
             "android.appwidget.cts.provider.SecondAppWidgetConfigureActivity";
 
     private static final String GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND =
-            "appwidget grantbind --package android.appwidget.cts --user 0";
+            "appwidget grantbind --package android.appwidget.cts --user ";
 
     private static final String REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND =
-            "appwidget revokebind --package android.appwidget.cts --user 0";
+            "appwidget revokebind --package android.appwidget.cts --user ";
 
     @Before
     public void assumeHasWidgets() {
@@ -204,10 +204,14 @@ public abstract class AppWidgetTestCase {
     }
 
     protected void grantBindAppWidgetPermission() throws Exception {
-        runShellCommand(GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND);
+        runShellCommand(GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND + getCurrentUser());
     }
 
     protected void revokeBindAppWidgetPermission() throws Exception {
-        runShellCommand(REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND);
+        runShellCommand(REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND + getCurrentUser());
+    }
+
+    private static int getCurrentUser() {
+        return android.os.Process.myUserHandle().getIdentifier();
     }
 }

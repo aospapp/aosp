@@ -16,6 +16,11 @@
 
 package android.aidl.tests;
 
+import android.aidl.tests.ByteEnum;
+import android.aidl.tests.INamedCallback;
+import android.aidl.tests.ITestService;
+import android.aidl.tests.IntEnum;
+import android.aidl.tests.LongEnum;
 import android.aidl.tests.SimpleParcelable;
 import android.aidl.tests.StructuredParcelable;
 import android.aidl.tests.TestFailException;
@@ -23,13 +28,13 @@ import android.aidl.tests.TestLogger;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.os.ServiceSpecificException;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.os.ServiceSpecificException;
 import android.util.Log;
 import java.io.File;
 import java.io.FileDescriptor;
@@ -39,13 +44,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
-
-// Generated
-import android.aidl.tests.INamedCallback;
-import android.aidl.tests.ITestService;
 
 public class TestServiceClient extends Activity {
     private static final String TAG = "TestServiceClient";
@@ -159,15 +160,25 @@ public class TestServiceClient extends Activity {
                 }
             }
             {
-                Map<String, Object> query = new HashMap<String, Object>();
-                query.put("first_val", new Byte((byte)-128));
-                query.put("second_val", new Integer(1<<30));
-                query.put("third_val", "OHAI");
-                Object response = service.RepeatMap(query);
-                if (!query.equals(response)) {
-                    mLog.logAndThrow("Repeat with " + query +
-                                     " responded " + response);
-                }
+              byte query = ByteEnum.FOO;
+              byte response = service.RepeatByteEnum(query);
+              if (query != response) {
+                mLog.logAndThrow("Repeat ByteEnum with " + query + " responded " + response);
+              }
+            }
+            {
+              int query = IntEnum.FOO;
+              int response = service.RepeatIntEnum(query);
+              if (query != response) {
+                mLog.logAndThrow("Repeat IntEnum with " + query + " responded " + response);
+              }
+            }
+            {
+              long query = LongEnum.FOO;
+              long response = service.RepeatLongEnum(query);
+              if (query != response) {
+                mLog.logAndThrow("Repeat LongEnum with " + query + " responded " + response);
+              }
             }
 
             List<String> queries = Arrays.asList(
@@ -743,6 +754,9 @@ public class TestServiceClient extends Activity {
       parcelable.shouldContainThreeFs = new int[0];
       parcelable.f = kDesiredFValue;
       parcelable.shouldBeJerry = "";
+      parcelable.shouldContainTwoByteFoos = new byte[2];
+      parcelable.shouldContainTwoIntFoos = new int[2];
+      parcelable.shouldContainTwoLongFoos = new long[2];
 
       if (!parcelable.stringDefaultsToFoo.equals("foo")) {
         mLog.logAndThrow(
@@ -796,6 +810,117 @@ public class TestServiceClient extends Activity {
       if (!parcelable.shouldBeJerry.equals("Jerry")) {
         mLog.logAndThrow("shouldBeJerry should be 'Jerry' but is " + parcelable.shouldBeJerry);
       }
+
+      if (parcelable.shouldBeByteBar != ByteEnum.BAR) {
+        mLog.logAndThrow(
+            "shouldBeByteBar should be ByteEnum.BAR but is " + parcelable.shouldBeByteBar);
+      }
+      if (parcelable.shouldBeIntBar != IntEnum.BAR) {
+        mLog.logAndThrow(
+            "shouldBeIntBar should be IntEnum.BAR but is " + parcelable.shouldBeIntBar);
+      }
+      if (parcelable.shouldBeLongBar != LongEnum.BAR) {
+        mLog.logAndThrow(
+            "shouldBeLongBar should be LongEnum.BAR but is " + parcelable.shouldBeLongBar);
+      }
+
+      if (!Arrays.equals(
+              parcelable.shouldContainTwoByteFoos, new byte[] {ByteEnum.FOO, ByteEnum.FOO})) {
+        mLog.logAndThrow(
+            "shouldContainTwoByteFoos is " + Arrays.toString(parcelable.shouldContainTwoByteFoos));
+      }
+      if (!Arrays.equals(
+              parcelable.shouldContainTwoIntFoos, new int[] {IntEnum.FOO, IntEnum.FOO})) {
+        mLog.logAndThrow(
+            "shouldContainTwoIntFoos is " + Arrays.toString(parcelable.shouldContainTwoIntFoos));
+      }
+      if (!Arrays.equals(
+              parcelable.shouldContainTwoLongFoos, new long[] {LongEnum.FOO, LongEnum.FOO})) {
+        mLog.logAndThrow(
+            "shouldContainTwoLongFoos is " + Arrays.toString(parcelable.shouldContainTwoLongFoos));
+      }
+
+      if (parcelable.int32_min != Integer.MIN_VALUE) {
+        mLog.logAndThrow(
+            "int32_min should be " + Integer.MIN_VALUE + "but is " + parcelable.int32_min);
+      }
+
+      if (parcelable.int32_max != Integer.MAX_VALUE) {
+        mLog.logAndThrow(
+            "int32_max should be " + Integer.MAX_VALUE + "but is " + parcelable.int32_max);
+      }
+
+      if (parcelable.int64_max != Long.MAX_VALUE) {
+        mLog.logAndThrow(
+            "int64_max should be " + Long.MAX_VALUE + "but is " + parcelable.int64_max);
+      }
+
+      if (parcelable.hexInt32_neg_1 != -1) {
+        mLog.logAndThrow("hexInt32_neg_1 should be -1 but is " + parcelable.hexInt32_neg_1);
+      }
+
+      boolean success = true;
+      for (int ndx = 0; ndx < parcelable.int32_1.length; ndx++) {
+        if (parcelable.int32_1[ndx] != 1) {
+          mLog.log("int32_1[" + ndx + "] should be 1 but is " + parcelable.int32_1[ndx]);
+          success = false;
+        }
+      }
+      if (!success) {
+        mLog.logAndThrow("Failed to parse int32_1 array");
+      }
+
+      for (int ndx = 0; ndx < parcelable.int64_1.length; ndx++) {
+        if (parcelable.int64_1[ndx] != 1) {
+          mLog.log("int64_1[" + ndx + "] should be 1 but is " + parcelable.int64_1[ndx]);
+          success = false;
+        }
+      }
+      if (!success) {
+        mLog.logAndThrow("Failed to parse int64_1 array");
+      }
+
+      if (parcelable.hexInt32_pos_1 != 1) {
+        mLog.logAndThrow("hexInt32_pos_1 should be 1 but is " + parcelable.hexInt32_pos_1);
+      }
+
+      if (parcelable.hexInt64_pos_1 != 1) {
+        mLog.logAndThrow("hexInt64_pos_1 should be 1 but is " + parcelable.hexInt64_pos_1);
+      }
+
+      if (parcelable.const_exprs_1 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_1 should be 1 but is " + parcelable.const_exprs_1);
+      }
+      if (parcelable.const_exprs_2 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_2 should be 1 but is " + parcelable.const_exprs_2);
+      }
+      if (parcelable.const_exprs_3 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_3 should be 1 but is " + parcelable.const_exprs_3);
+      }
+      if (parcelable.const_exprs_4 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_4 should be 1 but is " + parcelable.const_exprs_4);
+      }
+      if (parcelable.const_exprs_5 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_5 should be 1 but is " + parcelable.const_exprs_5);
+      }
+      if (parcelable.const_exprs_6 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_6 should be 1 but is " + parcelable.const_exprs_6);
+      }
+      if (parcelable.const_exprs_7 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_7 should be 1 but is " + parcelable.const_exprs_7);
+      }
+      if (parcelable.const_exprs_8 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_8 should be 1 but is " + parcelable.const_exprs_8);
+      }
+      if (parcelable.const_exprs_9 != 1) {
+        mLog.logAndThrow("parcelable.const_exprs_9 should be 1 but is " + parcelable.const_exprs_9);
+      }
+      if (parcelable.const_exprs_10 != 1) {
+        mLog.logAndThrow(
+            "parcelable.const_exprs_10 should be 1 but is " + parcelable.const_exprs_10);
+      }
+
+      mLog.log("Successfully verified the StructuredParcelable");
     }
 
     private void checkDefaultImpl(ITestService service) throws TestFailException {
@@ -847,6 +972,8 @@ public class TestServiceClient extends Activity {
           checkUtf8Strings(service);
           checkStructuredParcelable(service);
           new NullableTests(service, mLog).runTests();
+          new MapTests(mLog).runTests();
+          new GenericTests(mLog).runTests();
           checkDefaultImpl(service);
 
           mLog.log(mSuccessSentinel);

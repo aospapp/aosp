@@ -12,29 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test_helper_app {
-    name: "RollbackManagerTestAppA1",
-    manifest: "testapp/A1.xml",
-    sdk_version: "current",
-    srcs: ["testapp/src/**/*.java"],
-    resource_dirs: ["testapp/res_v1"],
-}
-
-android_test_helper_app {
-    name: "RollbackManagerTestAppA2",
-    manifest: "testapp/A2.xml",
-    sdk_version: "current",
-    srcs: ["testapp/src/**/*.java"],
-    resource_dirs: ["testapp/res_v2"],
-}
-
 java_library {
     name: "cts-rollback-lib",
     srcs: ["src/**/*.java"],
-    static_libs: ["androidx.test.rules", "truth-prebuilt"],
+    static_libs: ["androidx.test.rules", "truth-prebuilt", "cts-install-lib"],
     sdk_version: "test_current",
-    java_resources: [
-        ":RollbackManagerTestAppA1",
-        ":RollbackManagerTestAppA2",
-    ],
 }

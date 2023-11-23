@@ -28,6 +28,7 @@
 
 #include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/net/netlink_manager.h"
+#include "wificond/net/nl80211_packet.h"
 
 namespace android {
 namespace wificond {
@@ -49,19 +50,36 @@ struct InterfaceInfo {
 };
 
 struct BandInfo {
-  BandInfo() = default;
-  BandInfo(std::vector<uint32_t>& band_2g_,
-           std::vector<uint32_t>& band_5g_,
-           std::vector<uint32_t>& band_dfs_)
-      : band_2g(band_2g_),
-        band_5g(band_5g_),
-        band_dfs(band_dfs_) {}
+  BandInfo():
+      is_80211n_supported(false),
+      is_80211ac_supported(false),
+      is_80211ax_supported(false),
+      is_160_mhz_supported(false),
+      is_80p80_mhz_supported(false),
+      max_tx_streams(1),
+      max_rx_streams(1) {};
   // Frequencies for 2.4 GHz band.
   std::vector<uint32_t> band_2g;
   // Frequencies for 5 GHz band without DFS.
   std::vector<uint32_t> band_5g;
   // Frequencies for DFS.
   std::vector<uint32_t> band_dfs;
+  // Frequencies for 6 GHz band.
+  std::vector<uint32_t> band_6g;
+  // support for 802.11n
+  bool is_80211n_supported;
+  // support for 802.11ac
+  bool is_80211ac_supported;
+  // support for 802.11ax
+  bool is_80211ax_supported;
+  // support for 160Mhz channel width
+  bool is_160_mhz_supported;
+  // support for 80+80Mhz channel width
+  bool is_80p80_mhz_supported;
+  // Max number of transmit spatial streams
+  uint32_t max_tx_streams;
+  // Max number of receive spatial streams
+  uint32_t max_rx_streams;
 };
 
 struct ScanCapabilities {
@@ -279,12 +297,32 @@ class NetlinkUtils {
       WiphyFeatures* out_wiphy_features);
   bool ParseBandInfo(const NL80211Packet* const packet,
                      BandInfo* out_band_info);
+  void ParseIfTypeDataAttributes(const NL80211NestedAttr& iftype_data_attr,
+                                 BandInfo* out_band_info);
+  void ParseHtVhtPhyCapabilities(const NL80211NestedAttr& band,
+                                 BandInfo* out_band_info);
+  void ParseHtMcsSetAttribute(const NL80211NestedAttr& band,
+                              BandInfo* out_band_info);
+  void ParseVhtMcsSetAttribute(const NL80211NestedAttr& band,
+                               BandInfo* out_band_info);
+  void ParseHeMcsSetAttribute(const NL80211NestedAttr& attribute,
+                              BandInfo* out_band_info);
+  std::pair<uint32_t, uint32_t> ParseHtMcsSet(
+      const std::vector<uint8_t>& ht_mcs_set);
+  uint32_t ParseMcsMap(uint16_t mcs_map);
+  void ParseVhtCapAttribute(const NL80211NestedAttr& band,
+                            BandInfo* out_band_info);
+  void ParseHeCapPhyAttribute(const NL80211NestedAttr& attribute,
+                              BandInfo* out_band_info);
+
   bool ParseScanCapabilities(const NL80211Packet* const packet,
                              ScanCapabilities* out_scan_capabilities);
 
   bool MergePacketsForSplitWiphyDump(
       const std::vector<std::unique_ptr<const NL80211Packet>>& split_dump_info,
       std::vector<NL80211Packet>* packet_per_wiphy);
+  void handleBandFreqAttributes(const NL80211NestedAttr& freqs_attr,
+      BandInfo* out_band_info);
 
   NetlinkManager* netlink_manager_;
 

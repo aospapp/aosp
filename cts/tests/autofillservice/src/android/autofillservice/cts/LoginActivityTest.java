@@ -18,8 +18,8 @@ package android.autofillservice.cts;
 
 import static android.autofillservice.cts.CannedFillResponse.DO_NOT_REPLY_RESPONSE;
 import static android.autofillservice.cts.CannedFillResponse.FAIL;
-import static android.autofillservice.cts.CannedFillResponse.NO_MOAR_RESPONSES;
 import static android.autofillservice.cts.CannedFillResponse.NO_RESPONSE;
+import static android.autofillservice.cts.Helper.ID_CANCEL_FILL;
 import static android.autofillservice.cts.Helper.ID_EMPTY;
 import static android.autofillservice.cts.Helper.ID_PASSWORD;
 import static android.autofillservice.cts.Helper.ID_PASSWORD_LABEL;
@@ -52,9 +52,12 @@ import static android.content.Context.CLIPBOARD_SERVICE;
 import static android.service.autofill.FillRequest.FLAG_MANUAL_REQUEST;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_ADDRESS;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_CREDIT_CARD;
+import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_DEBIT_CARD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_EMAIL_ADDRESS;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
+import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC_CARD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
+import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PAYMENT_CARD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_USERNAME;
 import static android.text.InputType.TYPE_NULL;
 import static android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
@@ -80,7 +83,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -112,59 +114,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * This is the test case covering most scenarios - other test cases will cover characteristics
  * specific to that test's activity (for example, custom views).
  */
-public class LoginActivityTest extends AbstractLoginActivityTestCase {
+public class LoginActivityTest extends LoginActivityCommonTestCase {
 
     private static final String TAG = "LoginActivityTest";
-
-    @Test
-    public void testAutoFillNoDatasets() throws Exception {
-        // Set service.
-        enableService();
-
-        // Set expectations.
-        sReplier.addResponse(NO_RESPONSE);
-
-        // Trigger autofill.
-        mActivity.onUsername(View::requestFocus);
-
-        // Make sure a fill request is called but don't check for connected() - as we're returning
-        // a null response, the service might have been disconnected already by the time we assert
-        // it.
-        sReplier.getNextFillRequest();
-
-        // Make sure UI is not shown.
-        mUiBot.assertNoDatasetsEver();
-
-        // Test connection lifecycle.
-        waitUntilDisconnected();
-    }
-
-    @Test
-    public void testAutoFillNoDatasets_multipleFields_alwaysNull() throws Exception {
-        // Set service.
-        enableService();
-
-        // Set expectations.
-        sReplier
-            .addResponse(NO_RESPONSE)
-            .addResponse(NO_MOAR_RESPONSES);
-
-        // Trigger autofill
-        mActivity.onUsername(View::requestFocus);
-        sReplier.getNextFillRequest();
-        mUiBot.assertNoDatasetsEver();
-
-        // Tap back and forth to make sure no more requests are shown
-
-        mActivity.onPassword(View::requestFocus);
-        mUiBot.assertNoDatasetsEver();
-
-        mActivity.onUsername(View::requestFocus);
-        mUiBot.assertNoDatasetsEver();
-
-        mActivity.onPassword(View::requestFocus);
-        mUiBot.assertNoDatasetsEver();
-    }
 
     @Test
     @AppModeFull(reason = "testAutoFillOneDataset() is enough")
@@ -381,6 +333,9 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
                 .setPresentation(createPresentation("The Dude"))
                 .build());
         mActivity.onUsername(View::requestFocus);
+        // Waits for the fill request to be sent to the autofill service
+        mUiBot.waitForIdleSync();
+
         sReplier.getNextFillRequest();
         mUiBot.assertDatasets("The Dude");
 
@@ -392,6 +347,8 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
                 .build());
 
         mActivity.forceAutofillOnUsername();
+        mUiBot.waitForIdleSync();
+
         final FillRequest secondRequest = sReplier.getNextFillRequest();
         assertHasFlags(secondRequest.flags, FLAG_MANUAL_REQUEST);
         mUiBot.assertDatasets("THE DUDE");
@@ -519,10 +476,6 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
 
     @Test
     public void testDatasetPickerPosition() throws Exception {
-        // TODO(b/75281985): currently disabled because the screenshot contains elements external to
-        // the activity that can change (for example, clock), which causes flakiness to the test.
-        final boolean compareBitmaps = false;
-
         final boolean pickerAndViewBoundsMatches = !isAutofillWindowFullScreen(mContext);
 
         // Set service.
@@ -544,12 +497,16 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         sReplier.getNextFillRequest();
         callback.assertUiShownEvent(username);
         final Rect usernamePickerBoundaries1 = mUiBot.assertDatasets("DUDE").getVisibleBounds();
-        final Bitmap usernameScreenshot1 = compareBitmaps ? mUiBot.takeScreenshot() : null;
         Log.v(TAG,
                 "Username1 at " + usernameBoundaries1 + "; picker at " + usernamePickerBoundaries1);
         // TODO(b/37566627): assertions below might be too aggressive - use range instead?
         if (pickerAndViewBoundsMatches) {
-            assertThat(usernamePickerBoundaries1.top).isEqualTo(usernameBoundaries1.bottom);
+            if (usernamePickerBoundaries1.top < usernameBoundaries1.bottom) {
+                assertThat(usernamePickerBoundaries1.bottom).isEqualTo(usernameBoundaries1.top);
+            } else {
+                assertThat(usernamePickerBoundaries1.top).isEqualTo(usernameBoundaries1.bottom);
+            }
+
             assertThat(usernamePickerBoundaries1.left).isEqualTo(usernameBoundaries1.left);
         }
 
@@ -558,12 +515,15 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         callback.assertUiHiddenEvent(username);
         callback.assertUiShownEvent(password);
         final Rect passwordPickerBoundaries1 = mUiBot.assertDatasets("SWEET").getVisibleBounds();
-        final Bitmap passwordScreenshot1 = compareBitmaps ? mUiBot.takeScreenshot() : null;
         Log.v(TAG,
                 "Password1 at " + passwordBoundaries1 + "; picker at " + passwordPickerBoundaries1);
         // TODO(b/37566627): assertions below might be too aggressive - use range instead?
         if (pickerAndViewBoundsMatches) {
-            assertThat(passwordPickerBoundaries1.top).isEqualTo(passwordBoundaries1.bottom);
+            if (passwordPickerBoundaries1.top < passwordBoundaries1.bottom) {
+                assertThat(passwordPickerBoundaries1.bottom).isEqualTo(passwordBoundaries1.top);
+            } else {
+                assertThat(passwordPickerBoundaries1.top).isEqualTo(passwordBoundaries1.bottom);
+            }
             assertThat(passwordPickerBoundaries1.left).isEqualTo(passwordBoundaries1.left);
         }
 
@@ -572,7 +532,6 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         callback.assertUiHiddenEvent(password);
         callback.assertUiShownEvent(username);
         final Rect usernamePickerBoundaries2 = mUiBot.assertDatasets("DUDE").getVisibleBounds();
-        final Bitmap usernameScreenshot2 = compareBitmaps ? mUiBot.takeScreenshot() : null;
         Log.v(TAG,
                 "Username2 at " + usernameBoundaries2 + "; picker at " + usernamePickerBoundaries2);
 
@@ -581,23 +540,23 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         callback.assertUiHiddenEvent(username);
         callback.assertUiShownEvent(password);
         final Rect passwordPickerBoundaries2 = mUiBot.assertDatasets("SWEET").getVisibleBounds();
-        final Bitmap passwordScreenshot2 = compareBitmaps ? mUiBot.takeScreenshot() : null;
         Log.v(TAG,
                 "Password2 at " + passwordBoundaries2 + "; picker at " + passwordPickerBoundaries2);
 
         // Assert final state matches initial...
         // ... for username
-        assertThat(usernameBoundaries2).isEqualTo(usernameBoundaries1);
-        assertThat(usernamePickerBoundaries2).isEqualTo(usernamePickerBoundaries1);
-        if (compareBitmaps) {
-            Helper.assertBitmapsAreSame("username", usernameScreenshot1, usernameScreenshot2);
-        }
+        assertWithMessage("Username2 at %s; Username1 at %s", usernameBoundaries2,
+                usernamePickerBoundaries1).that(usernameBoundaries2).isEqualTo(usernameBoundaries1);
+        assertWithMessage("Username2 picker at %s; Username1 picker at %s",
+                usernamePickerBoundaries2, usernamePickerBoundaries1).that(
+                usernamePickerBoundaries2).isEqualTo(usernamePickerBoundaries1);
+
         // ... for password
-        assertThat(passwordBoundaries2).isEqualTo(passwordBoundaries1);
-        assertThat(passwordPickerBoundaries2).isEqualTo(passwordPickerBoundaries1);
-        if (compareBitmaps) {
-            Helper.assertBitmapsAreSame("password", passwordScreenshot1, passwordScreenshot2);
-        }
+        assertWithMessage("Password2 at %s; Password1 at %s", passwordBoundaries2,
+                passwordBoundaries1).that(passwordBoundaries2).isEqualTo(passwordBoundaries1);
+        assertWithMessage("Password2 picker at %s; Password1 picker at %s",
+                passwordPickerBoundaries2, passwordPickerBoundaries1).that(
+                passwordPickerBoundaries2).isEqualTo(passwordPickerBoundaries1);
 
         // Final sanity check
         callback.assertNumberUnhandledEvents(0);
@@ -1572,10 +1531,21 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
 
         // Trigger auto-fill.
         if (manually) {
+            // setText() will trigger a fill request.
+            // Waits the first fill request triggered by the setText() is received by the service to
+            // avoid flaky.
+            sReplier.getNextFillRequest();
+            mUiBot.waitForIdle();
+
+            // Set expectations again.
+            sReplier.addResponse(new CannedFillResponse.Builder()
+                    .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
+                    .build());
             mActivity.forceAutofillOnUsername();
         } else {
-            mActivity.onUsername(View::requestFocus);
+            mUiBot.selectByRelativeId(ID_USERNAME);
         }
+        mUiBot.waitForIdle();
 
         // Sanity check.
         mUiBot.assertNoDatasetsEver();
@@ -1592,6 +1562,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         final String expectedMessage = getWelcomeMessage("user_after");
         final String actualMessage = mActivity.tapLogin();
         assertWithMessage("Wrong welcome msg").that(actualMessage).isEqualTo(expectedMessage);
+        mUiBot.waitForIdle();
 
         // Assert the snack bar is shown and tap "Save".
         mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
@@ -1818,7 +1789,43 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         customizedSaveTest(SAVE_DATA_TYPE_EMAIL_ADDRESS);
     }
 
+    @Test
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
+    public void testCustomizedSaveDebitCard() throws Exception {
+        customizedSaveTest(SAVE_DATA_TYPE_DEBIT_CARD);
+    }
+
+    @Test
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
+    public void testCustomizedSavePaymentCard() throws Exception {
+        customizedSaveTest(SAVE_DATA_TYPE_PAYMENT_CARD);
+    }
+
+    @Test
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
+    public void testCustomizedSaveGenericCard() throws Exception {
+        customizedSaveTest(SAVE_DATA_TYPE_GENERIC_CARD);
+    }
+
+    @Test
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
+    public void testCustomizedSaveTwoCardTypes() throws Exception {
+        customizedSaveTest(SAVE_DATA_TYPE_CREDIT_CARD | SAVE_DATA_TYPE_DEBIT_CARD,
+                SAVE_DATA_TYPE_GENERIC_CARD);
+    }
+
+    @Test
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
+    public void testCustomizedSaveThreeCardTypes() throws Exception {
+        customizedSaveTest(SAVE_DATA_TYPE_CREDIT_CARD | SAVE_DATA_TYPE_DEBIT_CARD
+                | SAVE_DATA_TYPE_PAYMENT_CARD, SAVE_DATA_TYPE_GENERIC_CARD);
+    }
+
     private void customizedSaveTest(int type) throws Exception {
+        customizedSaveTest(type, type);
+    }
+
+    private void customizedSaveTest(int type, int expectedType) throws Exception {
         // Set service.
         enableService();
 
@@ -1849,7 +1856,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         assertWithMessage("Wrong welcome msg").that(actualMessage).isEqualTo(expectedMessage);
 
         // Assert the snack bar is shown and tap "Save".
-        final UiObject2 saveSnackBar = mUiBot.assertSaveShowing(saveDescription, type);
+        final UiObject2 saveSnackBar = mUiBot.assertSaveShowing(saveDescription, expectedType);
         mUiBot.saveForAutofill(saveSnackBar, true);
 
         // Assert save was called.
@@ -1915,7 +1922,21 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
+    public void testNeverRejectStyleNegativeSaveButton() throws Exception {
+        negativeSaveButtonStyle(SaveInfo.NEGATIVE_BUTTON_STYLE_NEVER);
+    }
+
+    @Test
     public void testRejectStyleNegativeSaveButton() throws Exception {
+        negativeSaveButtonStyle(SaveInfo.NEGATIVE_BUTTON_STYLE_REJECT);
+    }
+
+    @Test
+    public void testCancelStyleNegativeSaveButton() throws Exception {
+        negativeSaveButtonStyle(SaveInfo.NEGATIVE_BUTTON_STYLE_CANCEL);
+    }
+
+    private void negativeSaveButtonStyle(int style) throws Exception {
         enableService();
 
         // Set service behavior.
@@ -1928,7 +1949,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
 
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
-                .setNegativeAction(SaveInfo.NEGATIVE_BUTTON_STYLE_REJECT, listener)
+                .setNegativeAction(style, listener)
                 .build());
 
         // Trigger auto-fill.
@@ -1954,28 +1975,20 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         }, intentFilter);
 
         // Trigger the negative button.
-        mUiBot.saveForAutofill(SaveInfo.NEGATIVE_BUTTON_STYLE_REJECT,
-                false, SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.saveForAutofill(style, /* yesDoIt= */ false, SAVE_DATA_TYPE_PASSWORD);
 
         // Wait for the custom action.
         assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
     }
 
     @Test
-    public void testCancelStyleNegativeSaveButton() throws Exception {
+    public void testContinueStylePositiveSaveButton() throws Exception {
         enableService();
 
         // Set service behavior.
-
-        final String intentAction = "android.autofillservice.cts.CUSTOM_ACTION";
-
-        // Configure the save UI.
-        final IntentSender listener = PendingIntent.getBroadcast(
-                mContext, 0, new Intent(intentAction), 0).getIntentSender();
-
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
-                .setNegativeAction(SaveInfo.NEGATIVE_BUTTON_STYLE_CANCEL, listener)
+                .setPositiveAction(SaveInfo.POSITIVE_BUTTON_STYLE_CONTINUE)
                 .build());
 
         // Trigger auto-fill.
@@ -1990,22 +2003,11 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         mActivity.tapLogin();
 
         // Start watching for the negative intent
-        final CountDownLatch latch = new CountDownLatch(1);
-        final IntentFilter intentFilter = new IntentFilter(intentAction);
-        mContext.registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                mContext.unregisterReceiver(this);
-                latch.countDown();
-            }
-        }, intentFilter);
-
         // Trigger the negative button.
-        mUiBot.saveForAutofill(SaveInfo.NEGATIVE_BUTTON_STYLE_CANCEL,
-                false, SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.saveForAutofill(SaveInfo.POSITIVE_BUTTON_STYLE_CONTINUE, SAVE_DATA_TYPE_PASSWORD);
 
-        // Wait for the custom action.
-        assertThat(latch.await(500, TimeUnit.SECONDS)).isTrue();
+        // Assert save was called.
+        sReplier.getNextSaveRequest();
     }
 
     @Test
@@ -2087,7 +2089,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         mActivity.expectAutoFill("dude", "sweet");
 
         // Explicitly uses the contextual menu to test that functionality.
-        mUiBot.getAutofillMenuOption(ID_USERNAME, false).click();
+        mUiBot.getAutofillMenuOption(ID_USERNAME).click();
 
         final FillRequest fillRequest = sReplier.getNextFillRequest();
         assertHasFlags(fillRequest.flags, FLAG_MANUAL_REQUEST);
@@ -2121,7 +2123,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         mActivity.expectAutoFill("dude", "sweet");
 
         // Explicitly uses the contextual menu to test that functionality.
-        mUiBot.getAutofillMenuOption(ID_USERNAME, true).click();
+        mUiBot.getAutofillMenuOption(ID_USERNAME).click();
 
         final FillRequest fillRequest = sReplier.getNextFillRequest();
         assertHasFlags(fillRequest.flags, FLAG_MANUAL_REQUEST);
@@ -2192,9 +2194,16 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         // Set service.
         enableService();
 
+        sReplier.addResponse(NO_RESPONSE);
         // And activity.
         mActivity.onUsername((v) -> v.setText("dud"));
         mActivity.onPassword((v) -> v.setText("IamSecretMan"));
+
+        // setText() will trigger a fill request.
+        // Waits the first fill request triggered by the setText() is received by the service to
+        // avoid flaky.
+        sReplier.getNextFillRequest();
+        mUiBot.waitForIdle();
 
         // Set expectations.
         sReplier.addResponse(new CannedDataset.Builder()
@@ -2397,6 +2406,9 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
                 assertTextAndValue(passwordNode, password);
 
                 waitUntilDisconnected();
+
+                // Wait and check if the save window is correctly hidden.
+                mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
             } catch (RetryableException e) {
                 throw new RetryableException(e, "on step %d", i);
             } catch (Throwable t) {
@@ -2794,5 +2806,100 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         // Check the results.
         mActivity.assertAutoFilled();
         mUiBot.assertNoDatasets();
+    }
+
+    @Test
+    public void testCancelActionButton() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setField(ID_PASSWORD, "sweet")
+                        .setPresentation(createPresentationWithCancel("The Dude"))
+                        .build())
+                .setPresentationCancelIds(new int[]{R.id.cancel_fill});
+        sReplier.addResponse(builder.build());
+
+        // Trigger auto-fill.
+        mActivity.onUsername(View::requestFocus);
+        sReplier.getNextFillRequest();
+
+        mUiBot.assertDatasetsContains("The Dude");
+
+        // Tap cancel button on fill UI
+        mUiBot.selectByRelativeId(ID_CANCEL_FILL);
+        mUiBot.waitForIdle();
+
+        mUiBot.assertNoDatasets();
+
+        // Test and verify auto-fill does not trigger
+        mActivity.onPassword(View::requestFocus);
+        mUiBot.waitForIdle();
+
+        mUiBot.assertNoDatasetsEver();
+
+        // Test and verify auto-fill does not trigger.
+        mActivity.onUsername(View::requestFocus);
+        mUiBot.waitForIdle();
+
+        mUiBot.assertNoDatasetsEver();
+
+        // Reset
+        mActivity.tapClear();
+
+        // Set expectations.
+        final CannedFillResponse.Builder builder2 = new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setField(ID_PASSWORD, "sweet")
+                        .setPresentation(createPresentationWithCancel("The Dude"))
+                        .build())
+                .setPresentationCancelIds(new int[]{R.id.cancel});
+        sReplier.addResponse(builder2.build());
+
+        // Trigger auto-fill.
+        mActivity.onPassword(View::requestFocus);
+        sReplier.getNextFillRequest();
+
+        // Verify auto-fill has been triggered.
+        mUiBot.assertDatasetsContains("The Dude");
+    }
+
+    @Test
+    @AppModeFull(reason = "WRITE_SECURE_SETTING permission can't be grant to instant apps")
+    public void testSwitchInputMethod_noNewFillRequest() throws Exception {
+        // Set service
+        enableService();
+
+        // Set expectations
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setField(ID_PASSWORD, "sweet")
+                        .setPresentation(createPresentation("The Dude"))
+                        .build());
+        sReplier.addResponse(builder.build());
+
+        // Trigger auto-fill
+        mActivity.onUsername(View::requestFocus);
+        sReplier.getNextFillRequest();
+
+        mUiBot.assertDatasetsContains("The Dude");
+
+        // Trigger IME switch event
+        Helper.mockSwitchInputMethod(sContext);
+        mUiBot.waitForIdleSync();
+
+        // Tap password field
+        mUiBot.selectByRelativeId(ID_PASSWORD);
+        mUiBot.waitForIdleSync();
+
+        mUiBot.assertDatasetsContains("The Dude");
+
+        // No new fill request
+        sReplier.assertNoUnhandledFillRequests();
     }
 }

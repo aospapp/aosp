@@ -24,6 +24,7 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.SystemProperties;
 import android.se.omapi.Channel;
 import android.se.omapi.Reader;
 import android.se.omapi.SEService;
@@ -154,9 +155,42 @@ public class OmapiTest {
 
     private boolean supportsHardware() {
         final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
-        boolean lowRamDevice = PropertyUtil.propertyEquals("ro.config.low_ram", "true");
-        return !lowRamDevice || (lowRamDevice && pm.hasSystemFeature("android.hardware.type.watch"));
+        boolean lowRamDevice = SystemProperties.getBoolean("ro.config.low_ram", false);
+        return !lowRamDevice || pm.hasSystemFeature("android.hardware.type.watch")
+                || hasSecureElementPackage(pm);
     }
+
+    private boolean hasSecureElementPackage(PackageManager pm) {
+        try {
+            pm.getPackageInfo("com.android.se", 0 /* flags*/);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    private boolean supportUICCReaders() {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_UICC);
+    }
+
+    private boolean supportESEReaders() {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_ESE);
+    }
+
+    private boolean supportSDReaders() {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_SD);
+    }
+
+    private boolean supportOMAPIReaders() {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        return (pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_UICC)
+            || pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_ESE)
+            || pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_SD));
+    }
+
 
     private void assertGreaterOrEqual(long greater, long lesser) {
         assertTrue("" + greater + " expected to be greater than or equal to " + lesser,
@@ -206,6 +240,9 @@ public class OmapiTest {
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
+            ArrayList<Reader> uiccReaders = new ArrayList<Reader>();
+            ArrayList<Reader> eseReaders = new ArrayList<Reader>();
+            ArrayList<Reader> sdReaders = new ArrayList<Reader>();
 
             for (Reader reader : readers) {
                 assertTrue(reader.isSecureElementPresent());
@@ -215,6 +252,45 @@ public class OmapiTest {
                     fail("Incorrect Reader name");
                 }
                 assertNotNull("getseService returned null", reader.getSEService());
+
+                if (reader.getName().startsWith(UICC_READER_PREFIX)) {
+                    uiccReaders.add(reader);
+                }
+                if (reader.getName().startsWith(ESE_READER_PREFIX)) {
+                    eseReaders.add(reader);
+                }
+                if (reader.getName().startsWith(SD_READER_PREFIX)) {
+                    sdReaders.add(reader);
+                }
+            }
+
+            if (supportUICCReaders()) {
+                assertGreaterOrEqual(uiccReaders.size(), 1);
+                // Test API getUiccReader(int slotNumber)
+                // The result should be the same as getReaders() with UICC reader prefix
+                for (int i = 1; i <= uiccReaders.size(); i++) {
+                    try {
+                        Reader uiccReader = seService.getUiccReader(i);
+                        if (!uiccReaders.contains(uiccReader))
+                            fail("Incorrect reader object - getUiccReader(" + i + ")");
+                    } catch (IllegalArgumentException e) {
+                        fail("Fail to get Reader object by calling getUiccReader(" + i + ")");
+                    }
+                }
+            } else {
+                assertTrue(uiccReaders.size() == 0);
+            }
+
+            if (supportESEReaders()) {
+                assertGreaterOrEqual(eseReaders.size(), 1);
+            } else {
+                assertTrue(eseReaders.size() == 0);
+            }
+
+            if (supportSDReaders()) {
+                assertGreaterOrEqual(eseReaders.size(), 1);
+            } else {
+                assertTrue(sdReaders.size() == 0);
             }
         } catch (Exception e) {
             fail("Unexpected Exception " + e);
@@ -224,6 +300,7 @@ public class OmapiTest {
     /** Tests getATR API */
     @Test
     public void testATR() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -256,6 +333,7 @@ public class OmapiTest {
     /** Tests OpenBasicChannel API when aid is null */
     @Test
     public void testOpenBasicChannelNullAid() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -285,6 +363,7 @@ public class OmapiTest {
     /** Tests OpenBasicChannel API when aid is provided */
     @Test
     public void testOpenBasicChannelNonNullAid() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -314,6 +393,7 @@ public class OmapiTest {
     /** Tests Select API */
     @Test
     public void testSelectableAid() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -327,6 +407,7 @@ public class OmapiTest {
 
     @Test
     public void testLongSelectResponse() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -364,6 +445,7 @@ public class OmapiTest {
     /** Tests if NoSuchElementException in Select */
     @Test
     public void testWrongAid() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -395,6 +477,7 @@ public class OmapiTest {
     /** Tests if Security Exception in Transmit */
     @Test
     public void testSecurityExceptionInTransmit() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -481,6 +564,7 @@ public class OmapiTest {
      */
     @Test
     public void testTransmitApdu() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -516,6 +600,7 @@ public class OmapiTest {
      */
     @Test
     public void testStatusWordTransmit() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -563,6 +648,7 @@ public class OmapiTest {
     /** Test if the responses are segmented by the underlying implementation */
     @Test
     public void testSegmentedResponseTransmit() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
@@ -591,6 +677,7 @@ public class OmapiTest {
      */
     @Test
     public void testP2Value() {
+        assumeTrue(supportOMAPIReaders());
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();

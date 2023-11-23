@@ -36,6 +36,7 @@ public final class StreamProtoResultReporter extends ProtoResultReporter {
     private Integer mReportPort = null;
 
     private Socket mReportSocket = null;
+    private boolean mPrintedMessage = false;
 
     @Override
     public void processStartInvocation(
@@ -59,7 +60,7 @@ public final class StreamProtoResultReporter extends ProtoResultReporter {
     }
 
     @Override
-    public void processTestRunEnded(TestRecord runRecord) {
+    public void processTestRunEnded(TestRecord runRecord, boolean moduleInProgress) {
         writeRecordToSocket(runRecord);
     }
 
@@ -81,7 +82,11 @@ public final class StreamProtoResultReporter extends ProtoResultReporter {
 
     private void writeRecordToSocket(TestRecord record) {
         if (mReportPort == null) {
-            CLog.d("No port set. Skipping the reporter.");
+            if (!mPrintedMessage) {
+                CLog.d("No port set. Skipping the reporter.");
+                mPrintedMessage = true;
+            }
+            return;
         }
         try {
             if (mReportSocket == null) {

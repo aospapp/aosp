@@ -17,23 +17,75 @@
 #ifndef _FSCRYPT_H_
 #define _FSCRYPT_H_
 
-#include <sys/cdefs.h>
-#include <stdbool.h>
-#include <cutils/multiuser.h>
+#include <string>
 
-__BEGIN_DECLS
+#ifndef FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32
+// When FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32 is added to Bionic's linux/fscrypt.h
+// then this whole stanza should be removed.
+#define FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32 0x10
+#endif
 
 bool fscrypt_is_native();
 
-int fscrypt_policy_ensure(const char *directory, const char *policy,
-                          size_t policy_length,
-                          const char *contents_encryption_mode,
-                          const char *filenames_encryption_mode);
-
 static const char* fscrypt_unencrypted_folder = "/unencrypted";
 static const char* fscrypt_key_ref = "/unencrypted/ref";
+static const char* fscrypt_key_per_boot_ref = "/unencrypted/per_boot_ref";
 static const char* fscrypt_key_mode = "/unencrypted/mode";
 
-__END_DECLS
+namespace android {
+namespace fscrypt {
+
+struct EncryptionOptions {
+    int version;
+    int contents_mode;
+    int filenames_mode;
+    int flags;
+    bool use_hw_wrapped_key;
+
+    // Ensure that "version" is not valid on creation and so must be explicitly set
+    EncryptionOptions() : version(0) {}
+};
+
+struct EncryptionPolicy {
+    EncryptionOptions options;
+    std::string key_raw_ref;
+};
+
+void BytesToHex(const std::string& bytes, std::string* hex);
+
+unsigned int GetFirstApiLevel();
+
+bool OptionsToString(const EncryptionOptions& options, std::string* options_string);
+
+bool OptionsToStringForApiLevel(unsigned int first_api_level, const EncryptionOptions& options,
+                                std::string* options_string);
+
+bool ParseOptions(const std::string& options_string, EncryptionOptions* options);
+
+bool ParseOptionsForApiLevel(unsigned int first_api_level, const std::string& options_string,
+                             EncryptionOptions* options);
+
+bool EnsurePolicy(const EncryptionPolicy& policy, const std::string& directory);
+
+inline bool operator==(const EncryptionOptions& lhs, const EncryptionOptions& rhs) {
+    return (lhs.version == rhs.version) && (lhs.contents_mode == rhs.contents_mode) &&
+             (lhs.filenames_mode == rhs.filenames_mode) && (lhs.flags == rhs.flags) &&
+             (lhs.use_hw_wrapped_key == rhs.use_hw_wrapped_key);
+}
+
+inline bool operator!=(const EncryptionOptions& lhs, const EncryptionOptions& rhs) {
+    return !(lhs == rhs);
+}
+
+inline bool operator==(const EncryptionPolicy& lhs, const EncryptionPolicy& rhs) {
+    return lhs.key_raw_ref == rhs.key_raw_ref && lhs.options == rhs.options;
+}
+
+inline bool operator!=(const EncryptionPolicy& lhs, const EncryptionPolicy& rhs) {
+    return !(lhs == rhs);
+}
+
+}  // namespace fscrypt
+}  // namespace android
 
 #endif // _FSCRYPT_H_

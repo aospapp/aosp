@@ -25,12 +25,13 @@
 #include "connection_handler.h"
 
 using ::testing::_;
+using ::testing::DoAll;
+using ::testing::MockFunction;
+using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::SaveArg;
 using ::testing::SaveArgPointee;
 using ::testing::SetArgPointee;
-using ::testing::MockFunction;
-using ::testing::NiceMock;
 using ::testing::StrictMock;
 
 namespace bluetooth {
@@ -55,7 +56,7 @@ class AvrcpConnectionHandlerTest : public testing::Test {
         .p_next_attr = nullptr,
         .attr_id = 0,
         .attr_len_type = 0,
-        .attr_value.v.u16 = 0,
+        .attr_value = {.v = {.u16 = 0}},
     };
 
     if (browsing) fake_features.attr_value.v.u16 |= AVRC_SUPF_CT_BROWSE;

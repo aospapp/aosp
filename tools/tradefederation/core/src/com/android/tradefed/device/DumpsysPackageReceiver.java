@@ -17,6 +17,7 @@
 package com.android.tradefed.device;
 
 import com.android.ddmlib.MultiLineReceiver;
+import com.android.tradefed.build.BuildSerializedVersion;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import java.io.IOException;
@@ -36,8 +37,9 @@ class DumpsysPackageReceiver extends MultiLineReceiver {
     /** regex for marking the start of a single package's output */
     private static final Pattern PACKAGE_PATTERN = Pattern.compile("Package\\s\\[([\\w\\.]+)\\]");
 
-    @SuppressWarnings("serial")
     static class ParseException extends IOException {
+        private static final long serialVersionUID = BuildSerializedVersion.VERSION;
+
         ParseException(String msg) {
             super(msg);
         }

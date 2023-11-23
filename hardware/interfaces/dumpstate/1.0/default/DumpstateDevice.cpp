@@ -37,11 +37,6 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     // NOTE: this is just an example on how to use the DumpstateUtil.h functions to implement
     // this interface.
 
-    // Exit when dump is completed since this is a lazy HAL.
-    addPostCommandTask([]() {
-        exit(0);
-    });
-
     if (handle == nullptr || handle->numFds < 1) {
         ALOGE("no FDs\n");
         return Void();
@@ -56,9 +51,8 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     ALOGI("Dumpstate HIDL not provided by device\n");
     dprintf(fd, "Dumpstate HIDL not provided by device; providing bogus data.\n");
 
-    // Shows some examples on how to use the libdumpstateutil API.
-    RunCommandToFd(fd, "DATE", {"/vendor/bin/date"});
-    DumpFileToFd(fd, "HOSTS", "/system/etc/hosts");
+    // Shows an example on how to use the libdumpstateutil API.
+    DumpFileToFd(fd, "cmdline", "/proc/self/cmdline");
 
     return Void();
 }

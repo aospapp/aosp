@@ -111,35 +111,43 @@ std::string DebugElfFileFinder::FindDebugFile(const std::string& dso_path, bool 
       return vdso_32bit_;
     }
   }
+  if (build_id.IsEmpty()) {
+    // Try reading build id from file if we don't already have one.
+    GetBuildIdFromDsoPath(dso_path, &build_id);
+  }
+  auto check_path = [&](const std::string& path) {
+    BuildId debug_build_id;
+    GetBuildIdFromDsoPath(path, &debug_build_id);
+    if (build_id.IsEmpty()) {
+      // Native libraries in apks may not have build ids. When looking for a debug elf file without
+      // build id (build id is empty), the debug file should exist and also not have build id.
+      return IsRegularFile(path) && debug_build_id.IsEmpty();
+    }
+    return build_id == debug_build_id;
+  };
+
   // 1. Try build_id_to_file_map.
   if (!build_id_to_file_map_.empty()) {
     if (!build_id.IsEmpty() || GetBuildIdFromDsoPath(dso_path, &build_id)) {
       auto it = build_id_to_file_map_.find(build_id.ToString());
-      if (it != build_id_to_file_map_.end()) {
+      if (it != build_id_to_file_map_.end() && check_path(it->second)) {
         return it->second;
       }
     }
   }
-  auto check_path = [&](const std::string& path) {
-    BuildId debug_build_id;
-    if (GetBuildIdFromDsoPath(path, &debug_build_id)) {
-      if (!build_id.IsEmpty() || GetBuildIdFromDsoPath(dso_path, &build_id)) {
-        if (build_id == debug_build_id) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-
-  // 2. Try concatenating symfs_dir and dso_path.
   if (!symfs_dir_.empty()) {
+    // 2. Try concatenating symfs_dir and dso_path.
     std::string path = GetPathInSymFsDir(dso_path);
     if (check_path(path)) {
       return path;
     }
+    // 3. Try concatenating symfs_dir and basename of dso_path.
+    path = symfs_dir_ + OS_PATH_SEPARATOR + android::base::Basename(dso_path);
+    if (check_path(path)) {
+      return path;
+    }
   }
-  // 3. Try concatenating /usr/lib/debug and dso_path.
+  // 4. Try concatenating /usr/lib/debug and dso_path.
   // Linux host can store debug shared libraries in /usr/lib/debug.
   if (check_path("/usr/lib/debug" + dso_path)) {
     return "/usr/lib/debug" + dso_path;

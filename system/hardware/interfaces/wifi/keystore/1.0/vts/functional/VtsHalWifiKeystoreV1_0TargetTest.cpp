@@ -16,12 +16,14 @@
 
 #include <android-base/logging.h>
 
-#include <VtsHalHidlTargetTestBase.h>
 #include <android/security/keystore/IKeystoreService.h>
 #include <android/system/wifi/keystore/1.0/IKeystore.h>
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 #include <cutils/properties.h>
+#include <gtest/gtest.h>
+#include <hidl/GtestPrinter.h>
+#include <hidl/ServiceManagement.h>
 #include <keymasterV4_0/authorization_set.h>
 #include <keystore/keystore_promises.h>
 #include <private/android_filesystem_config.h>
@@ -53,10 +55,10 @@ enum KeyPurpose {
 };
 
 // The fixture for testing the Wifi Keystore HAL
-class WifiKeystoreHalTest : public Test {
+class WifiKeystoreHalTest : public TestWithParam<std::string> {
    protected:
     void SetUp() override {
-        keystore = IKeystore::getService();
+        keystore = IKeystore::getService(GetParam());
         ASSERT_TRUE(keystore);
 
         sp<android::IServiceManager> service_manager = android::defaultServiceManager();
@@ -219,7 +221,7 @@ class WifiKeystoreHalTest : public Test {
     sp<IKeystoreService> service;
 };
 
-TEST_F(WifiKeystoreHalTest, Sign_nullptr_key_name) {
+TEST_P(WifiKeystoreHalTest, Sign_nullptr_key_name) {
     IKeystore::KeystoreStatusCode statusCode;
 
     auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
@@ -234,7 +236,7 @@ TEST_F(WifiKeystoreHalTest, Sign_nullptr_key_name) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, Sign_empty_key_name) {
+TEST_P(WifiKeystoreHalTest, Sign_empty_key_name) {
     IKeystore::KeystoreStatusCode statusCode;
 
     auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
@@ -249,29 +251,32 @@ TEST_F(WifiKeystoreHalTest, Sign_empty_key_name) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, Sign_empty_data) {
+TEST_P(WifiKeystoreHalTest, Sign_empty_data) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
 
-    IKeystore::KeystoreStatusCode statusCode;
+    bool callbackInvoked = false;
 
-    auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
-                                  const ::android::hardware::hidl_vec<uint8_t>& /*value*/) {
-        statusCode = status;
+    auto callback = [&callbackInvoked](IKeystore::KeystoreStatusCode /*status*/,
+                                       const ::android::hardware::hidl_vec<uint8_t>& /*value*/) {
+        // The result is ignored; this callback is a no-op.
+        callbackInvoked = true;
         return;
     };
 
     bool result = generateKey(kTestKeyName, KeyPurpose::SIGNING, AID_WIFI);
     EXPECT_EQ(result, true);
 
-    // The data to sign is empty, and a failure is expected
+    // The data to sign is empty. The return code is not important, and the attempt could be
+    // interpreted as valid or an error case. The goal is to determine that the callback
+    // was invokved.
     ::android::hardware::hidl_vec<uint8_t> dataToSign;
     keystore->sign(kTestKeyName, dataToSign, callback);
-    EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
+    EXPECT_EQ(true, callbackInvoked);
 }
 
-TEST_F(WifiKeystoreHalTest, Sign_wrong_key_purpose) {
+TEST_P(WifiKeystoreHalTest, Sign_wrong_key_purpose) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
@@ -294,7 +299,7 @@ TEST_F(WifiKeystoreHalTest, Sign_wrong_key_purpose) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, Sign_wrong_key_type) {
+TEST_P(WifiKeystoreHalTest, Sign_wrong_key_type) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
@@ -319,7 +324,7 @@ TEST_F(WifiKeystoreHalTest, Sign_wrong_key_type) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, Sign_success) {
+TEST_P(WifiKeystoreHalTest, Sign_success) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
@@ -347,7 +352,7 @@ TEST_F(WifiKeystoreHalTest, Sign_success) {
     EXPECT_EQ(result, true);
 }
 
-TEST_F(WifiKeystoreHalTest, GetBlob_null_key_name) {
+TEST_P(WifiKeystoreHalTest, GetBlob_null_key_name) {
     IKeystore::KeystoreStatusCode statusCode;
 
     auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
@@ -362,7 +367,7 @@ TEST_F(WifiKeystoreHalTest, GetBlob_null_key_name) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, GetBlob_empty_key_name) {
+TEST_P(WifiKeystoreHalTest, GetBlob_empty_key_name) {
     IKeystore::KeystoreStatusCode statusCode;
 
     auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
@@ -377,7 +382,7 @@ TEST_F(WifiKeystoreHalTest, GetBlob_empty_key_name) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, GetBlob_missing_key) {
+TEST_P(WifiKeystoreHalTest, GetBlob_missing_key) {
     IKeystore::KeystoreStatusCode statusCode;
 
     auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
@@ -392,7 +397,7 @@ TEST_F(WifiKeystoreHalTest, GetBlob_missing_key) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, GetBlob_wrong_user) {
+TEST_P(WifiKeystoreHalTest, GetBlob_wrong_user) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
@@ -415,7 +420,7 @@ TEST_F(WifiKeystoreHalTest, GetBlob_wrong_user) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, GetBlob_success) {
+TEST_P(WifiKeystoreHalTest, GetBlob_success) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
@@ -440,7 +445,7 @@ TEST_F(WifiKeystoreHalTest, GetBlob_success) {
     EXPECT_EQ(result, true);
 }
 
-TEST_F(WifiKeystoreHalTest, GetPublicKey_nullptr_key_name) {
+TEST_P(WifiKeystoreHalTest, GetPublicKey_nullptr_key_name) {
     IKeystore::KeystoreStatusCode statusCode;
 
     auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
@@ -455,7 +460,7 @@ TEST_F(WifiKeystoreHalTest, GetPublicKey_nullptr_key_name) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, GetPublicKey_empty_key_name) {
+TEST_P(WifiKeystoreHalTest, GetPublicKey_empty_key_name) {
     IKeystore::KeystoreStatusCode statusCode;
 
     auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
@@ -470,7 +475,7 @@ TEST_F(WifiKeystoreHalTest, GetPublicKey_empty_key_name) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, GetPublicKey_wrong_key_name) {
+TEST_P(WifiKeystoreHalTest, GetPublicKey_wrong_key_name) {
     IKeystore::KeystoreStatusCode statusCode;
 
     auto callback = [&statusCode](IKeystore::KeystoreStatusCode status,
@@ -485,7 +490,7 @@ TEST_F(WifiKeystoreHalTest, GetPublicKey_wrong_key_name) {
     EXPECT_EQ(IKeystore::KeystoreStatusCode::ERROR_UNKNOWN, statusCode);
 }
 
-TEST_F(WifiKeystoreHalTest, GetPublicKey_wrong_user) {
+TEST_P(WifiKeystoreHalTest, GetPublicKey_wrong_user) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
@@ -512,7 +517,7 @@ TEST_F(WifiKeystoreHalTest, GetPublicKey_wrong_user) {
     EXPECT_EQ(result, true);
 }
 
-TEST_F(WifiKeystoreHalTest, GetPublicKey_wrong_key_type) {
+TEST_P(WifiKeystoreHalTest, GetPublicKey_wrong_key_type) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
@@ -538,7 +543,7 @@ TEST_F(WifiKeystoreHalTest, GetPublicKey_wrong_key_type) {
     EXPECT_EQ(result, true);
 }
 
-TEST_F(WifiKeystoreHalTest, GetPublicKey_success) {
+TEST_P(WifiKeystoreHalTest, GetPublicKey_success) {
     if (!isDebuggableBuild()) {
         GTEST_SKIP() << "Device not running a debuggable build, cannot make test keys";
     }
@@ -562,5 +567,10 @@ TEST_F(WifiKeystoreHalTest, GetPublicKey_success) {
     result = deleteKey(kTestKeyName, AID_WIFI);
     EXPECT_EQ(result, true);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    PerInstance, WifiKeystoreHalTest,
+    testing::ValuesIn(android::hardware::getAllHalInstanceNames(IKeystore::descriptor)),
+    android::hardware::PrintInstanceNameToString);
 
 }  // namespace

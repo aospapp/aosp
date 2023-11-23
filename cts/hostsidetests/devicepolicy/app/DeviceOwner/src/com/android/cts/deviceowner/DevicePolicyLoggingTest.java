@@ -16,6 +16,13 @@
 
 package com.android.cts.deviceowner;
 
+import static android.provider.Settings.Global.AUTO_TIME;
+import static android.provider.Settings.Global.AUTO_TIME_ZONE;
+import static android.provider.Settings.Global.DATA_ROAMING;
+import static android.provider.Settings.Global.USB_MASS_STORAGE_ENABLED;
+
+import android.provider.Settings;
+
 /**
  * Invocations of {@link android.app.admin.DevicePolicyManager} methods which are either not CTS
  * tested or the CTS tests call too many other methods. Used to verify that the relevant metrics
@@ -30,5 +37,30 @@ public class DevicePolicyLoggingTest extends BaseDeviceOwnerTest {
     public void testSetStatusBarDisabledLogged() {
         mDevicePolicyManager.setStatusBarDisabled(getWho(), true);
         mDevicePolicyManager.setStatusBarDisabled(getWho(), false);
+    }
+
+    public void testSetGlobalSettingLogged() {
+        final String autoTimeOriginalValue =
+                Settings.Global.getString(mContext.getContentResolver(), AUTO_TIME);
+        final String autoTimeZoneOriginalValue =
+                Settings.Global.getString(mContext.getContentResolver(), AUTO_TIME_ZONE);
+        final String dataRoamingOriginalValue =
+                Settings.Global.getString(mContext.getContentResolver(), DATA_ROAMING);
+        final String usbMassStorageOriginalValue =
+                Settings.Global.getString(mContext.getContentResolver(), USB_MASS_STORAGE_ENABLED);
+
+        try {
+            mDevicePolicyManager.setGlobalSetting(getWho(), AUTO_TIME, "1");
+            mDevicePolicyManager.setGlobalSetting(getWho(), AUTO_TIME_ZONE, "1");
+            mDevicePolicyManager.setGlobalSetting(getWho(), DATA_ROAMING, "1");
+            mDevicePolicyManager.setGlobalSetting(getWho(), USB_MASS_STORAGE_ENABLED, "1");
+        } finally {
+            mDevicePolicyManager.setGlobalSetting(getWho(), AUTO_TIME, autoTimeOriginalValue);
+            mDevicePolicyManager.setGlobalSetting(
+                    getWho(), AUTO_TIME_ZONE, autoTimeZoneOriginalValue);
+            mDevicePolicyManager.setGlobalSetting(getWho(), DATA_ROAMING, dataRoamingOriginalValue);
+            mDevicePolicyManager.setGlobalSetting(
+                    getWho(), USB_MASS_STORAGE_ENABLED, usbMassStorageOriginalValue);
+        }
     }
 }

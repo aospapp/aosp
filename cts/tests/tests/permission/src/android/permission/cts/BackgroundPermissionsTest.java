@@ -23,11 +23,12 @@ import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.MODE_FOREGROUND;
 import static android.app.AppOpsManager.MODE_IGNORED;
 import static android.content.pm.PermissionInfo.PROTECTION_DANGEROUS;
-import static android.permission.cts.PermissionUtils.eventually;
 import static android.permission.cts.PermissionUtils.getAppOp;
 import static android.permission.cts.PermissionUtils.grantPermission;
 import static android.permission.cts.PermissionUtils.install;
 import static android.permission.cts.PermissionUtils.uninstallApp;
+
+import static com.android.compatibility.common.util.SystemUtil.eventually;
 
 import static com.google.common.truth.Truth.assertThat;
 

@@ -292,7 +292,13 @@ struct expected {
     return data_.value();
   }
 
-  // TODO: arrow operator?
+  constexpr const T* _Nonnull operator->() const {
+    return &data_.value();
+  }
+
+  constexpr T* _Nonnull operator->() {
+    return &data_.value();
+  }
 
   constexpr T& value() & {
     CHECK(has_value());

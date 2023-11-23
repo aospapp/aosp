@@ -1,5 +1,6 @@
 service netd /system/bin/netd
     class main
+    capabilities CHOWN DAC_OVERRIDE DAC_READ_SEARCH FOWNER IPC_LOCK KILL NET_ADMIN NET_BIND_SERVICE NET_RAW SETUID SETGID
     socket dnsproxyd stream 0660 root inet
     socket mdns stream 0660 root system
     socket fwmarkd stream 0660 root inet

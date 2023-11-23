@@ -43,8 +43,14 @@ class WifiIFSTwTest(WifiBaseTest):
             *One attenuator with 4 ports
     """
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        """Setup required dependencies from config file and configure
+        the required networks for testing roaming.
+
+        Returns:
+            True if successfully configured the requirements for testing.
+        """
+        super().setup_class()
         self.simulation_thread_running = False
         self.atten_roaming_count = 0
         self.start_db = 30
@@ -53,13 +59,6 @@ class WifiIFSTwTest(WifiBaseTest):
         self.retry_pass_count = 0
         self.ping_count = 0
 
-    def setup_class(self):
-        """Setup required dependencies from config file and configure
-        the required networks for testing roaming.
-
-        Returns:
-            True if successfully configured the requirements for testing.
-        """
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
         req_params = ["attenuators", "ifs_params"]
@@ -167,7 +166,7 @@ class WifiIFSTwTest(WifiBaseTest):
         self.log.info("Get log for regular capture.")
         file_name = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
         current_path = os.path.join(self.dut.log_path, file_name)
-        utils.create_dir(current_path)
+        os.makedirs(current_path, exist_ok=True)
         serial_number = self.dut.serial
 
         try:

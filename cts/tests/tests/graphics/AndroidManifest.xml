@@ -29,6 +29,14 @@
             android:label="CameraGpuCtsActivity">
         </activity>
 
+        <activity android:name="android.graphics.cts.FrameRateCtsActivity"
+            android:label="FrameRateCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.graphics.cts.ImageViewCtsActivity"
             android:label="ImageViewCtsActivity">
             <intent-filter>
@@ -44,7 +52,15 @@
 
         <activity android:name="android.graphics.drawable.cts.DrawableStubActivity"
                   android:theme="@style/WhiteBackgroundNoWindowAnimation"
-                  android:screenOrientation="locked"/>
+          android:screenOrientation="locked"/>
+        <activity android:name="android.graphics.drawable.cts.AnimatedImageActivity"
+                  android:theme="@style/WhiteBackgroundNoWindowAnimation"
+            android:screenOrientation="locked">
+        </activity>
+        <provider
+            android:name=".EmptyProvider"
+            android:exported="true"
+            android:authorities="android.graphics.cts.assets"/>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="android.graphics.cts.fileprovider"

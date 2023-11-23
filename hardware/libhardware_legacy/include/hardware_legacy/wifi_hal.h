@@ -55,6 +55,24 @@ typedef enum {
   WIFI_LATENCY_MODE_LOW       = 1,
 } wifi_latency_mode;
 
+/* Wifi Thermal mitigation modes */
+typedef enum {
+  WIFI_MITIGATION_NONE      = 0,
+  WIFI_MITIGATION_LIGHT     = 1,
+  WIFI_MITIGATION_MODERATE  = 2,
+  WIFI_MITIGATION_SEVERE    = 3,
+  WIFI_MITIGATION_CRITICAL  = 4,
+  WIFI_MITIGATION_EMERGENCY = 5,
+} wifi_thermal_mode;
+
+/* List of interface types supported */
+typedef enum {
+  WIFI_INTERFACE_TYPE_STA = 0,
+  WIFI_INTERFACE_TYPE_AP  = 1,
+  WIFI_INTERFACE_TYPE_P2P = 2,
+  WIFI_INTERFACE_TYPE_NAN = 3,
+} wifi_interface_type;
+
 /*
  * enum wlan_mac_band - Band information corresponding to the WLAN MAC.
  */
@@ -62,7 +80,9 @@ typedef enum {
 /* WLAN MAC Operates in 2.4 GHz Band */
     WLAN_MAC_2_4_BAND = 1 << 0,
 /* WLAN MAC Operates in 5 GHz Band */
-    WLAN_MAC_5_0_BAND = 1 << 1
+    WLAN_MAC_5_0_BAND = 1 << 1,
+/* WLAN MAC Operates in 6 GHz Band */
+    WLAN_MAC_6_0_BAND = 1 << 2
 } wlan_mac_band;
 
 typedef int wifi_radio;
@@ -89,6 +109,13 @@ typedef enum {
     WIFI_ERROR_OUT_OF_MEMORY = -9,
     WIFI_ERROR_BUSY = -10,
 } wifi_error;
+
+typedef enum {
+    WIFI_ACCESS_CATEGORY_BEST_EFFORT = 0,
+    WIFI_ACCESS_CATEGORY_BACKGROUND = 1,
+    WIFI_ACCESS_CATEGORY_VIDEO = 2,
+    WIFI_ACCESS_CATEGORY_VOICE = 3
+} wifi_access_category;
 
 typedef unsigned char byte;
 typedef unsigned char u8;
@@ -133,40 +160,40 @@ void wifi_event_loop(wifi_handle handle);
 void wifi_get_error_info(wifi_error err, const char **msg); // return a pointer to a static string
 
 /* Feature enums */
-#define WIFI_FEATURE_INFRA              0x0001      // Basic infrastructure mode
-#define WIFI_FEATURE_INFRA_5G           0x0002      // Support for 5 GHz Band
-#define WIFI_FEATURE_HOTSPOT            0x0004      // Support for GAS/ANQP
-#define WIFI_FEATURE_P2P                0x0008      // Wifi-Direct
-#define WIFI_FEATURE_SOFT_AP            0x0010      // Soft AP
-#define WIFI_FEATURE_GSCAN              0x0020      // Google-Scan APIs
-#define WIFI_FEATURE_NAN                0x0040      // Neighbor Awareness Networking
-#define WIFI_FEATURE_D2D_RTT            0x0080      // Device-to-device RTT
-#define WIFI_FEATURE_D2AP_RTT           0x0100      // Device-to-AP RTT
-#define WIFI_FEATURE_BATCH_SCAN         0x0200      // Batched Scan (legacy)
-#define WIFI_FEATURE_PNO                0x0400      // Preferred network offload
-#define WIFI_FEATURE_ADDITIONAL_STA     0x0800      // Support for two STAs
-#define WIFI_FEATURE_TDLS               0x1000      // Tunnel directed link setup
-#define WIFI_FEATURE_TDLS_OFFCHANNEL    0x2000      // Support for TDLS off channel
-#define WIFI_FEATURE_EPR                0x4000      // Enhanced power reporting
-#define WIFI_FEATURE_AP_STA             0x8000      // Support for AP STA Concurrency
-#define WIFI_FEATURE_LINK_LAYER_STATS   0x10000     // Link layer stats collection
-#define WIFI_FEATURE_LOGGER             0x20000     // WiFi Logger
-#define WIFI_FEATURE_HAL_EPNO           0x40000     // WiFi PNO enhanced
-#define WIFI_FEATURE_RSSI_MONITOR       0x80000     // RSSI Monitor
-#define WIFI_FEATURE_MKEEP_ALIVE        0x100000    // WiFi mkeep_alive
-#define WIFI_FEATURE_CONFIG_NDO         0x200000    // ND offload configure
-#define WIFI_FEATURE_TX_TRANSMIT_POWER  0x400000    // Capture Tx transmit power levels
-#define WIFI_FEATURE_CONTROL_ROAMING    0x800000    // Enable/Disable firmware roaming
-#define WIFI_FEATURE_IE_WHITELIST       0x1000000   // Support Probe IE white listing
-#define WIFI_FEATURE_SCAN_RAND          0x2000000   // Support MAC & Probe Sequence Number randomization
-#define WIFI_FEATURE_SET_TX_POWER_LIMIT 0x4000000   // Support Tx Power Limit setting
-#define WIFI_FEATURE_USE_BODY_HEAD_SAR  0x8000000   // Support Using Body/Head Proximity for SAR
-#define WIFI_FEATURE_SET_LATENCY_MODE   0x40000000  // Support Latency mode setting
-#define WIFI_FEATURE_P2P_RAND_MAC       0x80000000  // Support Support P2P MAC randomization
+#define WIFI_FEATURE_INFRA              (uint64_t)0x1      // Basic infrastructure mode
+#define WIFI_FEATURE_INFRA_5G           (uint64_t)0x2      // Support for 5 GHz Band
+#define WIFI_FEATURE_HOTSPOT            (uint64_t)0x4      // Support for GAS/ANQP
+#define WIFI_FEATURE_P2P                (uint64_t)0x8      // Wifi-Direct
+#define WIFI_FEATURE_SOFT_AP            (uint64_t)0x10      // Soft AP
+#define WIFI_FEATURE_GSCAN              (uint64_t)0x20      // Google-Scan APIs
+#define WIFI_FEATURE_NAN                (uint64_t)0x40      // Neighbor Awareness Networking
+#define WIFI_FEATURE_D2D_RTT            (uint64_t)0x80      // Device-to-device RTT
+#define WIFI_FEATURE_D2AP_RTT           (uint64_t)0x100      // Device-to-AP RTT
+#define WIFI_FEATURE_BATCH_SCAN         (uint64_t)0x200      // Batched Scan (legacy)
+#define WIFI_FEATURE_PNO                (uint64_t)0x400      // Preferred network offload
+#define WIFI_FEATURE_ADDITIONAL_STA     (uint64_t)0x800      // Support for two STAs
+#define WIFI_FEATURE_TDLS               (uint64_t)0x1000      // Tunnel directed link setup
+#define WIFI_FEATURE_TDLS_OFFCHANNEL    (uint64_t)0x2000      // Support for TDLS off channel
+#define WIFI_FEATURE_EPR                (uint64_t)0x4000      // Enhanced power reporting
+#define WIFI_FEATURE_AP_STA             (uint64_t)0x8000      // Support for AP STA Concurrency
+#define WIFI_FEATURE_LINK_LAYER_STATS   (uint64_t)0x10000     // Link layer stats collection
+#define WIFI_FEATURE_LOGGER             (uint64_t)0x20000     // WiFi Logger
+#define WIFI_FEATURE_HAL_EPNO           (uint64_t)0x40000     // WiFi PNO enhanced
+#define WIFI_FEATURE_RSSI_MONITOR       (uint64_t)0x80000     // RSSI Monitor
+#define WIFI_FEATURE_MKEEP_ALIVE        (uint64_t)0x100000    // WiFi mkeep_alive
+#define WIFI_FEATURE_CONFIG_NDO         (uint64_t)0x200000    // ND offload configure
+#define WIFI_FEATURE_TX_TRANSMIT_POWER  (uint64_t)0x400000    // Capture Tx transmit power levels
+#define WIFI_FEATURE_CONTROL_ROAMING    (uint64_t)0x800000    // Enable/Disable firmware roaming
+#define WIFI_FEATURE_IE_WHITELIST       (uint64_t)0x1000000   // Support Probe IE white listing
+#define WIFI_FEATURE_SCAN_RAND          (uint64_t)0x2000000   // Support MAC & Probe Sequence Number randomization
+#define WIFI_FEATURE_SET_TX_POWER_LIMIT (uint64_t)0x4000000   // Support Tx Power Limit setting
+#define WIFI_FEATURE_USE_BODY_HEAD_SAR  (uint64_t)0x8000000   // Support Using Body/Head Proximity for SAR
+#define WIFI_FEATURE_SET_LATENCY_MODE   (uint64_t)0x40000000  // Support Latency mode setting
+#define WIFI_FEATURE_P2P_RAND_MAC       (uint64_t)0x80000000  // Support P2P MAC randomization
 // Add more features here
 
 
-typedef int feature_set;
+typedef uint64_t feature_set;
 
 #define IS_MASK_SET(mask, flags)        (((flags) & (mask)) == (mask))
 
@@ -226,6 +253,42 @@ wifi_error wifi_set_nodfs_flag(wifi_interface_handle handle, u32 nodfs);
 wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle, wifi_power_scenario scenario);
 wifi_error wifi_reset_tx_power_scenario(wifi_interface_handle handle);
 wifi_error wifi_set_latency_mode(wifi_interface_handle handle, wifi_latency_mode mode);
+wifi_error wifi_map_dscp_access_category(wifi_handle handle,
+                                         uint32_t start, uint32_t end,
+                                         uint32_t access_category);
+wifi_error wifi_reset_dscp_mapping(wifi_handle handle);
+
+/**
+ *  Wifi HAL Thermal Mitigation API
+ *
+ *  wifi_handle : wifi global handle (note: this is not a interface specific
+ *  command). Mitigation is expected to be applied across all active interfaces
+ *  The implementation and the mitigation action mapping to each mode is chip
+ *  specific. Mitigation will be active until Wifi is turned off or
+ *  WIFI_MITIGATION_NONE mode is sent
+ *
+ *  mode: Thermal mitigation mode
+ *  WIFI_MITIGATION_NONE     : Clear all Wifi thermal mitigation actions
+ *  WIFI_MITIGATION_LIGHT    : Light Throttling where UX is not impacted
+ *  WIFI_MITIGATION_MODERATE : Moderate throttling where UX not largely impacted
+ *  WIFI_MITIGATION_SEVERE   : Severe throttling where UX is largely impacted
+ *  WIFI_MITIGATION_CRITICAL : Platform has done everything to reduce power
+ *  WIFI_MITIGATION_EMERGENCY: Key components in platform are shutting down
+ *
+ *  completion_window
+ *  Deadline (in milliseconds) to complete this request, value 0 implies apply
+ *  immediately. Deadline is basically a relaxed limit and allows vendors to
+ *  apply the mitigation within the window (if it cannot apply immediately)
+ *
+ *  Return
+ *  WIFI_ERROR_NOT_SUPPORTED : Chip does not support thermal mitigation
+ *  WIFI_ERROR_BUSY          : Mitigation is supported, but retry later
+ *  WIFI_ERROR_NONE          : Mitigation request has been accepted
+ */
+wifi_error wifi_set_thermal_mitigation_mode(wifi_handle handle,
+                                            wifi_thermal_mode mode,
+                                            u32 completion_window);
+
 
 typedef struct rx_data_cnt_details_t {
     int rx_unicast_cnt;     /*Total rx unicast packet which woke up host */
@@ -364,9 +427,9 @@ typedef struct {
             int num, wifi_passpoint_network *networks, wifi_passpoint_event_handler handler);
     wifi_error (* wifi_reset_passpoint_list)(wifi_request_id id, wifi_interface_handle iface);
     wifi_error (*wifi_set_lci) (wifi_request_id id, wifi_interface_handle iface,
-	                             wifi_lci_information *lci);
+                                wifi_lci_information *lci);
     wifi_error (*wifi_set_lcr) (wifi_request_id id, wifi_interface_handle iface,
-	                             wifi_lcr_information *lcr);
+                                wifi_lcr_information *lcr);
     wifi_error (*wifi_start_sending_offloaded_packet)(wifi_request_id id,
                                 wifi_interface_handle iface, u16 ether_type, u8 *ip_packet,
                                 u16 ip_packet_len, u8 *src_mac_addr, u8 *dst_mac_addr,
@@ -478,6 +541,18 @@ typedef struct {
                         iface, wifi_radio_mode_change_handler eh);
     wifi_error (*wifi_set_latency_mode)(wifi_interface_handle iface,
                                         wifi_latency_mode mode);
+    wifi_error (*wifi_set_thermal_mitigation_mode)(wifi_handle handle,
+                                                   wifi_thermal_mode mode,
+                                                   u32 completion_window);
+    wifi_error (*wifi_map_dscp_access_category)(wifi_handle handle,
+                                                u32 start, u32 end,
+                                                u32 access_category);
+    wifi_error (*wifi_reset_dscp_mapping)(wifi_handle handle);
+
+    wifi_error (*wifi_virtual_interface_create)(wifi_handle handle, const char* ifname,
+                                                wifi_interface_type iface_type);
+    wifi_error (*wifi_virtual_interface_delete)(wifi_handle handle, const char* ifname);
+
 } wifi_hal_fn;
 wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn);
 #ifdef __cplusplus

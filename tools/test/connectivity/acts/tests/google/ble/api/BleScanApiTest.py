@@ -47,8 +47,8 @@ class BleSetScanFilterError(Exception):
 
 
 class BleScanApiTest(BluetoothBaseTest):
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.ad_dut = self.android_devices[0]
 
     def _format_defaults(self, input):

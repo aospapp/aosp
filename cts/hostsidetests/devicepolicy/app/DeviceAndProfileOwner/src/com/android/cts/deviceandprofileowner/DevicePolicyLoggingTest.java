@@ -19,6 +19,7 @@ package com.android.cts.deviceandprofileowner;
 import static android.Manifest.permission.READ_CONTACTS;
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_FEATURES_NONE;
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT;
+import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_SECURE_CAMERA;
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS;
 import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED;
 import static android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_DEFAULT;
@@ -50,7 +51,7 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
 
     public void testPasswordMethodsLogged() {
         mDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT,
-                DevicePolicyManager.PASSWORD_QUALITY_SOMETHING);
+                DevicePolicyManager.PASSWORD_QUALITY_COMPLEX);
         mDevicePolicyManager.setPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT, 13);
         mDevicePolicyManager.setPasswordMinimumNumeric(ADMIN_RECEIVER_COMPONENT, 14);
         mDevicePolicyManager.setPasswordMinimumNonLetter(ADMIN_RECEIVER_COMPONENT, 15);
@@ -75,6 +76,11 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
                 ADMIN_RECEIVER_COMPONENT, KEYGUARD_DISABLE_TRUST_AGENTS);
         mDevicePolicyManager.setKeyguardDisabledFeatures(ADMIN_RECEIVER_COMPONENT,
                 KEYGUARD_DISABLE_FEATURES_NONE);
+    }
+
+    public void testSetKeyguardDisabledSecureCameraLogged() {
+        mDevicePolicyManager.setKeyguardDisabledFeatures(
+                ADMIN_RECEIVER_COMPONENT, KEYGUARD_DISABLE_SECURE_CAMERA);
     }
 
     public void testSetUserRestrictionLogged() {
@@ -151,6 +157,14 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
         mDevicePolicyManager.setAutoTimeRequired(ADMIN_RECEIVER_COMPONENT, initialValue);
     }
 
+    public void testSetAutoTimeEnabled() {
+        final boolean initialValue = mDevicePolicyManager.getAutoTimeEnabled(
+                ADMIN_RECEIVER_COMPONENT);
+        mDevicePolicyManager.setAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT, true);
+        mDevicePolicyManager.setAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT, false);
+        mDevicePolicyManager.setAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT, initialValue);
+    }
+
     public void testEnableSystemAppLogged() {
         final String systemPackageToEnable =
                 InstrumentationRegistry.getArguments().getString(PARAM_APP_TO_ENABLE);
@@ -176,5 +190,10 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
         mDevicePolicyManager.setMasterVolumeMuted(ADMIN_RECEIVER_COMPONENT, false);
         mDevicePolicyManager.setMasterVolumeMuted(ADMIN_RECEIVER_COMPONENT, true);
         mDevicePolicyManager.setMasterVolumeMuted(ADMIN_RECEIVER_COMPONENT, initialValue);
+    }
+
+    public void testSetPersonalAppsSuspendedLogged() {
+        mDevicePolicyManager.setPersonalAppsSuspended(ADMIN_RECEIVER_COMPONENT, true);
+        mDevicePolicyManager.setPersonalAppsSuspended(ADMIN_RECEIVER_COMPONENT, false);
     }
 }

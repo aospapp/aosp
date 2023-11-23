@@ -22,7 +22,7 @@
 
 #include "chre/platform/shared/host_protocol_common.h"
 #include "chre_host/fragmented_load_transaction.h"
-#include "chre_host/host_messages_generated.h"
+#include "chre_host/generated/host_messages_generated.h"
 #include "flatbuffers/flatbuffers.h"
 
 #include <vector>
@@ -41,7 +41,7 @@ namespace chre {
  *
  * @return Pointer to the vector's data, or null
  */
-const char *getStringFromByteVector(const std::vector<int8_t>& vec);
+const char *getStringFromByteVector(const std::vector<int8_t> &vec);
 
 /**
  * Calling code should provide an implementation of this interface to handle
@@ -52,25 +52,25 @@ class IChreMessageHandlers {
   virtual ~IChreMessageHandlers() = default;
 
   virtual void handleNanoappMessage(
-      const ::chre::fbs::NanoappMessageT& /*message*/) {};
+      const ::chre::fbs::NanoappMessageT & /*message*/){};
 
   virtual void handleHubInfoResponse(
-      const ::chre::fbs::HubInfoResponseT& /*response*/) {};
+      const ::chre::fbs::HubInfoResponseT & /*response*/){};
 
   virtual void handleNanoappListResponse(
-      const ::chre::fbs::NanoappListResponseT& /*response*/) {};
+      const ::chre::fbs::NanoappListResponseT & /*response*/){};
 
   virtual void handleLoadNanoappResponse(
-      const ::chre::fbs::LoadNanoappResponseT& /*response*/) {};
+      const ::chre::fbs::LoadNanoappResponseT & /*response*/){};
 
   virtual void handleUnloadNanoappResponse(
-      const ::chre::fbs::UnloadNanoappResponseT& /*response*/) {};
+      const ::chre::fbs::UnloadNanoappResponseT & /*response*/){};
 
   virtual void handleDebugDumpData(
-      const ::chre::fbs::DebugDumpDataT& /*data*/) {};
+      const ::chre::fbs::DebugDumpDataT & /*data*/){};
 
   virtual void handleDebugDumpResponse(
-      const ::chre::fbs::DebugDumpResponseT& /*response*/) {};
+      const ::chre::fbs::DebugDumpResponseT & /*response*/){};
 };
 
 /**
@@ -93,7 +93,7 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    * @return true if the message was parsed successfully and passed to a handler
    */
   static bool decodeMessageFromChre(const void *message, size_t messageLen,
-                                    IChreMessageHandlers& handlers);
+                                    IChreMessageHandlers &handlers);
 
   /**
    * Encodes a message requesting hub information from CHRE
@@ -101,7 +101,7 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    * @param builder A newly constructed FlatBufferBuilder that will be used to
    *        construct the message
    */
-  static void encodeHubInfoRequest(flatbuffers::FlatBufferBuilder& builder);
+  static void encodeHubInfoRequest(flatbuffers::FlatBufferBuilder &builder);
 
   /**
    * Encodes a message requesting to load a nanoapp specified by the included
@@ -113,8 +113,8 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    *        metadata
    */
   static void encodeFragmentedLoadNanoappRequest(
-      flatbuffers::FlatBufferBuilder& builder,
-      const FragmentedLoadRequest& request);
+      flatbuffers::FlatBufferBuilder &builder,
+      const FragmentedLoadRequest &request);
 
   /**
    * Encodes a message requesting the list of loaded nanoapps from CHRE
@@ -122,7 +122,7 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    * @param builder A newly constructed FlatBufferBuilder that will be used to
    *        construct the message
    */
-  static void encodeNanoappListRequest(flatbuffers::FlatBufferBuilder& builder);
+  static void encodeNanoappListRequest(flatbuffers::FlatBufferBuilder &builder);
 
   /**
    * Encodes a message requesting to unload a nanoapp specified by app ID.
@@ -138,7 +138,7 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    *        expected to be managed through that HAL)
    */
   static void encodeUnloadNanoappRequest(
-      flatbuffers::FlatBufferBuilder& builder, uint32_t transactionId,
+      flatbuffers::FlatBufferBuilder &builder, uint32_t transactionId,
       uint64_t appId, bool allowSystemNanoappUnload);
 
   /**
@@ -148,7 +148,7 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    *        construct the message
    * @param offset The AP to SLPI offset in nanoseconds
    */
-  static void encodeTimeSyncMessage(flatbuffers::FlatBufferBuilder& builder,
+  static void encodeTimeSyncMessage(flatbuffers::FlatBufferBuilder &builder,
                                     int64_t offset);
 
   /**
@@ -157,7 +157,7 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    * @param builder A newly constructed FlatBufferBuilder that will be used to
    *        construct the message
    */
-  static void encodeDebugDumpRequest(flatbuffers::FlatBufferBuilder& builder);
+  static void encodeDebugDumpRequest(flatbuffers::FlatBufferBuilder &builder);
 
   /**
    * Decodes the host client ID included in the message container
@@ -170,9 +170,9 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    * @return true if the host client ID was successfully decoded from the
    *         message
    */
-  static bool extractHostClientIdAndType(
-      const void *message, size_t messageLen, uint16_t *hostClientId,
-      ::chre::fbs::ChreMessage *messageType);
+  static bool extractHostClientIdAndType(const void *message, size_t messageLen,
+                                         uint16_t *hostClientId,
+                                         ::chre::fbs::ChreMessage *messageType);
 
   /**
    * Update the host client ID field in the MessageContainer.
@@ -195,9 +195,9 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    *        construct the message
    */
   static void encodeLoadNanoappRequestForBinary(
-      flatbuffers::FlatBufferBuilder& builder, uint32_t transactionId,
+      flatbuffers::FlatBufferBuilder &builder, uint32_t transactionId,
       uint64_t appId, uint32_t appVersion, uint32_t targetApiVersion,
-      const std::vector<uint8_t>& nanoappBinary, uint32_t fragmentId,
+      const std::vector<uint8_t> &nanoappBinary, uint32_t fragmentId,
       size_t appTotalSizeBytes);
 
   /**
@@ -208,9 +208,21 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    *        construct the message
    */
   static void encodeLoadNanoappRequestForFile(
-      flatbuffers::FlatBufferBuilder& builder, uint32_t transactionId,
+      flatbuffers::FlatBufferBuilder &builder, uint32_t transactionId,
       uint64_t appId, uint32_t appVersion, uint32_t targetApiVersion,
       const char *nanoappBinaryName);
+
+  /**
+   * Encodes a message notifying CHRE of a user setting change.
+   *
+   * @param builder A newly constructed FlatBufferBuilder that will be used to
+   *        construct the message
+   * @param setting The setting value that the user changed
+   * @param newState The state that the user change the setting to.
+   */
+  static void encodeSettingChangeNotification(
+      flatbuffers::FlatBufferBuilder &builder, ::chre::fbs::Setting setting,
+      ::chre::fbs::SettingState newState);
 };
 
 }  // namespace chre

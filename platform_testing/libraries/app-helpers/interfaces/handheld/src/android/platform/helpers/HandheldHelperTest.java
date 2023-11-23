@@ -17,6 +17,7 @@
 package android.platform.helpers;
 
 import android.os.RemoteException;
+import android.platform.helpers.exceptions.TestHelperException;
 
 public abstract class HandheldHelperTest<T extends IAppHelper> extends HelperTest<T> {
     @Override
@@ -24,7 +25,7 @@ public abstract class HandheldHelperTest<T extends IAppHelper> extends HelperTes
         try {
             getDevice().setOrientationNatural();
         } catch (RemoteException e) {
-            throw new RuntimeException("Could not set orientation.", e);
+            throw new TestHelperException("Could not set orientation.", e);
         }
         super.initialize();
     }

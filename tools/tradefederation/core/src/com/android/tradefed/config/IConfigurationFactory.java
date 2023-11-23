@@ -135,17 +135,8 @@ public interface IConfigurationFactory {
     public List<String> getConfigList();
 
     /**
-     * Variation of {@link #getConfigList()} where we want to reduce the listing to only a
-     * subdirectory of the configuration path (res/config/).
-     *
-     * @param subPath name of the sub-directories to look in for configuration. If null, will have
-     *        the same behavior as {@link #getConfigList()}.
-     */
-    public List<String> getConfigList(String subPath);
-
-    /**
-     * Variation of {@link #getConfigList(String)} where can specify whether or not we also want to
-     * load the configuration from the environment.
+     * Variation of {@link #getConfigList()} where can specify whether or not we also want to load
+     * the configuration from the environment.
      *
      * @param subPath name of the sub-directories to look in for configuration. If null, will have
      *     the same behavior as {@link #getConfigList()}.

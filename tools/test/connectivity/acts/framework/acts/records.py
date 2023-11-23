@@ -20,7 +20,6 @@ import collections
 import copy
 import io
 import json
-import logging
 
 from acts import logger
 from acts.libs import yaml_writer
@@ -169,11 +168,6 @@ class TestResult(MoblyTestResult):
         self.skipped: A list of records for tests skipped.
     """
 
-    def __init__(self):
-        super().__init__()
-        self.controller_info = {}
-        self.extras = {}
-
     def __add__(self, r):
         """Overrides '+' operator for TestResult class.
 
@@ -186,7 +180,7 @@ class TestResult(MoblyTestResult):
         Returns:
             A TestResult instance that's the sum of two TestResult instances.
         """
-        if not isinstance(r, TestResult):
+        if not isinstance(r, MoblyTestResult):
             raise TypeError("Operand %s of type %s is not a TestResult." %
                             (r, type(r)))
         sum_result = TestResult()
@@ -195,30 +189,7 @@ class TestResult(MoblyTestResult):
             l_value = getattr(self, name)
             if isinstance(r_value, list):
                 setattr(sum_result, name, l_value + r_value)
-            elif isinstance(r_value, dict):
-                sum_dict = copy.deepcopy(l_value)
-                sum_dict.update(copy.deepcopy(r_value))
-                setattr(sum_result, name, sum_dict)
         return sum_result
-
-    def add_controller_info(self, name, info):
-        try:
-            json.dumps(info)
-        except TypeError:
-            logging.warning(("Controller info for %s is not JSON serializable!"
-                             " Coercing it to string.") % name)
-            self.controller_info[name] = str(info)
-            return
-        self.controller_info[name] = info
-
-    def set_extra_data(self, name, info):
-        try:
-            json.dumps(info)
-        except TypeError:
-            logging.warning("Controller info for %s is not JSON serializable! "
-                            "Coercing it to string." % name)
-            info = str(info)
-        self.extras[name] = info
 
     def json_str(self):
         """Converts this test result to a string in json format.
@@ -237,10 +208,10 @@ class TestResult(MoblyTestResult):
             A json-format string representing the test results.
         """
         d = collections.OrderedDict()
-        d["ControllerInfo"] = self.controller_info
+        d["ControllerInfo"] = {record.controller_name: record.controller_info
+                               for record in self.controller_info}
         d["Results"] = [record.to_dict() for record in self.executed]
         d["Summary"] = self.summary_dict()
-        d["Extras"] = self.extras
         d["Error"] = self.errors_list()
         json_str = json.dumps(d, indent=4)
         return json_str

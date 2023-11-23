@@ -23,7 +23,7 @@
         <option name="test-module-name" value="VtsHalHealthStorageV1_0Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalHealthStorageV1_0TargetTest/VtsHalHealthStorageV1_0TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalHealthStorageV1_0TargetTest/VtsHalHealthStorageV1_0TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

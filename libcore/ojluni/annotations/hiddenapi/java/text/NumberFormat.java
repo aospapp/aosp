@@ -39,7 +39,7 @@
 
 package java.text;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class NumberFormat extends java.text.Format {

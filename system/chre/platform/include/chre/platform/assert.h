@@ -41,7 +41,7 @@
 
 #elif defined(CHRE_ASSERTIONS_DISABLED)
 
-#define CHRE_ASSERT(condition) ((void) (condition))
+#define CHRE_ASSERT(condition) ((void)(condition))
 
 #else
 #error "CHRE_ASSERTIONS_ENABLED or CHRE_ASSERTIONS_DISABLED must be defined"
@@ -58,11 +58,12 @@
  * @param fmt Format string to pass to LOGE
  * @param ... Arguments to pass to LOGE
  */
-#define CHRE_ASSERT_LOG(condition, fmt, ...) do { \
-  if (!(condition)) {                             \
-    LOGE("Assert: " fmt, ##__VA_ARGS__);          \
-    CHRE_ASSERT(condition);                       \
-  }                                               \
-} while (0)
+#define CHRE_ASSERT_LOG(condition, fmt, ...) \
+  do {                                       \
+    if (!(condition)) {                      \
+      LOGE("Assert: " fmt, ##__VA_ARGS__);   \
+      CHRE_ASSERT(condition);                \
+    }                                        \
+  } while (0)
 
 #endif  // CHRE_PLATFORM_ASSERT_H_

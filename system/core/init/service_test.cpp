@@ -23,6 +23,7 @@
 
 #include <gtest/gtest.h>
 
+#include "lmkd_service.h"
 #include "util.h"
 
 namespace android {
@@ -30,7 +31,7 @@ namespace init {
 
 TEST(service, pod_initialized) {
     constexpr auto memory_size = sizeof(Service);
-    alignas(alignof(Service)) char old_memory[memory_size];
+    alignas(alignof(Service)) unsigned char old_memory[memory_size];
 
     for (std::size_t i = 0; i < memory_size; ++i) {
         old_memory[i] = 0xFF;
@@ -45,11 +46,11 @@ TEST(service, pod_initialized) {
     EXPECT_EQ(0, service_in_old_memory->crash_count());
     EXPECT_EQ(0U, service_in_old_memory->uid());
     EXPECT_EQ(0U, service_in_old_memory->gid());
-    EXPECT_EQ(0U, service_in_old_memory->namespace_flags());
+    EXPECT_EQ(0, service_in_old_memory->namespace_flags());
     EXPECT_EQ(IoSchedClass_NONE, service_in_old_memory->ioprio_class());
     EXPECT_EQ(0, service_in_old_memory->ioprio_pri());
     EXPECT_EQ(0, service_in_old_memory->priority());
-    EXPECT_EQ(-1000, service_in_old_memory->oom_score_adjust());
+    EXPECT_EQ(DEFAULT_OOM_SCORE_ADJUST, service_in_old_memory->oom_score_adjust());
     EXPECT_FALSE(service_in_old_memory->process_cgroup_empty());
 
     for (std::size_t i = 0; i < memory_size; ++i) {
@@ -64,26 +65,26 @@ TEST(service, pod_initialized) {
     EXPECT_EQ(0, service_in_old_memory2->crash_count());
     EXPECT_EQ(0U, service_in_old_memory2->uid());
     EXPECT_EQ(0U, service_in_old_memory2->gid());
-    EXPECT_EQ(0U, service_in_old_memory2->namespace_flags());
+    EXPECT_EQ(0, service_in_old_memory2->namespace_flags());
     EXPECT_EQ(IoSchedClass_NONE, service_in_old_memory2->ioprio_class());
     EXPECT_EQ(0, service_in_old_memory2->ioprio_pri());
     EXPECT_EQ(0, service_in_old_memory2->priority());
-    EXPECT_EQ(-1000, service_in_old_memory2->oom_score_adjust());
+    EXPECT_EQ(DEFAULT_OOM_SCORE_ADJUST, service_in_old_memory2->oom_score_adjust());
     EXPECT_FALSE(service_in_old_memory->process_cgroup_empty());
 }
 
 TEST(service, make_temporary_oneshot_service_invalid_syntax) {
     std::vector<std::string> args;
     // Nothing.
-    ASSERT_EQ(nullptr, Service::MakeTemporaryOneshotService(args));
+    ASSERT_FALSE(Service::MakeTemporaryOneshotService(args).ok());
 
     // No arguments to 'exec'.
     args.push_back("exec");
-    ASSERT_EQ(nullptr, Service::MakeTemporaryOneshotService(args));
+    ASSERT_FALSE(Service::MakeTemporaryOneshotService(args).ok());
 
     // No command in "exec --".
     args.push_back("--");
-    ASSERT_EQ(nullptr, Service::MakeTemporaryOneshotService(args));
+    ASSERT_FALSE(Service::MakeTemporaryOneshotService(args).ok());
 }
 
 TEST(service, make_temporary_oneshot_service_too_many_supplementary_gids) {
@@ -97,7 +98,7 @@ TEST(service, make_temporary_oneshot_service_too_many_supplementary_gids) {
     }
     args.push_back("--");
     args.push_back("/system/bin/id");
-    ASSERT_EQ(nullptr, Service::MakeTemporaryOneshotService(args));
+    ASSERT_FALSE(Service::MakeTemporaryOneshotService(args).ok());
 }
 
 static void Test_make_temporary_oneshot_service(bool dash_dash, bool seclabel, bool uid, bool gid,
@@ -122,8 +123,9 @@ static void Test_make_temporary_oneshot_service(bool dash_dash, bool seclabel, b
     }
     args.push_back("/system/bin/toybox");
     args.push_back("id");
-    auto svc = Service::MakeTemporaryOneshotService(args);
-    ASSERT_NE(nullptr, svc);
+    auto service_ret = Service::MakeTemporaryOneshotService(args);
+    ASSERT_RESULT_OK(service_ret);
+    auto svc = std::move(*service_ret);
 
     if (seclabel) {
         ASSERT_EQ("u:r:su:s0", svc->seclabel());
@@ -132,14 +134,14 @@ static void Test_make_temporary_oneshot_service(bool dash_dash, bool seclabel, b
     }
     if (uid) {
         auto decoded_uid = DecodeUid("log");
-        ASSERT_TRUE(decoded_uid);
+        ASSERT_RESULT_OK(decoded_uid);
         ASSERT_EQ(*decoded_uid, svc->uid());
     } else {
         ASSERT_EQ(0U, svc->uid());
     }
     if (gid) {
         auto decoded_uid = DecodeUid("shell");
-        ASSERT_TRUE(decoded_uid);
+        ASSERT_RESULT_OK(decoded_uid);
         ASSERT_EQ(*decoded_uid, svc->gid());
     } else {
         ASSERT_EQ(0U, svc->gid());
@@ -148,11 +150,11 @@ static void Test_make_temporary_oneshot_service(bool dash_dash, bool seclabel, b
         ASSERT_EQ(2U, svc->supp_gids().size());
 
         auto decoded_uid = DecodeUid("system");
-        ASSERT_TRUE(decoded_uid);
+        ASSERT_RESULT_OK(decoded_uid);
         ASSERT_EQ(*decoded_uid, svc->supp_gids()[0]);
 
         decoded_uid = DecodeUid("adb");
-        ASSERT_TRUE(decoded_uid);
+        ASSERT_RESULT_OK(decoded_uid);
         ASSERT_EQ(*decoded_uid, svc->supp_gids()[1]);
     } else {
         ASSERT_EQ(0U, svc->supp_gids().size());

@@ -51,7 +51,9 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         /** Use a placeholder for a remote device nested in a virtualized environment. */
         GCE_DEVICE(RemoteAvdIDevice.class),
         /** Use a placeholder for a remote device in virtualized environment. */
-        REMOTE_DEVICE(VmRemoteDevice.class);
+        REMOTE_DEVICE(VmRemoteDevice.class),
+        /** Allocate a virtual device running on localhost. */
+        LOCAL_VIRTUAL_DEVICE(StubLocalAndroidVirtualDevice.class);
 
         private Class<?> mRequiredIDeviceClass;
 
@@ -305,6 +307,10 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         return DeviceRequestedType.REMOTE_DEVICE.equals(mRequestedType);
     }
 
+    public boolean localVirtualDeviceRequested() {
+        return DeviceRequestedType.LOCAL_VIRTUAL_DEVICE.equals(mRequestedType);
+    }
+
     /**
      * Sets the emulator requested flag
      */
@@ -493,12 +499,12 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         }
         // If battery check is required and we have a min/max battery requested
         if (mRequireBatteryCheck) {
-            if (((mMinBattery != null) || (mMaxBattery != null))
-                    && (!(device instanceof StubDevice) || (device instanceof FastbootDevice))) {
+            if ((mMinBattery != null || mMaxBattery != null)) {
                 // Only check battery on physical device. (FastbootDevice placeholder is always for
                 // a physical device
-                if (device instanceof FastbootDevice) {
-                    // Ready battery of fastboot device does not work and could lead to weird log.
+                if (device instanceof StubDevice || device instanceof FastbootDevice) {
+                    // Reading battery of fastboot and StubDevice device does not work and could
+                    // lead to weird log.
                     return false;
                 }
                 Integer deviceBattery = getBatteryLevel(device);
@@ -529,7 +535,7 @@ public class DeviceSelectionOptions implements IDeviceSelection {
                 }
 
                 // Extract the temperature from the file
-                IBatteryTemperature temp = new BatteryTemperature();
+                BatteryTemperature temp = new BatteryTemperature();
                 Integer deviceBatteryTemp = temp.getBatteryTemperature(device);
 
                 if (deviceBatteryTemp <= 0) {
@@ -561,7 +567,7 @@ public class DeviceSelectionOptions implements IDeviceSelection {
 
         if (mRequestedType != null) {
             Class<?> classNeeded = mRequestedType.getRequiredClass();
-            if (!(device.getClass().equals(classNeeded))) {
+            if (!device.getClass().equals(classNeeded)) {
                 return false;
             }
         } else {
@@ -572,15 +578,19 @@ public class DeviceSelectionOptions implements IDeviceSelection {
             if (nullDeviceRequested() != (device instanceof NullDevice)) {
                 return false;
             }
-            if (tcpDeviceRequested() != (TcpDevice.class.equals(device.getClass()))) {
+            if (tcpDeviceRequested() != TcpDevice.class.equals(device.getClass())) {
                 // We only match an exact TcpDevice here, no child class.
                 return false;
             }
-            if (gceDeviceRequested() != (RemoteAvdIDevice.class.equals(device.getClass()))) {
+            if (gceDeviceRequested() != RemoteAvdIDevice.class.equals(device.getClass())) {
                 // We only match an exact RemoteAvdIDevice here, no child class.
                 return false;
             }
-            if (remoteDeviceRequested() != (VmRemoteDevice.class.equals(device.getClass()))) {
+            if (remoteDeviceRequested() != VmRemoteDevice.class.equals(device.getClass())) {
+                return false;
+            }
+            if (localVirtualDeviceRequested()
+                    != StubLocalAndroidVirtualDevice.class.equals(device.getClass())) {
                 return false;
             }
         }

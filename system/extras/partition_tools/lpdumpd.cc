@@ -40,18 +40,15 @@ class Lpdump : public BnLpdump {
     virtual ~Lpdump() = default;
 
     Status run(const std::vector<std::string>& args, std::string* aidl_return) override {
-        if (args.size() > std::numeric_limits<int>::max()) {
-            return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT);
-        }
-        std::vector<std::string> m_args = args;
-        char* argv[m_args.size()];
-        for (size_t i = 0; i < m_args.size(); ++i) {
-            argv[i] = m_args[i].data();
+        std::vector<char*> local_argv;
+        std::vector<std::string> local_args = args;
+        for (auto& arg : local_args) {
+            local_argv.push_back(arg.data());
         }
         LOG(DEBUG) << "Dumping with args: " << base::Join(args, " ");
         std::stringstream output;
         std::stringstream error;
-        int ret = LpdumpMain((int)m_args.size(), argv, output, error);
+        int ret = LpdumpMain((int)local_argv.size(), local_argv.data(), output, error);
         std::string error_str = error.str();
         if (ret == 0) {
             if (!error_str.empty()) {

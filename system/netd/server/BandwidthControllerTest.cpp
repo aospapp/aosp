@@ -60,13 +60,14 @@ const std::string ACCOUNT_RULES_WITHOUT_BPF =
         "-A bw_OUTPUT -j bw_global_alert\n"
         "-A bw_OUTPUT -o ipsec+ -j RETURN\n"
         "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN\n"
+        "-A bw_OUTPUT -m owner --uid-owner clat -j RETURN\n"
         "-A bw_OUTPUT -m owner --socket-exists\n"
-        "-A bw_costly_shared --jump bw_penalty_box\n"
+        "-A bw_costly_shared -j bw_penalty_box\n"
         "\n"
-        "-A bw_penalty_box --jump bw_happy_box\n"
-        "-A bw_happy_box --jump bw_data_saver\n"
+        "-A bw_penalty_box -j bw_happy_box\n"
+        "-A bw_happy_box -j bw_data_saver\n"
         "-A bw_data_saver -j RETURN\n"
-        "-I bw_happy_box -m owner --uid-owner 0-9999 --jump RETURN\n"
+        "-I bw_happy_box -m owner --uid-owner 0-9999 -j RETURN\n"
         "COMMIT\n"
         "*raw\n"
         "-A bw_raw_PREROUTING -i ipsec+ -j RETURN\n"
@@ -76,9 +77,9 @@ const std::string ACCOUNT_RULES_WITHOUT_BPF =
         "*mangle\n"
         "-A bw_mangle_POSTROUTING -o ipsec+ -j RETURN\n"
         "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN\n"
-        "-A bw_mangle_POSTROUTING -m owner --socket-exists\n"
         "-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x100000\n"
-        "\n"
+        "-A bw_mangle_POSTROUTING -m owner --uid-owner clat -j RETURN\n"
+        "-A bw_mangle_POSTROUTING -m owner --socket-exists\n"
         "COMMIT\n";
 
 const std::string ACCOUNT_RULES_WITH_BPF =
@@ -89,14 +90,15 @@ const std::string ACCOUNT_RULES_WITH_BPF =
         "\n"
         "-A bw_INPUT -j MARK --or-mark 0x100000\n"
         "-A bw_OUTPUT -j bw_global_alert\n"
-        "-A bw_OUTPUT -o ipsec+ -j RETURN\n"
-        "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN\n"
         "\n"
-        "-A bw_costly_shared --jump bw_penalty_box\n" +
+        "\n"
+        "\n"
+        "\n"
+        "-A bw_costly_shared -j bw_penalty_box\n" +
         StringPrintf("-I bw_penalty_box -m bpf --object-pinned %s -j REJECT\n",
                      XT_BPF_BLACKLIST_PROG_PATH) +
-        "-A bw_penalty_box --jump bw_happy_box\n"
-        "-A bw_happy_box --jump bw_data_saver\n"
+        "-A bw_penalty_box -j bw_happy_box\n"
+        "-A bw_happy_box -j bw_data_saver\n"
         "-A bw_data_saver -j RETURN\n" +
         StringPrintf("-I bw_happy_box -m bpf --object-pinned %s -j RETURN\n",
                      XT_BPF_WHITELIST_PROG_PATH) +
@@ -109,8 +111,8 @@ const std::string ACCOUNT_RULES_WITH_BPF =
         "*mangle\n"
         "-A bw_mangle_POSTROUTING -o ipsec+ -j RETURN\n"
         "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN\n"
-        "\n"
-        "-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x100000\n" +
+        "-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x100000\n"
+        "-A bw_mangle_POSTROUTING -m owner --uid-owner clat -j RETURN\n" +
         StringPrintf("-A bw_mangle_POSTROUTING -m bpf --object-pinned %s\n",
                      XT_BPF_EGRESS_PROG_PATH) +
         "COMMIT\n";
@@ -276,21 +278,21 @@ TEST_F(BandwidthControllerTest, TestDisableBandwidthControl) {
 TEST_F(BandwidthControllerTest, TestEnableDataSaver) {
     mBw.enableDataSaver(true);
     std::string expected4 =
-        "*filter\n"
-        ":bw_data_saver -\n"
-        "-A bw_data_saver --jump REJECT\n"
-        "COMMIT\n";
+            "*filter\n"
+            ":bw_data_saver -\n"
+            "-A bw_data_saver -j REJECT\n"
+            "COMMIT\n";
     std::string expected6 =
-        "*filter\n"
-        ":bw_data_saver -\n"
-        "-A bw_data_saver -p icmpv6 --icmpv6-type packet-too-big -j RETURN\n"
-        "-A bw_data_saver -p icmpv6 --icmpv6-type router-solicitation -j RETURN\n"
-        "-A bw_data_saver -p icmpv6 --icmpv6-type router-advertisement -j RETURN\n"
-        "-A bw_data_saver -p icmpv6 --icmpv6-type neighbour-solicitation -j RETURN\n"
-        "-A bw_data_saver -p icmpv6 --icmpv6-type neighbour-advertisement -j RETURN\n"
-        "-A bw_data_saver -p icmpv6 --icmpv6-type redirect -j RETURN\n"
-        "-A bw_data_saver --jump REJECT\n"
-        "COMMIT\n";
+            "*filter\n"
+            ":bw_data_saver -\n"
+            "-A bw_data_saver -p icmpv6 --icmpv6-type packet-too-big -j RETURN\n"
+            "-A bw_data_saver -p icmpv6 --icmpv6-type router-solicitation -j RETURN\n"
+            "-A bw_data_saver -p icmpv6 --icmpv6-type router-advertisement -j RETURN\n"
+            "-A bw_data_saver -p icmpv6 --icmpv6-type neighbour-solicitation -j RETURN\n"
+            "-A bw_data_saver -p icmpv6 --icmpv6-type neighbour-advertisement -j RETURN\n"
+            "-A bw_data_saver -p icmpv6 --icmpv6-type redirect -j RETURN\n"
+            "-A bw_data_saver -j REJECT\n"
+            "COMMIT\n";
     expectIptablesRestoreCommands({
         {V4, expected4},
         {V6, expected6},
@@ -298,11 +300,10 @@ TEST_F(BandwidthControllerTest, TestEnableDataSaver) {
 
     mBw.enableDataSaver(false);
     std::string expected = {
-        "*filter\n"
-        ":bw_data_saver -\n"
-        "-A bw_data_saver --jump RETURN\n"
-        "COMMIT\n"
-    };
+            "*filter\n"
+            ":bw_data_saver -\n"
+            "-A bw_data_saver -j RETURN\n"
+            "COMMIT\n"};
     expectIptablesRestoreCommands({
         {V4, expected},
         {V6, expected},
@@ -315,16 +316,16 @@ const std::vector<std::string> makeInterfaceQuotaCommands(const std::string& ifa
     const char* c_chain = chain.c_str();
     const char* c_iface = iface.c_str();
     std::vector<std::string> cmds = {
-        "*filter",
-        StringPrintf(":%s -", c_chain),
-        StringPrintf("-A %s -j bw_penalty_box", c_chain),
-        StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleIndex, c_iface, c_chain),
-        StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleIndex, c_iface, c_chain),
-        StringPrintf("-A bw_FORWARD -i %s --jump %s", c_iface, c_chain),
-        StringPrintf("-A bw_FORWARD -o %s --jump %s", c_iface, c_chain),
-        StringPrintf("-A %s -m quota2 ! --quota %" PRIu64 " --name %s --jump REJECT", c_chain,
-                     quota, c_iface),
-        "COMMIT\n",
+            "*filter",
+            StringPrintf(":%s -", c_chain),
+            StringPrintf("-A %s -j bw_penalty_box", c_chain),
+            StringPrintf("-I bw_INPUT %d -i %s -j %s", ruleIndex, c_iface, c_chain),
+            StringPrintf("-I bw_OUTPUT %d -o %s -j %s", ruleIndex, c_iface, c_chain),
+            StringPrintf("-A bw_FORWARD -i %s -j %s", c_iface, c_chain),
+            StringPrintf("-A bw_FORWARD -o %s -j %s", c_iface, c_chain),
+            StringPrintf("-A %s -m quota2 ! --quota %" PRIu64 " --name %s -j REJECT", c_chain,
+                         quota, c_iface),
+            "COMMIT\n",
     };
     return {Join(cmds, "\n")};
 }
@@ -334,14 +335,14 @@ const std::vector<std::string> removeInterfaceQuotaCommands(const std::string& i
     const char* c_chain = chain.c_str();
     const char* c_iface = iface.c_str();
     std::vector<std::string> cmds = {
-        "*filter",
-        StringPrintf("-D bw_INPUT -i %s --jump %s", c_iface, c_chain),
-        StringPrintf("-D bw_OUTPUT -o %s --jump %s", c_iface, c_chain),
-        StringPrintf("-D bw_FORWARD -i %s --jump %s", c_iface, c_chain),
-        StringPrintf("-D bw_FORWARD -o %s --jump %s", c_iface, c_chain),
-        StringPrintf("-F %s", c_chain),
-        StringPrintf("-X %s", c_chain),
-        "COMMIT\n",
+            "*filter",
+            StringPrintf("-D bw_INPUT -i %s -j %s", c_iface, c_chain),
+            StringPrintf("-D bw_OUTPUT -o %s -j %s", c_iface, c_chain),
+            StringPrintf("-D bw_FORWARD -i %s -j %s", c_iface, c_chain),
+            StringPrintf("-D bw_FORWARD -o %s -j %s", c_iface, c_chain),
+            StringPrintf("-F %s", c_chain),
+            StringPrintf("-X %s", c_chain),
+            "COMMIT\n",
     };
     return {Join(cmds, "\n")};
 }
@@ -372,15 +373,15 @@ const std::vector<std::string> makeInterfaceSharedQuotaCommands(const std::strin
     const char* c_chain = chain.c_str();
     const char* c_iface = iface.c_str();
     std::vector<std::string> cmds = {
-        "*filter",
-        StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleIndex, c_iface, c_chain),
-        StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleIndex, c_iface, c_chain),
-        StringPrintf("-A bw_FORWARD -i %s --jump %s", c_iface, c_chain),
-        StringPrintf("-A bw_FORWARD -o %s --jump %s", c_iface, c_chain),
+            "*filter",
+            StringPrintf("-I bw_INPUT %d -i %s -j %s", ruleIndex, c_iface, c_chain),
+            StringPrintf("-I bw_OUTPUT %d -o %s -j %s", ruleIndex, c_iface, c_chain),
+            StringPrintf("-A bw_FORWARD -i %s -j %s", c_iface, c_chain),
+            StringPrintf("-A bw_FORWARD -o %s -j %s", c_iface, c_chain),
     };
     if (insertQuota) {
-        cmds.push_back(StringPrintf(
-            "-I %s -m quota2 ! --quota %" PRIu64 " --name shared --jump REJECT", c_chain, quota));
+        cmds.push_back(StringPrintf("-I %s -m quota2 ! --quota %" PRIu64 " --name shared -j REJECT",
+                                    c_chain, quota));
     }
     cmds.push_back("COMMIT\n");
     return {Join(cmds, "\n")};
@@ -392,15 +393,15 @@ const std::vector<std::string> removeInterfaceSharedQuotaCommands(const std::str
     const char* c_chain = chain.c_str();
     const char* c_iface = iface.c_str();
     std::vector<std::string> cmds = {
-        "*filter",
-        StringPrintf("-D bw_INPUT -i %s --jump %s", c_iface, c_chain),
-        StringPrintf("-D bw_OUTPUT -o %s --jump %s", c_iface, c_chain),
-        StringPrintf("-D bw_FORWARD -i %s --jump %s", c_iface, c_chain),
-        StringPrintf("-D bw_FORWARD -o %s --jump %s", c_iface, c_chain),
+            "*filter",
+            StringPrintf("-D bw_INPUT -i %s -j %s", c_iface, c_chain),
+            StringPrintf("-D bw_OUTPUT -o %s -j %s", c_iface, c_chain),
+            StringPrintf("-D bw_FORWARD -i %s -j %s", c_iface, c_chain),
+            StringPrintf("-D bw_FORWARD -o %s -j %s", c_iface, c_chain),
     };
     if (deleteQuota) {
-        cmds.push_back(StringPrintf(
-            "-D %s -m quota2 ! --quota %" PRIu64 " --name shared --jump REJECT", c_chain, quota));
+        cmds.push_back(StringPrintf("-D %s -m quota2 ! --quota %" PRIu64 " --name shared -j REJECT",
+                                    c_chain, quota));
     }
     cmds.push_back("COMMIT\n");
     return {Join(cmds, "\n")};
@@ -515,22 +516,20 @@ TEST_F(BandwidthControllerTest, ManipulateSpecialApps) {
     std::vector<const char *> appUids = { "1000", "1001", "10012" };
 
     std::vector<std::string> expected = {
-        "*filter\n"
-        "-I bw_happy_box -m owner --uid-owner 1000 --jump RETURN\n"
-        "-I bw_happy_box -m owner --uid-owner 1001 --jump RETURN\n"
-        "-I bw_happy_box -m owner --uid-owner 10012 --jump RETURN\n"
-        "COMMIT\n"
-    };
+            "*filter\n"
+            "-I bw_happy_box -m owner --uid-owner 1000 -j RETURN\n"
+            "-I bw_happy_box -m owner --uid-owner 1001 -j RETURN\n"
+            "-I bw_happy_box -m owner --uid-owner 10012 -j RETURN\n"
+            "COMMIT\n"};
     EXPECT_EQ(0, mBw.addNiceApps(appUids.size(), const_cast<char**>(&appUids[0])));
     expectIptablesRestoreCommands(expected);
 
     expected = {
-        "*filter\n"
-        "-D bw_penalty_box -m owner --uid-owner 1000 --jump REJECT\n"
-        "-D bw_penalty_box -m owner --uid-owner 1001 --jump REJECT\n"
-        "-D bw_penalty_box -m owner --uid-owner 10012 --jump REJECT\n"
-        "COMMIT\n"
-    };
+            "*filter\n"
+            "-D bw_penalty_box -m owner --uid-owner 1000 -j REJECT\n"
+            "-D bw_penalty_box -m owner --uid-owner 1001 -j REJECT\n"
+            "-D bw_penalty_box -m owner --uid-owner 10012 -j REJECT\n"
+            "COMMIT\n"};
     EXPECT_EQ(0, mBw.removeNaughtyApps(appUids.size(), const_cast<char**>(&appUids[0])));
     expectIptablesRestoreCommands(expected);
 }

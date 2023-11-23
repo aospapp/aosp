@@ -27,7 +27,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 623603 (0x983f3)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=DE, O=D-Trust GmbH, CN=D-TRUST Root Class 3 CA 2 2009
         Validity
             Not Before: Nov  5 08:35:58 2009 GMT
@@ -35,7 +35,7 @@ Certificate:
         Subject: C=DE, O=D-Trust GmbH, CN=D-TRUST Root Class 3 CA 2 2009
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:d3:b2:4a:cf:7a:47:ef:75:9b:23:fa:3a:2f:d6:
                     50:45:89:35:3a:c6:6b:db:fe:db:00:68:a8:e0:03:

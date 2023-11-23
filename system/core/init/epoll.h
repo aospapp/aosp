@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef _INIT_EPOLL_H
-#define _INIT_EPOLL_H
+#pragma once
 
 #include <stdint.h>
 #include <sys/epoll.h>
@@ -24,6 +23,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <vector>
 
 #include <android-base/unique_fd.h>
 
@@ -36,11 +36,11 @@ class Epoll {
   public:
     Epoll();
 
-    Result<Success> Open();
-    Result<Success> RegisterHandler(int fd, std::function<void()> handler,
-                                    uint32_t events = EPOLLIN);
-    Result<Success> UnregisterHandler(int fd);
-    Result<Success> Wait(std::optional<std::chrono::milliseconds> timeout);
+    Result<void> Open();
+    Result<void> RegisterHandler(int fd, std::function<void()> handler, uint32_t events = EPOLLIN);
+    Result<void> UnregisterHandler(int fd);
+    Result<std::vector<std::function<void()>*>> Wait(
+            std::optional<std::chrono::milliseconds> timeout);
 
   private:
     android::base::unique_fd epoll_fd_;
@@ -49,5 +49,3 @@ class Epoll {
 
 }  // namespace init
 }  // namespace android
-
-#endif

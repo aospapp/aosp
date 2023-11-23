@@ -123,7 +123,7 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
         waitForWriteAdapterCallback(1);
 
         // Click the print button.
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         // Wait for finish.
         waitForAdapterFinishCallbackCalled();
@@ -209,7 +209,7 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
         selectPages("2", PAGE_COUNT);
 
         // Click the print button.
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         // Wait for finish.
         waitForAdapterFinishCallbackCalled();
@@ -314,7 +314,7 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
         selectPages(Integer.valueOf(REQUESTED_PAGE).toString(), PAGE_COUNT);
 
         // Click the print button.
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         // Wait for finish.
         waitForAdapterFinishCallbackCalled();
@@ -391,8 +391,7 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
         waitForWriteAdapterCallback(1);
 
         // Cancel printing.
-        getUiDevice().pressBack(); // wakes up the device.
-        getUiDevice().pressBack();
+        mPrintHelper.cancelPrinting();
 
         // Wait for finish.
         waitForAdapterFinishCallbackCalled();
@@ -483,7 +482,7 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
         selectPages("3", PAGE_COUNT);
 
         // Click the print button.
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         // Wait for finish.
         waitForAdapterFinishCallbackCalled();

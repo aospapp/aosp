@@ -17,23 +17,91 @@
 #ifndef CHRE_UTIL_SYSTEM_DEBUG_DUMP_H_
 #define CHRE_UTIL_SYSTEM_DEBUG_DUMP_H_
 
+#include <cstdarg>
 #include <cstddef>
-#include <stdarg.h>
+
+#include <chre/toolchain.h>
+
+#include "chre/util/dynamic_vector.h"
+#include "chre/util/unique_ptr.h"
 
 namespace chre {
 
 /**
- * Prints a formatted string into a string buffer. If the log message does not
- * fit into the remaining space of the buffer, the error is logged and the
- * buffer is null-terminated. Subsequent calls to this function will do nothing.
- *
- * @param buffer Pointer to the start of the buffer.
- * @param bufferPos Pointer to buffer position to start the print (in-out).
- * @param bufferSize Size of the buffer in bytes.
- * @param formatStr Formatted string.
+ * Class to hold information about debug dump buffers so that
+ * multiple debug dump commits can be called on buffers.
  */
-void debugDumpPrint(char *buffer, size_t *bufferPos, size_t bufferSize,
-                    const char *formatStr, ...);
+class DebugDumpWrapper {
+ public:
+  explicit DebugDumpWrapper(size_t bufferSize)
+      : kBuffSize(bufferSize), mCurrBuff(nullptr) {}
+
+  /**
+   * Add formatted string to buffers handling allocating a new buffer if
+   * necessary.
+   *
+   * @param formatStr String that should be formatted using the variable arg
+   *    list.
+   *
+   * "this" is the first param in print, so CHRE_PRINTF_ATTR needs to point to
+   *    the second and third params.
+   */
+  CHRE_PRINTF_ATTR(2, 3)
+  void print(const char *formatStr, ...);
+
+  /**
+   * A version of print that takes arguments as a variable list.
+   */
+  void print(const char *formatStr, va_list argList);
+
+  /**
+   * @return The buffers collected that total up to the full debug dump.
+   */
+  const DynamicVector<UniquePtr<char>> &getBuffers() const {
+    return mBuffers;
+  }
+
+  /**
+   * Clear all the debug dump buffers.
+   */
+  void clear() {
+    mCurrBuff = nullptr;
+    mBuffers.clear();
+  }
+
+ private:
+  //! Number of bytes allocated for each buffer
+  const size_t kBuffSize;
+  //! Index that where a string will be inserted into current buffer
+  size_t mBuffPos;
+  //! Pointer to the current buffer
+  char *mCurrBuff;
+  //! List of allocated buffers for the debug dump session
+  DynamicVector<UniquePtr<char>> mBuffers;
+
+  /**
+   * Set the current buffer to new buffer and append it to back of buffers.
+   *
+   * @return true if successfully allocated memory for new buffer.
+   */
+  bool allocNewBuffer();
+
+  /**
+   * Insert a string onto the end of current buffer.
+   *
+   * @param formatStr The format string with format specifiers.
+   * @param argList The variable list of arguments to be inserted into
+   *    formatStr.
+   * @param sizeValid The pointer to a variable that will indicate whether
+   *    the value stored in sizeOfStr is valid.
+   * @param sizeOfStr The pointer to a variable that will be filled with the
+   *    size of the string, not including the null terminator.
+   *
+   * @return true on success.
+   */
+  bool insertString(const char *formatStr, va_list argList, bool *sizeValid,
+                    size_t *sizeOfStr);
+};
 
 }  // namespace chre
 

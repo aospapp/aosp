@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef SCOPED_UTF_CHARS_H_
-#define SCOPED_UTF_CHARS_H_
+#ifndef LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_UTF_CHARS_H_
+#define LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_UTF_CHARS_H_
 
 #include <string.h>
 
@@ -36,7 +36,7 @@ class ScopedUtfChars {
   ScopedUtfChars(JNIEnv* env, jstring s) : env_(env), string_(s) {
     if (s == nullptr) {
       utf_chars_ = nullptr;
-      jniThrowNullPointerException(env, nullptr);
+      jniThrowNullPointerException(env);
     } else {
       utf_chars_ = env->GetStringUTFChars(s, nullptr);
     }
@@ -91,4 +91,4 @@ class ScopedUtfChars {
   DISALLOW_COPY_AND_ASSIGN(ScopedUtfChars);
 };
 
-#endif  // SCOPED_UTF_CHARS_H_
+#endif  // LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_UTF_CHARS_H_

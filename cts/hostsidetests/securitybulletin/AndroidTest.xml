@@ -18,8 +18,13 @@
     <option name="config-descriptor:metadata" key="component" value="security" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
+        <!--__________________-->
+        <!--    Utilities     -->
+        <option name="push" value="pacrunner->/data/local/tmp/pacrunner" />
+
         <option name="push" value="CVE-2016-8460->/data/local/tmp/CVE-2016-8460" />
         <option name="push" value="CVE-2016-8482->/data/local/tmp/CVE-2016-8482" />
         <option name="push" value="CVE-2016-6730->/data/local/tmp/CVE-2016-6730" />
@@ -38,7 +43,9 @@
         <option name="push" value="CVE-2016-8431->/data/local/tmp/CVE-2016-8431" />
         <option name="push" value="CVE-2016-8432->/data/local/tmp/CVE-2016-8432" />
         <option name="push" value="CVE-2016-8434->/data/local/tmp/CVE-2016-8434" />
+        <option name="push" value="Bug-137878930->/data/local/tmp/Bug-137878930" />
 
+        <!--__________________-->
         <!-- Bulletin 2016-04 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
         <option name="push" value="CVE-2016-2412->/data/local/tmp/CVE-2016-2412" />
@@ -54,10 +61,12 @@
         <!--__________________-->
         <!-- Bulletin 2016-06 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2016-2482->/data/local/tmp/CVE-2016-2482" />
 
         <!--__________________-->
         <!-- Bulletin 2016-07 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2016-3747->/data/local/tmp/CVE-2016-3747" />
         <option name="push" value="CVE-2014-9803->/data/local/tmp/CVE-2014-9803" />
         <option name="push" value="CVE-2016-3746->/data/local/tmp/CVE-2016-3746" />
         <option name="push" value="CVE-2016-3818->/data/local/tmp/CVE-2016-3818" />
@@ -111,10 +120,14 @@
         <!--__________________-->
         <!-- Bulletin 2017-05 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2016-5862->/data/local/tmp/CVE-2016-5862"/>
+        <option name="push" value="CVE-2016-5867->/data/local/tmp/CVE-2016-5867"/>
 
         <!--__________________-->
         <!-- Bulletin 2017-06 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2016-4658->/data/local/tmp/CVE-2016-4658" />
+        <option name="push" value="CVE-2016-5131->/data/local/tmp/CVE-2016-5131" />
 
         <!--__________________-->
         <!-- Bulletin 2017-07 -->
@@ -133,6 +146,7 @@
         <!--__________________-->
         <!-- Bulletin 2017-10 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2017-0814->/data/local/tmp/CVE-2017-0814" />
 
         <!--__________________-->
         <!-- Bulletin 2017-11 -->
@@ -146,6 +160,7 @@
         <!--__________________-->
         <!-- Bulletin 2018-01 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2018-9527->/data/local/tmp/CVE-2018-9527" />
 
         <!--__________________-->
         <!-- Bulletin 2018-02 -->
@@ -169,9 +184,14 @@
         <option name="push" value="CVE-2018-9424->/data/local/tmp/CVE-2018-9424" />
 
         <!--__________________-->
+        <!-- Bulletin 2018-09 -->
+        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2018-9472->/data/local/tmp/CVE-2018-9472" />
+
+        <!--__________________-->
         <!-- Bulletin 2018-10 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2018-9490->/data/local/tmp/CVE-2018-9490" />
+        <option name="push" value="CVE-2018-9491->/data/local/tmp/CVE-2018-9491" />
         <option name="push" value="CVE-2018-9515->/data/local/tmp/CVE-2018-9515" />
 
         <!--__________________-->
@@ -183,8 +203,31 @@
         <!-- Bulletin 2019-03 -->
         <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
         <option name="push" value="Bug-115739809->/data/local/tmp/Bug-115739809" />
+        <option name="push" value="CVE-2019-2025->/data/local/tmp/CVE-2019-2025" />
+      
+        <!--__________________-->
+        <!-- Bulletin 2019-09 -->
+        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2019-9313->/data/local/tmp/CVE-2019-9313" />
 
+        <!--__________________-->
+        <!-- Bulletin 2020-03 -->
+        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
+        <option name="push" value="CVE-2020-0069->/data/local/tmp/CVE-2020-0069" />
         <option name="append-bitness" value="true" />
+    </target_preparer>
+
+    <!-- The following tests hit either 32-bit or 64-bit, but not both. All tests in this -->
+    <!-- section should take care to build either 32 bit or 64 bit binary, but not both.  -->
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+
+        <!-- Please add 32-bit binary tests below to avoid merge conflict -->
+
+        <!-- Please add 64-bit binary tests below to avoid merge conflict -->
+
+
+        <option name="append-bitness" value="false" />
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -195,6 +238,8 @@
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="OomCatcher.apk" />
+        <option name="test-file-name" value="MainlineModuleDetector.apk" />
+        <option name="test-file-name" value="hotspot.apk" />
     </target_preparer>
 
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >

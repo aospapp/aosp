@@ -19,18 +19,16 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/strings.h>
-#include <google/protobuf/text_format.h>
+#include <fcntl.h>
 #include <hidl/Status.h>
 #include <hwbinder/IPCThreadState.h>
-
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <fcntl.h>
-#include <ctime>
 #include <string>
 #include <thread>
 
+using ::android::base::Error;
 using ::android::base::ReadFdToString;
 using ::android::base::WriteStringToFd;
 using ::android::hardware::Void;
@@ -61,18 +59,8 @@ static inline int getCallingPid() {
     return ::android::hardware::IPCThreadState::self()->getCallingPid();
 }
 
-static inline WakeLockIdType getWakeLockId(int pid, const string& name) {
-    // Doesn't guarantee unique ids, but for debuging purposes this is adequate.
-    return std::to_string(pid) + "/" + name;
-}
-
-TimestampType getEpochTimeNow() {
-    auto timeSinceEpoch = std::chrono::system_clock::now().time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::microseconds>(timeSinceEpoch).count();
-}
-
-WakeLock::WakeLock(SystemSuspend* systemSuspend, const WakeLockIdType& id, const string& name)
-    : mReleased(), mSystemSuspend(systemSuspend), mId(id), mName(name) {
+WakeLock::WakeLock(SystemSuspend* systemSuspend, const string& name, int pid)
+    : mReleased(), mSystemSuspend(systemSuspend), mName(name), mPid(pid) {
     mSystemSuspend->incSuspendCounter(mName);
 }
 
@@ -88,21 +76,23 @@ Return<void> WakeLock::release() {
 void WakeLock::releaseOnce() {
     std::call_once(mReleased, [this]() {
         mSystemSuspend->decSuspendCounter(mName);
-        mSystemSuspend->deleteWakeLockStatsEntry(mId);
+        mSystemSuspend->updateWakeLockStatOnRelease(mName, mPid, getTimeNow());
     });
 }
 
-SystemSuspend::SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd, size_t maxStatsEntries,
+SystemSuspend::SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd, unique_fd suspendStatsFd,
+                             size_t maxNativeStatsEntries, unique_fd kernelWakelockStatsFd,
                              std::chrono::milliseconds baseSleepTime,
                              const sp<SuspendControlService>& controlService,
                              bool useSuspendCounter)
     : mSuspendCounter(0),
       mWakeupCountFd(std::move(wakeupCountFd)),
       mStateFd(std::move(stateFd)),
-      mMaxStatsEntries(maxStatsEntries),
+      mSuspendStatsFd(std::move(suspendStatsFd)),
       mBaseSleepTime(baseSleepTime),
       mSleepTime(baseSleepTime),
       mControlService(controlService),
+      mStatsList(maxNativeStatsEntries, std::move(kernelWakelockStatsFd)),
       mUseSuspendCounter(useSuspendCounter),
       mWakeLockFd(-1),
       mWakeUnlockFd(-1) {
@@ -151,46 +141,10 @@ bool SystemSuspend::forceSuspend() {
 Return<sp<IWakeLock>> SystemSuspend::acquireWakeLock(WakeLockType /* type */,
                                                      const hidl_string& name) {
     auto pid = getCallingPid();
-    auto wlId = getWakeLockId(pid, name);
-    IWakeLock* wl = new WakeLock{this, wlId, name};
-    {
-        auto l = std::lock_guard(mStatsLock);
-
-        auto& wlStatsEntry = (*mStats.mutable_wl_stats())[wlId];
-        auto lastUpdated = wlStatsEntry.last_updated();
-        auto timeNow = getEpochTimeNow();
-        mLruWakeLockId.erase(lastUpdated);
-        mLruWakeLockId[timeNow] = wlId;
-
-        wlStatsEntry.set_name(name);
-        wlStatsEntry.set_pid(pid);
-        wlStatsEntry.set_active(true);
-        wlStatsEntry.set_last_updated(timeNow);
-
-        if (mStats.wl_stats().size() > mMaxStatsEntries) {
-            auto lruWakeLockId = mLruWakeLockId.begin()->second;
-            mLruWakeLockId.erase(mLruWakeLockId.begin());
-            mStats.mutable_wl_stats()->erase(lruWakeLockId);
-        }
-    }
+    auto timeNow = getTimeNow();
+    IWakeLock* wl = new WakeLock{this, name, pid};
+    mStatsList.updateOnAcquire(name, pid, timeNow);
     return wl;
-}
-
-Return<void> SystemSuspend::debug(const hidl_handle& handle,
-                                  const hidl_vec<hidl_string>& /* options */) {
-    if (handle == nullptr || handle->numFds < 1 || handle->data[0] < 0) {
-        LOG(ERROR) << "no valid fd";
-        return Void();
-    }
-    int fd = handle->data[0];
-    string debugStr;
-    {
-        auto l = std::lock_guard(mStatsLock);
-        google::protobuf::TextFormat::PrintToString(mStats, &debugStr);
-    }
-    WriteStringToFd(debugStr, fd);
-    fsync(fd);
-    return Void();
 }
 
 void SystemSuspend::incSuspendCounter(const string& name) {
@@ -214,20 +168,6 @@ void SystemSuspend::decSuspendCounter(const string& name) {
         if (!WriteStringToFd(name, mWakeUnlockFd)) {
             PLOG(ERROR) << "error writing " << name << " to " << kSysPowerWakeUnlock;
         }
-    }
-}
-
-void SystemSuspend::deleteWakeLockStatsEntry(WakeLockIdType id) {
-    auto l = std::lock_guard(mStatsLock);
-    auto* wlStats = mStats.mutable_wl_stats();
-    if (wlStats->find(id) != wlStats->end()) {
-        auto& wlStatsEntry = (*wlStats)[id];
-        auto timeNow = getEpochTimeNow();
-        auto lastUpdated = wlStatsEntry.last_updated();
-        wlStatsEntry.set_active(false);
-        wlStatsEntry.set_last_updated(timeNow);
-        mLruWakeLockId.erase(lastUpdated);
-        mLruWakeLockId[timeNow] = id;
     }
 }
 
@@ -276,6 +216,93 @@ void SystemSuspend::updateSleepTime(bool success) {
     }
     // Double sleep time after each failure up to one minute.
     mSleepTime = std::min(mSleepTime * 2, kMaxSleepTime);
+}
+
+void SystemSuspend::updateWakeLockStatOnRelease(const std::string& name, int pid,
+                                                TimestampType timeNow) {
+    mStatsList.updateOnRelease(name, pid, timeNow);
+}
+
+const WakeLockEntryList& SystemSuspend::getStatsList() const {
+    return mStatsList;
+}
+
+void SystemSuspend::updateStatsNow() {
+    mStatsList.updateNow();
+}
+
+/**
+ * Returns suspend stats.
+ */
+Result<SuspendStats> SystemSuspend::getSuspendStats() {
+    SuspendStats stats;
+    std::unique_ptr<DIR, decltype(&closedir)> dp(fdopendir(dup(mSuspendStatsFd.get())), &closedir);
+    if (!dp) {
+        return stats;
+    }
+
+    // rewinddir, else subsequent calls will not get any suspend_stats
+    rewinddir(dp.get());
+
+    struct dirent* de;
+
+    // Grab a wakelock before reading suspend stats,
+    // to ensure a consistent snapshot.
+    sp<IWakeLock> suspendStatsLock = acquireWakeLock(WakeLockType::PARTIAL, "suspend_stats_lock");
+
+    while ((de = readdir(dp.get()))) {
+        std::string statName(de->d_name);
+        if ((statName == ".") || (statName == "..")) {
+            continue;
+        }
+
+        unique_fd statFd{TEMP_FAILURE_RETRY(
+            openat(mSuspendStatsFd.get(), statName.c_str(), O_CLOEXEC | O_RDONLY))};
+        if (statFd < 0) {
+            return Error() << "Failed to open " << statName;
+        }
+
+        std::string valStr;
+        if (!ReadFdToString(statFd.get(), &valStr)) {
+            return Error() << "Failed to read " << statName;
+        }
+
+        // Trim newline
+        valStr.erase(std::remove(valStr.begin(), valStr.end(), '\n'), valStr.end());
+
+        if (statName == "last_failed_dev") {
+            stats.lastFailedDev = valStr;
+        } else if (statName == "last_failed_step") {
+            stats.lastFailedStep = valStr;
+        } else {
+            int statVal = std::stoi(valStr);
+            if (statName == "success") {
+                stats.success = statVal;
+            } else if (statName == "fail") {
+                stats.fail = statVal;
+            } else if (statName == "failed_freeze") {
+                stats.failedFreeze = statVal;
+            } else if (statName == "failed_prepare") {
+                stats.failedPrepare = statVal;
+            } else if (statName == "failed_suspend") {
+                stats.failedSuspend = statVal;
+            } else if (statName == "failed_suspend_late") {
+                stats.failedSuspendLate = statVal;
+            } else if (statName == "failed_suspend_noirq") {
+                stats.failedSuspendNoirq = statVal;
+            } else if (statName == "failed_resume") {
+                stats.failedResume = statVal;
+            } else if (statName == "failed_resume_early") {
+                stats.failedResumeEarly = statVal;
+            } else if (statName == "failed_resume_noirq") {
+                stats.failedResumeNoirq = statVal;
+            } else if (statName == "last_failed_errno") {
+                stats.lastFailedErrno = statVal;
+            }
+        }
+    }
+
+    return stats;
 }
 
 }  // namespace V1_0

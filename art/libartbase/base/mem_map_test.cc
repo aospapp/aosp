@@ -19,8 +19,8 @@
 #include <memory>
 #include <random>
 
+#include "bit_utils.h"
 #include "common_art_test.h"
-#include "common_runtime_test.h"  // For TEST_DISABLED_FOR_MIPS
 #include "logging.h"
 #include "memory_tool.h"
 #include "mman.h"
@@ -503,10 +503,6 @@ TEST_F(MemMapTest, RemapFileViewAtEnd) {
 }
 
 TEST_F(MemMapTest, MapAnonymousExactAddr32bitHighAddr) {
-  // Some MIPS32 hardware (namely the Creator Ci20 development board)
-  // cannot allocate in the 2GB-4GB region.
-  TEST_DISABLED_FOR_MIPS();
-
   // This test does not work under AddressSanitizer.
   // Historical note: This test did not work under Valgrind either.
   TEST_DISABLED_FOR_MEMORY_TOOL();
@@ -902,6 +898,5 @@ class DumpMapsOnFailListener : public testing::EmptyTestEventListener {
 extern "C"
 __attribute__((visibility("default"))) __attribute__((used))
 void ArtTestGlobalInit() {
-  LOG(ERROR) << "Installing listener";
   testing::UnitTest::GetInstance()->listeners().Append(new DumpMapsOnFailListener());
 }

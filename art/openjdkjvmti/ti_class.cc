@@ -39,6 +39,7 @@
 
 #include "art_jvmti.h"
 #include "base/array_ref.h"
+#include "base/logging.h"
 #include "base/macros.h"
 #include "base/utils.h"
 #include "class_linker.h"
@@ -203,16 +204,20 @@ struct ClassCallback : public art::ClassLoadCallback {
       memcpy(post_non_retransform.data(), def.GetDexData().data(), post_non_retransform.size());
     }
 
+    // Call all structural transformation agents.
+    Transformer::TransformSingleClassDirect<ArtJvmtiEvent::kStructuralDexFileLoadHook>(
+        event_handler, self, &def);
     // Call all retransformable agents.
     Transformer::TransformSingleClassDirect<ArtJvmtiEvent::kClassFileLoadHookRetransformable>(
         event_handler, self, &def);
 
     if (def.IsModified()) {
-      LOG(WARNING) << "Changing class " << descriptor;
+      VLOG(class_linker) << "Changing class " << descriptor;
       art::StackHandleScope<2> hs(self);
       // Save the results of all the non-retransformable agents.
       // First allocate the ClassExt
-      art::Handle<art::mirror::ClassExt> ext(hs.NewHandle(klass->EnsureExtDataPresent(self)));
+      art::Handle<art::mirror::ClassExt> ext =
+          hs.NewHandle(art::mirror::Class::EnsureExtDataPresent(klass, self));
       // Make sure we have a ClassExt. This is fine even though we are a temporary since it will
       // get copied.
       if (ext.IsNull()) {
@@ -721,8 +726,8 @@ jvmtiError ClassUtil::GetClassSignature(jvmtiEnv* env,
           art::annotations::GetSignatureAnnotationForClass(h_klass);
       if (str_array != nullptr) {
         std::ostringstream oss;
-        for (int32_t i = 0; i != str_array->GetLength(); ++i) {
-          oss << str_array->Get(i)->ToModifiedUtf8();
+        for (auto str : str_array->Iterate()) {
+          oss << str->ToModifiedUtf8();
         }
         std::string output_string = oss.str();
         jvmtiError ret;

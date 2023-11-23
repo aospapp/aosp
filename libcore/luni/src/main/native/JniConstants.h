@@ -30,7 +30,6 @@ struct JniConstants {
     static void Invalidate();
 
     static jclass GetBooleanClass(JNIEnv* env);
-    static jclass GetCharsetICUClass(JNIEnv* env);
     static jclass GetDoubleClass(JNIEnv* env);
     static jclass GetErrnoExceptionClass(JNIEnv* env);
     static jclass GetFileDescriptorClass(JNIEnv* env);
@@ -46,7 +45,6 @@ struct JniConstants {
     static jclass GetLongClass(JNIEnv* env);
     static jclass GetNetlinkSocketAddressClass(JNIEnv* env);
     static jclass GetPacketSocketAddressClass(JNIEnv* env);
-    static jclass GetPatternSyntaxExceptionClass(JNIEnv* env);
     static jclass GetStringClass(JNIEnv* env);
     static jclass GetStructAddrinfoClass(JNIEnv* env);
     static jclass GetStructFlockClass(JNIEnv* env);

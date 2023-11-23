@@ -16,18 +16,17 @@
 package com.android.tradefed.proto;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import android.os.BatteryStatsProto;
+import android.os.UidProto;
 import android.service.batterystats.BatteryStatsServiceDumpProto;
 
 import com.android.tradefed.device.CollectingByteOutputReceiver;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.IDeviceTest;
-
-import com.google.protobuf.InvalidProtocolBufferException;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,20 +61,19 @@ public class PlatformProtosFuncTest implements IDeviceTest {
      */
     @Test
     public void testDumpAndReadBatteryStatsProto() throws Exception {
-
         CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
         getDevice().executeShellCommand(CMD_DUMP_BATTERYSTATS, receiver);
 
         byte[] protoBytes = receiver.getOutput();
-        try {
-            BatteryStatsServiceDumpProto bssdp = BatteryStatsServiceDumpProto.parseFrom(protoBytes);
-            assertTrue(bssdp.hasBatterystats());
-            BatteryStatsProto bs = bssdp.getBatterystats();
-            assertTrue(bs.hasSystem());
-            assertFalse(bs.getUidsList().isEmpty());
-            assertTrue(bs.getUids(0).hasCpu());
-        } catch (InvalidProtocolBufferException e) {
-            fail("Invalid BatteryStatsServiceDumpProto: " + e.getMessage());
+        BatteryStatsServiceDumpProto bssdp = BatteryStatsServiceDumpProto.parseFrom(protoBytes);
+        assertTrue(bssdp.hasBatterystats());
+        BatteryStatsProto bs = bssdp.getBatterystats();
+        assertTrue(bs.hasSystem());
+        assertFalse(bs.getUidsList().isEmpty());
+        for (UidProto uid : bs.getUidsList()) {
+            if (uid.hasCpu()) {
+                assertNotNull(uid.getCpu().getUserDurationMs());
+            }
         }
     }
 }

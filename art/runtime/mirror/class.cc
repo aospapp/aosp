@@ -16,14 +16,20 @@
 
 #include "class.h"
 
+#include <unordered_set>
+#include <string_view>
+
+#include "android-base/macros.h"
 #include "android-base/stringprintf.h"
 
+#include "array-inl.h"
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "base/enums.h"
 #include "base/logging.h"  // For VLOG.
 #include "base/utils.h"
 #include "class-inl.h"
-#include "class_ext.h"
+#include "class_ext-inl.h"
 #include "class_linker-inl.h"
 #include "class_loader.h"
 #include "class_root.h"
@@ -36,6 +42,7 @@
 #include "gc/heap-inl.h"
 #include "handle_scope-inl.h"
 #include "hidden_api.h"
+#include "jni_id_type.h"
 #include "subtype_check.h"
 #include "method.h"
 #include "object-inl.h"
@@ -57,6 +64,49 @@ constexpr size_t BitString::kCapacity;
 namespace mirror {
 
 using android::base::StringPrintf;
+
+bool Class::IsMirrored() {
+  if (LIKELY(!IsBootStrapClassLoaded())) {
+    return false;
+  }
+  if (IsPrimitive() || IsArrayClass() || IsProxyClass()) {
+    return true;
+  }
+  // TODO Have this list automatically populated.
+  std::unordered_set<std::string_view> mirror_types = {
+    "Ljava/lang/Class;",
+    "Ljava/lang/ClassLoader;",
+    "Ljava/lang/ClassNotFoundException;",
+    "Ljava/lang/DexCache;",
+    "Ljava/lang/Object;",
+    "Ljava/lang/StackTraceElement;",
+    "Ljava/lang/String;",
+    "Ljava/lang/Throwable;",
+    "Ljava/lang/invoke/ArrayElementVarHandle;",
+    "Ljava/lang/invoke/ByteArrayViewVarHandle;",
+    "Ljava/lang/invoke/ByteBufferViewVarHandle;",
+    "Ljava/lang/invoke/CallSite;",
+    "Ljava/lang/invoke/FieldVarHandle;",
+    "Ljava/lang/invoke/MethodHandle;",
+    "Ljava/lang/invoke/MethodHandleImpl;",
+    "Ljava/lang/invoke/MethodHandles$Lookup;",
+    "Ljava/lang/invoke/MethodType;",
+    "Ljava/lang/invoke/VarHandle;",
+    "Ljava/lang/ref/FinalizerReference;",
+    "Ljava/lang/ref/Reference;",
+    "Ljava/lang/reflect/AccessibleObject;",
+    "Ljava/lang/reflect/Constructor;",
+    "Ljava/lang/reflect/Executable;",
+    "Ljava/lang/reflect/Field;",
+    "Ljava/lang/reflect/Method;",
+    "Ljava/lang/reflect/Proxy;",
+    "Ldalvik/system/ClassExt;",
+    "Ldalvik/system/EmulatedStackFrame;",
+  };
+  std::string name_storage;
+  const std::string name(this->GetDescriptor(&name_storage));
+  return mirror_types.find(name) != mirror_types.end();
+}
 
 ObjPtr<mirror::Class> Class::GetPrimitiveClass(ObjPtr<mirror::String> name) {
   const char* expected_name = nullptr;
@@ -94,14 +144,12 @@ ObjPtr<mirror::Class> Class::GetPrimitiveClass(ObjPtr<mirror::String> name) {
   }
 }
 
-ObjPtr<ClassExt> Class::EnsureExtDataPresent(Thread* self) {
-  ObjPtr<ClassExt> existing(GetExtData());
+ObjPtr<ClassExt> Class::EnsureExtDataPresent(Handle<Class> h_this, Thread* self) {
+  ObjPtr<ClassExt> existing(h_this->GetExtData());
   if (!existing.IsNull()) {
     return existing;
   }
-  StackHandleScope<3> hs(self);
-  // Handlerize 'this' since we are allocating here.
-  Handle<Class> h_this(hs.NewHandle(this));
+  StackHandleScope<2> hs(self);
   // Clear exception so we can allocate.
   Handle<Throwable> throwable(hs.NewHandle(self->GetException()));
   self->ClearException();
@@ -140,24 +188,64 @@ ObjPtr<ClassExt> Class::EnsureExtDataPresent(Thread* self) {
   }
 }
 
+template <typename T>
+static void CheckSetStatus(Thread* self, T thiz, ClassStatus new_status, ClassStatus old_status)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (UNLIKELY(new_status <= old_status && new_status != ClassStatus::kErrorUnresolved &&
+               new_status != ClassStatus::kErrorResolved && new_status != ClassStatus::kRetired)) {
+    LOG(FATAL) << "Unexpected change back of class status for " << thiz->PrettyClass() << " "
+               << old_status << " -> " << new_status;
+  }
+  if (old_status == ClassStatus::kInitialized) {
+    // We do not hold the lock for making the class visibly initialized
+    // as this is unnecessary and could lead to deadlocks.
+    CHECK_EQ(new_status, ClassStatus::kVisiblyInitialized);
+  } else if ((new_status >= ClassStatus::kResolved || old_status >= ClassStatus::kResolved) &&
+             !Locks::mutator_lock_->IsExclusiveHeld(self)) {
+    // When classes are being resolved the resolution code should hold the
+    // lock or have everything else suspended
+    CHECK_EQ(thiz->GetLockOwnerThreadId(), self->GetThreadId())
+        << "Attempt to change status of class while not holding its lock: " << thiz->PrettyClass()
+        << " " << old_status << " -> " << new_status;
+  }
+  if (UNLIKELY(Locks::mutator_lock_->IsExclusiveHeld(self))) {
+    CHECK(!Class::IsErroneous(new_status))
+        << "status " << new_status
+        << " cannot be set while suspend-all is active. Would require allocations.";
+    CHECK(thiz->IsResolved())
+        << thiz->PrettyClass()
+        << " not resolved during suspend-all status change. Waiters might be missed!";
+  }
+}
+
+void Class::SetStatusInternal(ClassStatus new_status) {
+  if (kBitstringSubtypeCheckEnabled) {
+    // FIXME: This looks broken with respect to aborted transactions.
+    SubtypeCheck<ObjPtr<mirror::Class>>::WriteStatus(this, new_status);
+  } else {
+    // The ClassStatus is always in the 4 most-significant bits of status_.
+    static_assert(sizeof(status_) == sizeof(uint32_t), "Size of status_ not equal to uint32");
+    uint32_t new_status_value = static_cast<uint32_t>(new_status) << (32 - kClassStatusBitSize);
+    if (Runtime::Current()->IsActiveTransaction()) {
+      SetField32Volatile<true>(StatusOffset(), new_status_value);
+    } else {
+      SetField32Volatile<false>(StatusOffset(), new_status_value);
+    }
+  }
+}
+
+void Class::SetStatusLocked(ClassStatus new_status) {
+  ClassStatus old_status = GetStatus();
+  CheckSetStatus(Thread::Current(), this, new_status, old_status);
+  SetStatusInternal(new_status);
+}
+
 void Class::SetStatus(Handle<Class> h_this, ClassStatus new_status, Thread* self) {
   ClassStatus old_status = h_this->GetStatus();
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   bool class_linker_initialized = class_linker != nullptr && class_linker->IsInitialized();
   if (LIKELY(class_linker_initialized)) {
-    if (UNLIKELY(new_status <= old_status &&
-                 new_status != ClassStatus::kErrorUnresolved &&
-                 new_status != ClassStatus::kErrorResolved &&
-                 new_status != ClassStatus::kRetired)) {
-      LOG(FATAL) << "Unexpected change back of class status for " << h_this->PrettyClass()
-                 << " " << old_status << " -> " << new_status;
-    }
-    if (new_status >= ClassStatus::kResolved || old_status >= ClassStatus::kResolved) {
-      // When classes are being resolved the resolution code should hold the lock.
-      CHECK_EQ(h_this->GetLockOwnerThreadId(), self->GetThreadId())
-            << "Attempt to change status of class while not holding its lock: "
-            << h_this->PrettyClass() << " " << old_status << " -> " << new_status;
-    }
+    CheckSetStatus(self, h_this, new_status, old_status);
   }
   if (UNLIKELY(IsErroneous(new_status))) {
     CHECK(!h_this->IsErroneous())
@@ -172,7 +260,7 @@ void Class::SetStatus(Handle<Class> h_this, ClassStatus new_status, Thread* self
       }
     }
 
-    ObjPtr<ClassExt> ext(h_this->EnsureExtDataPresent(self));
+    ObjPtr<ClassExt> ext(EnsureExtDataPresent(h_this, self));
     if (!ext.IsNull()) {
       self->AssertPendingException();
       ext->SetVerifyError(self->GetException());
@@ -182,25 +270,12 @@ void Class::SetStatus(Handle<Class> h_this, ClassStatus new_status, Thread* self
     self->AssertPendingException();
   }
 
-  if (kBitstringSubtypeCheckEnabled) {
-    // FIXME: This looks broken with respect to aborted transactions.
-    ObjPtr<mirror::Class> h_this_ptr = h_this.Get();
-    SubtypeCheck<ObjPtr<mirror::Class>>::WriteStatus(h_this_ptr, new_status);
-  } else {
-    // The ClassStatus is always in the 4 most-significant bits of status_.
-    static_assert(sizeof(status_) == sizeof(uint32_t), "Size of status_ not equal to uint32");
-    uint32_t new_status_value = static_cast<uint32_t>(new_status) << (32 - kClassStatusBitSize);
-    if (Runtime::Current()->IsActiveTransaction()) {
-      h_this->SetField32Volatile<true>(StatusOffset(), new_status_value);
-    } else {
-      h_this->SetField32Volatile<false>(StatusOffset(), new_status_value);
-    }
-  }
+  h_this->SetStatusInternal(new_status);
 
   // Setting the object size alloc fast path needs to be after the status write so that if the
   // alloc path sees a valid object size, we would know that it's initialized as long as it has a
   // load-acquire/fake dependency.
-  if (new_status == ClassStatus::kInitialized && !h_this->IsVariableSize()) {
+  if (new_status == ClassStatus::kVisiblyInitialized && !h_this->IsVariableSize()) {
     DCHECK_EQ(h_this->GetObjectSizeAllocFastPath(), std::numeric_limits<uint32_t>::max());
     // Finalizable objects must always go slow path.
     if (!h_this->IsFinalizable()) {
@@ -226,6 +301,10 @@ void Class::SetStatus(Handle<Class> h_this, ClassStatus new_status, Thread* self
       if (new_status == ClassStatus::kRetired || new_status == ClassStatus::kErrorUnresolved) {
         h_this->NotifyAll(self);
       }
+    } else if (old_status == ClassStatus::kInitialized) {
+      // Do not notify for transition from kInitialized to ClassStatus::kVisiblyInitialized.
+      // This is a hidden transition, not observable by bytecode.
+      DCHECK_EQ(new_status, ClassStatus::kVisiblyInitialized);  // Already CHECK()ed above.
     } else {
       CHECK_NE(new_status, ClassStatus::kRetired);
       if (old_status >= ClassStatus::kResolved || new_status >= ClassStatus::kResolved) {
@@ -233,6 +312,38 @@ void Class::SetStatus(Handle<Class> h_this, ClassStatus new_status, Thread* self
       }
     }
   }
+}
+
+void Class::SetStatusForPrimitiveOrArray(ClassStatus new_status) {
+  DCHECK(IsPrimitive<kVerifyNone>() || IsArrayClass<kVerifyNone>());
+  DCHECK(!IsErroneous(new_status));
+  DCHECK(!IsErroneous(GetStatus<kVerifyNone>()));
+  DCHECK_GT(new_status, GetStatus<kVerifyNone>());
+
+  if (kBitstringSubtypeCheckEnabled) {
+    LOG(FATAL) << "Unimplemented";
+  }
+  // The ClassStatus is always in the 4 most-significant bits of status_.
+  static_assert(sizeof(status_) == sizeof(uint32_t), "Size of status_ not equal to uint32");
+  uint32_t new_status_value = static_cast<uint32_t>(new_status) << (32 - kClassStatusBitSize);
+  // Use normal store. For primitives and core arrays classes (Object[],
+  // Class[], String[] and primitive arrays), the status is set while the
+  // process is still single threaded. For other arrays classes, it is set
+  // in a pre-fence visitor which initializes all fields and the subsequent
+  // fence together with address dependency shall ensure memory visibility.
+  SetField32</*kTransactionActive=*/ false,
+             /*kCheckTransaction=*/ false,
+             kVerifyNone>(StatusOffset(), new_status_value);
+
+  // Do not update `object_alloc_fast_path_`. Arrays are variable size and
+  // instances of primitive classes cannot be created at all.
+
+  if (kIsDebugBuild && new_status >= ClassStatus::kInitialized) {
+    CHECK(WasVerificationAttempted()) << PrettyClassAndClassLoader();
+  }
+
+  // There can be no waiters to notify as these classes are initialized
+  // before another thread can see them.
 }
 
 void Class::SetDexCache(ObjPtr<DexCache> new_dex_cache) {
@@ -245,7 +356,17 @@ void Class::SetClassSize(uint32_t new_class_size) {
     LOG(FATAL_WITHOUT_ABORT) << new_class_size << " vs " << GetClassSize();
     LOG(FATAL) << "class=" << PrettyTypeOf();
   }
-  SetField32Transaction(OFFSET_OF_OBJECT_MEMBER(Class, class_size_), new_class_size);
+  SetField32</*kTransactionActive=*/ false, /*kCheckTransaction=*/ false>(
+      OFFSET_OF_OBJECT_MEMBER(Class, class_size_), new_class_size);
+}
+
+ObjPtr<Class> Class::GetObsoleteClass() {
+  ObjPtr<ClassExt> ext(GetExtData());
+  if (ext.IsNull()) {
+    return nullptr;
+  } else {
+    return ext->GetObsoleteClass();
+  }
 }
 
 // Return the class' name. The exact format is bizarre, but it's the specified behavior for
@@ -989,6 +1110,33 @@ ArtField* Class::FindField(Thread* self,
   return nullptr;
 }
 
+void Class::ClearSkipAccessChecksFlagOnAllMethods(PointerSize pointer_size) {
+  DCHECK(IsVerified());
+  for (auto& m : GetMethods(pointer_size)) {
+    if (!m.IsNative() && m.IsInvokable()) {
+      m.ClearSkipAccessChecks();
+    }
+  }
+}
+
+void Class::ClearMustCountLocksFlagOnAllMethods(PointerSize pointer_size) {
+  DCHECK(IsVerified());
+  for (auto& m : GetMethods(pointer_size)) {
+    if (!m.IsNative() && m.IsInvokable()) {
+      m.ClearMustCountLocks();
+    }
+  }
+}
+
+void Class::ClearDontCompileFlagOnAllMethods(PointerSize pointer_size) {
+  DCHECK(IsVerified());
+  for (auto& m : GetMethods(pointer_size)) {
+    if (!m.IsNative() && m.IsInvokable()) {
+      m.ClearDontCompile();
+    }
+  }
+}
+
 void Class::SetSkipAccessChecksFlagOnAllMethods(PointerSize pointer_size) {
   DCHECK(IsVerified());
   for (auto& m : GetMethods(pointer_size)) {
@@ -1205,12 +1353,13 @@ class CopyClassVisitor {
   DISALLOW_COPY_AND_ASSIGN(CopyClassVisitor);
 };
 
-ObjPtr<Class> Class::CopyOf(
-    Thread* self, int32_t new_length, ImTable* imt, PointerSize pointer_size) {
+ObjPtr<Class> Class::CopyOf(Handle<Class> h_this,
+                            Thread* self,
+                            int32_t new_length,
+                            ImTable* imt,
+                            PointerSize pointer_size) {
   DCHECK_GE(new_length, static_cast<int32_t>(sizeof(Class)));
   // We may get copied by a compacting GC.
-  StackHandleScope<1> hs(self);
-  Handle<Class> h_this(hs.NewHandle(this));
   Runtime* runtime = Runtime::Current();
   gc::Heap* heap = runtime->GetHeap();
   // The num_bytes (3rd param) is sizeof(Class) as opposed to SizeOf()
@@ -1218,8 +1367,8 @@ ObjPtr<Class> Class::CopyOf(
   CopyClassVisitor visitor(self, &h_this, new_length, sizeof(Class), imt, pointer_size);
   ObjPtr<mirror::Class> java_lang_Class = GetClassRoot<mirror::Class>(runtime->GetClassLinker());
   ObjPtr<Object> new_class = kMovingClasses ?
-      heap->AllocObject<true>(self, java_lang_Class, new_length, visitor) :
-      heap->AllocNonMovableObject<true>(self, java_lang_Class, new_length, visitor);
+      heap->AllocObject(self, java_lang_Class, new_length, visitor) :
+      heap->AllocNonMovableObject(self, java_lang_Class, new_length, visitor);
   if (UNLIKELY(new_class == nullptr)) {
     self->AssertPendingOOMException();
     return nullptr;
@@ -1496,6 +1645,12 @@ std::string Class::PrettyClass(ObjPtr<mirror::Class> c) {
 
 std::string Class::PrettyClass() {
   std::string result;
+  if (IsObsoleteObject()) {
+    result += "(Obsolete)";
+  }
+  if (IsRetired()) {
+    result += "(Retired)";
+  }
   result += "java.lang.Class<";
   result += PrettyDescriptor();
   result += ">";
@@ -1546,6 +1701,121 @@ void Class::SetAccessFlagsDCheck(uint32_t new_access_flags) {
   // kAccVerificationAttempted is retained.
   CHECK((old_access_flags & kAccVerificationAttempted) == 0 ||
         (new_access_flags & kAccVerificationAttempted) != 0);
+}
+
+ObjPtr<Object> Class::GetMethodIds() {
+  ObjPtr<ClassExt> ext(GetExtData());
+  if (ext.IsNull()) {
+    return nullptr;
+  } else {
+    return ext->GetJMethodIDs();
+  }
+}
+bool Class::EnsureMethodIds(Handle<Class> h_this) {
+  DCHECK_NE(Runtime::Current()->GetJniIdType(), JniIdType::kPointer) << "JNI Ids are pointers!";
+  Thread* self = Thread::Current();
+  ObjPtr<ClassExt> ext(EnsureExtDataPresent(h_this, self));
+  if (ext.IsNull()) {
+    self->AssertPendingOOMException();
+    return false;
+  }
+  return ext->EnsureJMethodIDsArrayPresent(h_this->NumMethods());
+}
+
+ObjPtr<Object> Class::GetStaticFieldIds() {
+  ObjPtr<ClassExt> ext(GetExtData());
+  if (ext.IsNull()) {
+    return nullptr;
+  } else {
+    return ext->GetStaticJFieldIDs();
+  }
+}
+bool Class::EnsureStaticFieldIds(Handle<Class> h_this) {
+  DCHECK_NE(Runtime::Current()->GetJniIdType(), JniIdType::kPointer) << "JNI Ids are pointers!";
+  Thread* self = Thread::Current();
+  ObjPtr<ClassExt> ext(EnsureExtDataPresent(h_this, self));
+  if (ext.IsNull()) {
+    self->AssertPendingOOMException();
+    return false;
+  }
+  return ext->EnsureStaticJFieldIDsArrayPresent(h_this->NumStaticFields());
+}
+ObjPtr<Object> Class::GetInstanceFieldIds() {
+  ObjPtr<ClassExt> ext(GetExtData());
+  if (ext.IsNull()) {
+    return nullptr;
+  } else {
+    return ext->GetInstanceJFieldIDs();
+  }
+}
+bool Class::EnsureInstanceFieldIds(Handle<Class> h_this) {
+  DCHECK_NE(Runtime::Current()->GetJniIdType(), JniIdType::kPointer) << "JNI Ids are pointers!";
+  Thread* self = Thread::Current();
+  ObjPtr<ClassExt> ext(EnsureExtDataPresent(h_this, self));
+  if (ext.IsNull()) {
+    self->AssertPendingOOMException();
+    return false;
+  }
+  return ext->EnsureInstanceJFieldIDsArrayPresent(h_this->NumInstanceFields());
+}
+
+size_t Class::GetStaticFieldIdOffset(ArtField* field) {
+  DCHECK_LT(reinterpret_cast<uintptr_t>(field),
+            reinterpret_cast<uintptr_t>(&*GetSFieldsPtr()->end()))
+      << "field not part of the current class. " << field->PrettyField() << " class is "
+      << PrettyClass();
+  DCHECK_GE(reinterpret_cast<uintptr_t>(field),
+            reinterpret_cast<uintptr_t>(&*GetSFieldsPtr()->begin()))
+      << "field not part of the current class. " << field->PrettyField() << " class is "
+      << PrettyClass();
+  uintptr_t start = reinterpret_cast<uintptr_t>(&GetSFieldsPtr()->At(0));
+  uintptr_t fld = reinterpret_cast<uintptr_t>(field);
+  size_t res = (fld - start) / sizeof(ArtField);
+  DCHECK_EQ(&GetSFieldsPtr()->At(res), field)
+      << "Incorrect field computation expected: " << field->PrettyField()
+      << " got: " << GetSFieldsPtr()->At(res).PrettyField();
+  return res;
+}
+
+size_t Class::GetInstanceFieldIdOffset(ArtField* field) {
+  DCHECK_LT(reinterpret_cast<uintptr_t>(field),
+            reinterpret_cast<uintptr_t>(&*GetIFieldsPtr()->end()))
+      << "field not part of the current class. " << field->PrettyField() << " class is "
+      << PrettyClass();
+  DCHECK_GE(reinterpret_cast<uintptr_t>(field),
+            reinterpret_cast<uintptr_t>(&*GetIFieldsPtr()->begin()))
+      << "field not part of the current class. " << field->PrettyField() << " class is "
+      << PrettyClass();
+  uintptr_t start = reinterpret_cast<uintptr_t>(&GetIFieldsPtr()->At(0));
+  uintptr_t fld = reinterpret_cast<uintptr_t>(field);
+  size_t res = (fld - start) / sizeof(ArtField);
+  DCHECK_EQ(&GetIFieldsPtr()->At(res), field)
+      << "Incorrect field computation expected: " << field->PrettyField()
+      << " got: " << GetIFieldsPtr()->At(res).PrettyField();
+  return res;
+}
+
+size_t Class::GetMethodIdOffset(ArtMethod* method, PointerSize pointer_size) {
+  DCHECK(GetMethodsSlice(kRuntimePointerSize).Contains(method))
+      << "method not part of the current class. " << method->PrettyMethod() << "( " << reinterpret_cast<void*>(method) << ")" << " class is "
+      << PrettyClass() << [&]() REQUIRES_SHARED(Locks::mutator_lock_) {
+        std::ostringstream os;
+        os << " Methods are [";
+        for (ArtMethod& m : GetMethodsSlice(kRuntimePointerSize)) {
+          os << m.PrettyMethod() << "( " << reinterpret_cast<void*>(&m) << "), ";
+        }
+        os << "]";
+        return os.str();
+      }();
+  uintptr_t start = reinterpret_cast<uintptr_t>(&*GetMethodsSlice(pointer_size).begin());
+  uintptr_t fld = reinterpret_cast<uintptr_t>(method);
+  size_t art_method_size = ArtMethod::Size(pointer_size);
+  size_t art_method_align = ArtMethod::Alignment(pointer_size);
+  size_t res = (fld - start) / art_method_size;
+  DCHECK_EQ(&GetMethodsPtr()->At(res, art_method_size, art_method_align), method)
+      << "Incorrect method computation expected: " << method->PrettyMethod()
+      << " got: " << GetMethodsPtr()->At(res, art_method_size, art_method_align).PrettyMethod();
+  return res;
 }
 
 }  // namespace mirror

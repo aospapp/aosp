@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-#ifndef _MEMORY_REPLAY_POINTERS_H
-#define _MEMORY_REPLAY_POINTERS_H
+#pragma once
 
 #include <stdatomic.h>
 #include <stdint.h>
 
-struct pointer_data {
-  std::atomic_uintptr_t key_pointer;
-  void* pointer;
-};
-
 class Pointers {
  public:
+  struct pointer_data {
+    std::atomic_uintptr_t key_pointer;
+    void* pointer;
+  };
+
   explicit Pointers(size_t max_allocs);
   virtual ~Pointers();
 
@@ -47,5 +46,3 @@ class Pointers {
   size_t pointers_size_ = 0;
   size_t max_pointers_ = 0;
 };
-
-#endif // _MEMORY_REPLAY_POINTERS_H

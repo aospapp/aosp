@@ -72,7 +72,7 @@ public class CtsDeviceLeanback extends CtsJankTestBase {
         intent.putExtra(IntentKeys.SCROLL_DELAY, PRE_SCROLL_DELAY_MILLIS);
         intent.putExtra(IntentKeys.SCROLL_COUNT, SCROLL_COUNT);
         intent.putExtra(IntentKeys.SCROLL_INTERVAL, SCROLL_INTERVAL_MILLIS);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         getInstrumentation().getTargetContext().startActivity(intent);
         if (!getUiDevice().wait(Until.hasObject(By.pkg(APP_PACKAGE)), WAIT_TIMEOUT)) {
             fail("Test helper app package not found on device");

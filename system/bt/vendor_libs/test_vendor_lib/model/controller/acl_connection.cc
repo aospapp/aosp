@@ -14,14 +14,29 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "acl_connection"
-
 #include "acl_connection.h"
-
-#include "base/logging.h"
-
-#include "osi/include/log.h"
 
 using std::shared_ptr;
 
-namespace test_vendor_lib {}  // namespace test_vendor_lib
+namespace test_vendor_lib {
+AclConnection::AclConnection(AddressWithType addr, AddressWithType own_addr,
+                             Phy::Type phy_type)
+    : address_(addr), own_address_(own_addr), type_(phy_type) {}
+
+void AclConnection::Encrypt() { encrypted_ = true; };
+
+bool AclConnection::IsEncrypted() const { return encrypted_; };
+
+AddressWithType AclConnection::GetAddress() const { return address_; }
+
+void AclConnection::SetAddress(AddressWithType address) { address_ = address; }
+
+AddressWithType AclConnection::GetOwnAddress() const { return own_address_; }
+
+void AclConnection::SetOwnAddress(AddressWithType own_addr) {
+  own_address_ = own_addr;
+}
+
+Phy::Type AclConnection::GetPhyType() const { return type_; }
+
+}  // namespace test_vendor_lib

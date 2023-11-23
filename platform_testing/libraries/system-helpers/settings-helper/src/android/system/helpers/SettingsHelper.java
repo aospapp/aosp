@@ -52,6 +52,7 @@ public class SettingsHelper {
     private static final String TAG = SettingsHelper.class.getSimpleName();
     private static final String ANDROID_PACKAGE = "android";
     private static final String SETTINGS_PACKAGE = "com.android.settings";
+    private static final String SETTINGS_PKG_SEARCH = "com.google.android.settings.intelligence";
     private static final String SETTINGS_APP = "Settings";
     private static final String SWITCH_WIDGET = "switch_widget";
     private static final String WIFI = "Wi-Fi";
@@ -67,7 +68,8 @@ public class SettingsHelper {
     private static final String ACTION_SEARCH = "com.android.settings.action.SETTINGS_SEARCH";
     private static final String NO_RESULT_QUERY = "no_result_query";
     private static final String RES_ID_SEARCH_UI_TEXT_BOX = "search_src_text";
-    private static final String RES_ID_SEARCH_UI_NO_RESULT_IMAGE = "no_result_layout";
+    private static final String RES_ID_SEARCH_UI_EDIT_TEXT_BOX = "open_search_view_edit_text";
+    private static final String RES_ID_SEARCH_UI_NO_RESULT_IMAGE = "no_results_layout_v2";
 
     private static final UiSelector LIST_ITEM_VALUE =
             new UiSelector().className(TextView.class);
@@ -109,12 +111,19 @@ public class SettingsHelper {
     public void performNoResultQuery() {
         final String randomQuery = NO_RESULT_QUERY + new Random().nextInt();
 
-        mDevice.wait(Until.findObject(By.res(ANDROID_PACKAGE, RES_ID_SEARCH_UI_TEXT_BOX)), TIMEOUT)
+        mDevice.wait(
+                        Until.findObject(
+                                By.res(SETTINGS_PKG_SEARCH, RES_ID_SEARCH_UI_EDIT_TEXT_BOX)),
+                        TIMEOUT)
                 .setText(randomQuery);
 
-        mDevice.wait(Until.hasObject(By.res(RES_ID_SEARCH_UI_NO_RESULT_IMAGE)),
+        mDevice.wait(
+                Until.hasObject(By.res(SETTINGS_PKG_SEARCH, RES_ID_SEARCH_UI_NO_RESULT_IMAGE)),
                 TIMEOUT);
-        mDevice.wait(Until.findObject(By.res(ANDROID_PACKAGE, RES_ID_SEARCH_UI_TEXT_BOX)), TIMEOUT)
+        mDevice.wait(
+                        Until.findObject(
+                                By.res(SETTINGS_PKG_SEARCH, RES_ID_SEARCH_UI_EDIT_TEXT_BOX)),
+                        TIMEOUT)
                 .clear();
     }
 

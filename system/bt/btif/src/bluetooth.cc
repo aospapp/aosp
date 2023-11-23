@@ -59,12 +59,16 @@
 #include "btif_debug_btsnoop.h"
 #include "btif_debug_conn.h"
 #include "btif_hf.h"
+#include "btif_keystore.h"
 #include "btif_storage.h"
 #include "btsnoop.h"
 #include "btsnoop_mem.h"
 #include "common/address_obfuscator.h"
+#include "common/metric_id_allocator.h"
 #include "common/metrics.h"
 #include "device/include/interop.h"
+#include "main/shim/dumpsys.h"
+#include "main/shim/shim.h"
 #include "osi/include/alarm.h"
 #include "osi/include/allocation_tracker.h"
 #include "osi/include/log.h"
@@ -81,7 +85,9 @@ using bluetooth::hearing_aid::HearingAidInterface;
 
 bt_callbacks_t* bt_hal_cbacks = NULL;
 bool restricted_mode = false;
-bool single_user_mode = false;
+bool niap_mode = false;
+const int CONFIG_COMPARE_ALL_PASS = 0b11;
+int niap_config_compare_result = CONFIG_COMPARE_ALL_PASS;
 
 /*******************************************************************************
  *  Externs
@@ -134,9 +140,16 @@ static bool is_profile(const char* p1, const char* p2) {
  ****************************************************************************/
 
 static int init(bt_callbacks_t* callbacks, bool start_restricted,
-                bool is_single_user_mode) {
-  LOG_INFO(LOG_TAG, "%s: start restricted = %d ; single user = %d", __func__,
-           start_restricted, is_single_user_mode);
+                bool is_niap_mode, int config_compare_result) {
+  LOG_INFO(LOG_TAG,
+           "%s: start restricted = %d ; niap = %d, config compare result = %d",
+           __func__, start_restricted, is_niap_mode, config_compare_result);
+
+  if (bluetooth::shim::is_gd_shim_enabled()) {
+    LOG_INFO(LOG_TAG, "%s Enable Gd bluetooth functionality", __func__);
+  } else {
+    LOG_INFO(LOG_TAG, "%s Preserving legacy bluetooth functionality", __func__);
+  }
 
   if (interface_ready()) return BT_STATUS_DONE;
 
@@ -146,7 +159,9 @@ static int init(bt_callbacks_t* callbacks, bool start_restricted,
 
   bt_hal_cbacks = callbacks;
   restricted_mode = start_restricted;
-  single_user_mode = is_single_user_mode;
+  niap_mode = is_niap_mode;
+  niap_config_compare_result = config_compare_result;
+
   stack_manager_get_interface()->init_stack();
   btif_debug_init();
   return BT_STATUS_SUCCESS;
@@ -169,7 +184,12 @@ static int disable(void) {
 static void cleanup(void) { stack_manager_get_interface()->clean_up_stack(); }
 
 bool is_restricted_mode() { return restricted_mode; }
-bool is_single_user_mode() { return single_user_mode; }
+bool is_niap_mode() { return niap_mode; }
+// if niap mode disable, will always return CONFIG_COMPARE_ALL_PASS(0b11)
+// indicate don't check config checksum.
+int get_niap_config_compare_result() {
+  return niap_mode ? niap_config_compare_result : CONFIG_COMPARE_ALL_PASS;
+}
 
 static int get_adapter_properties(void) {
   /* sanity check */
@@ -321,9 +341,13 @@ static void dump(int fd, const char** arguments) {
   HearingAid::DebugDump(fd);
   connection_manager::dump(fd);
   bluetooth::bqr::DebugDump(fd);
+  if (bluetooth::shim::is_gd_shim_enabled()) {
+    bluetooth::shim::Dump(fd);
+  } else {
 #if (BTSNOOP_MEM == TRUE)
-  btif_debug_btsnoop_dump(fd);
+    btif_debug_btsnoop_dump(fd);
 #endif
+  }
 }
 
 static void dumpMetrics(std::string* output) {
@@ -375,6 +399,9 @@ static const void* get_profile_interface(const char* profile_id) {
 
   if (is_profile(profile_id, BT_PROFILE_HEARING_AID_ID))
     return btif_hearing_aid_get_interface();
+
+  if (is_profile(profile_id, BT_KEYSTORE_ID))
+    return bluetooth::bluetooth_keystore::getBluetoothKeystoreInterface();
   return NULL;
 }
 
@@ -448,6 +475,11 @@ static std::string obfuscate_address(const RawAddress& address) {
       address);
 }
 
+static int get_metric_id(const RawAddress& address) {
+  return bluetooth::common::MetricIdAllocator::GetInstance().AllocateId(
+      address);
+}
+
 EXPORT_SYMBOL bt_interface_t bluetoothInterface = {
     sizeof(bluetoothInterface),
     init,
@@ -484,4 +516,5 @@ EXPORT_SYMBOL bt_interface_t bluetoothInterface = {
     interop_database_add,
     get_avrcp_service,
     obfuscate_address,
+    get_metric_id,
 };

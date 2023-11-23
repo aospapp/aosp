@@ -103,6 +103,12 @@ public class LibcoreHeapMetricsTest implements IDeviceTest {
         recordBeforeAndAfterAppHeapMetrics(result.getBeforeDump(), result.getAfterDump());
     }
 
+    @Test
+    public void measureRegexes() throws Exception {
+        MetricsRunner.Result result = metricsRunner.runAllInstrumentations("REGEX");
+        recordBeforeAndAfterAppHeapMetrics(result.getBeforeDump(), result.getAfterDump());
+    }
+
     private void recordHeapMetrics(AhatSnapshot dump, String metricPrefix, String heapName) {
         AhatHeap heap = dump.getHeap(heapName);
         recordSizeMetric(metricPrefix, heap.getSize());

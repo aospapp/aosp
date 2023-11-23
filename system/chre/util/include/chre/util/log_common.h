@@ -17,6 +17,8 @@
 #ifndef CHRE_UTIL_LOG_COMMON_H_
 #define CHRE_UTIL_LOG_COMMON_H_
 
+#include <chre/toolchain.h>
+
 #include "chre/util/toolchain.h"
 
 /**
@@ -30,16 +32,18 @@
  * This avoids unused variable warnings and will result in no overhead.
  */
 CHRE_PRINTF_ATTR(1, 2)
-inline void chreLogNull(const char *fmt, ...) { (void) fmt; }
+inline void chreLogNull(const char *fmt, ...) {
+  (void)fmt;
+}
 
 //! Macro version of chreLogNull that applies toolchain-specific preamble and
 //! epilogue (e.g. to disable double promotion warnings)
-#define CHRE_LOG_NULL(fmt, ...) \
-    do { \
-      CHRE_LOG_PREAMBLE \
-      chreLogNull(fmt, ##__VA_ARGS__); \
-      CHRE_LOG_EPILOGUE \
-    } while (0)
+#define CHRE_LOG_NULL(fmt, ...)      \
+  do {                               \
+    CHRE_LOG_PREAMBLE                \
+    chreLogNull(fmt, ##__VA_ARGS__); \
+    CHRE_LOG_EPILOGUE                \
+  } while (0)
 
 //! The logging level to specify that no logs are output.
 #define CHRE_LOG_LEVEL_MUTE 0

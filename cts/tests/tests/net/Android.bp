@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test {
-    name: "CtsNetTestCases",
+java_defaults {
+    name: "CtsNetTestCasesDefaults",
     defaults: ["cts_defaults"],
 
     // Include both the 32 and 64 bit versions
@@ -32,34 +32,59 @@ android_test {
         "libnativehelper_compat_libc++",
     ],
 
-    // include CtsTestServer as a temporary hack to free net.cts from cts.stub.
     srcs: [
         "src/**/*.java",
         "src/**/*.kt",
     ],
-
+    jarjar_rules: "jarjar-rules-shared.txt",
     static_libs: [
         "FrameworksNetCommonTests",
-        "core-tests-support",
+        "TestNetworkStackLib",
         "compatibility-device-util-axt",
+        "core-tests-support",
         "cts-net-utils",
         "ctstestrunner-axt",
         "ctstestserver",
-        "mockwebserver",
         "junit",
         "junit-params",
+        "libnanohttpd",
+        "mockwebserver",
+        "net-utils-framework-common",
         "truth-prebuilt",
     ],
 
     // uncomment when b/13249961 is fixed
     // sdk_version: "current",
     platform_apis: true,
+}
 
-    // Tag this module as a cts test artifact
+// Networking CTS tests for development and release. These tests always target the platform SDK
+// version, and are subject to all the restrictions appropriate to that version. Before SDK
+// finalization, these tests have a min_sdk_version of 10000, and cannot be installed on release
+// devices.
+android_test {
+    name: "CtsNetTestCases",
+    defaults: ["CtsNetTestCasesDefaults"],
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
+    test_config_template: "AndroidTestTemplate.xml",
+}
 
+// Networking CTS tests that target the latest released SDK. These tests can be installed on release
+// devices at any point in the Android release cycle and are useful for qualifying mainline modules
+// on release devices.
+android_test {
+    name: "CtsNetTestCasesLatestSdk",
+    defaults: ["CtsNetTestCasesDefaults"],
+    jni_uses_sdk_apis: true,
+    min_sdk_version: "29",
+    target_sdk_version: "30",
+    test_suites: [
+        "general-tests",
+        "mts",
+    ],
+    test_config_template: "AndroidTestTemplate.xml",
 }

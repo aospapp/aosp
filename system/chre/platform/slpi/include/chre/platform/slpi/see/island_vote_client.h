@@ -25,7 +25,7 @@ extern "C" {
 
 #include "sns_island_util.h"
 
-} // extern "C"
+}  // extern "C"
 
 namespace chre {
 
@@ -115,6 +115,6 @@ typedef Singleton<IslandVoteClient> IslandVoteClientSingleton;
 
 extern template class Singleton<IslandVoteClient>;
 
-} // namespace chre
+}  // namespace chre
 
-#endif // CHRE_PLATFORM_SLPI_SEE_ISLAND_VOTE_CLIENT_H_
+#endif  // CHRE_PLATFORM_SLPI_SEE_ISLAND_VOTE_CLIENT_H_

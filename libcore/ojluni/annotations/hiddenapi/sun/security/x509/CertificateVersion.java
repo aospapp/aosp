@@ -34,7 +34,7 @@ public class CertificateVersion implements sun.security.x509.CertAttrSet<java.la
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateVersion(int version) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

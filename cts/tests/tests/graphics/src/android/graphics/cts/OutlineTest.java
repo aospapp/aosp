@@ -177,21 +177,21 @@ public class OutlineTest {
     }
 
     @Test
-    public void testSetConvexPath() {
+    public void testSetPath() {
         Outline outline = new Outline();
         Path path = new Path();
 
         assertTrue(path.isEmpty());
-        outline.setConvexPath(path);
+        outline.setPath(path);
         assertTrue(outline.isEmpty());
 
         path.addCircle(50, 50, 50, Path.Direction.CW);
-        outline.setConvexPath(path);
+        outline.setPath(path);
         assertFalse(outline.isEmpty());
     }
 
     @Test
-    public void testSetConvexPathConcave() {
+    public void testSetPathConcave() {
         Outline outline = new Outline();
         Path path = new Path();
         path.addRect(0, 0, 100, 10, Path.Direction.CW);
@@ -199,8 +199,9 @@ public class OutlineTest {
         assertFalse(path.isConvex()); // path is concave
 
         assertTrue(outline.isEmpty());
-        // As of Q, this no longer throws an exception
-        outline.setConvexPath(path);
+        // As of Q, setPath (previously called setConvexPath)
+        // no longer throws an exception for a concave path.
+        outline.setPath(path);
         assertFalse(outline.isEmpty());
     }
 

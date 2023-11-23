@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+@NonMediaMainlineTest
 public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<MediaFrameworkTest> {
 
     private static final String TAG = "MediaRecorderStressTest";

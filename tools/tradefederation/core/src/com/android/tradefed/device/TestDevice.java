@@ -27,12 +27,12 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.util.AaptParser;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.KeyguardControllerState;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
-import com.android.tradefed.util.UserUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 
 /**
@@ -84,15 +85,22 @@ public class TestDevice extends NativeDevice {
     static final String LIST_PACKAGES_CMD = "pm list packages -f";
     private static final Pattern PACKAGE_REGEX = Pattern.compile("package:(.*)=(.*)");
 
-    static final String LIST_APEXES_CMD = "pm list packages --apex-only --show-versioncode";
-    private static final Pattern APEXES_REGEX = Pattern.compile("package:(.*) versionCode:(.*)");
+    static final String LIST_APEXES_CMD = "pm list packages --apex-only --show-versioncode -f";
+    private static final Pattern APEXES_WITH_PATH_REGEX =
+            Pattern.compile("package:(.*)=(.*) versionCode:(.*)");
+    /**
+     * Regexp to match on old versions of platform (before R), where {@code -f} flag for the {@code
+     * pm list packages apex-only} command wasn't supported.
+     */
+    private static final Pattern APEXES_WITHOUT_PATH_REGEX =
+            Pattern.compile("package:(.*) versionCode:(.*)");
 
     private static final int FLAG_PRIMARY = 1; // From the UserInfo class
 
     private static final String[] SETTINGS_NAMESPACE = {"system", "secure", "global"};
 
     /** user pattern in the output of "pm list users" = TEXT{<id>:<name>:<flags>} TEXT * */
-    private static final String USER_PATTERN = "(.*?\\{)(\\d+)(:)(.*)(:)(\\d+)(\\}.*)";
+    private static final String USER_PATTERN = "(.*?\\{)(\\d+)(:)(.*)(:)(\\w+)(\\}.*)";
     /** Pattern to find the display ids of "dumpsys SurfaceFlinger" */
     private static final String DISPLAY_ID_PATTERN = "(Display )(?<id>\\d+)( color modes:)";
 
@@ -123,6 +131,14 @@ public class TestDevice extends NativeDevice {
     public TestDevice(IDevice device, IDeviceStateMonitor stateMonitor,
             IDeviceMonitor allocationMonitor) {
         super(device, stateMonitor, allocationMonitor);
+    }
+
+    @Override
+    public boolean isAppEnumerationSupported() throws DeviceNotAvailableException {
+        if (!checkApiLevelAgainstNextRelease(30)) {
+            return false;
+        }
+        return hasFeature("android.software.app_enumeration");
     }
 
     /**
@@ -182,8 +198,14 @@ public class TestDevice extends NativeDevice {
                         return response[0] == null;
                     }
                 };
+        CLog.v(
+                "Installing package file %s with args %s on %s",
+                packageFile.getAbsolutePath(), extraArgs.toString(), getSerialNumber());
         performDeviceAction(String.format("install %s", packageFile.getAbsolutePath()),
                 installAction, MAX_RETRY_ATTEMPTS);
+        List<File> packageFiles = new ArrayList();
+        packageFiles.add(packageFile);
+        allowLegacyStorageForApps(packageFiles);
         return response[0];
     }
 
@@ -322,6 +344,9 @@ public class TestDevice extends NativeDevice {
                 };
         performDeviceAction(String.format("install %s", packageFile.getAbsolutePath()),
                 installAction, MAX_RETRY_ATTEMPTS);
+        List<File> packageFiles = new ArrayList();
+        packageFiles.add(packageFile);
+        allowLegacyStorageForApps(packageFiles);
         return response[0];
     }
 
@@ -354,8 +379,8 @@ public class TestDevice extends NativeDevice {
      *
      * @param packageFiles the local apk files
      * @param reinstall <code>true</code> if a reinstall should be performed
-     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
-     *     available options.
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm -h' for available
+     *     options.
      * @return the response from the installation <code>null</code> if installation succeeds.
      * @throws DeviceNotAvailableException
      */
@@ -394,7 +419,61 @@ public class TestDevice extends NativeDevice {
                 String.format("install %s", packageFiles.toString()),
                 installAction,
                 MAX_RETRY_ATTEMPTS);
+        allowLegacyStorageForApps(packageFiles);
         return response[0];
+    }
+
+    /**
+     * Allows Legacy External Storage access for apps that request for it.
+     *
+     * <p>Apps that request for legacy external storage access are granted the access by setting
+     * MANAGE_EXTERNAL_STORAGE App Op. This gives the app File manager privileges, File managers
+     * have legacy external storage access.
+     *
+     * @param appFiles List of Files. Apk Files of the apps that are installed.
+     */
+    private void allowLegacyStorageForApps(List<File> appFiles) throws DeviceNotAvailableException {
+        for (File appFile : appFiles) {
+            AaptParser aaptParser = AaptParser.parse(appFile);
+            if (aaptParser != null
+                    && aaptParser.getTargetSdkVersion() > 29
+                    && aaptParser.isRequestingLegacyStorage()) {
+                if (!aaptParser.isUsingPermissionManageExternalStorage()) {
+                    CLog.w(
+                            "App is requesting legacy storage and targets R or above, but didn't"
+                                    + " request the MANAGE_EXTERNAL_STORAGE permission so the"
+                                    + " associated app op cannot be automatically granted and the"
+                                    + " app won't have legacy external storage access: "
+                                    + aaptParser.getPackageName());
+                    continue;
+                }
+                // Set the MANAGE_EXTERNAL_STORAGE App Op to MODE_ALLOWED (Code = 0)
+                // for all users.
+                ArrayList<Integer> userIds = listUsers();
+                for (int userId : userIds) {
+                    CommandResult setFileManagerAppOpResult =
+                            executeShellV2Command(
+                                    "appops set --user "
+                                            + userId
+                                            + " --uid "
+                                            + aaptParser.getPackageName()
+                                            + " MANAGE_EXTERNAL_STORAGE 0");
+                    if (!CommandStatus.SUCCESS.equals(setFileManagerAppOpResult.getStatus())) {
+                        CLog.e(
+                                "Failed to set MANAGE_EXTERNAL_STORAGE App Op to"
+                                        + " allow legacy external storage for: %s ; stderr: %s",
+                                aaptParser.getPackageName(), setFileManagerAppOpResult.getStderr());
+                    }
+                }
+            }
+        }
+        CommandResult persistFileManagerAppOpResult =
+                executeShellV2Command("appops write-settings");
+        if (!CommandStatus.SUCCESS.equals(persistFileManagerAppOpResult.getStatus())) {
+            CLog.e(
+                    "Failed to persist MANAGE_EXTERNAL_STORAGE App Op over `adb reboot`: %s",
+                    persistFileManagerAppOpResult.getStderr());
+        }
     }
 
     /** {@inheritDoc} */
@@ -458,8 +537,8 @@ public class TestDevice extends NativeDevice {
      *
      * @param remoteApkPaths the remote apk file paths
      * @param reinstall <code>true</code> if a reinstall should be performed
-     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
-     *     available options.
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm -h' for available
+     *     options.
      * @return the response from the installation <code>null</code> if installation succeeds.
      * @throws DeviceNotAvailableException
      */
@@ -565,7 +644,7 @@ public class TestDevice extends NativeDevice {
 
     /** {@inheritDoc} */
     @Override
-    public InputStreamSource getScreenshot(int displayId) throws DeviceNotAvailableException {
+    public InputStreamSource getScreenshot(long displayId) throws DeviceNotAvailableException {
         final String tmpDevicePath = String.format("/data/local/tmp/display_%s.png", displayId);
         CommandResult result =
                 executeShellV2Command(
@@ -846,15 +925,16 @@ public class TestDevice extends NativeDevice {
     /**
      * Performs an reboot via framework power manager
      *
-     * Must have root access, device must be API Level 18 or above
+     * <p>Must have root access, device must be API Level 18 or above
      *
-     * @param into the mode to reboot into, currently supported: bootloader, recovery, leave it
-     *         null for a plain reboot
+     * @param rebootMode a mode of this reboot.
+     * @param reason for this reboot.
      * @return <code>true</code> if the device rebooted, <code>false</code> if not successful or
-     *          unsupported
+     *     unsupported
      * @throws DeviceNotAvailableException
      */
-    private boolean doAdbFrameworkReboot(final String into) throws DeviceNotAvailableException {
+    private boolean doAdbFrameworkReboot(RebootMode rebootMode, @Nullable final String reason)
+            throws DeviceNotAvailableException {
         // use framework reboot when:
         // 1. device API level >= 18
         // 2. has adb root
@@ -872,10 +952,7 @@ public class TestDevice extends NativeDevice {
                     CLog.v("framework reboot: can't detect framework running");
                     return false;
                 }
-                String command = "svc power reboot";
-                if (into != null && !into.isEmpty()) {
-                    command = String.format("%s %s", command, into);
-                }
+                String command = "svc power reboot " + rebootMode.formatRebootCommand(reason);
                 executeShellCommand(command);
             } catch (DeviceUnresponsiveException due) {
                 CLog.v("framework reboot: device unresponsive to shell command, using fallback");
@@ -895,14 +972,16 @@ public class TestDevice extends NativeDevice {
     /**
      * Perform a adb reboot.
      *
-     * @param into the bootloader name to reboot into, or <code>null</code> to just reboot the
-     *            device.
+     * @param rebootMode a mode of this reboot.
+     * @param reason for this reboot.
      * @throws DeviceNotAvailableException
      */
     @Override
-    protected void doAdbReboot(final String into) throws DeviceNotAvailableException {
-        if (!doAdbFrameworkReboot(into)) {
-            super.doAdbReboot(into);
+    protected void doAdbReboot(RebootMode rebootMode, @Nullable final String reason)
+            throws DeviceNotAvailableException {
+        if (!TestDeviceState.ONLINE.equals(getDeviceState())
+                || !doAdbFrameworkReboot(rebootMode, reason)) {
+            super.doAdbReboot(rebootMode, reason);
         }
     }
 
@@ -930,13 +1009,31 @@ public class TestDevice extends NativeDevice {
     /** {@inheritDoc} */
     @Override
     public Set<ApexInfo> getActiveApexes() throws DeviceNotAvailableException {
-        Set<ApexInfo> ret = new HashSet<>();
         String output = executeShellCommand(LIST_APEXES_CMD);
-        if (output != null) {
-            Matcher m = APEXES_REGEX.matcher(output);
-            while (m.find()) {
-                String name = m.group(1);
-                long version = Long.valueOf(m.group(2));
+        // Optimistically parse expecting platform to return paths. If it doesn't, empty set will
+        // be returned.
+        Set<ApexInfo> ret = parseApexesFromOutput(output, true /* withPath */);
+        if (ret.isEmpty()) {
+            ret = parseApexesFromOutput(output, false /* withPath */);
+        }
+        return ret;
+    }
+
+    private Set<ApexInfo> parseApexesFromOutput(final String output, boolean withPath) {
+        Set<ApexInfo> ret = new HashSet<>();
+        Matcher matcher =
+                withPath
+                        ? APEXES_WITH_PATH_REGEX.matcher(output)
+                        : APEXES_WITHOUT_PATH_REGEX.matcher(output);
+        while (matcher.find()) {
+            if (withPath) {
+                String sourceDir = matcher.group(1);
+                String name = matcher.group(2);
+                long version = Long.valueOf(matcher.group(3));
+                ret.add(new ApexInfo(name, version, sourceDir));
+            } else {
+                String name = matcher.group(1);
+                long version = Long.valueOf(matcher.group(2));
                 ret.add(new ApexInfo(name, version));
             }
         }
@@ -999,6 +1096,14 @@ public class TestDevice extends NativeDevice {
         return action.mPkgInfoMap.get(packageName);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<PackageInfo> getAppPackageInfos() throws DeviceNotAvailableException {
+        DumpPkgAction action = new DumpPkgAction();
+        performDeviceAction("dumpsys package", action, MAX_RETRY_ATTEMPTS);
+        return new ArrayList<>(action.mPkgInfoMap.values());
+    }
+
     // TODO: convert this to use DumpPkgAction
     private Set<String> getInstalledPackageNames(String packageNameSearched, String userId)
             throws DeviceNotAvailableException {
@@ -1025,6 +1130,17 @@ public class TestDevice extends NativeDevice {
         return packages;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean doesFileExist(String deviceFilePath) throws DeviceNotAvailableException {
+        if (deviceFilePath.startsWith(SD_CARD)) {
+            deviceFilePath =
+                    deviceFilePath.replaceFirst(
+                            SD_CARD, String.format("/storage/emulated/%s/", getCurrentUser()));
+        }
+        return super.doesFileExist(deviceFilePath);
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -1036,6 +1152,25 @@ public class TestDevice extends NativeDevice {
             userIds.add(Integer.parseInt(user[1]));
         }
         return userIds;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Map<Integer, UserInfo> getUserInfos() throws DeviceNotAvailableException {
+        ArrayList<String[]> lines = tokenizeListUsers();
+        Map<Integer, UserInfo> result = new HashMap<Integer, UserInfo>(lines.size());
+        for (String[] tokens : lines) {
+            UserInfo userInfo =
+                    new UserInfo(
+                            /* userId= */ Integer.parseInt(tokens[1]),
+                            /* userName= */ tokens[2],
+                            /* flag= */ Integer.parseInt(tokens[3], 16),
+                            /* isRunning= */ tokens.length >= 5
+                                    ? tokens[4].contains("running")
+                                    : false);
+            result.put(userInfo.userId(), userInfo);
+        }
+        return result;
     }
 
     /**
@@ -1154,7 +1289,7 @@ public class TestDevice extends NativeDevice {
     public boolean removeUser(int userId) throws DeviceNotAvailableException {
         final String output = executeShellCommand(String.format("pm remove-user %s", userId));
         if (output.startsWith("Error")) {
-            CLog.e("Failed to remove user: %s", output);
+            CLog.e("Failed to remove user %d on device %s: %s", userId, getSerialNumber(), output);
             return false;
         }
         return true;
@@ -1257,20 +1392,20 @@ public class TestDevice extends NativeDevice {
 
     /** {@inheritDoc} */
     @Override
-    public int getCurrentUser() throws DeviceNotAvailableException, DeviceRuntimeException {
+    public int getCurrentUser() throws DeviceNotAvailableException {
         checkApiLevelAgainstNextRelease("get-current-user", API_LEVEL_GET_CURRENT_USER);
         final String output = executeShellCommand("am get-current-user");
         try {
             int userId = Integer.parseInt(output.trim());
-            if (userId < 0) {
-                throw new DeviceRuntimeException(
-                        String.format(
-                                "Invalid user id '%s' was returned for get-current-user", userId));
+            if (userId >= 0) {
+                return userId;
             }
-            return userId;
+            CLog.e("Invalid user id '%s' was returned for get-current-user", userId);
         } catch (NumberFormatException e) {
-            throw new DeviceRuntimeException(e);
+            CLog.e("Invalid string was returned for get-current-user: %s.", output);
+            CLog.e(e);
         }
+        return INVALID_USER_ID;
     }
 
     private Matcher findUserInfo(String pmListUsersOutput) {
@@ -1299,14 +1434,14 @@ public class TestDevice extends NativeDevice {
     /** {@inheritDoc} */
     @Override
     public boolean isUserSecondary(int userId) throws DeviceNotAvailableException {
-        if (userId == UserUtil.USER_SYSTEM) {
+        if (userId == UserInfo.USER_SYSTEM) {
             return false;
         }
         int flags = getUserFlags(userId);
         if (flags == INVALID_USER_ID) {
             return false;
         }
-        return (flags & UserUtil.FLAGS_NOT_SECONDARY) == 0;
+        return (flags & UserInfo.FLAGS_NOT_SECONDARY) == 0;
     }
 
     /**
@@ -1366,20 +1501,32 @@ public class TestDevice extends NativeDevice {
             CLog.w("Already running as user id: %s. Nothing to be done.", userId);
             return true;
         }
+
+        String switchCommand =
+                checkApiLevelAgainstNextRelease(30)
+                        ? String.format("am switch-user -w %d", userId)
+                        : String.format("am switch-user %d", userId);
+
         resetContentProviderSetup();
-        executeShellCommand(String.format("am switch-user %d", userId));
         long initialTime = getHostCurrentTime();
-        while (getHostCurrentTime() - initialTime <= timeout) {
-            if (userId == getCurrentUser()) {
-                // disable keyguard if option is true
-                prePostBootSetup();
-                return true;
-            } else {
-                RunUtil.getDefault().sleep(getCheckNewUserSleep());
-            }
+        String output = executeShellCommand(switchCommand);
+        boolean success = userId == getCurrentUser();
+
+        while (!success && (getHostCurrentTime() - initialTime <= timeout)) {
+            // retry
+            RunUtil.getDefault().sleep(getCheckNewUserSleep());
+            output = executeShellCommand(String.format(switchCommand));
+            success = userId == getCurrentUser();
         }
-        CLog.e("User did not switch in the given %d timeout", timeout);
-        return false;
+
+        CLog.d("switchUser took %d ms", getHostCurrentTime() - initialTime);
+        if (success) {
+            prePostBootSetup();
+            return true;
+        } else {
+            CLog.e("User did not switch in the given %d timeout: %s", timeout, output);
+            return false;
+        }
     }
 
     /**
@@ -1401,9 +1548,16 @@ public class TestDevice extends NativeDevice {
      */
     @Override
     public boolean hasFeature(String feature) throws DeviceNotAvailableException {
-        final String output = executeShellCommand("pm list features");
-        if (output.contains(feature)) {
-            return true;
+        // Add support for directly checking a feature and match the pm output.
+        if (!feature.startsWith("feature:")) {
+            feature = "feature:" + feature;
+        }
+        String commandOutput = executeShellCommand("pm list features");
+        for (String line: commandOutput.split("\\s+")) {
+            // Each line in the output of the command has the format "feature:{FEATURE_VALUE}".
+            if (feature.equals(line)) {
+                return true;
+            }
         }
         CLog.w("Feature: %s is not available on %s", feature, getSerialNumber());
         return false;
@@ -1551,8 +1705,7 @@ public class TestDevice extends NativeDevice {
      */
     @Override
     IWifiHelper createWifiHelper() throws DeviceNotAvailableException {
-        mWasWifiHelperInstalled = true;
-        return new WifiHelper(this, mOptions.getWifiUtilAPKPath());
+        return createWifiHelper(true);
     }
 
     /**
@@ -1563,14 +1716,16 @@ public class TestDevice extends NativeDevice {
     IWifiHelper createWifiHelper(boolean doSetup) throws DeviceNotAvailableException {
         if (doSetup) {
             mWasWifiHelperInstalled = true;
+            // Ensure device is ready before attempting wifi setup
+            waitForDeviceAvailable();
         }
         return new WifiHelper(this, mOptions.getWifiUtilAPKPath(), doSetup);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void postInvocationTearDown() {
-        super.postInvocationTearDown();
+    public void postInvocationTearDown(Throwable exception) {
+        super.postInvocationTearDown(exception);
         // If wifi was installed and it's a real device, attempt to clean it.
         if (mWasWifiHelperInstalled) {
             mWasWifiHelperInstalled = false;
@@ -1578,6 +1733,10 @@ public class TestDevice extends NativeDevice {
                 return;
             }
             if (!TestDeviceState.ONLINE.equals(getDeviceState())) {
+                return;
+            }
+            if (exception instanceof DeviceNotAvailableException) {
+                CLog.e("Skip WifiHelper teardown due to DeviceNotAvailableException.");
                 return;
             }
             try {
@@ -1719,10 +1878,10 @@ public class TestDevice extends NativeDevice {
 
     /** {@inheritDoc} */
     @Override
-    public Set<Integer> listDisplayIds() throws DeviceNotAvailableException {
-        Set<Integer> displays = new HashSet<>();
+    public Set<Long> listDisplayIds() throws DeviceNotAvailableException {
+        Set<Long> displays = new HashSet<>();
         // Zero is the default display
-        displays.add(0);
+        displays.add(0L);
         CommandResult res = executeShellV2Command("dumpsys SurfaceFlinger | grep 'color modes:'");
         if (!CommandStatus.SUCCESS.equals(res.getStatus())) {
             CLog.e("Something went wrong while listing displays: %s", res.getStderr());
@@ -1733,7 +1892,7 @@ public class TestDevice extends NativeDevice {
         for (String line : output.split("\n")) {
             Matcher m = p.matcher(line);
             if (m.matches()) {
-                displays.add(Integer.parseInt(m.group("id")));
+                displays.add(Long.parseLong(m.group("id")));
             }
         }
         return displays;

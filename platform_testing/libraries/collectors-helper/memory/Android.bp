@@ -25,6 +25,7 @@ java_library {
         "androidx.test.runner",
         "ub-uiautomator",
         "collector-helper-utilities",
+        "platformprotosnano",
     ],
 
     sdk_version: "current",

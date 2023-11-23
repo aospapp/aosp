@@ -22,6 +22,7 @@ import android.test.AndroidTestCase;
 /**
  * Tests for MediaTimestamp.
  */
+@NonMediaMainlineTest
 public class MediaTimestampTest extends AndroidTestCase {
     public void testMediaTimestamp() {
         MediaTimestamp timestamp = new MediaTimestamp(1000, 2000, 2.0f);

@@ -29,8 +29,7 @@ namespace chre {
  * similar to std::condition_variable. ConditionVariableBase is subclassed here
  * to allow platforms to inject their own storage for their implementation.
  */
-class ConditionVariable : public ConditionVariableBase,
-                          public NonCopyable {
+class ConditionVariable : public ConditionVariableBase, public NonCopyable {
  public:
   /**
    * Allows the platform to do any condition variable initialization at
@@ -53,13 +52,17 @@ class ConditionVariable : public ConditionVariableBase,
    * Causes the current thread to block until the condition variable is
    * notified. The provided mutex will be unlocked and the thread will be
    * blocked until the condition variable has notified. The mutex is relocked
-   * prior to this function returning.
+   * prior to this function returning. Note that while std::condition_variable
+   * allows for multiple threads to wait on the same condition variable object
+   * concurrently, the CHRE platform implementation is only required to allow
+   * for a single waiting thread. The calling code must also be equipped to
+   * handle spurious wakeups.
    *
    * @param The currently locked mutex.
    */
-  void wait(Mutex& mutex);
+  void wait(Mutex &mutex);
 
-   /**
+  /**
    * Same behavior as the wait function, but with a timeout to unblock the
    * calling thread if not notified within the timeout period.
    *
@@ -68,7 +71,7 @@ class ConditionVariable : public ConditionVariableBase,
    *
    * @return false if timed out, true if notified.
    */
-  bool wait_for(Mutex& mutex, Nanoseconds timeout);
+  bool wait_for(Mutex &mutex, Nanoseconds timeout);
 };
 
 }  // namespace chre

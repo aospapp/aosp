@@ -39,8 +39,8 @@ class RfcommLongevityTest(BluetoothBaseTest):
         "strange new worlds, to seek out new life and new civilizations,"
         " to boldly go where no man has gone before.")
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.client_ad = self.android_devices[0]
         self.server_ad = self.android_devices[1]
 

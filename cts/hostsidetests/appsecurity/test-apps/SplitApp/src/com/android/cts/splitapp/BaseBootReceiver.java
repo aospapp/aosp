@@ -35,7 +35,6 @@ public class BaseBootReceiver extends BroadcastReceiver {
                     getBootCount(context) + "." + intent.getAction());
             Log.d(TAG, "Touching probe " + probe);
             probe.createNewFile();
-            exposeFile(probe);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -43,19 +42,5 @@ public class BaseBootReceiver extends BroadcastReceiver {
 
     private static int getBootCount(Context context) throws Exception {
         return Settings.Global.getInt(context.getContentResolver(), Settings.Global.BOOT_COUNT);
-    }
-
-    private static File exposeFile(File file) throws Exception {
-        file.setReadable(true, false);
-        file.setReadable(true, true);
-
-        File dir = file.getParentFile();
-        do {
-            dir.setExecutable(true, false);
-            dir.setExecutable(true, true);
-            dir = dir.getParentFile();
-        } while (dir != null);
-
-        return file;
     }
 }

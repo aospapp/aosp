@@ -718,6 +718,29 @@ public class OldMatcherTest extends TestCase {
             "0123zxx".replaceAll("(?<numbers>[0-9]+)", "a${other}");
             fail();
         } catch(IllegalArgumentException expected) {}
+
+        // group name is numeric
+        try {
+            "0123zxx".replaceAll("(?<numbers>[0-9]+)", "a${1}");
+            fail();
+        } catch(IllegalArgumentException expected) {}
+
+        // named group has the same prefix, i.e. numbers, but with additional number.
+        try {
+            "0123zxx".replaceAll("(?<numbers>[0-9]+)", "a${numbers1}");
+            fail();
+        } catch(IllegalArgumentException expected) {}
+
     }
 
+    public void testOptionalCapturingGroupReplace() {
+        Pattern pattern = Pattern.compile("(a)(b)?c");
+        assertEquals("_a_b_", pattern.matcher("abc").replaceAll("_$1_$2_"));
+        assertEquals("_a__", pattern.matcher("ac").replaceAll("_$1_$2_"));
+
+        // Test optopnal named-captureing group
+        pattern = Pattern.compile("(a)(?<name1>b)?c");
+        assertEquals("_a_b_", pattern.matcher("abc").replaceAll("_$1_${name1}_"));
+        assertEquals("_a__", pattern.matcher("ac").replaceAll("_$1_${name1}_"));
+    }
 }

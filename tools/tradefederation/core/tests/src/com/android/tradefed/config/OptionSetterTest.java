@@ -31,6 +31,7 @@ import junit.framework.TestCase;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -164,6 +165,9 @@ public class OptionSetterTest extends TestCase {
 
         @Option(name = "timeVal")
         private TimeVal mTimeVal = null;
+
+        @Option(name = "duration")
+        private Duration mDuration = null;
 
         @Option(name = "float")
         private float mFloat = 0;
@@ -780,6 +784,29 @@ public class OptionSetterTest extends TestCase {
         assertTrue(1000 * (45 + 60 * 60 * 2) == optionSource.mTimeVal.asLong());
         assertSetOptionValue(optionSource, "timeVal", "12345");
         assertTrue(12345 == optionSource.mTimeVal.asLong());
+    }
+
+    /**
+     * Test {@link OptionSetter#setOptionValue(String, String)} for a Duration using timeval format.
+     */
+    public void testSetOptionValue_duration() throws ConfigurationException {
+        AllTypesOptionSource optionSource = new AllTypesOptionSource();
+        assertSetOptionValue(optionSource, "duration", "2H");
+        assertEquals(2, optionSource.mDuration.toHours());
+        assertSetOptionValue(optionSource, "duration", "12345");
+        assertEquals(12345, optionSource.mDuration.toMillis());
+    }
+
+    /**
+     * Test {@link OptionSetter#setOptionValue(String, String)} for a Duration using {@link
+     * Duration#parse(CharSequence)} format.
+     */
+    public void testSetOptionValue_durationParse() throws ConfigurationException {
+        AllTypesOptionSource optionSource = new AllTypesOptionSource();
+        assertSetOptionValue(optionSource, "duration", "PT2H");
+        assertEquals(2, optionSource.mDuration.toHours());
+        assertSetOptionValue(optionSource, "duration", "PT0.123S");
+        assertEquals(123, optionSource.mDuration.toMillis());
     }
 
     /**

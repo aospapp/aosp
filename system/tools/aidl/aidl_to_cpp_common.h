@@ -17,6 +17,7 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 
 #include "aidl_language.h"
 
@@ -54,6 +55,24 @@ const string GenLogBeforeExecute(const string className, const AidlMethod& metho
 const string GenLogAfterExecute(const string className, const AidlInterface& interface,
                                 const AidlMethod& method, const string& statusVarName,
                                 const string& returnVarName, bool isServer, bool isNdk);
+
+template <typename T, typename = std::enable_if_t<std::is_copy_constructible_v<T>>>
+std::vector<T> Append(std::vector<T> as, const std::vector<T>& bs) {
+  as.insert(as.end(), bs.begin(), bs.end());
+  return as;
+}
+
+template <typename T>
+std::vector<T> Append(std::vector<T>&& as, std::vector<T>&& bs) {
+  std::vector<T> appended = std::move(as);
+  std::copy(std::move_iterator(bs.begin()), std::move_iterator(bs.end()),
+            std::back_inserter(appended));
+  return appended;
+}
+
+std::string GenerateEnumValues(const AidlEnumDeclaration& enum_decl,
+                               const std::vector<std::string>& enclosing_namespaces_of_enum_decl);
+
 }  // namespace cpp
 }  // namespace aidl
 }  // namespace android

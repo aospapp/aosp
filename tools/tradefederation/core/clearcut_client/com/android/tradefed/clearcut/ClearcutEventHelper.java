@@ -18,6 +18,7 @@ package com.android.tradefed.clearcut;
 import com.android.asuite.clearcut.Common.UserType;
 import com.android.asuite.clearcut.ExternalUserLog.AtestLogEventExternal;
 import com.android.asuite.clearcut.ExternalUserLog.AtestLogEventExternal.AtestStartEvent;
+import com.android.asuite.clearcut.ExternalUserLog.AtestLogEventExternal.RunnerFinishEvent;
 import com.android.asuite.clearcut.InternalUserLog.AtestLogEventInternal;
 
 import com.google.protobuf.ByteString;
@@ -49,6 +50,31 @@ public class ClearcutEventHelper {
                 createBaseExternalEventBuilder(userKey, runId, userType);
         AtestStartEvent.Builder startBuilder = AtestStartEvent.newBuilder();
         builder.setAtestStartEvent(startBuilder.build());
+        return builder.build().toByteString();
+    }
+
+    /**
+     * Create the start invocation event for Tradefed.
+     *
+     * @param userKey The unique id representing the user
+     * @param runId The current id for the session.
+     * @param userType The type of the user: internal or external.
+     * @return a ByteString representation of the even proto.
+     */
+    public static ByteString createRunStartEvent(String userKey, String runId, UserType userType) {
+        if (UserType.GOOGLE.equals(userType)) {
+            AtestLogEventInternal.Builder builder =
+                    createBaseInternalEventBuilder(userKey, runId, userType);
+            AtestLogEventInternal.RunnerFinishEvent.Builder startRunEventBuilder =
+                    AtestLogEventInternal.RunnerFinishEvent.newBuilder();
+            builder.setRunnerFinishEvent(startRunEventBuilder.build());
+            return builder.build().toByteString();
+        }
+
+        AtestLogEventExternal.Builder builder =
+                createBaseExternalEventBuilder(userKey, runId, userType);
+        RunnerFinishEvent.Builder startBuilder = RunnerFinishEvent.newBuilder();
+        builder.setRunnerFinishEvent(startBuilder.build());
         return builder.build().toByteString();
     }
 

@@ -14,6 +14,9 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+import itertools
+
+from acts.test_utils.bt.bt_test_utils import enable_bluetooth
 from acts.test_utils.coex.CoexPerformanceBaseTest import CoexPerformanceBaseTest
 from acts.test_utils.coex.coex_test_utils import perform_classic_discovery
 
@@ -22,145 +25,49 @@ class CoexBasicPerformanceTest(CoexPerformanceBaseTest):
 
     def __init__(self, controllers):
         super().__init__(controllers)
+        req_params = [
+            # A dict containing:
+            #     protocol: A list containing TCP/UDP. Ex: protocol: ['tcp'].
+            #     stream: A list containing ul/dl. Ex: stream: ['ul']
+            'standalone_params'
+        ]
+        self.unpack_userparams(req_params)
+        self.tests = self.generated_test_cases(['bt_on', 'perform_discovery'])
 
-    def run_iperf_and_perform_discovery(self):
-        """Starts iperf client on host machine and bluetooth discovery
+    def perform_discovery(self):
+        """ Starts iperf client on host machine and bluetooth discovery
         simultaneously.
 
         Returns:
             True if successful, False otherwise.
         """
         tasks = [(perform_classic_discovery,
-                  (self.pri_ad, self.iperf["duration"], self.json_file,
-                   self.dev_list)), (self.run_iperf_and_get_result, ())]
-        if not self.set_attenuation_and_run_iperf(tasks):
-            return False
-        return self.teardown_result()
+                  (self.pri_ad, self.iperf['duration'], self.json_file,
+                   self.dev_list)),
+                 (self.run_iperf_and_get_result, ())]
+        return self.set_attenuation_and_run_iperf(tasks)
 
-    def test_performance_with_bt_on_tcp_ul(self):
-        """Check throughput when bluetooth on.
-
-        This test is to start TCP-Uplink traffic between host machine and
-        android device and check the throughput when bluetooth is on.
-
-        Steps:
-        1. Start TCP-uplink traffic when bluetooth is on.
-
-        Test Id: Bt_CoEx_kpi_005
-        """
-        self.set_attenuation_and_run_iperf()
-        return self.teardown_result()
-
-    def test_performance_with_bt_on_tcp_dl(self):
-        """Check throughput when bluetooth on.
-
-        This test is to start TCP-downlink traffic between host machine and
-        android device and check the throughput when bluetooth is on.
-
-        Steps:
-        1. Start TCP-downlink traffic when bluetooth is on.
-
-        Test Id: Bt_CoEx_kpi_006
-        """
-        self.set_attenuation_and_run_iperf()
-        return self.teardown_result()
-
-    def test_performance_with_bt_on_udp_ul(self):
-        """Check throughput when bluetooth on.
-
-        This test is to start UDP-uplink traffic between host machine and
-        android device and check the throughput when bluetooth is on.
-
-        Steps:
-        1. Start UDP-uplink traffic when bluetooth is on.
-
-        Test Id: Bt_CoEx_kpi_007
-        """
-        self.set_attenuation_and_run_iperf()
-        return self.teardown_result()
-
-    def test_performance_with_bt_on_udp_dl(self):
-        """Check throughput when bluetooth on.
-
-        This test is to start UDP-downlink traffic between host machine and
-        android device and check the throughput when bluetooth is on.
-
-        Steps:
-        1. Start UDP-downlink traffic when bluetooth is on.
-
-        Test Id: Bt_CoEx_kpi_008
-        """
-        self.set_attenuation_and_run_iperf()
-        return self.teardown_result()
-
-    def test_performance_with_bluetooth_discovery_tcp_ul(self):
-        """Check throughput when bluetooth discovery is ongoing.
-
-        This test is to start TCP-uplink traffic between host machine and
-        android device and bluetooth discovery and checks throughput.
-
-        Steps:
-        1. Start TCP-uplink traffic and bluetooth discovery parallelly.
+    def bt_on(self):
+        """ Turns on bluetooth and runs iperf.
 
         Returns:
-            True if successful, False otherwise.
-
-        Test Id: Bt_CoEx_kpi_009
+            True on success, False otherwise.
         """
-        if not self.run_iperf_and_perform_discovery():
+        if not enable_bluetooth(self.pri_ad.droid, self.pri_ad.ed):
             return False
-        return True
+        return self.set_attenuation_and_run_iperf()
 
-    def test_performance_with_bluetooth_discovery_tcp_dl(self):
-        """Check throughput when bluetooth discovery is ongoing.
+    def generated_test_cases(self, test_types):
+        """ Auto generates tests for basic coex tests. """
+        test_cases = []
+        for protocol, stream, test_type in itertools.product(
+                self.standalone_params['protocol'],
+                self.standalone_params['stream'], test_types):
 
-        This test is to start TCP-downlink traffic between host machine and
-        android device and bluetooth discovery and checks throughput.
+            test_name = 'test_performance_with_{}_{}_{}'.format(
+                test_type, protocol, stream)
 
-        Steps:
-        1. Start TCP-downlink traffic and bluetooth discovery parallelly.
-
-        Returns:
-            True if successful, False otherwise.
-
-        Test Id: Bt_CoEx_kpi_010
-        """
-        if not self.run_iperf_and_perform_discovery():
-            return False
-        return True
-
-    def test_performance_with_bluetooth_discovery_udp_ul(self):
-        """Check throughput when bluetooth discovery is ongoing.
-
-        This test is to start UDP-uplink traffic between host machine and
-        android device and bluetooth discovery and checks throughput.
-
-        Steps:
-        1. Start UDP-uplink traffic and bluetooth discovery parallelly.
-
-        Returns:
-            True if successful, False otherwise.
-
-        Test Id: Bt_CoEx_kpi_011
-        """
-        if not self.run_iperf_and_perform_discovery():
-            return False
-        return True
-
-    def test_performance_with_bluetooth_discovery_udp_dl(self):
-        """Check throughput when bluetooth discovery is ongoing.
-
-        This test is to start UDP-downlink traffic between host machine and
-        android device and bluetooth discovery and checks throughput.
-
-        Steps:
-        1. Start UDP-downlink traffic and bluetooth discovery parallelly.
-
-        Returns:
-            True if successful, False otherwise.
-
-        Test Id: Bt_CoEx_kpi_012
-        """
-        if not self.run_iperf_and_perform_discovery():
-            return False
-        return True
+            test_function = getattr(self, test_type)
+            setattr(self, test_name, test_function)
+            test_cases.append(test_name)
+        return test_cases

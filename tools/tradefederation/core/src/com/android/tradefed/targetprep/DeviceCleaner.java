@@ -16,19 +16,19 @@
 
 package com.android.tradefed.targetprep;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.TestDeviceState;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.RunUtil;
 
 /** Performs reboot or format as cleanup action after test, and optionally turns screen off */
 @OptionClass(alias = "device-cleaner")
-public class DeviceCleaner extends BaseTargetPreparer implements ITargetCleaner {
+public class DeviceCleaner extends BaseTargetPreparer {
 
     public static enum CleanupAction {
         /** no cleanup action */
@@ -71,23 +71,22 @@ public class DeviceCleaner extends BaseTargetPreparer implements ITargetCleaner 
     private PostCleanupAction mPostCleanupAction = PostCleanupAction.NONE;
 
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
-            BuildError, DeviceNotAvailableException {
+    public void setUp(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
         // no op since this is a target cleaner
     }
 
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         if (e instanceof DeviceFailedToBootError) {
             CLog.w("boot failure: attempting to stop runtime instead of cleanup");
             try {
-                device.executeShellCommand("stop");
+                testInfo.getDevice().executeShellCommand("stop");
             } catch (DeviceUnresponsiveException due) {
                 CLog.w("boot failure: ignored DeviceUnresponsiveException during forced cleanup");
             }
         } else {
-            clean(device);
+            clean(testInfo.getDevice());
         }
     }
 

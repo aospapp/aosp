@@ -28,6 +28,7 @@ type ccProperties struct {
 	Name                      *string
 	Owner                     *string
 	Defaults                  []string
+	Host_supported            *bool
 	Vendor_available          *bool
 	Recovery_available        *bool
 	Generated_sources         []string
@@ -40,16 +41,27 @@ type ccProperties struct {
 	Export_generated_headers  []string
 	Double_loadable           *bool
 	Cflags                    []string
+	Apex_available            []string
+	Min_sdk_version           *string
 }
 
 type javaProperties struct {
-	Name              *string
-	Owner             *string
-	Defaults          []string
-	No_framework_libs *bool
-	Installable       *bool
-	Sdk_version       *string
-	Srcs              []string
-	Libs              []string
-	Static_libs       []string
+	Name           *string
+	Owner          *string
+	Defaults       []string
+	Installable    *bool
+	Sdk_version    *string
+	Srcs           []string
+	Libs           []string
+	Static_libs    []string
+	Apex_available []string
+}
+
+type fuzzConfig struct {
+	Fuzz_on_haiku_device *bool
+}
+
+type fuzzProperties struct {
+	Data        []string
+	Fuzz_config *fuzzConfig
 }

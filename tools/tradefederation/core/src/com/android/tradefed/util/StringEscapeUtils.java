@@ -74,7 +74,7 @@ public class StringEscapeUtils {
             // this may lead to incorrect results such as \n -> n, or \t -> t, but it's unclear why
             // a command line param would have \t anyways
             param = param.replaceAll("\\\\(.)", "$1");
-            String[] args = QuotationAwareTokenizer.tokenizeLine(param);
+            String[] args = QuotationAwareTokenizer.tokenizeLine(param, /* Logging */ false);
             if (args.length != 0) {
                 result.addAll(Arrays.asList(args));
             }

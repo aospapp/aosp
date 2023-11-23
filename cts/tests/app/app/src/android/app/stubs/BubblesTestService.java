@@ -26,6 +26,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.os.IBinder;
+import android.os.SystemClock;
 
 /**
  * Used by NotificationManagerTest for testing policy around bubbles.
@@ -34,20 +35,19 @@ public class BubblesTestService extends Service {
 
     // Should be same as wht NotificationManagerTest is using
     private static final String NOTIFICATION_CHANNEL_ID = "NotificationManagerTest";
+    private static final String BUBBLE_SHORTCUT_ID_DYNAMIC = "bubbleShortcutIdDynamic";
 
     // Must configure foreground service notification in different ways for different tests
     public static final String EXTRA_TEST_CASE =
             "android.app.stubs.BubbleTestService.EXTRA_TEST_CASE";
-    public static final int TEST_SUCCESS = 0;
-    public static final int TEST_NO_PERSON = 1;
-    public static final int TEST_NO_CATEGORY = 2;
-    public static final int TEST_NO_BUBBLE_METADATA = 3;
+    public static final int TEST_CALL = 0;
+    public static final int TEST_MESSAGING = 1;
 
     public static final int BUBBLE_NOTIF_ID = 1;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        final int testCase = intent.getIntExtra(EXTRA_TEST_CASE, TEST_SUCCESS);
+        final int testCase = intent.getIntExtra(EXTRA_TEST_CASE, TEST_CALL);
         Notification n = getNotificationForTest(testCase, getApplicationContext());
         startForeground(BUBBLE_NOTIF_ID, n);
         return START_STICKY;
@@ -58,30 +58,30 @@ public class BubblesTestService extends Service {
         return null;
     }
 
-    private Notification getNotificationForTest(final int testCase, final Context context) {
-        final Intent intent = new Intent(context, BubblesTestActivity.class);
+    private Notification getNotificationForTest(int testCase, Context context) {
+        final Intent intent = new Intent(context, SendBubbleActivity.class);
         final PendingIntent pendingIntent =
                 PendingIntent.getActivity(getApplicationContext(), 0, intent, 0);
-        Notification.Builder nb = new Notification.Builder(context, NOTIFICATION_CHANNEL_ID)
-                .setContentTitle("foofoo")
-                .setContentIntent(pendingIntent)
-                .setSmallIcon(android.R.drawable.sym_def_app_icon);
         Person person = new Person.Builder()
                 .setName("bubblebot")
                 .build();
-        Notification.BubbleMetadata data = new Notification.BubbleMetadata.Builder()
-                .setIcon(Icon.createWithResource(context, R.drawable.black))
-                .setIntent(pendingIntent)
-                .build();
-        if (testCase != TEST_NO_PERSON) {
-            nb.addPerson(person);
+        Notification.Builder nb = new Notification.Builder(context, NOTIFICATION_CHANNEL_ID)
+                .setContentTitle("foofoo")
+                .setContentIntent(pendingIntent)
+                .setSmallIcon(android.R.drawable.sym_def_app_icon)
+                .setStyle(new Notification.MessagingStyle(person)
+                        .setConversationTitle("Bubble Chat")
+                        .addMessage("Hello?",
+                                SystemClock.currentThreadTimeMillis() - 300000, person)
+                        .addMessage("Is it me you're looking for?",
+                                SystemClock.currentThreadTimeMillis(), person));
+        Notification.BubbleMetadata data = new Notification.BubbleMetadata.Builder(pendingIntent,
+                Icon.createWithResource(context, R.drawable.black)).build();
+        if (testCase != TEST_MESSAGING) {
+            nb.setCategory(Notification.CATEGORY_CALL);
         }
-        if (testCase != TEST_NO_CATEGORY) {
-            nb.setCategory(CATEGORY_CALL);
-        }
-        if (testCase != TEST_NO_BUBBLE_METADATA) {
-            nb.setBubbleMetadata(data);
-        }
+        nb.setShortcutId(BUBBLE_SHORTCUT_ID_DYNAMIC);
+        nb.setBubbleMetadata(data);
         return nb.build();
     }
 }

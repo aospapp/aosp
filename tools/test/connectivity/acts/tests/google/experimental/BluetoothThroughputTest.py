@@ -18,6 +18,7 @@ import statistics
 from acts import asserts
 from acts.base_test import BaseTestClass
 from acts.signals import TestPass
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import orchestrate_rfcomm_connection
 from acts.test_utils.bt.bt_test_utils import setup_multiple_devices_for_bt_test
@@ -37,8 +38,8 @@ class BluetoothThroughputTest(BaseTestClass):
          data_transfer_type: Data transfer protocol used for the test
     """
 
-    def __init__(self, configs):
-        BaseTestClass.__init__(self, configs)
+    def setup_class(self):
+        super().setup_class()
 
         # Sanity check of the devices under test
         # TODO(b/119051823): Investigate using a config validator to replace this.
@@ -109,6 +110,7 @@ class BluetoothThroughputTest(BaseTestClass):
         return throughput
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='23afba5b-5801-42c2-8d7a-41510e91a605')
     def test_bluetooth_throughput_large_buffer(self):
         """Tests the throughput over a series of data transfers with large
         buffer size.
@@ -143,6 +145,7 @@ class BluetoothThroughputTest(BaseTestClass):
                        extras=proto)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='5472fe33-891e-4fa1-ba84-78fc6f6a2327')
     def test_bluetooth_throughput_medium_buffer(self):
         """Tests the throughput over a series of data transfers with medium
         buffer size.
@@ -177,6 +180,7 @@ class BluetoothThroughputTest(BaseTestClass):
                        extras=proto)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='97589280-cefa-4ae4-b3fd-94ec9c1f4104')
     def test_bluetooth_throughput_small_buffer(self):
         """Tests the throughput over a series of data transfers with small
         buffer size.

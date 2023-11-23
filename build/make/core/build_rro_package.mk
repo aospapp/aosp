@@ -20,8 +20,8 @@ ifeq ($(strip $(LOCAL_ODM_MODULE)),true)
   partition := $(TARGET_OUT_ODM)
 else ifeq ($(strip $(LOCAL_VENDOR_MODULE)),true)
   partition := $(TARGET_OUT_VENDOR)
-else ifeq ($(strip $(LOCAL_PRODUCT_SERVICES_MODULE)),true)
-  partition := $(TARGET_OUT_PRODUCT_SERVICES)
+else ifeq ($(strip $(LOCAL_SYSTEM_EXT_MODULE)),true)
+  partition := $(TARGET_OUT_SYSTEM_EXT)
 else
   partition := $(TARGET_OUT_PRODUCT)
 endif
@@ -31,6 +31,12 @@ ifeq ($(LOCAL_RRO_THEME),)
 else
   LOCAL_MODULE_PATH := $(partition)/overlay/$(LOCAL_RRO_THEME)
 endif
+
+# Do not remove resources without default values nor dedupe resource
+# configurations with the same value
+LOCAL_AAPT_FLAGS += \
+    --no-resource-deduping \
+    --no-resource-removal
 
 partition :=
 

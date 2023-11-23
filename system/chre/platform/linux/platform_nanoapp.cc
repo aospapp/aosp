@@ -16,13 +16,13 @@
 
 #include "chre/platform/platform_nanoapp.h"
 
-#include <cinttypes>
 #include <dlfcn.h>
+#include <cinttypes>
 
-#include "chre_api/chre/version.h"
 #include "chre/platform/assert.h"
 #include "chre/platform/log.h"
 #include "chre/platform/shared/nanoapp_dso_util.h"
+#include "chre_api/chre/version.h"
 
 namespace chre {
 
@@ -34,8 +34,7 @@ bool PlatformNanoapp::start() {
   return openNanoapp() && mAppInfo->entryPoints.start();
 }
 
-void PlatformNanoapp::handleEvent(uint32_t senderInstanceId,
-                                  uint16_t eventType,
+void PlatformNanoapp::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
                                   const void *eventData) {
   mAppInfo->entryPoints.handleEvent(senderInstanceId, eventType, eventData);
 }
@@ -57,14 +56,17 @@ uint32_t PlatformNanoapp::getTargetApiVersion() const {
   return CHRE_API_VERSION;
 }
 
+const char *PlatformNanoapp::getAppName() const {
+  return (mAppInfo != nullptr) ? mAppInfo->name : "Unknown";
+}
+
 bool PlatformNanoapp::isSystemNanoapp() const {
   return (mAppInfo != nullptr && mAppInfo->isSystemNanoapp);
 }
 
-void PlatformNanoapp::logStateToBuffer(char *buffer, size_t *bufferPos,
-                                       size_t bufferSize) const {}
+void PlatformNanoapp::logStateToBuffer(DebugDumpWrapper &debugDump) const {}
 
-void PlatformNanoappBase::loadFromFile(const std::string& filename) {
+void PlatformNanoappBase::loadFromFile(const std::string &filename) {
   CHRE_ASSERT(!isLoaded());
   mFilename = filename;
 }
@@ -100,26 +102,27 @@ bool PlatformNanoappBase::openNanoappFromFile() {
 
   mDsoHandle = dlopen(mFilename.c_str(), RTLD_NOW | RTLD_GLOBAL);
   if (mDsoHandle == nullptr) {
-    LOGE("Failed to load nanoapp from file %s: %s",
-         mFilename.c_str(), dlerror());
+    LOGE("Failed to load nanoapp from file %s: %s", mFilename.c_str(),
+         dlerror());
   } else {
     mAppInfo = static_cast<const struct chreNslNanoappInfo *>(
         dlsym(mDsoHandle, CHRE_NSL_DSO_NANOAPP_INFO_SYMBOL_NAME));
     if (mAppInfo == nullptr) {
-      LOGE("Failed to find app info symbol in %s: %s",
-           mFilename.c_str(), dlerror());
+      LOGE("Failed to find app info symbol in %s: %s", mFilename.c_str(),
+           dlerror());
     } else {
       // TODO(b/120778991): reenable this check after adding support for passing
       // in the .napp_header to the simulator
-      //success = validateAppInfo(0 /* skip ID validation */, 0, mAppInfo);
+      // success = validateAppInfo(0 /* skip ID validation */, 0, mAppInfo);
       success = true;
       if (!success) {
         mAppInfo = nullptr;
       } else {
-        LOGI("Successfully loaded nanoapp %s (0x%016" PRIx64 ") version 0x%"
-             PRIx32 " uimg %d system %d from file %s", mAppInfo->name,
-             mAppInfo->appId, mAppInfo->appVersion, mAppInfo->isTcmNanoapp,
-             mAppInfo->isSystemNanoapp, mFilename.c_str());
+        LOGI("Successfully loaded nanoapp %s (0x%016" PRIx64
+             ") version 0x%" PRIx32 " uimg %d system %d from file %s",
+             mAppInfo->name, mAppInfo->appId, mAppInfo->appVersion,
+             mAppInfo->isTcmNanoapp, mAppInfo->isSystemNanoapp,
+             mFilename.c_str());
       }
     }
   }

@@ -42,6 +42,7 @@ from acloud.internal import constants
 from acloud.internal.lib import gcompute_client
 from acloud.internal.lib import utils
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,6 +80,28 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         self._ssh_public_key_path = acloud_config.ssh_public_key_path
         self._launch_args = acloud_config.launch_args
         self._instance_name_pattern = acloud_config.instance_name_pattern
+        self._AddPerInstanceSshkey()
+
+    def _AddPerInstanceSshkey(self):
+        """Add per-instance ssh key.
+
+        Assign the ssh publick key to instacne then use ssh command to
+        control remote instance via the ssh publick key. Added sshkey for two
+        users. One is vsoc01, another is current user.
+
+        """
+        if self._ssh_public_key_path:
+            rsa = self._LoadSshPublicKey(self._ssh_public_key_path)
+            logger.info("ssh_public_key_path is specified in config: %s, "
+                        "will add the key to the instance.",
+                        self._ssh_public_key_path)
+            self._metadata["sshKeys"] = "{0}:{2}\n{1}:{2}".format(getpass.getuser(),
+                                                                  constants.GCE_USER,
+                                                                  rsa)
+        else:
+            logger.warning(
+                "ssh_public_key_path is not specified in config, "
+                "only project-wide key will be effective.")
 
     @classmethod
     def _FormalizeName(cls, name):
@@ -237,9 +260,9 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
                        image_project=None,
                        gpu=None,
                        extra_disk_name=None,
-                       labels=None,
                        avd_spec=None,
-                       extra_scopes=None):
+                       extra_scopes=None,
+                       tags=None):
         """Create a gce instance with a gce image.
 
         Args:
@@ -259,10 +282,11 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
                  None no gpus will be attached. For more details see:
                  https://cloud.google.com/compute/docs/gpus/add-gpus
             extra_disk_name: String,the name of the extra disk to attach.
-            labels: Dict, will be added to the instance's labels.
             avd_spec: AVDSpec object that tells us what we're going to create.
             extra_scopes: List, extra scopes (strings) to be passed to the
                           instance.
+            tags: A list of tags to associate with the instance. e.g.
+                 ["http-server", "https-server"]
         """
         self._CheckMachineSize()
         disk_args = self._GetDiskArgs(instance, image_name)
@@ -279,25 +303,10 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
             avd_spec.hw_property[constants.HW_Y_RES],
             avd_spec.hw_property[constants.HW_ALIAS_DPI]))
 
-        # Add per-instance ssh key
-        if self._ssh_public_key_path:
-            rsa = self._LoadSshPublicKey(self._ssh_public_key_path)
-            logger.info(
-                "ssh_public_key_path is specified in config: %s, "
-                "will add the key to the instance.", self._ssh_public_key_path)
-            metadata["sshKeys"] = "%s:%s" % (getpass.getuser(), rsa)
-        else:
-            logger.warning("ssh_public_key_path is not specified in config, "
-                           "only project-wide key will be effective.")
-
-        # Add labels for giving the instances ability to be filter for
-        # acloud list/delete cmds.
-        labels = {constants.LABEL_CREATE_BY: getpass.getuser()}
-
         super(AndroidComputeClient, self).CreateInstance(
             instance, image_name, self._machine_type, metadata, self._network,
             self._zone, disk_args, image_project, gpu, extra_disk_name,
-            labels=labels, extra_scopes=extra_scopes)
+            extra_scopes=extra_scopes, tags=tags)
 
     def CheckBootFailure(self, serial_out, instance):
         """Determine if serial output has indicated any boot failure.
@@ -335,21 +344,25 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
                 return False
             raise
 
-    def WaitForBoot(self, instance):
+    def WaitForBoot(self, instance, boot_timeout_secs=None):
         """Wait for boot to completes or hit timeout.
 
         Args:
             instance: string, instance name.
+            boot_timeout_secs: Integer, the maximum time in seconds used to
+                               wait for the AVD to boot.
         """
-        logger.info("Waiting for instance to boot up: %s", instance)
+        boot_timeout_secs = boot_timeout_secs or self.BOOT_TIMEOUT_SECS
+        logger.info("Waiting for instance to boot up %s for %s secs",
+                    instance, boot_timeout_secs)
         timeout_exception = errors.DeviceBootTimeoutError(
             "Device %s did not finish on boot within timeout (%s secs)" %
-            (instance, self.BOOT_TIMEOUT_SECS)),
+            (instance, boot_timeout_secs)),
         utils.PollAndWait(
             func=self.CheckBoot,
             expected_return=True,
             timeout_exception=timeout_exception,
-            timeout_secs=self.BOOT_TIMEOUT_SECS,
+            timeout_secs=boot_timeout_secs,
             sleep_interval_secs=self.BOOT_CHECK_INTERVAL_SECS,
             instance=instance)
         logger.info("Instance boot completed: %s", instance)
@@ -362,7 +375,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
             zone: String, representing zone name, e.g. "us-central1-f"
 
         Returns:
-            NamedTuple of (internal, external) IP of the instance.
+            ssh.IP object, that stores internal and external ip of the instance.
         """
         return super(AndroidComputeClient, self).GetInstanceIP(
             instance, zone or self._zone)

@@ -22,6 +22,7 @@ import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -52,6 +53,7 @@ public class SandboxInvocationRunnerTest {
     /** Test a run that is successful. */
     @Test
     public void testPrepareAndRun() throws Throwable {
+        TestInformation info = TestInformation.newBuilder().setInvocationContext(mContext).build();
         mConfig.setConfigurationObject(Configuration.SANDBOX_TYPE_NAME, mMockSandbox);
         EasyMock.expect(mMockSandbox.prepareEnvironment(mContext, mConfig, mMockListener))
                 .andReturn(null);
@@ -59,20 +61,21 @@ public class SandboxInvocationRunnerTest {
         EasyMock.expect(mMockSandbox.run(mConfig, mMockListener)).andReturn(res);
         mMockSandbox.tearDown();
         EasyMock.replay(mMockSandbox, mMockListener);
-        SandboxInvocationRunner.prepareAndRun(mConfig, mContext, mMockListener);
+        SandboxInvocationRunner.prepareAndRun(info, mConfig, mMockListener);
         EasyMock.verify(mMockSandbox, mMockListener);
     }
 
     /** Test a failure to prepare the environment. The exception will be send up. */
     @Test
     public void testPrepareAndRun_prepFailure() throws Throwable {
+        TestInformation info = TestInformation.newBuilder().setInvocationContext(mContext).build();
         mConfig.setConfigurationObject(Configuration.SANDBOX_TYPE_NAME, mMockSandbox);
         EasyMock.expect(mMockSandbox.prepareEnvironment(mContext, mConfig, mMockListener))
                 .andReturn(new RuntimeException("my exception"));
         mMockSandbox.tearDown();
         EasyMock.replay(mMockSandbox, mMockListener);
         try {
-            SandboxInvocationRunner.prepareAndRun(mConfig, mContext, mMockListener);
+            SandboxInvocationRunner.prepareAndRun(info, mConfig, mMockListener);
             fail("Should have thrown an exception.");
         } catch (RuntimeException expected) {
             assertEquals("my exception", expected.getMessage());

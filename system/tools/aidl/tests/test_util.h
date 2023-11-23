@@ -34,7 +34,7 @@ void SplitPackageClass(const std::string& package_class,
 void PrintDiff(const std::string& a, const std::string& b);
 
 }  // namespace test
-}  // namespace android
 }  // namespace aidl
+}  // namespace android
 
 #endif // AIDL_TESTS_TEST_UTIL_H_

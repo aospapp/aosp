@@ -64,6 +64,13 @@ namespace helper {
   // kMin and kMax and no integer values are skipped between them.
   template<typename T>
   constexpr uint32_t NumValues() { return ToUint(T::kMax) - ToUint(T::kMin) + 1; }
+
+  // Returns enum value at position i from enum list.
+  template <typename T>
+  constexpr T GetEnumAt(uint32_t i) {
+    return static_cast<T>(ToUint(T::kMin) + i);
+  }
+
 }  // namespace helper
 
 /*
@@ -89,21 +96,23 @@ class ApiList {
     // e.g. GreylistMaxO is accessible to targetSdkVersion <= 27 (O_MR1).
     kGreylistMaxO = 3,
     kGreylistMaxP = 4,
+    kGreylistMaxQ = 5,
 
     // Special values
     kInvalid =      (static_cast<uint32_t>(-1) & kValueBitMask),
     kMin =          kWhitelist,
-    kMax =          kGreylistMaxP,
+    kMax =          kGreylistMaxQ,
   };
 
   // Additional bit flags after the first kValueBitSize bits in dex flags.
   // These are used for domain-specific API.
   enum class DomainApi : uint32_t {
     kCorePlatformApi = kValueBitSize,
+    kTestApi = kValueBitSize + 1,
 
     // Special values
     kMin =             kCorePlatformApi,
-    kMax =             kCorePlatformApi,
+    kMax =             kTestApi,
   };
 
   // Bit mask of all domain API flags.
@@ -127,11 +136,13 @@ class ApiList {
     "blacklist",
     "greylist-max-o",
     "greylist-max-p",
+    "greylist-max-q",
   };
 
   // Names corresponding to DomainApis.
   static constexpr const char* kDomainApiNames[] {
     "core-platform-api",
+    "test-api",
   };
 
   // Maximum SDK versions allowed to access ApiList of given Value.
@@ -141,6 +152,7 @@ class ApiList {
     /* blacklist */ SdkVersion::kMin,
     /* greylist-max-o */ SdkVersion::kO_MR1,
     /* greylist-max-p */ SdkVersion::kP,
+    /* greylist-max-q */ SdkVersion::kQ,
   };
 
   explicit ApiList(Value val, uint32_t domain_apis = 0u)
@@ -181,7 +193,9 @@ class ApiList {
   static ApiList Blacklist() { return ApiList(Value::kBlacklist); }
   static ApiList GreylistMaxO() { return ApiList(Value::kGreylistMaxO); }
   static ApiList GreylistMaxP() { return ApiList(Value::kGreylistMaxP); }
+  static ApiList GreylistMaxQ() { return ApiList(Value::kGreylistMaxQ); }
   static ApiList CorePlatformApi() { return ApiList(DomainApi::kCorePlatformApi); }
+  static ApiList TestApi() { return ApiList(DomainApi::kTestApi); }
 
   uint32_t GetDexFlags() const { return dex_flags_; }
   uint32_t GetIntValue() const { return helper::ToUint(GetValue()) - helper::ToUint(Value::kMin); }
@@ -190,12 +204,12 @@ class ApiList {
   static ApiList FromName(const std::string& str) {
     for (uint32_t i = 0; i < kValueCount; ++i) {
       if (str == kValueNames[i]) {
-        return ApiList(static_cast<Value>(i + helper::ToUint(Value::kMin)));
+        return ApiList(helper::GetEnumAt<Value>(i));
       }
     }
     for (uint32_t i = 0; i < kDomainApiCount; ++i) {
       if (str == kDomainApiNames[i]) {
-        return ApiList(static_cast<DomainApi>(i + helper::ToUint(DomainApi::kMin)));
+        return ApiList(helper::GetEnumAt<DomainApi>(i));
       }
     }
     return ApiList();
@@ -228,6 +242,7 @@ class ApiList {
 
   bool operator==(const ApiList& other) const { return dex_flags_ == other.dex_flags_; }
   bool operator!=(const ApiList& other) const { return !(*this == other); }
+  bool operator<(const ApiList& other) const { return dex_flags_ < other.dex_flags_; }
 
   // Returns true if combining this ApiList with `other` will succeed.
   bool CanCombineWith(const ApiList& other) const {
@@ -275,11 +290,26 @@ class ApiList {
   // Returns true when no ApiList is specified and no domain_api flags either.
   bool IsEmpty() const { return (GetValue() == Value::kInvalid) && (GetDomainApis() == 0); }
 
+  // Returns true if the ApiList is on blacklist.
+  bool IsBlacklisted() const {
+    return GetValue() == Value::kBlacklist;
+  }
+
+  // Returns true if the ApiList is a test API.
+  bool IsTestApi() const {
+    return helper::MatchesBitMask(helper::ToBit(DomainApi::kTestApi), dex_flags_);
+  }
+
   // Returns the maximum target SDK version allowed to access this ApiList.
   SdkVersion GetMaxAllowedSdkVersion() const { return kMaxSdkVersions[GetIntValue()]; }
 
   void Dump(std::ostream& os) const {
     bool is_first = true;
+
+    if (IsEmpty()) {
+      os << "invalid";
+      return;
+    }
 
     if (GetValue() != Value::kInvalid) {
       os << kValueNames[GetIntValue()];
@@ -287,8 +317,8 @@ class ApiList {
     }
 
     const uint32_t domain_apis = GetDomainApis();
-    for (uint32_t i = helper::ToUint(DomainApi::kMin); i <= helper::ToUint(DomainApi::kMax); i++) {
-      if (helper::MatchesBitMask(helper::ToBit(i), domain_apis)) {
+    for (uint32_t i = 0; i < kDomainApiCount; i++) {
+      if (helper::MatchesBitMask(helper::ToBit(helper::GetEnumAt<DomainApi>(i)), domain_apis)) {
         if (is_first) {
           is_first = false;
         } else {
@@ -301,8 +331,19 @@ class ApiList {
     DCHECK_EQ(IsEmpty(), is_first);
   }
 
+  // Number of valid enum values in Value.
   static constexpr uint32_t kValueCount = helper::NumValues<Value>();
+  // Number of valid enum values in DomainApi.
   static constexpr uint32_t kDomainApiCount = helper::NumValues<DomainApi>();
+  // Total number of possible enum values, including invalid, in Value.
+  static constexpr uint32_t kValueSize = (1u << kValueBitSize) + 1;
+
+  // Check min and max values are calculated correctly.
+  static_assert(Value::kMin == helper::GetEnumAt<Value>(0));
+  static_assert(Value::kMax == helper::GetEnumAt<Value>(kValueCount - 1));
+
+  static_assert(DomainApi::kMin == helper::GetEnumAt<DomainApi>(0));
+  static_assert(DomainApi::kMax == helper::GetEnumAt<DomainApi>(kDomainApiCount - 1));
 };
 
 inline std::ostream& operator<<(std::ostream& os, ApiList value) {

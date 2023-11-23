@@ -39,10 +39,9 @@ class WifiWpa3OweTest(WifiBaseTest):
     * Several Wi-Fi networks visible to the device.
     """
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         self.dut_client = self.android_devices[1]
         wutils.wifi_test_device_init(self.dut)
@@ -101,4 +100,23 @@ class WifiWpa3OweTest(WifiBaseTest):
     def test_connect_to_wpa3_personal_5g(self):
         wutils.start_wifi_connection_scan_and_ensure_network_found(self.dut,
             self.wpa3_personal_5g[WifiEnums.SSID_KEY])
-        wutils.connect_to_wifi_network(self.dut, self.owe_5g)
+        wutils.connect_to_wifi_network(self.dut, self.wpa3_personal_5g)
+
+    @test_tracker_info(uuid="a8fb46be-3487-4dc8-a393-5af992b27f45")
+    def test_connect_to_wpa3_personal_reconnection(self):
+        """ This is to catch auth reject which is caused by PMKSA cache.
+            Steps:
+            ------------------------------
+            1. Connect STA to WPA3 AP
+            2. Turn off the WiFi or connect to a different AP
+            3. Turn on the WiFi or connect back to WPA3 AP.
+            4. Initial connect request fails
+               Second connect request from framework succeeds.
+        """
+        wutils.start_wifi_connection_scan_and_ensure_network_found(self.dut,
+            self.wpa3_personal_2g[WifiEnums.SSID_KEY])
+        wutils.connect_to_wifi_network(self.dut, self.wpa3_personal_2g)
+        wutils.toggle_wifi_off_and_on(self.dut)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(self.dut,
+            self.wpa3_personal_2g[WifiEnums.SSID_KEY])
+        wutils.connect_to_wifi_network(self.dut, self.wpa3_personal_2g)

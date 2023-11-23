@@ -21,7 +21,11 @@ import android.content.Context;
 
 import junit.framework.Assert;
 
+import java.util.function.BooleanSupplier;
+
 public class Utils {
+    private static final long WAIT_SAMPLE_INTERVAL_MILLIS = 200;
+
     private Utils() {
     }
 
@@ -41,4 +45,16 @@ public class Utils {
         }
         Assert.assertFalse(dpm.isAdminActive(cn));
     }
+
+    public static void tryWaitForSuccess(BooleanSupplier successCondition, long timeoutMillis)
+            throws Exception {
+        long epoch = System.currentTimeMillis();
+        while (System.currentTimeMillis() - epoch <= timeoutMillis) {
+            Thread.sleep(WAIT_SAMPLE_INTERVAL_MILLIS);
+            if (successCondition.getAsBoolean()) {
+                return;
+            }
+        }
+    }
+
 }

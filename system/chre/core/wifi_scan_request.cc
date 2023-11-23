@@ -38,9 +38,9 @@ WifiScanRequest::WifiScanRequest()
                       DynamicVector<WifiSsid>() /* ssids */) {}
 
 WifiScanRequest::WifiScanRequest(WifiScanType scanType,
-                                 const Nanoseconds& maxScanAge,
-                                 DynamicVector<uint32_t>&& frequencies,
-                                 DynamicVector<WifiSsid>&& ssids)
+                                 const Nanoseconds &maxScanAge,
+                                 DynamicVector<uint32_t> &&frequencies,
+                                 DynamicVector<WifiSsid> &&ssids)
     : mScanType(scanType),
       mMaxScanAge(maxScanAge),
       mFrequencies(std::move(frequencies)),
@@ -50,15 +50,15 @@ WifiScanType WifiScanRequest::getScanType() const {
   return mScanType;
 }
 
-const Nanoseconds& WifiScanRequest::getMaxScanAge() const {
+const Nanoseconds &WifiScanRequest::getMaxScanAge() const {
   return mMaxScanAge;
 }
 
-const DynamicVector<uint32_t>& WifiScanRequest::getFrequencies() const {
+const DynamicVector<uint32_t> &WifiScanRequest::getFrequencies() const {
   return mFrequencies;
 }
 
-const DynamicVector<WifiSsid>& WifiScanRequest::getSsids() const {
+const DynamicVector<WifiSsid> &WifiScanRequest::getSsids() const {
   return mSsids;
 }
 

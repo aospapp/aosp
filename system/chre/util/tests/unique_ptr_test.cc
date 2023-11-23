@@ -4,9 +4,9 @@
 
 #include "chre/util/unique_ptr.h"
 
-using chre::UniquePtr;
 using chre::MakeUnique;
 using chre::MakeUniqueZeroFill;
+using chre::UniquePtr;
 
 struct Value {
   Value(int value) : value(value) {
@@ -17,7 +17,7 @@ struct Value {
     constructionCounter--;
   }
 
-  Value& operator=(Value&& other) {
+  Value &operator=(Value &&other) {
     value = other.value;
     return *this;
   }

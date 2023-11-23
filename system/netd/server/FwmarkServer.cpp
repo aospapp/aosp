@@ -22,6 +22,9 @@
 #include <unistd.h>
 #include <utils/String16.h>
 
+#include <android-base/cmsg.h>
+#include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <binder/IServiceManager.h>
 #include <netd_resolv/resolv.h>  // NETID_UNSET
 
@@ -32,6 +35,8 @@
 #include "TrafficController.h"
 
 using android::String16;
+using android::base::ReceiveFileDescriptorVector;
+using android::base::unique_fd;
 using android::net::metrics::INetdEventListener;
 
 namespace android {
@@ -62,7 +67,9 @@ FwmarkServer::FwmarkServer(NetworkController* networkController, EventReporter* 
     : SocketListener(SOCKET_NAME, true),
       mNetworkController(networkController),
       mEventReporter(eventReporter),
-      mTrafficCtrl(trafficCtrl) {}
+      mTrafficCtrl(trafficCtrl),
+      mRedirectSocketCalls(
+              android::base::GetBoolProperty("ro.vendor.redirect_socket_calls", false)) {}
 
 bool FwmarkServer::onDataAvailable(SocketClient* client) {
     int socketFd = -1;
@@ -81,36 +88,40 @@ bool FwmarkServer::onDataAvailable(SocketClient* client) {
     return false;
 }
 
+static bool hasDestinationAddress(FwmarkCommand::CmdId cmdId, bool redirectSocketCalls) {
+    if (redirectSocketCalls) {
+        return (cmdId == FwmarkCommand::ON_SENDTO || cmdId == FwmarkCommand::ON_CONNECT ||
+                cmdId == FwmarkCommand::ON_SENDMSG || cmdId == FwmarkCommand::ON_SENDMMSG ||
+                cmdId == FwmarkCommand::ON_CONNECT_COMPLETE);
+    } else {
+        return (cmdId == FwmarkCommand::ON_CONNECT_COMPLETE);
+    }
+}
+
 int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
     FwmarkCommand command;
     FwmarkConnectInfo connectInfo;
 
-    iovec iov[2] = {
-        { &command, sizeof(command) },
-        { &connectInfo, sizeof(connectInfo) },
-    };
-    msghdr message;
-    memset(&message, 0, sizeof(message));
-    message.msg_iov = iov;
-    message.msg_iovlen = ARRAY_SIZE(iov);
+    char buf[sizeof(command) + sizeof(connectInfo)];
+    std::vector<unique_fd> received_fds;
+    ssize_t messageLength =
+            ReceiveFileDescriptorVector(client->getSocket(), buf, sizeof(buf), 1, &received_fds);
 
-    union {
-        cmsghdr cmh;
-        char cmsg[CMSG_SPACE(sizeof(*socketFd))];
-    } cmsgu;
-
-    memset(cmsgu.cmsg, 0, sizeof(cmsgu.cmsg));
-    message.msg_control = cmsgu.cmsg;
-    message.msg_controllen = sizeof(cmsgu.cmsg);
-
-    int messageLength = TEMP_FAILURE_RETRY(recvmsg(client->getSocket(), &message, MSG_CMSG_CLOEXEC));
-    if (messageLength <= 0) {
+    if (messageLength < 0) {
         return -errno;
+    } else if (messageLength == 0) {
+        return -ESHUTDOWN;
     }
 
-    if (!((command.cmdId != FwmarkCommand::ON_CONNECT_COMPLETE && messageLength == sizeof(command))
-            || (command.cmdId == FwmarkCommand::ON_CONNECT_COMPLETE
-            && messageLength == sizeof(command) + sizeof(connectInfo)))) {
+    memcpy(&command, buf, sizeof(command));
+    memcpy(&connectInfo, buf + sizeof(command), sizeof(connectInfo));
+
+    size_t expectedLen = sizeof(command);
+    if (hasDestinationAddress(command.cmdId, mRedirectSocketCalls)) {
+        expectedLen += sizeof(connectInfo);
+    }
+
+    if (messageLength != static_cast<ssize_t>(expectedLen)) {
         return -EBADMSG;
     }
 
@@ -131,15 +142,15 @@ int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
         return mTrafficCtrl->deleteTagData(command.trafficCtrlInfo, command.uid, client->getUid());
     }
 
-    cmsghdr* const cmsgh = CMSG_FIRSTHDR(&message);
-    if (cmsgh && cmsgh->cmsg_level == SOL_SOCKET && cmsgh->cmsg_type == SCM_RIGHTS &&
-        cmsgh->cmsg_len == CMSG_LEN(sizeof(*socketFd))) {
-        memcpy(socketFd, CMSG_DATA(cmsgh), sizeof(*socketFd));
-    }
-
-    if (*socketFd < 0) {
+    if (received_fds.size() != 1) {
+        LOG(ERROR) << "FwmarkServer received " << received_fds.size() << " fds from client?";
+        return -EBADF;
+    } else if (received_fds[0] < 0) {
+        LOG(ERROR) << "FwmarkServer received fd -1 from ReceiveFileDescriptorVector?";
         return -EBADF;
     }
+
+    *socketFd = received_fds[0].release();
 
     int family;
     socklen_t familyLen = sizeof(family);
@@ -237,6 +248,12 @@ int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
                         (ret == 0) ? strtoul(portstr, nullptr, 10) : 0, client->getUid());
             }
             break;
+        }
+
+        case FwmarkCommand::ON_SENDMMSG:
+        case FwmarkCommand::ON_SENDMSG:
+        case FwmarkCommand::ON_SENDTO: {
+            return 0;
         }
 
         case FwmarkCommand::SELECT_NETWORK: {

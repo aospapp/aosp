@@ -1,8 +1,7 @@
 {
-  "presubmit": [
+  "auto-presubmit": [
     {
-      "name": "CtsCarTestCases",
-      "keywords": ["auto-cf"]
+      "name": "CtsCarTestCases"
     }
   ]
 }

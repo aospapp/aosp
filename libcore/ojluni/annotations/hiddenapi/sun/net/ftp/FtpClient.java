@@ -31,7 +31,7 @@ import java.net.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class FtpClient implements java.io.Closeable {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     protected FtpClient() {
         throw new RuntimeException("Stub!");
     }

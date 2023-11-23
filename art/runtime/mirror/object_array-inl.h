@@ -17,6 +17,7 @@
 #ifndef ART_RUNTIME_MIRROR_OBJECT_ARRAY_INL_H_
 #define ART_RUNTIME_MIRROR_OBJECT_ARRAY_INL_H_
 
+#include "base/globals.h"
 #include "object_array.h"
 
 #include <string>
@@ -78,7 +79,7 @@ inline void ObjectArray<T>::Set(int32_t i, ObjPtr<T> object) {
 template<class T>
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
 inline void ObjectArray<T>::SetWithoutChecks(int32_t i, ObjPtr<T> object) {
-  DCHECK(CheckIsValidIndex<kVerifyFlags>(i));
+  DCHECK(CheckIsValidIndex<kVerifyFlags>(i)) << i << " vs " << GetLength();
   DCHECK(CheckAssignable<static_cast<VerifyObjectFlags>(kVerifyFlags & ~kVerifyThis)>(object));
   SetFieldObject<kTransactionActive, kCheckTransaction, kVerifyFlags>(OffsetOfElement(i), object);
 }
@@ -86,7 +87,7 @@ inline void ObjectArray<T>::SetWithoutChecks(int32_t i, ObjPtr<T> object) {
 template<class T>
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
 inline void ObjectArray<T>::SetWithoutChecksAndWriteBarrier(int32_t i, ObjPtr<T> object) {
-  DCHECK(CheckIsValidIndex<kVerifyFlags>(i));
+  DCHECK(CheckIsValidIndex<kVerifyFlags>(i)) << i << " vs " << GetLength();
   // TODO:  enable this check. It fails when writing the image in ImageWriter::FixupObjectArray.
   // DCHECK(CheckAssignable(object));
   SetFieldObjectWithoutWriteBarrier<kTransactionActive, kCheckTransaction, kVerifyFlags>(
@@ -95,7 +96,7 @@ inline void ObjectArray<T>::SetWithoutChecksAndWriteBarrier(int32_t i, ObjPtr<T>
 
 template<class T> template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption>
 inline ObjPtr<T> ObjectArray<T>::GetWithoutChecks(int32_t i) {
-  DCHECK(CheckIsValidIndex(i));
+  DCHECK(CheckIsValidIndex(i)) << i << " vs " << GetLength();
   return GetFieldObject<T, kVerifyFlags, kReadBarrierOption>(OffsetOfElement(i));
 }
 
@@ -328,6 +329,49 @@ inline void ObjectArray<T>::VisitReferences(const Visitor& visitor) {
   for (size_t i = 0; i < length; ++i) {
     visitor(this, OffsetOfElement(i), false);
   }
+}
+
+template <class T>
+inline ConstObjPtrArrayIter<T> ObjectArray<T>::cbegin() const {
+  return ConstObjPtrArrayIter<T>(this, 0);
+}
+template <class T>
+inline ConstObjPtrArrayIter<T> ObjectArray<T>::cend() const {
+  return ConstObjPtrArrayIter<T>(this, GetLength());
+}
+template <class T>
+inline ConstHandleArrayIter<T> ObjectArray<T>::cbegin(const Handle<ObjectArray<T>>& h_this) {
+  return ConstHandleArrayIter<T>(h_this, 0);
+}
+template <class T>
+inline ConstHandleArrayIter<T> ObjectArray<T>::cend(const Handle<ObjectArray<T>>& h_this) {
+  return ConstHandleArrayIter<T>(h_this, h_this->GetLength());
+}
+
+template <class T>
+inline ObjPtrArrayIter<T> ObjectArray<T>::begin() {
+  return ObjPtrArrayIter<T>(this, 0);
+}
+template <class T>
+inline ObjPtrArrayIter<T> ObjectArray<T>::end() {
+  return ObjPtrArrayIter<T>(this, GetLength());
+}
+template <class T>
+inline HandleArrayIter<T> ObjectArray<T>::begin(Handle<ObjectArray<T>>& h_this) {
+  return HandleArrayIter<T>(h_this, 0);
+}
+template <class T>
+inline HandleArrayIter<T> ObjectArray<T>::end(Handle<ObjectArray<T>>& h_this) {
+  return HandleArrayIter<T>(h_this, h_this->GetLength());
+}
+
+template<typename T, typename C>
+inline void ArrayIter<T, C>::CheckIdx() const {
+  if (kIsDebugBuild) {
+    Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
+  }
+  DCHECK_LE(0, idx_);
+  DCHECK_LE(idx_, array_->GetLength());
 }
 
 }  // namespace mirror

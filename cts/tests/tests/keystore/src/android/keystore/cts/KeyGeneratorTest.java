@@ -372,9 +372,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
                             continue;
                         }
                     }
-                    // Strongbox must not support keys larger than 512 bits
-                    // TODO: This test currently fails, will be fixed on resolution of b/113525261
-                    if (useStrongbox && i > 512) {
+                    if (i > 512) {
                         try {
                             keyGenerator.init(spec, rng);
                             fail();

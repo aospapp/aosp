@@ -18,13 +18,20 @@
     <option name="config-descriptor:metadata" key="component" value="uitoolkit" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsWidgetTestCases.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="force-install-mode" value="FULL"/>
+        <option name="test-file-name" value="CtsWidgetApp.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.widget.cts" />
         <option name="runtime-hint" value="11m55s" />
         <option name="hidden-api-checks" value="false" />
+        <option name="instrumentation-arg" key="thisisignored" value="thisisignored --no-window-animation" />
     </test>
 </configuration>

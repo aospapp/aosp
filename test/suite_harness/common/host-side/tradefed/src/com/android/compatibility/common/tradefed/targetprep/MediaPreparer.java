@@ -21,10 +21,12 @@ import com.android.compatibility.common.tradefed.util.DynamicConfigFileReader;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
@@ -296,10 +298,13 @@ public class MediaPreparer extends BaseTargetPreparer {
             } catch (IOException e) {
                 FileUtil.recursiveDelete(mediaFolder);
                 throw new TargetSetupError(
-                        "Failed to download and open media files on host, the"
-                                + " device requires these media files for compatibility tests",
+                        String.format(
+                                "Failed to download and open media files on host machine at '%s'."
+                                        + " These media files are required for compatibility tests.",
+                                mediaFolderZip),
                         e,
-                        device.getDeviceDescriptor());
+                        device.getDeviceDescriptor(),
+                        /* device side */ false);
             } finally {
                 FileUtil.deleteFile(mediaFolderZip);
             }
@@ -381,8 +386,10 @@ public class MediaPreparer extends BaseTargetPreparer {
     }
 
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+    public void setUp(TestInformation testInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        ITestDevice device = testInfo.getDevice();
+        IBuildInfo buildInfo = testInfo.getBuildInfo();
         if (mImagesOnly && mPushAll) {
             throw new TargetSetupError(
                     "'images-only' and 'push-all' cannot be set to true together.",
@@ -395,7 +402,7 @@ public class MediaPreparer extends BaseTargetPreparer {
 
         setMountPoint(device);
         if (!mImagesOnly && !mPushAll) {
-            setMaxRes(device, buildInfo); // max resolution only applies to video files
+            setMaxRes(testInfo); // max resolution only applies to video files
         }
         if (mediaFilesExistOnDevice(device)) {
             // if files already on device, do nothing
@@ -415,9 +422,10 @@ public class MediaPreparer extends BaseTargetPreparer {
     }
 
     // Initialize maximum resolution of media files to copy
-    private void setMaxRes(ITestDevice device, IBuildInfo buildInfo)
-            throws DeviceNotAvailableException {
+    private void setMaxRes(TestInformation testInfo) throws DeviceNotAvailableException {
         ITestInvocationListener listener = new MediaPreparerListener();
+        ITestDevice device = testInfo.getDevice();
+        IBuildInfo buildInfo = testInfo.getBuildInfo();
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
         File apkFile = null;
         try {
@@ -441,7 +449,10 @@ public class MediaPreparer extends BaseTargetPreparer {
         instrTest.setDevice(device);
         instrTest.setInstallFile(apkFile);
         instrTest.setPackageName(APP_PKG_NAME);
-        instrTest.run(listener);
+        // AndroidJUnitTest requires a IConfiguration to work properly, add a stub to this
+        // implementation to avoid an NPE.
+        instrTest.setConfiguration(new Configuration("stub", "stub"));
+        instrTest.run(testInfo, listener);
         if (mFailureStackTrace != null) {
             mMaxRes = DEFAULT_MAX_RESOLUTION;
             CLog.w("Retrieving maximum resolution failed with trace:\n%s", mFailureStackTrace);

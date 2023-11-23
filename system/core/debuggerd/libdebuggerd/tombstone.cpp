@@ -52,12 +52,13 @@
 #include <unwindstack/Regs.h>
 #include <unwindstack/Unwinder.h>
 
-// Needed to get DEBUGGER_SIGNAL.
-#include "debuggerd/handler.h"
-
 #include "libdebuggerd/backtrace.h"
+#include "libdebuggerd/gwp_asan.h"
 #include "libdebuggerd/open_files_list.h"
 #include "libdebuggerd/utility.h"
+
+#include "gwp_asan/common.h"
+#include "gwp_asan/crash_handler.h"
 
 using android::base::GetBoolProperty;
 using android::base::GetProperty;
@@ -86,7 +87,39 @@ static void dump_timestamp(log_t* log, time_t time) {
   _LOG(log, logtype::HEADER, "Timestamp: %s\n", buf);
 }
 
-static void dump_probable_cause(log_t* log, const siginfo_t* si, unwindstack::Maps* maps) {
+static std::string get_stack_overflow_cause(uint64_t fault_addr, uint64_t sp,
+                                            unwindstack::Maps* maps) {
+  static constexpr uint64_t kMaxDifferenceBytes = 256;
+  uint64_t difference;
+  if (sp >= fault_addr) {
+    difference = sp - fault_addr;
+  } else {
+    difference = fault_addr - sp;
+  }
+  if (difference <= kMaxDifferenceBytes) {
+    // The faulting address is close to the current sp, check if the sp
+    // indicates a stack overflow.
+    // On arm, the sp does not get updated when the instruction faults.
+    // In this case, the sp will still be in a valid map, which is the
+    // last case below.
+    // On aarch64, the sp does get updated when the instruction faults.
+    // In this case, the sp will be in either an invalid map if triggered
+    // on the main thread, or in a guard map if in another thread, which
+    // will be the first case or second case from below.
+    unwindstack::MapInfo* map_info = maps->Find(sp);
+    if (map_info == nullptr) {
+      return "stack pointer is in a non-existent map; likely due to stack overflow.";
+    } else if ((map_info->flags & (PROT_READ | PROT_WRITE)) != (PROT_READ | PROT_WRITE)) {
+      return "stack pointer is not in a rw map; likely due to stack overflow.";
+    } else if ((sp - map_info->start) <= kMaxDifferenceBytes) {
+      return "stack pointer is close to top of stack; likely stack overflow.";
+    }
+  }
+  return "";
+}
+
+static void dump_probable_cause(log_t* log, const siginfo_t* si, unwindstack::Maps* maps,
+                                unwindstack::Regs* regs) {
   std::string cause;
   if (si->si_signo == SIGSEGV && si->si_code == SEGV_MAPERR) {
     if (si->si_addr < reinterpret_cast<void*>(4096)) {
@@ -101,11 +134,16 @@ static void dump_probable_cause(log_t* log, const siginfo_t* si, unwindstack::Ma
       cause = "call to kuser_memory_barrier";
     } else if (si->si_addr == reinterpret_cast<void*>(0xffff0f60)) {
       cause = "call to kuser_cmpxchg64";
+    } else {
+      cause = get_stack_overflow_cause(reinterpret_cast<uint64_t>(si->si_addr), regs->sp(), maps);
     }
   } else if (si->si_signo == SIGSEGV && si->si_code == SEGV_ACCERR) {
-    unwindstack::MapInfo* map_info = maps->Find(reinterpret_cast<uint64_t>(si->si_addr));
+    uint64_t fault_addr = reinterpret_cast<uint64_t>(si->si_addr);
+    unwindstack::MapInfo* map_info = maps->Find(fault_addr);
     if (map_info != nullptr && map_info->flags == PROT_EXEC) {
       cause = "execute-only (no-read) memory access error; likely due to data in .text.";
+    } else {
+      cause = get_stack_overflow_cause(fault_addr, regs->sp(), maps);
     }
   } else if (si->si_signo == SIGSYS && si->si_code == SYS_SECCOMP) {
     cause = StringPrintf("seccomp prevented call to disallowed %s system call %d", ABI_STRING,
@@ -152,106 +190,6 @@ static void dump_thread_info(log_t* log, const ThreadInfo& thread_info) {
   _LOG(log, logtype::HEADER, "pid: %d, tid: %d, name: %s  >>> %s <<<\n", thread_info.pid,
        thread_info.tid, thread_info.thread_name.c_str(), thread_info.process_name.c_str());
   _LOG(log, logtype::HEADER, "uid: %d\n", thread_info.uid);
-}
-
-static void dump_stack_segment(log_t* log, unwindstack::Maps* maps, unwindstack::Memory* memory,
-                               uint64_t* sp, size_t words, int label) {
-  // Read the data all at once.
-  word_t stack_data[words];
-
-  // TODO: Do we need to word align this for crashes caused by a misaligned sp?
-  //       The process_vm_readv implementation of Memory should handle this appropriately?
-  size_t bytes_read = memory->Read(*sp, stack_data, sizeof(word_t) * words);
-  words = bytes_read / sizeof(word_t);
-  std::string line;
-  for (size_t i = 0; i < words; i++) {
-    line = "    ";
-    if (i == 0 && label >= 0) {
-      // Print the label once.
-      line += StringPrintf("#%02d  ", label);
-    } else {
-      line += "     ";
-    }
-    line += StringPrintf("%" PRIPTR "  %" PRIPTR, *sp, static_cast<uint64_t>(stack_data[i]));
-
-    unwindstack::MapInfo* map_info = maps->Find(stack_data[i]);
-    if (map_info != nullptr && !map_info->name.empty()) {
-      line += "  " + map_info->name;
-      std::string func_name;
-      uint64_t func_offset = 0;
-      if (map_info->GetFunctionName(stack_data[i], &func_name, &func_offset)) {
-        line += " (" + func_name;
-        if (func_offset) {
-          line += StringPrintf("+%" PRIu64, func_offset);
-        }
-        line += ')';
-      }
-    }
-    _LOG(log, logtype::STACK, "%s\n", line.c_str());
-
-    *sp += sizeof(word_t);
-  }
-}
-
-static void dump_stack(log_t* log, const std::vector<unwindstack::FrameData>& frames,
-                       unwindstack::Maps* maps, unwindstack::Memory* memory) {
-  size_t first = 0, last;
-  for (size_t i = 0; i < frames.size(); i++) {
-    if (frames[i].sp) {
-      if (!first) {
-        first = i+1;
-      }
-      last = i;
-    }
-  }
-
-  if (!first) {
-    return;
-  }
-  first--;
-
-  // Dump a few words before the first frame.
-  uint64_t sp = frames[first].sp - STACK_WORDS * sizeof(word_t);
-  dump_stack_segment(log, maps, memory, &sp, STACK_WORDS, -1);
-
-#if defined(__LP64__)
-  static constexpr const char delimiter[] = "         ................  ................\n";
-#else
-  static constexpr const char delimiter[] = "         ........  ........\n";
-#endif
-
-  // Dump a few words from all successive frames.
-  for (size_t i = first; i <= last; i++) {
-    auto* frame = &frames[i];
-    if (sp != frame->sp) {
-      _LOG(log, logtype::STACK, delimiter);
-      sp = frame->sp;
-    }
-    if (i != last) {
-      // Print stack data up to the stack from the next frame.
-      size_t words;
-      uint64_t next_sp = frames[i + 1].sp;
-      if (next_sp < sp) {
-        // The next frame is probably using a completely different stack,
-        // so dump the max from this stack.
-        words = STACK_WORDS;
-      } else {
-        words = (next_sp - sp) / sizeof(word_t);
-        if (words == 0) {
-          // The sp is the same as the next frame, print at least
-          // one line for this frame.
-          words = 1;
-        } else if (words > STACK_WORDS) {
-          words = STACK_WORDS;
-        }
-      }
-      dump_stack_segment(log, maps, memory, &sp, words, i);
-    } else {
-      // Print some number of words past the last stack frame since we
-      // don't know how large the stack is.
-      dump_stack_segment(log, maps, memory, &sp, STACK_WORDS, i);
-    }
-  }
 }
 
 static std::string get_addr_string(uint64_t addr) {
@@ -391,7 +329,7 @@ void dump_registers(log_t* log, unwindstack::Regs* regs) {
   std::vector<std::pair<std::string, uint64_t>> special_row;
 
 #if defined(__arm__) || defined(__aarch64__)
-  static constexpr const char* special_registers[] = {"ip", "lr", "sp", "pc"};
+  static constexpr const char* special_registers[] = {"ip", "lr", "sp", "pc", "pst"};
 #elif defined(__i386__)
   static constexpr const char* special_registers[] = {"ebp", "esp", "eip"};
 #elif defined(__x86_64__)
@@ -438,7 +376,8 @@ void dump_memory_and_code(log_t* log, unwindstack::Maps* maps, unwindstack::Memo
 }
 
 static bool dump_thread(log_t* log, unwindstack::Unwinder* unwinder, const ThreadInfo& thread_info,
-                        uint64_t abort_msg_address, bool primary_thread) {
+                        uint64_t abort_msg_address, bool primary_thread,
+                        const GwpAsanCrashData& gwp_asan_crash_data) {
   log->current_tid = thread_info.tid;
   if (!primary_thread) {
     _LOG(log, logtype::THREAD, "--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---\n");
@@ -447,7 +386,13 @@ static bool dump_thread(log_t* log, unwindstack::Unwinder* unwinder, const Threa
 
   if (thread_info.siginfo) {
     dump_signal_info(log, thread_info, unwinder->GetProcessMemory().get());
-    dump_probable_cause(log, thread_info.siginfo, unwinder->GetMaps());
+  }
+
+  if (primary_thread && gwp_asan_crash_data.CrashIsMine()) {
+    gwp_asan_crash_data.DumpCause(log);
+  } else if (thread_info.siginfo) {
+    dump_probable_cause(log, thread_info.siginfo, unwinder->GetMaps(),
+                        thread_info.registers.get());
   }
 
   if (primary_thread) {
@@ -465,12 +410,17 @@ static bool dump_thread(log_t* log, unwindstack::Unwinder* unwinder, const Threa
   } else {
     _LOG(log, logtype::BACKTRACE, "\nbacktrace:\n");
     log_backtrace(log, unwinder, "    ");
-
-    _LOG(log, logtype::STACK, "\nstack:\n");
-    dump_stack(log, unwinder->frames(), unwinder->GetMaps(), unwinder->GetProcessMemory().get());
   }
 
   if (primary_thread) {
+    if (gwp_asan_crash_data.HasDeallocationTrace()) {
+      gwp_asan_crash_data.DumpDeallocationTrace(log, unwinder);
+    }
+
+    if (gwp_asan_crash_data.HasAllocationTrace()) {
+      gwp_asan_crash_data.DumpAllocationTrace(log, unwinder);
+    }
+
     unwindstack::Maps* maps = unwinder->GetMaps();
     dump_memory_and_code(log, maps, unwinder->GetProcessMemory().get(),
                          thread_info.registers.get());
@@ -558,7 +508,7 @@ static void dump_log_file(log_t* log, pid_t pid, const char* filename, unsigned 
       }
       AndroidLogEntry e;
       char buf[512];
-      if (android_log_processBinaryLogBuffer(&log_entry.entry_v1, &e, g_eventTagMap, buf,
+      if (android_log_processBinaryLogBuffer(&log_entry.entry, &e, g_eventTagMap, buf,
                                              sizeof(buf)) == 0) {
         _LOG(log, logtype::LOGS, "%s.%03d %5d %5d %c %-8.*s: %s\n", timeBuf,
              log_entry.entry.nsec / 1000000, log_entry.entry.pid, log_entry.entry.tid, 'I',
@@ -652,13 +602,14 @@ void engrave_tombstone_ucontext(int tombstone_fd, uint64_t abort_msg_address, si
   }
 
   engrave_tombstone(unique_fd(dup(tombstone_fd)), &unwinder, threads, tid, abort_msg_address,
-                    nullptr, nullptr);
+                    nullptr, nullptr, 0u, 0u);
 }
 
 void engrave_tombstone(unique_fd output_fd, unwindstack::Unwinder* unwinder,
                        const std::map<pid_t, ThreadInfo>& threads, pid_t target_thread,
                        uint64_t abort_msg_address, OpenFilesList* open_files,
-                       std::string* amfd_data) {
+                       std::string* amfd_data, uintptr_t gwp_asan_state_ptr,
+                       uintptr_t gwp_asan_metadata_ptr) {
   // don't copy log messages to tombstone unless this is a dev device
   bool want_logs = android::base::GetBoolProperty("ro.debuggable", false);
 
@@ -676,7 +627,13 @@ void engrave_tombstone(unique_fd output_fd, unwindstack::Unwinder* unwinder,
   if (it == threads.end()) {
     LOG(FATAL) << "failed to find target thread";
   }
-  dump_thread(&log, unwinder, it->second, abort_msg_address, true);
+
+  GwpAsanCrashData gwp_asan_crash_data(unwinder->GetProcessMemory().get(),
+                                       gwp_asan_state_ptr,
+                                       gwp_asan_metadata_ptr, it->second);
+
+  dump_thread(&log, unwinder, it->second, abort_msg_address, true,
+              gwp_asan_crash_data);
 
   if (want_logs) {
     dump_logs(&log, it->second.pid, 50);
@@ -687,7 +644,7 @@ void engrave_tombstone(unique_fd output_fd, unwindstack::Unwinder* unwinder,
       continue;
     }
 
-    dump_thread(&log, unwinder, thread_info, 0, false);
+    dump_thread(&log, unwinder, thread_info, 0, false, gwp_asan_crash_data);
   }
 
   if (open_files) {

@@ -45,6 +45,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import javax.xml.transform.TransformerException;
 
@@ -195,10 +198,22 @@ public class CtsApiCoverage {
 
         // Add superclass information into api coverage.
         apiCoverage.resolveSuperClasses();
+
+        ExecutorService service =
+            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        List<Future> tasks = new ArrayList<>();
         for (File testApk : testApks) {
-            addApiCoverage(apiCoverage, testApk, dexDeps);
-            addCddCoverage(cddCoverage, testApk, apiLevel);
+            tasks.add(addApiCoverage(service, apiCoverage, testApk, dexDeps));
+            tasks.add(addCddCoverage(service, cddCoverage, testApk, apiLevel));
         }
+        // Wait until all tasks finish.
+        for (Future task : tasks) {
+            task.get();
+        }
+        service.shutdown();
+
+        // The below two coverage methods assume all classes and methods have been already
+        // registered, which is why we don't run them parallelly with others.
 
         try {
             // Add coverage for GTest modules
@@ -265,22 +280,26 @@ public class CtsApiCoverage {
      * @param apiCoverage object to which the coverage statistics will be added to
      * @param testApk containing the tests that will be scanned by dexdeps
      */
-    private static void addApiCoverage(ApiCoverage apiCoverage, File testApk, String dexdeps)
-            throws SAXException, IOException {
-        XMLReader xmlReader = XMLReaderFactory.createXMLReader();
-        String testApkName = testApk.getName();
-        DexDepsXmlHandler dexDepsXmlHandler = new DexDepsXmlHandler(apiCoverage, testApkName);
-        xmlReader.setContentHandler(dexDepsXmlHandler);
+    private static Future addApiCoverage(
+        ExecutorService service, ApiCoverage apiCoverage, File testApk, String dexdeps) {
+        return service.submit(() -> {
+            String apkPath = testApk.getPath();
+            try {
+                XMLReader xmlReader = XMLReaderFactory.createXMLReader();
+                String testApkName = testApk.getName();
+                DexDepsXmlHandler dexDepsXmlHandler = new DexDepsXmlHandler(apiCoverage, testApkName);
+                xmlReader.setContentHandler(dexDepsXmlHandler);
 
-        String apkPath = testApk.getPath();
-        Process process = new ProcessBuilder(dexdeps, "--format=xml", apkPath).start();
-        try {
-            xmlReader.parse(new InputSource(process.getInputStream()));
-        } catch (SAXException e) {
-          // Catch this exception, but continue. SAXException is acceptable in cases
-          // where the apk does not contain a classes.dex and therefore parsing won't work.
-          System.err.println("warning: dexdeps failed for: " + apkPath);
-        }
+                Process process = new ProcessBuilder(dexdeps, "--format=xml", apkPath).start();
+                xmlReader.parse(new InputSource(process.getInputStream()));
+            } catch (SAXException e) {
+                // Catch this exception, but continue. SAXException is acceptable in cases
+                // where the apk does not contain a classes.dex and therefore parsing won't work.
+                System.err.println("warning: dexdeps failed for: " + apkPath);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     /**
@@ -379,16 +398,22 @@ public class CtsApiCoverage {
         }
     }
 
-    private static void addCddCoverage(CddCoverage cddCoverage, File testSource, int api)
-            throws IOException {
-
-        if (testSource.getName().endsWith(".apk")) {
-            addCddApkCoverage(cddCoverage, testSource, api);
-        } else if (testSource.getName().endsWith(".jar")) {
-            addCddJarCoverage(cddCoverage, testSource);
-        } else {
-            System.err.println("Unsupported file type for CDD coverage: " + testSource.getPath());
-        }
+    private static Future addCddCoverage(
+        ExecutorService service, CddCoverage cddCoverage, File testSource, int api) {
+        return service.submit(() -> {
+            try {
+                if (testSource.getName().endsWith(".apk")) {
+                    addCddApkCoverage(cddCoverage, testSource, api);
+                } else if (testSource.getName().endsWith(".jar")) {
+                    addCddJarCoverage(cddCoverage, testSource);
+                } else {
+                    System.err
+                        .println("Unsupported file type for CDD coverage: " + testSource.getPath());
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private static void addCddJarCoverage(CddCoverage cddCoverage, File testSource)

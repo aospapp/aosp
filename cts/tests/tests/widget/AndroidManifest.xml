@@ -552,6 +552,14 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.widget.cts.BackwardNavigationCtsActivity"
+            android:label="BackwardNavigationCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.widget.cts.RadioGroupCtsActivity"
                   android:label="RadioGroupCtsActivity">
             <intent-filter>
@@ -595,6 +603,14 @@
 
         <activity android:name="android.widget.cts.MagnifierCtsActivity"
                   android:label="MagnifierCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.widget.cts.inline.InlineContentViewCtsActivity"
+                  android:label="InlineContentViewCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />

@@ -32,3 +32,8 @@ bootstrap_go_package {
     ],
     pluginFor: ["soong_build"],
 }
+
+hidl_interfaces_metadata {
+    name: "hidl_metadata_json",
+    visibility: ["//system/tools/hidl:__subpackages__"],
+}

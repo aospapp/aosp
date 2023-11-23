@@ -31,11 +31,12 @@ device that supports the following calls:
 """
 import queue
 import time
-
-from acts import tracelogger
-from acts.utils import wait_until
-from acts.utils import TimeoutError
 from logging import Logger
+
+from acts import asserts
+from acts.controllers.buds_lib import tako_trace_logger
+from acts.utils import TimeoutError
+from acts.utils import wait_until
 
 # Add connection profile for future devices in this dictionary
 WEARABLE_BT_PROTOCOLS = {
@@ -69,7 +70,7 @@ class BTUtils(object):
 
     def __init__(self):
         self.default_timeout = 60
-        self.logger = tracelogger.TakoTraceLogger(Logger(__file__))
+        self.logger = tako_trace_logger.TakoTraceLogger(Logger(__file__))
 
     def bt_pair_and_connect(self, pri_device, sec_device):
         """Pair and connect a pri_device to a sec_device.
@@ -198,8 +199,9 @@ class BTUtils(object):
             return True, 0
         self.logger.debug('Unpairing from %s' % target_address)
         start_time = end_time = time.time()
-        assert (True is pri_device.droid.bluetoothUnbond(target_address),
-                'Failed to request device unpairing.')
+        asserts.assert_true(
+            pri_device.droid.bluetoothUnbond(target_address),
+            'Failed to request device unpairing.')
 
         # Check that devices have unpaired successfully.
         self.logger.debug('Verifying devices are unpaired')
@@ -290,4 +292,3 @@ class BTUtils(object):
             if expected[key] != actual[key]:
                 return False
         return True
-

@@ -15,7 +15,7 @@
 java_test_host {
     name: "libcore-memory-metrics-tests",
     srcs: ["src/**/*.java"],
-    libs: [
+    static_libs: [
         "tradefed",
         "ahat",
     ],

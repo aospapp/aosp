@@ -281,7 +281,8 @@ void WhiteCompensation::CalculateRGBRatio() {
   // g_ratio = g/kCompensatedMaxRGB
   // b_ratio = b/kCompensatedMaxRGB
   auto rgb_ratio = [=](int rgb, float c2, float c1, float c0) {
-    return ((c2 * rgb * rgb + c1 * rgb + c0) / kCompensatedMaxRGB);
+    float frgb = FLOAT(rgb);
+    return ((c2 * frgb * frgb + c1 * frgb + c0) / kCompensatedMaxRGB);
   };
 
   compensated_red_ratio_ =
@@ -707,6 +708,10 @@ void HWCDisplay::BuildLayerStack() {
       layer->flags.skip = true;
     }
 
+    if (hwc_layer->IsColorTransformSet()) {
+      layer->flags.skip = true;
+    }
+
     // set default composition as GPU for SDM
     layer->composition = kCompositionGPU;
 
@@ -802,8 +807,8 @@ void HWCDisplay::BuildLayerStack() {
       layer_buffer->release_fence_fd = -1;
       layer->src_rect.left = 0;
       layer->src_rect.top = 0;
-      layer->src_rect.right = layer_buffer->width;
-      layer->src_rect.bottom = layer_buffer->height;
+      layer->src_rect.right = FLOAT(layer_buffer->width);
+      layer->src_rect.bottom = FLOAT(layer_buffer->height);
     }
 
     if (hwc_layer->HasMetaDataRefreshRate() && layer->frame_rate > metadata_refresh_rate_) {
@@ -1274,11 +1279,12 @@ DisplayError HWCDisplay::HandleEvent(DisplayEvent event) {
       break;
     }
     case kThermalEvent:
-    case kIdlePowerCollapse:
     case kPanelDeadEvent: {
       SEQUENCE_WAIT_SCOPE_LOCK(HWCSession::locker_[type_]);
       validated_ = false;
     } break;
+    case kIdlePowerCollapse:
+      break;
     default:
       DLOGW("Unknown event: %d", event);
       break;

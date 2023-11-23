@@ -16,8 +16,6 @@
 
 package com.android.tradefed.util;
 
-import com.android.tradefed.log.LogUtil.CLog;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,7 +62,6 @@ public class PsParser {
          */
         for (int lineCount = startLineNum; lineCount < processLines.length; lineCount++) {
             String processInfoStr[] = processLines[lineCount].split(PROCESS_INFO_SEPARATOR);
-            CLog.i(processLines[lineCount]);
             ProcessInfo psInfo = new ProcessInfo(processInfoStr[0],
                     Integer.parseInt(processInfoStr[1]), processInfoStr[processInfoStr.length - 1]);
             processesInfo.add(psInfo);

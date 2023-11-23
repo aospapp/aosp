@@ -46,6 +46,7 @@ from acts.test_utils.tel.tel_defines import EventTelecomVideoCallSessionEvent
 from acts.test_utils.tel.tel_defines import SESSION_EVENT_RX_PAUSE
 from acts.test_utils.tel.tel_defines import SESSION_EVENT_RX_RESUME
 from acts.test_utils.tel.tel_lookup_tables import operator_capabilities
+from acts.test_utils.tel.tel_subscription_utils import get_outgoing_voice_sub_id
 from acts.test_utils.tel.tel_test_utils import call_setup_teardown
 from acts.test_utils.tel.tel_test_utils import disconnect_call_by_id
 from acts.test_utils.tel.tel_test_utils import get_model_name
@@ -56,6 +57,7 @@ from acts.test_utils.tel.tel_test_utils import num_active_calls
 from acts.test_utils.tel.tel_test_utils import verify_internet_connection
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
 from acts.test_utils.tel.tel_test_utils import wait_for_video_enabled
+from acts.test_utils.tel.tel_test_utils import get_capability_for_subscription
 from acts.test_utils.tel.tel_video_utils import get_call_id_in_video_state
 from acts.test_utils.tel.tel_video_utils import \
     is_phone_in_call_video_bidirectional
@@ -76,8 +78,8 @@ DEFAULT_LONG_DURATION_CALL_TOTAL_DURATION = 1 * 60 * 60  # default 1 hour
 
 
 class TelLiveVideoTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        TelephonyBaseTest.setup_class(self)
 
         self.stress_test_number = self.get_stress_test_number()
 
@@ -85,10 +87,9 @@ class TelLiveVideoTest(TelephonyBaseTest):
             "long_duration_call_total_duration",
             DEFAULT_LONG_DURATION_CALL_TOTAL_DURATION)
 
-    def setup_class(self):
-        TelephonyBaseTest.setup_class(self)
         for ad in self.android_devices:
-            if CAPABILITY_VT not in ad.telephony.get("capabilities", []):
+            if not get_capability_for_subscription(ad, CAPABILITY_VT,
+                get_outgoing_voice_sub_id(ad)):
                 ad.log.error("Video calling is not supported")
                 raise signals.TestAbortClass("Video calling is not supported")
 

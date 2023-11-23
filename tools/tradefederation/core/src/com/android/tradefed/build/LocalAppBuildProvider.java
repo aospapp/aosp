@@ -23,10 +23,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 
-/**
- * A {@link IBuildProvider} that constructs a {@link IAppBuildInfo} based on a provided local
- * path
- */
+/** A {@link IBuildProvider} that constructs a {@link IBuildInfo} based on a provided local path */
 @OptionClass(alias = "local-app")
 public class LocalAppBuildProvider extends StubBuildProvider {
 
@@ -45,24 +42,15 @@ public class LocalAppBuildProvider extends StubBuildProvider {
         // utilize parent build provider to set build id, test target name etc attributes if
         // desired
         IBuildInfo parentBuild = super.getBuild();
-        IAppBuildInfo appBuild = new AppBuildInfo((BuildInfo)parentBuild);
         for (File apkPath : mApkPaths) {
             if (!apkPath.exists()) {
                 throw new IllegalArgumentException(String.format("path '%s' does not exist. "
                         + "Please provide a valid file via --%s", apkPath.getAbsolutePath(),
                         APP_OPTION_NAME));
             }
-            appBuild.addAppPackageFile(apkPath, parentBuild.getBuildId());
+            parentBuild.addAppPackageFile(apkPath, parentBuild.getBuildId());
         }
-        return appBuild;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void buildNotTested(IBuildInfo info) {
-        // ignore
+        return parentBuild;
     }
 
     /**

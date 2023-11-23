@@ -1,3 +1,1 @@
-android-libcore-team+review@google.com
-paulduffin@google.com
-nfuller@google.com
+include platform/libcore:/OWNERS

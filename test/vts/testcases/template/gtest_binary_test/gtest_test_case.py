@@ -58,10 +58,15 @@ class GtestTestCase(binary_test_case.BinaryTestCase):
             self.output_file_path = output_file_path
         if not test_name:
             test_name = self.full_name
-        return [('{cmd} --gtest_filter={test} '
+
+        gtest_filter_flag = ('--gtest_filter={test}').format(test=test_name)
+        if self.filter_file:
+            gtest_filter_flag='--gtest_flagfile=%s' % self.filter_file
+
+        return [('{cmd} {filter_flag} '
                  '--gtest_output=xml:{output_file_path}').format(
                      cmd=super(GtestTestCase, self).GetRunCommand(),
-                     test = test_name,
+                     filter_flag = gtest_filter_flag,
                      output_file_path=self.output_file_path),
                 'cat {output} && rm -rf {output}'.format(
                     output=self.output_file_path)]

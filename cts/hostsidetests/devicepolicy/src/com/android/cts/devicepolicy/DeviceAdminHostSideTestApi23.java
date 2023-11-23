@@ -15,6 +15,10 @@
  */
 package com.android.cts.devicepolicy;
 
+import android.platform.test.annotations.FlakyTest;
+
+import org.junit.Test;
+
 /**
  * BaseDeviceAdminHostSideTest for device admin targeting API level 23.
  */
@@ -27,6 +31,8 @@ public class DeviceAdminHostSideTestApi23 extends BaseDeviceAdminHostSideTest {
     /**
      * Device admin with no BIND_DEVICE_ADMIN can still be activated, if the target SDK <= 23.
      */
+    @FlakyTest
+    @Test
     public void testAdminWithNoProtection() throws Exception {
         if (!mHasFeature) {
             return;

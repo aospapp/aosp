@@ -303,7 +303,7 @@ public class ConfigurationXmlParserTest {
      * Map)}. when presented a device tag with a used name, should merge them.
      */
     @Test
-    public void testParse_deviceTagSameName() {
+    public void testParse_deviceTagSameName() throws Exception {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
             "  <device name=\"device1\">\n" +
@@ -318,15 +318,11 @@ public class ConfigurationXmlParserTest {
             "</configuration>";
         final String configName = "config";
         ConfigurationDef configDef = new ConfigurationDef(configName);
-        try {
-            xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
-            assertTrue(configDef.getObjectClassMap().get(Configuration.DEVICE_NAME).size() == 2);
-            assertTrue("{device1}opName".equals(configDef.getOptionList().get(0).name));
-            assertEquals("{device2}opName3", configDef.getOptionList().get(1).name);
-            assertTrue("{device1}opName2".equals(configDef.getOptionList().get(2).name));
-        } catch(ConfigurationException unExpected) {
-            fail("No exception should have been thrown.");
-        }
+        xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
+        assertTrue(configDef.getObjectClassMap().get(Configuration.DEVICE_NAME).size() == 2);
+        assertTrue("{device1}opName".equals(configDef.getOptionList().get(0).name));
+        assertEquals("{device2}opName3", configDef.getOptionList().get(1).name);
+        assertTrue("{device1}opName2".equals(configDef.getOptionList().get(2).name));
     }
 
     /**

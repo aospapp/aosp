@@ -17,12 +17,18 @@ package com.android.tradefed.util;
 
 import org.junit.runner.Description;
 
+import java.io.File;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -241,31 +247,46 @@ public class TestFilterHelper {
      * Check if an element that has annotation passes the filter
      *
      * @param desc a {@link Description} that describes the test.
+     * @param extraJars a list of {@link File} pointing to extra jars to load.
      * @return true if the test method should run, false otherwise
      */
-    public boolean shouldRun(Description desc) {
+    public boolean shouldRun(Description desc, List<File> extraJars) {
         // We need to build the packageName for a description object
         Class<?> classObj = null;
+        URLClassLoader cl = null;
         try {
-            classObj = Class.forName(desc.getClassName());
-        } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException(String.format("Could not load Test class %s",
-                    classObj), e);
-        }
-        String packageName = classObj.getPackage().getName();
+            try {
+                List<URL> urlList = new ArrayList<>();
+                for (File f : extraJars) {
+                    urlList.add(f.toURI().toURL());
+                }
+                cl = URLClassLoader.newInstance(urlList.toArray(new URL[0]));
+                classObj = cl.loadClass(desc.getClassName());
+            } catch (MalformedURLException | ClassNotFoundException e) {
+                throw new IllegalArgumentException(
+                        String.format("Could not load Test class %s", classObj), e);
+            }
 
-        String className = desc.getClassName();
-        String methodName = String.format("%s#%s", className, desc.getMethodName());
-        if (!shouldRunFilter(packageName, className, methodName)) {
-            return false;
+            // If class is explicitly annotated to be excluded, exclude it.
+            if (isExcluded(Arrays.asList(classObj.getAnnotations()))) {
+                return false;
+            }
+            String packageName = classObj.getPackage().getName();
+            String className = desc.getClassName();
+            String methodName = String.format("%s#%s", className, desc.getMethodName());
+            if (!shouldRunFilter(packageName, className, methodName)) {
+                return false;
+            }
+            if (!shouldTestRun(desc)) {
+                return false;
+            }
+            return mIncludeFilters.isEmpty()
+                    || mIncludeFilters.contains(methodName)
+                    || mIncludeFilters.contains(className)
+                    || mIncludeFilters.contains(packageName);
+        } finally {
+            StreamUtil.close(cl);
         }
-        if (!shouldTestRun(desc)) {
-            return false;
-        }
-        return mIncludeFilters.isEmpty()
-                || mIncludeFilters.contains(methodName)
-                || mIncludeFilters.contains(className)
-                || mIncludeFilters.contains(packageName);
     }
 
     /**

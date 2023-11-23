@@ -24,6 +24,17 @@ cc_library_static {
     srcs: ["apex_manifest.proto"],
 }
 
+cc_library_static {
+    name: "lib_apex_manifest_proto_lite",
+    host_supported: true,
+    recovery_available: true,
+    proto: {
+        export_proto_headers: true,
+        type: "lite",
+    },
+    srcs: ["apex_manifest.proto"],
+}
+
 python_library_host {
     name: "apex_manifest_proto",
     version: {
@@ -40,6 +51,34 @@ python_library_host {
     proto: {
         canonical_path_from_root: false,
     },
+}
+
+python_library_host {
+    name: "apex_build_info_proto",
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: true,
+        },
+    },
+    srcs: [
+        "apex_build_info.proto",
+    ],
+    proto: {
+        canonical_path_from_root: false,
+    },
+}
+
+java_library_static {
+    name: "apex_manifest_proto_java",
+    host_supported: true,
+    device_supported: false,
+    proto: {
+        type: "full",
+    },
+    srcs: ["apex_manifest.proto"],
 }
 
 cc_library_static {

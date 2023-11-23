@@ -258,7 +258,7 @@ public class PrinterCapabilitiesChangeTest extends BasePrintTest {
         waitForMediaSizeChange(mLayoutAttributes, MediaSize.NA_LETTER);
         waitForMediaSizeChange(mWriteAttributes, MediaSize.NA_LETTER);
 
-        getUiDevice().pressBack();
+        mPrintHelper.cancelPrinting();
 
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
     }

@@ -19,6 +19,7 @@
     package="android.permission2.cts" android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
@@ -31,8 +32,8 @@
     <!--  need ability to send sms, to test that SMS's cannot be received -->
     <uses-permission android:name="android.permission.SEND_SMS"/>
 
-    <!-- needs read phone state to get current phone number -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <!-- needs read phone numbers to get current phone number for R+ -->
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS"/>
 
     <!--  need app that has WRITE_SETTINGS but not WRITE_SECURE_SETTINGS -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS"/>

@@ -16,31 +16,42 @@
 
 package com.android.game.qualification.test;
 
-import org.junit.runner.RunWith;
-import org.junit.Test;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestMetrics;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.NativeDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.DataType;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Measurements;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.NativeDevice;
 import com.android.tradefed.result.InputStreamSource;
-import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestMetrics;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import org.junit.Rule;
-import java.io.InputStream;
-import java.io.IOException;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class MemoryTests extends BaseHostJUnit4Test {
+    // The time in ms to wait before starting logcat on NativeDevice
+    private static final int LOG_START_DELAY = 5 * 1000;
 
     @Rule
     public TestMetrics metrics = new TestMetrics();
+
+    @Before
+    public void setUp() throws DeviceNotAvailableException {
+        TestUtils.assumeGameCoreCertified(getDevice());
+    }
 
     /**
      * Device must be able to allocate at least 2.3GB of memory.
@@ -49,6 +60,11 @@ public class MemoryTests extends BaseHostJUnit4Test {
     public void testMemoryAllocationLimit()
         throws DeviceNotAvailableException, IOException {
             getDevice().startLogcat();
+            // Wait until starting logcat for the device.
+            try {
+                Thread.sleep(LOG_START_DELAY);
+            } catch (InterruptedException e) {
+            }
             getDevice().clearLogcat();
 
             String pkgname = "com.android.game.qualification.allocstress";

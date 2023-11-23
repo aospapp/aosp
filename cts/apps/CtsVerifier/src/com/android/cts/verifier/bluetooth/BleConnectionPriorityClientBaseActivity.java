@@ -40,17 +40,12 @@ import java.util.List;
 public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Activity {
 
     private TestAdapter mTestAdapter;
-    private int mPassed = 0;
+    private boolean mPassed = false;
     private Dialog mDialog;
 
-    private static final int BLE_CONNECTION_HIGH = 0;
-    private static final int BLE_CONNECTION_BALANCED = 1;
-    private static final int BLE_CONNECTION_LOW = 2;
+    private static final int BLE_CONNECTION_UPDATE = 0;
 
-    private static final int PASSED_HIGH = 0x1;
-    private static final int PASSED_BALANCED = 0x2;
-    private static final int PASSED_LOW = 0x4;
-    private static final int ALL_PASSED = 0x7;
+    private static final int ALL_PASSED = 0x1;
 
     private boolean mSecure;
 
@@ -80,9 +75,7 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
         IntentFilter filter = new IntentFilter();
         filter.addAction(BleConnectionPriorityClientService.ACTION_BLUETOOTH_DISABLED);
         filter.addAction(BleConnectionPriorityClientService.ACTION_CONNECTION_SERVICES_DISCOVERED);
-        filter.addAction(BleConnectionPriorityClientService.ACTION_FINISH_CONNECTION_PRIORITY_HIGH);
-        filter.addAction(BleConnectionPriorityClientService.ACTION_FINISH_CONNECTION_PRIORITY_BALANCED);
-        filter.addAction(BleConnectionPriorityClientService.ACTION_FINISH_CONNECTION_PRIORITY_LOW_POWER);
+        filter.addAction(BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_FINISH);
         filter.addAction(BleConnectionPriorityClientService.ACTION_BLUETOOTH_MISMATCH_SECURE);
         filter.addAction(BleConnectionPriorityClientService.ACTION_BLUETOOTH_MISMATCH_INSECURE);
         filter.addAction(BleConnectionPriorityClientService.ACTION_FINISH_DISCONNECT);
@@ -140,9 +133,7 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
 
     private List<Integer> setupTestList() {
         ArrayList<Integer> testList = new ArrayList<Integer>();
-        testList.add(R.string.ble_connection_priority_client_high);
-        testList.add(R.string.ble_connection_priority_client_balanced);
-        testList.add(R.string.ble_connection_priority_client_low);
+        testList.add(R.string.ble_connection_priority_client_description);
         return testList;
     }
 
@@ -157,44 +148,24 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
     private void executeNextTestImpl() {
         switch (mCurrentTest) {
             case -1: {
-                mCurrentTest = BLE_CONNECTION_HIGH;
+                mCurrentTest = BLE_CONNECTION_UPDATE;
                 Intent intent = new Intent(this, BleConnectionPriorityClientService.class);
-                intent.setAction(BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_HIGH);
+                intent.setAction(BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_START);
                 startService(intent);
-                String msg = getString(R.string.ble_client_connection_priority)
-                        + getString(R.string.ble_connection_priority_high);
+                String msg = getString(R.string.ble_client_connection_priority);
                 Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
             }
                 break;
-            case BLE_CONNECTION_BALANCED: {
-                mCurrentTest = BLE_CONNECTION_LOW;
-                Intent intent = new Intent(this, BleConnectionPriorityClientService.class);
-                intent.setAction(BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_LOW_POWER);
-                startService(intent);
-                String msg = getString(R.string.ble_client_connection_priority)
-                        + getString(R.string.ble_connection_priority_low);
-                Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-            }
-                break;
-            case BLE_CONNECTION_HIGH: {
-                mCurrentTest = BLE_CONNECTION_BALANCED;
-                Intent intent = new Intent(this, BleConnectionPriorityClientService.class);
-                intent.setAction(BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_BALANCED);
-                startService(intent);
-                String msg = getString(R.string.ble_client_connection_priority)
-                        + getString(R.string.ble_connection_priority_balanced);
-                Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-            }
-                break;
-            case BLE_CONNECTION_LOW:
+            case BLE_CONNECTION_UPDATE: {
                 // all test done
                 closeDialog();
-                if (mPassed == ALL_PASSED) {
+                if (mPassed == true) {
                     Intent intent = new Intent(this, BleConnectionPriorityClientService.class);
                     intent.setAction(BleConnectionPriorityClientService.ACTION_DISCONNECT);
                     startService(intent);
                 }
                 break;
+            }
             default:
                 // something went wrong
                 closeDialog();
@@ -227,20 +198,10 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
                 showProgressDialog();
                 executeNextTest(3000);
                 break;
-            case BleConnectionPriorityClientService.ACTION_FINISH_CONNECTION_PRIORITY_HIGH:
-                mTestAdapter.setTestPass(BLE_CONNECTION_HIGH);
-                mPassed |= PASSED_HIGH;
+            case BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_FINISH:
+                mTestAdapter.setTestPass(BLE_CONNECTION_UPDATE);
+                mPassed = true;
                 executeNextTest(1000);
-                break;
-            case BleConnectionPriorityClientService.ACTION_FINISH_CONNECTION_PRIORITY_BALANCED:
-                mTestAdapter.setTestPass(BLE_CONNECTION_BALANCED);
-                mPassed |= PASSED_BALANCED;
-                executeNextTest(1000);
-                break;
-            case BleConnectionPriorityClientService.ACTION_FINISH_CONNECTION_PRIORITY_LOW_POWER:
-                mTestAdapter.setTestPass(BLE_CONNECTION_LOW);
-                mPassed |= PASSED_LOW;
-                executeNextTest(100);
                 break;
             case BleConnectionPriorityClientService.ACTION_BLUETOOTH_MISMATCH_SECURE:
                 showErrorDialog(R.string.ble_bluetooth_mismatch_title, R.string.ble_bluetooth_mismatch_secure_message, true);

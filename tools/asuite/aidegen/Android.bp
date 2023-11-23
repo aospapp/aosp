@@ -30,14 +30,11 @@ python_defaults {
 python_binary_host {
     name: "aidegen",
     // Make aidegen's built name to aidegen-dev
-    stem: "aidegen-dev",
+    suffix: "-dev",
     defaults: ["aidegen_default"],
     main: "aidegen_main.py",
     srcs: [
         "**/*.py",
-    ],
-    data: [
-        "templates/**/*",
     ],
     libs: [
         "atest_module_info",
@@ -52,10 +49,11 @@ python_library_host {
     name: "aidegen_lib",
     defaults: ["aidegen_default"],
     srcs: [
-        "aidegen_main.py",
-        "constant.py",
-        "unittest_constants.py",
-        "lib/*.py",
+        "**/*.py",
+    ],
+    exclude_srcs: [
+        "*_unittest.py",
+        "*/*_unittest.py",
     ]
 }
 
@@ -67,11 +65,11 @@ python_test_host {
         "**/*.py",
     ],
     data: [
-        "templates/**/*",
         "test_data/**/*",
     ],
     libs: [
         "py-mock",
+        "atest_module_info",
         "asuite_cc_client",
     ],
     test_config: "aidegen_unittests.xml",

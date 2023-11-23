@@ -55,10 +55,10 @@ public class TzDataSetVersionTest extends TestCase {
 
     public void testConstructor() throws Exception {
         TzDataSetVersion distroVersion = new TzDataSetVersion(1, 2, VALID_RULES_VERSION, 3);
-        assertEquals(1, distroVersion.formatMajorVersion);
-        assertEquals(2, distroVersion.formatMinorVersion);
-        assertEquals(VALID_RULES_VERSION, distroVersion.rulesVersion);
-        assertEquals(3, distroVersion.revision);
+        assertEquals(1, distroVersion.getFormatMajorVersion());
+        assertEquals(2, distroVersion.getFormatMinorVersion());
+        assertEquals(VALID_RULES_VERSION, distroVersion.getRulesVersion());
+        assertEquals(3, distroVersion.getRevision());
     }
 
     public void testToFromBytesRoundTrip() throws Exception {

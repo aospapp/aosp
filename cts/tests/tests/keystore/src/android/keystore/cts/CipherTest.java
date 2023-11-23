@@ -21,10 +21,9 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
-import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
-import android.server.am.ActivityManagerTestBase;
+import android.server.wm.ActivityManagerTestBase;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 
@@ -33,12 +32,9 @@ import com.google.common.collect.ObjectArrays;
 import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
 import java.security.Key;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.Provider;
 import java.security.Security;
-import java.security.Signature;
-import java.security.SignatureException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.Provider.Service;
@@ -54,8 +50,6 @@ import java.util.TreeMap;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.OAEPParameterSpec;
@@ -289,6 +283,12 @@ public class CipherTest extends AndroidTestCase {
             mLockCredential.gotoKeyguard();
             mLockCredential.enterAndConfirmLockCredential();
             launchHomeActivity();
+            KeyguardManager keyguardManager = (KeyguardManager)getContext().getSystemService(
+                    Context.KEYGUARD_SERVICE);
+            for (int i = 0; i < 25 && keyguardManager.isDeviceLocked(); i++) {
+                SystemClock.sleep(200);
+            }
+            assertFalse(keyguardManager.isDeviceLocked());
         }
 
         @Override
@@ -429,6 +429,59 @@ public class CipherTest extends AndroidTestCase {
             }
         }
     }
+
+    /*
+     * This test performs a round trip en/decryption. It does so while the current thread
+     * is in interrupted state which cannot be signaled to the user of the Java Crypto
+     * API.
+     */
+    public void testEncryptsAndDecryptsInterrupted()
+            throws Exception {
+        Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
+        assertNotNull(provider);
+        final byte[] originalPlaintext = EmptyArray.BYTE;
+        for (String algorithm : EXPECTED_ALGORITHMS) {
+            for (ImportedKey key : importKatKeys(
+                    algorithm,
+                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT,
+                    false)) {
+                try {
+                    Key encryptionKey = key.getKeystoreBackedEncryptionKey();
+                    byte[] plaintext = truncatePlaintextIfNecessary(
+                            algorithm, encryptionKey, originalPlaintext);
+                    if (plaintext == null) {
+                        // Key is too short to encrypt anything using this transformation
+                        continue;
+                    }
+                    Cipher cipher = Cipher.getInstance(algorithm, provider);
+                    Thread.currentThread().interrupt();
+                    cipher.init(Cipher.ENCRYPT_MODE, encryptionKey);
+                    AlgorithmParameters params = cipher.getParameters();
+                    byte[] ciphertext = cipher.doFinal(plaintext);
+                    byte[] expectedPlaintext = plaintext;
+                    if ("RSA/ECB/NoPadding".equalsIgnoreCase(algorithm)) {
+                        // RSA decryption without padding left-pads resulting plaintext with NUL
+                        // bytes to the length of RSA modulus.
+                        int modulusLengthBytes = (TestUtils.getKeySizeBits(encryptionKey) + 7) / 8;
+                        expectedPlaintext = TestUtils.leftPadWithZeroBytes(
+                                expectedPlaintext, modulusLengthBytes);
+                    }
+
+                    cipher = Cipher.getInstance(algorithm, provider);
+                    Key decryptionKey = key.getKeystoreBackedDecryptionKey();
+                    cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params);
+                    byte[] actualPlaintext = cipher.doFinal(ciphertext);
+                    assertTrue(Thread.currentThread().interrupted());
+                    MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                } catch (Throwable e) {
+                    throw new RuntimeException(
+                            "Failed for " + algorithm + " with key " + key.getAlias(),
+                            e);
+                }
+            }
+        }
+    }
+
 
     private boolean isDecryptValid(byte[] expectedPlaintext, byte[] ciphertext, Cipher cipher,
             AlgorithmParameters params, ImportedKey key) {

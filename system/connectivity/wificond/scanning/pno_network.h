@@ -22,11 +22,10 @@
 #include <binder/Parcel.h>
 #include <binder/Parcelable.h>
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 class PnoNetwork : public ::android::Parcelable {
  public:
@@ -43,10 +42,9 @@ class PnoNetwork : public ::android::Parcelable {
   std::vector<int32_t> frequencies_;
 };
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com
 
 #endif  // WIFICOND_SCANNING_PNO_NETWORK_H_

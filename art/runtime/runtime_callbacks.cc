@@ -228,6 +228,19 @@ void RuntimeCallbacks::ClassLoad(Handle<mirror::Class> klass) {
   }
 }
 
+void RuntimeCallbacks::EndDefineClass() {
+  for (ClassLoadCallback* cb : COPY(class_callbacks_)) {
+    cb->EndDefineClass();
+  }
+}
+
+void RuntimeCallbacks::BeginDefineClass() {
+  for (ClassLoadCallback* cb : COPY(class_callbacks_)) {
+    cb->BeginDefineClass();
+  }
+}
+
+
 void RuntimeCallbacks::ClassPreDefine(const char* descriptor,
                                       Handle<mirror::Class> temp_class,
                                       Handle<mirror::ClassLoader> loader,
@@ -316,6 +329,22 @@ void RuntimeCallbacks::RegisterNativeMethod(ArtMethod* method,
     if (*new_method != nullptr) {
       cur_method = *new_method;
     }
+  }
+}
+
+void RuntimeCallbacks::AddReflectiveValueVisitCallback(ReflectiveValueVisitCallback *cb) {
+  WriterMutexLock mu(Thread::Current(), *callback_lock_);
+  reflective_value_visit_callbacks_.push_back(cb);
+}
+
+void RuntimeCallbacks::RemoveReflectiveValueVisitCallback(ReflectiveValueVisitCallback *cb) {
+  WriterMutexLock mu(Thread::Current(), *callback_lock_);
+  Remove(cb, &reflective_value_visit_callbacks_);
+}
+
+void RuntimeCallbacks::VisitReflectiveTargets(ReflectiveValueVisitor *visitor) {
+  for (ReflectiveValueVisitCallback* cb : COPY(reflective_value_visit_callbacks_)) {
+    cb->VisitReflectiveTargets(visitor);
   }
 }
 

@@ -23,7 +23,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             06:6c:9f:cf:99:bf:8c:0a:39:e2:f0:78:8a:43:e6:96:36:5b:ca
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, O=Amazon, CN=Amazon Root CA 1
         Validity
             Not Before: May 26 00:00:00 2015 GMT
@@ -31,7 +31,7 @@ Certificate:
         Subject: C=US, O=Amazon, CN=Amazon Root CA 1
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:b2:78:80:71:ca:78:d5:e3:71:af:47:80:50:74:
                     7d:6e:d8:d7:88:76:f4:99:68:f7:58:21:60:f9:74:

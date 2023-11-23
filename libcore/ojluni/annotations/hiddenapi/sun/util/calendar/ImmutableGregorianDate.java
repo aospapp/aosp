@@ -242,7 +242,7 @@ class ImmutableGregorianDate extends sun.util.calendar.BaseCalendar.Date {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private void unsupported() {
         throw new RuntimeException("Stub!");
     }

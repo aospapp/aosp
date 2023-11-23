@@ -16,16 +16,18 @@
 
 package android.media.cts;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.annotation.ColorInt;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.media.ThumbnailUtils;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Size;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -38,8 +40,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
 @AppModeFull(reason = "Instant apps cannot access the SD card")
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnitParamsRunner.class)
 public class ThumbnailUtilsTest {
     private static final Size[] TEST_SIZES = new Size[] {
             new Size(50, 50),
@@ -48,6 +53,35 @@ public class ThumbnailUtilsTest {
     };
 
     private File mDir;
+
+    private Object[] getSampleWithThumbnailForCreateImageThumbnail() {
+        return new Object[] {
+                R.raw.orientation_0,
+                R.raw.orientation_90,
+                R.raw.orientation_180,
+                R.raw.orientation_270,
+        };
+    }
+
+    private Object[] getStrippedSampleForCreateImageThumbnail() {
+        return new Object[] {
+                R.raw.orientation_stripped_0,
+                R.raw.orientation_stripped_90,
+                R.raw.orientation_stripped_180,
+                R.raw.orientation_stripped_270
+
+        };
+    }
+
+    private Object[] getHEICSampleForCreateImageThumbnail() {
+        return new Object[] {
+                R.raw.orientation_heic_0,
+                R.raw.orientation_heic_90,
+                R.raw.orientation_heic_180,
+                R.raw.orientation_heic_270
+
+        };
+    }
 
     @Before
     public void setUp() {
@@ -97,6 +131,42 @@ public class ThumbnailUtilsTest {
         }
     }
 
+    private static void assertOrientationForThumbnail(Bitmap bitmap) {
+        // All callers are expected to pass a Bitmap with an image of a black cup in the middle
+        // (left-to-right) upper portion, on a mostly non-black background. They use different
+        // EXIF orientations to achieve the same final image, and this verifies that the EXIF
+        // orientation was applied properly.
+        assertColorMostlyInRange(bitmap.getPixel(bitmap.getWidth() / 2, bitmap.getHeight() / 3),
+                0xFF202020 /* upperBound */, Color.BLACK);
+    }
+
+    @Test
+    @Parameters(method = "getSampleWithThumbnailForCreateImageThumbnail")
+    public void testCreateImageThumbnail_sampleWithThumbnail(int resId) throws Exception {
+        final File file = stageFile(resId, new File(mDir, "cts.jpg"));
+        final Bitmap bitmap = ThumbnailUtils.createImageThumbnail(file, TEST_SIZES[0], null);
+
+        assertOrientationForThumbnail(bitmap);
+    }
+
+    @Test
+    @Parameters(method = "getStrippedSampleForCreateImageThumbnail")
+    public void testCreateImageThumbnail_strippedSample(int resId) throws Exception {
+        final File file = stageFile(resId, new File(mDir, "cts.jpg"));
+        final Bitmap bitmap = ThumbnailUtils.createImageThumbnail(file, TEST_SIZES[0], null);
+
+        assertOrientationForThumbnail(bitmap);
+    }
+
+    @Test
+    @Parameters(method = "getHEICSampleForCreateImageThumbnail")
+    public void testCreateImageThumbnail_HEICSample(int resId) throws Exception {
+        final File file = stageFile(resId, new File(mDir, "cts.heic"));
+        final Bitmap bitmap = ThumbnailUtils.createImageThumbnail(file, TEST_SIZES[0], null);
+
+        assertOrientationForThumbnail(bitmap);
+    }
+
     @Test
     public void testCreateVideoThumbnail() throws Exception {
         final File file = stageFile(
@@ -135,5 +205,17 @@ public class ThumbnailUtilsTest {
         if ((actual.getWidth() > maxWidth) || (actual.getHeight() > maxHeight)) {
             fail("Actual " + actual + " differs too much from expected " + expected);
         }
+    }
+
+    private static void assertColorMostlyInRange(@ColorInt int actual, @ColorInt int upperBound,
+            @ColorInt int lowerBound) {
+        assertTrue(Color.alpha(lowerBound) <= Color.alpha(actual)
+                && Color.alpha(actual) <= Color.alpha(upperBound));
+        assertTrue(Color.red(lowerBound) <= Color.red(actual)
+                && Color.red(actual) <= Color.red(upperBound));
+        assertTrue(Color.green(lowerBound) <= Color.green(actual)
+                && Color.green(actual) <= Color.green(upperBound));
+        assertTrue(Color.blue(lowerBound) <= Color.blue(actual)
+                && Color.blue(actual) <= Color.blue(upperBound));
     }
 }

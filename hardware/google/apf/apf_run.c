@@ -27,7 +27,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "disassembler.h"
 #include "apf_interpreter.h"
+
+#define __unused __attribute__((unused))
 
 enum {
     OPT_PROGRAM,
@@ -79,11 +82,23 @@ void print_hex(const uint8_t* input, int len) {
     }
 }
 
+int tracing_enabled = 0;
+
+void maybe_print_tracing_header() {
+    if (!tracing_enabled) return;
+
+    printf("      R0       R1       PC  Instruction\n");
+    printf("-------------------------------------------------\n");
+
+}
+
 // Process packet through APF filter
 void packet_handler(uint8_t* program, uint32_t program_len, uint32_t ram_len,
                    const char* pkt, uint32_t filter_age) {
     uint8_t* packet;
     uint32_t packet_len = parse_hex(pkt, &packet);
+
+    maybe_print_tracing_header();
 
     int ret = accept_packet(program, program_len, ram_len, packet, packet_len,
                             filter_age);
@@ -92,16 +107,13 @@ void packet_handler(uint8_t* program, uint32_t program_len, uint32_t ram_len,
     free(packet);
 }
 
-int tracing_enabled = 0;
-void apf_trace_hook(uint32_t pc, const uint32_t* regs, const uint8_t* program,
-                    const uint8_t* packet, const uint32_t* memory) {
+void apf_trace_hook(uint32_t pc, const uint32_t* regs, const uint8_t* program, uint32_t program_len,
+                    const uint8_t* packet __unused, uint32_t packet_len __unused,
+                    const uint32_t* memory __unused, uint32_t memory_len __unused) {
     if (!tracing_enabled) return;
 
-    // TODO: disassemble opcodes and dump memory locations
-    (void)program;
-    (void)packet;
-    (void)memory;
-    printf("PC:%8u R0:%8" PRIx32 " R1:%8" PRIx32 "\n", pc, regs[0], regs[1]);
+    printf("%8" PRIx32 " %8" PRIx32 " ", regs[0], regs[1]);
+    apf_disassemble(program, program_len, pc);
 }
 
 // Process pcap file through APF filter and generate output files
@@ -133,6 +145,8 @@ void file_handler(uint8_t* program, uint32_t program_len, uint32_t ram_len, cons
     }
 
     while ((apf_packet = pcap_next(pcap, &apf_header)) != NULL) {
+        maybe_print_tracing_header();
+
         int result = accept_packet(program, program_len, ram_len, apf_packet,
                                   apf_header.len, filter_age);
 
@@ -178,7 +192,7 @@ int main(int argc, char* argv[]) {
     char* packet = NULL;
     uint8_t* data = NULL;
     uint32_t data_len = 0;
-    int32_t filter_age = 0;
+    uint32_t filter_age = 0;
 
     int opt;
     char *endptr;
@@ -223,7 +237,7 @@ int main(int argc, char* argv[]) {
             case OPT_AGE:
                 errno = 0;
                 filter_age = strtoul(optarg, &endptr, 10);
-                if ((errno == ERANGE && filter_age == ULONG_MAX) ||
+                if ((errno == ERANGE && filter_age == UINT32_MAX) ||
                     (errno != 0 && filter_age == 0)) {
                     perror("Error on age option: strtoul");
                     exit(1);

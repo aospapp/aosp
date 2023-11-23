@@ -144,7 +144,5 @@ TEST_F(RecordFileTest, write_meta_info_feature_section) {
   // Read from a record file.
   std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile_.path);
   ASSERT_TRUE(reader != nullptr);
-  std::unordered_map<std::string, std::string> read_info_map;
-  ASSERT_TRUE(reader->ReadMetaInfoFeature(&read_info_map));
-  ASSERT_EQ(read_info_map, info_map);
+  ASSERT_EQ(reader->GetMetaInfoFeature(), info_map);
 }

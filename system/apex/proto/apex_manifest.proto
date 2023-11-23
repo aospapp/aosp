@@ -18,6 +18,9 @@ syntax = "proto3";
 
 package apex.proto;
 
+option java_package = "com.android.apex";
+option java_outer_classname = "Protos";
+
 message ApexManifest {
 
   // Package Name
@@ -34,4 +37,15 @@ message ApexManifest {
 
   // Version Name
   string versionName = 5;
+
+  // Signals whenever this APEX doesn't contain any executable code.
+  // If this field is set to true, then apexd will mount this apex
+  // with MS_NOEXEC flag.
+  bool noCode = 6;
+
+  // List of native libs which can be used by other apexes or system.
+  repeated string provideNativeLibs = 7;
+
+  // List of native libs which this apex uses from other apexes or system.
+  repeated string requireNativeLibs = 8;
 }

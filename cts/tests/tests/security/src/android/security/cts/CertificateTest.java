@@ -40,7 +40,8 @@ import java.util.Set;
 @SecurityTest
 public class CertificateTest extends AndroidTestCase {
     // The directory for CA root certificates trusted by WFA (WiFi Alliance)
-    static final String DIR_OF_CACERTS_FOR_WFA = "/etc/security/cacerts_wfa";
+    private static final String DIR_OF_CACERTS_FOR_WFA =
+            "/apex/com.android.wifi/etc/security/cacerts_wfa";
 
     public void testNoRemovedCertificates() throws Exception {
         Set<String> expectedCertificates = new HashSet<String>(
@@ -92,7 +93,7 @@ public class CertificateTest extends AndroidTestCase {
      * For questions, comments, and code reviews please contact security@android.com.
      */
     public void testNoRemovedWfaCertificates() throws Exception {
-        if (!supportPasspoint()) {
+        if (!isWifiSupported()) {
             return;
         }
         Set<String> expectedCertificates = new HashSet<>(
@@ -103,7 +104,7 @@ public class CertificateTest extends AndroidTestCase {
     }
 
     public void testNoAddedWfaCertificates() throws Exception {
-        if (!supportPasspoint()) {
+        if (!isWifiSupported()) {
             return;
         }
         Set<String> expectedCertificates = new HashSet<String>(
@@ -113,26 +114,25 @@ public class CertificateTest extends AndroidTestCase {
         assertEquals("Unknown WFA CA certificates", Collections.EMPTY_SET, deviceWfaCertificates);
     }
 
-    private boolean supportPasspoint() {
-        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI_PASSPOINT);
+    private boolean isWifiSupported() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI);
     }
 
-    private KeyStore createWfaKeyStore(String dirPath) throws CertificateException, IOException,
+    private KeyStore createWfaKeyStore() throws CertificateException, IOException,
             KeyStoreException, NoSuchAlgorithmException {
         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
         keyStore.load(null, null);
-        String wfaCertsDir = System.getenv("ANDROID_ROOT") + dirPath;
         int index = 0;
-        for (X509Certificate cert : loadCertsFromDisk(wfaCertsDir)) {
+        for (X509Certificate cert : loadCertsFromDisk()) {
             keyStore.setCertificateEntry(String.format("%d", index++), cert);
         }
         return keyStore;
     }
 
-    private Set<X509Certificate> loadCertsFromDisk(String directory) throws CertificateException,
+    private Set<X509Certificate> loadCertsFromDisk() throws CertificateException,
             IOException {
         Set<X509Certificate> certs = new HashSet<>();
-        File certDir = new File(directory);
+        File certDir = new File(DIR_OF_CACERTS_FOR_WFA);
         File[] certFiles = certDir.listFiles();
         if (certFiles == null || certFiles.length <= 0) {
             return certs;
@@ -151,7 +151,7 @@ public class CertificateTest extends AndroidTestCase {
 
     private Set<String> getDeviceWfaCertificates() throws KeyStoreException,
             NoSuchAlgorithmException, CertificateException, IOException {
-        KeyStore wfaKeyStore = createWfaKeyStore(DIR_OF_CACERTS_FOR_WFA);
+        KeyStore wfaKeyStore = createWfaKeyStore();
         List<String> aliases = Collections.list(wfaKeyStore.aliases());
         assertFalse(aliases.isEmpty());
 

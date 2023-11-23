@@ -15,7 +15,7 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 endif
 
 LOCAL_SHARED_LIBRARIES := liblog libdl
-LOCAL_HEADER_LIBRARIES := copybit_headers
+LOCAL_HEADER_LIBRARIES := copybit_headers gralloc_headers
 
 LOCAL_MODULE_TAGS := optional
 

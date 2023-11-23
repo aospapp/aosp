@@ -22,7 +22,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 8957382827206547757 (0x7c4f04391cd4992d)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=US, O=AffirmTrust, CN=AffirmTrust Networking
         Validity
             Not Before: Jan 29 14:08:24 2010 GMT
@@ -30,7 +30,7 @@ Certificate:
         Subject: C=US, O=AffirmTrust, CN=AffirmTrust Networking
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:b4:84:cc:33:17:2e:6b:94:6c:6b:61:52:a0:eb:
                     a3:cf:79:94:4c:e5:94:80:99:cb:55:64:44:65:8f:

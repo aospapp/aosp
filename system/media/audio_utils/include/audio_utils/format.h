@@ -36,8 +36,9 @@ __BEGIN_DECLS
  *
  * Allowed format conversions are given by either case 1 or 2 below:
  *
- * 1) One of src_format or dst_format is AUDIO_FORMAT_PCM_16_BIT or
- * AUDIO_FORMAT_PCM_FLOAT, and the other format type is one of:
+ * 1) Either src_format is (AUDIO_FORMAT_PCM_16_BIT or AUDIO_FORMAT_PCM_FLOAT)
+ * or dst_format is (AUDIO_FORMAT_PCM_8_BIT or AUDIO_FORMAT_PCM_16_BIT or AUDIO_FORMAT_PCM_FLOAT)
+ * and the other format type is one of:
  *
  * AUDIO_FORMAT_PCM_16_BIT
  * <BR>

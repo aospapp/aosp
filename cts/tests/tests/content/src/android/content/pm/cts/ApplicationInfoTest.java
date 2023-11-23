@@ -26,7 +26,9 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -214,5 +216,63 @@ public class ApplicationInfoTest {
         ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
                 PARTIALLY_DIRECT_BOOT_AWARE_PACKAGE_NAME, 0);
         assertTrue(applicationInfo.isEncryptionAware());
+    }
+
+    @Test
+    public void testWriteToParcelDontSquash() throws Exception {
+        // Make sure ApplicationInfo.writeToParcel() doesn't do the "squashing",
+        // because Parcel.allowSquashing() isn't called.
+
+        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName, 0);
+
+        final Parcel p = Parcel.obtain();
+        mApplicationInfo.writeToParcel(p, 0);
+        mApplicationInfo.writeToParcel(p, 0);
+
+        // Don't call Parcel.allowSquashing()
+
+        p.setDataPosition(0);
+        final ApplicationInfo copy1 = ApplicationInfo.CREATOR.createFromParcel(p);
+        final ApplicationInfo copy2 = ApplicationInfo.CREATOR.createFromParcel(p);
+
+        p.recycle();
+
+        assertNotSame(mApplicationInfo, copy1);
+
+        // writeToParcel() doesn't do the squashing, so copy1 and copy2 will be different.
+        assertNotSame(copy1, copy2);
+
+        // Check several fields to make sure they're properly copied.
+        assertEquals(mApplicationInfo.packageName, copy2.packageName);
+        assertEquals(copy1.packageName, copy2.packageName);
+
+        assertEquals(mApplicationInfo.flags, copy2.flags);
+        assertEquals(copy1.flags, copy2.flags);
+    }
+
+    @Test
+    public void testWriteToParcelSquash() throws Exception {
+        // Make sure ApplicationInfo.writeToParcel() does the "squashing", after
+        // Parcel.allowSquashing() is called.
+
+        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName, 0);
+
+        final Parcel p = Parcel.obtain();
+
+        final boolean prevSquashing = p.allowSquashing(); // Allow squashing.
+
+        mApplicationInfo.writeToParcel(p, 0);
+        mApplicationInfo.writeToParcel(p, 0);
+
+        p.setDataPosition(0);
+        final ApplicationInfo copy1 = ApplicationInfo.CREATOR.createFromParcel(p);
+        final ApplicationInfo copy2 = ApplicationInfo.CREATOR.createFromParcel(p);
+
+        p.recycle();
+
+        assertNotSame(mApplicationInfo, copy1);
+        assertSame(copy1, copy2); //
+
+        p.restoreAllowSquashing(prevSquashing);
     }
 }

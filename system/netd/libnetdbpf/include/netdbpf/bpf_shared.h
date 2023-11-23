@@ -17,11 +17,44 @@
 #ifndef NETDBPF_BPF_SHARED_H
 #define NETDBPF_BPF_SHARED_H
 
+#include <linux/if_ether.h>
 #include <linux/in.h>
 #include <linux/in6.h>
 #include <netdutils/UidConstants.h>
-// const values shared by bpf kernel program bpfloader and netd
 
+// This header file is shared by eBPF kernel programs and netd
+
+typedef struct {
+    uint32_t uid;
+    uint32_t tag;
+} UidTagValue;
+
+typedef struct {
+    uint32_t uid;
+    uint32_t tag;
+    uint32_t counterSet;
+    uint32_t ifaceIndex;
+} StatsKey;
+
+typedef struct {
+    uint64_t rxPackets;
+    uint64_t rxBytes;
+    uint64_t txPackets;
+    uint64_t txBytes;
+} StatsValue;
+
+typedef struct {
+    char name[IFNAMSIZ];
+} IfaceValue;
+
+typedef struct {
+    uint64_t rxBytes;
+    uint64_t rxPackets;
+    uint64_t txBytes;
+    uint64_t txPackets;
+    uint64_t tcpRxPackets;
+    uint64_t tcpTxPackets;
+} Stats;
 
 // Since we cannot garbage collect the stats map since device boot, we need to make these maps as
 // large as possible. The maximum size of number of map entries we can have is depend on the rlimit
@@ -87,7 +120,7 @@ enum UidOwnerMatchType {
     IIF_MATCH = (1 << 5),
 };
 
-enum BpfPemissionMatch {
+enum BpfPermissionMatch {
     BPF_PERMISSION_INTERNET = 1 << 2,
     BPF_PERMISSION_UPDATE_DEVICE_STATS = 1 << 3,
 };
@@ -132,5 +165,60 @@ typedef struct {
     uint32_t oif;           // The output interface to redirect to (0 means don't redirect)
     struct in_addr local4;  // The destination IPv4 address
 } ClatIngressValue;
+
+#define CLAT_EGRESS_PROG_RAWIP_NAME "prog_clatd_schedcls_egress_clat_rawip"
+#define CLAT_EGRESS_PROG_ETHER_NAME "prog_clatd_schedcls_egress_clat_ether"
+
+#define CLAT_EGRESS_PROG_RAWIP_PATH BPF_PATH "/" CLAT_EGRESS_PROG_RAWIP_NAME
+#define CLAT_EGRESS_PROG_ETHER_PATH BPF_PATH "/" CLAT_EGRESS_PROG_ETHER_NAME
+
+#define CLAT_EGRESS_MAP_PATH BPF_PATH "/map_clatd_clat_egress_map"
+
+typedef struct {
+    uint32_t iif;           // The input interface index
+    struct in_addr local4;  // The source IPv4 address
+} ClatEgressKey;
+
+typedef struct {
+    uint32_t oif;            // The output interface to redirect to
+    struct in6_addr local6;  // The full 128-bits of the source IPv6 address
+    struct in6_addr pfx96;   // The destination /96 nat64 prefix, bottom 32 bits must be 0
+    bool oifIsEthernet;      // Whether the output interface requires ethernet header
+} ClatEgressValue;
+
+#define TETHER_INGRESS_PROG_RAWIP_NAME "prog_offload_schedcls_ingress_tether_rawip"
+#define TETHER_INGRESS_PROG_ETHER_NAME "prog_offload_schedcls_ingress_tether_ether"
+
+#define TETHER_INGRESS_PROG_RAWIP_PATH BPF_PATH "/" TETHER_INGRESS_PROG_RAWIP_NAME
+#define TETHER_INGRESS_PROG_ETHER_PATH BPF_PATH "/" TETHER_INGRESS_PROG_ETHER_NAME
+
+#define TETHER_INGRESS_MAP_PATH BPF_PATH "/map_offload_tether_ingress_map"
+
+typedef struct {
+    uint32_t iif;            // The input interface index
+    struct in6_addr neigh6;  // The destination IPv6 address
+} TetherIngressKey;
+
+typedef struct {
+    uint32_t oif;  // The output interface to redirect to
+    // For now tethering offload only needs to support downstreams that use 6-byte MAC addresses,
+    // because all downstream types that are currently supported (WiFi, USB, Bluetooth and
+    // Ethernet) have 6-byte MAC addresses.
+    struct ethhdr macHeader;  // includes dst/src mac and ethertype
+    uint16_t pmtu;            // The maximum L3 output path/route mtu
+} TetherIngressValue;
+
+#define TETHER_STATS_MAP_PATH BPF_PATH "/map_offload_tether_stats_map"
+
+typedef struct {
+    uint64_t rxPackets;
+    uint64_t rxBytes;
+    uint64_t rxErrors;
+    uint64_t txPackets;
+    uint64_t txBytes;
+    uint64_t txErrors;
+} TetherStatsValue;
+
+#define TETHER_LIMIT_MAP_PATH BPF_PATH "/map_offload_tether_limit_map"
 
 #endif  // NETDBPF_BPF_SHARED_H

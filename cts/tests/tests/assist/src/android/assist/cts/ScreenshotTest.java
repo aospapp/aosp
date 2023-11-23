@@ -16,11 +16,15 @@
 
 package android.assist.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
+
+import org.junit.Test;
 
 public class ScreenshotTest extends AssistTestBase {
     static final String TAG = "ScreenshotTest";
@@ -28,12 +32,12 @@ public class ScreenshotTest extends AssistTestBase {
     private static final String TEST_CASE_TYPE = Utils.SCREENSHOT;
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         // start test start activity
         startTestActivity(TEST_CASE_TYPE);
     }
 
+    @Test
     public void testRedScreenshot() throws Throwable {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");
@@ -50,10 +54,11 @@ public class ScreenshotTest extends AssistTestBase {
         eventuallyWithSessionClose(() -> {
             delayAndStartSession(Color.RED);
             verifyAssistDataNullness(false, false, false, false);
-            assertTrue(mScreenshotMatches);
+            assertThat(mScreenshotMatches).isTrue();
         });
     }
 
+    @Test
     public void testGreenScreenshot() throws Throwable {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");
@@ -70,10 +75,11 @@ public class ScreenshotTest extends AssistTestBase {
         eventuallyWithSessionClose(() -> {
             delayAndStartSession(Color.GREEN);
             verifyAssistDataNullness(false, false, false, false);
-            assertTrue(mScreenshotMatches);
+            assertThat(mScreenshotMatches).isTrue();
         });
     }
 
+    @Test
     public void testBlueScreenshot() throws Throwable {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");
@@ -90,7 +96,7 @@ public class ScreenshotTest extends AssistTestBase {
         eventuallyWithSessionClose(() -> {
             delayAndStartSession(Color.BLUE);
             verifyAssistDataNullness(false, false, false, false);
-            assertTrue(mScreenshotMatches);
+            assertThat(mScreenshotMatches).isTrue();
         });
     }
 

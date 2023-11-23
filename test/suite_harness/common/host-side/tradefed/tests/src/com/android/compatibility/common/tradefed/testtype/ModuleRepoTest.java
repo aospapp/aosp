@@ -334,20 +334,23 @@ public class ModuleRepoTest extends TestCase {
         checkArgs(module);
     }
 
-    /**
-     * Test that excluded module shouldn't be loaded.
-     */
-    public void testInitialization_ExcludeModule_SkipLoadingConfig() {
-        try {
-            Set<String> excludeFilters = new HashSet<String>();
-            excludeFilters.add(NON_EXISTS_MODULE_NAME);
-            mRepo.initialize(1, null, mTestsDir, ABIS, DEVICE_TOKENS, TEST_ARGS,
-                    MODULE_ARGS, Collections.emptySet(), excludeFilters,
-                    METADATA_INCLUDES, METADATA_EXCLUDES,
-                    mMockBuildInfo);
-        } catch (Exception e) {
-            fail("Initialization should not fail if non-existing module is excluded");
-        }
+    /** Test that excluded module shouldn't be loaded. */
+    public void testInitialization_ExcludeModule_SkipLoadingConfig() throws Exception {
+        Set<String> excludeFilters = new HashSet<String>();
+        excludeFilters.add(NON_EXISTS_MODULE_NAME);
+        mRepo.initialize(
+                1,
+                null,
+                mTestsDir,
+                ABIS,
+                DEVICE_TOKENS,
+                TEST_ARGS,
+                MODULE_ARGS,
+                Collections.emptySet(),
+                excludeFilters,
+                METADATA_INCLUDES,
+                METADATA_EXCLUDES,
+                mMockBuildInfo);
     }
 
     /**

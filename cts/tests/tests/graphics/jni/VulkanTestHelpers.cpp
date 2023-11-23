@@ -73,11 +73,11 @@ bool VkInit::init() {
   VkApplicationInfo appInfo = {
       .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
       .pNext = nullptr,
-      .apiVersion = VK_MAKE_VERSION(1, 1, 0),
-      .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-      .engineVersion = VK_MAKE_VERSION(1, 0, 0),
       .pApplicationName = "VulkanGpuTest",
+      .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
       .pEngineName = "VulkanGpuTestEngine",
+      .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+      .apiVersion = VK_MAKE_VERSION(1, 1, 0),
   };
   std::vector<const char *> instanceExt, deviceExt;
   instanceExt.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -95,10 +95,10 @@ bool VkInit::init() {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
       .pNext = nullptr,
       .pApplicationInfo = &appInfo,
-      .enabledExtensionCount = static_cast<uint32_t>(instanceExt.size()),
-      .ppEnabledExtensionNames = instanceExt.data(),
       .enabledLayerCount = 0,
       .ppEnabledLayerNames = nullptr,
+      .enabledExtensionCount = static_cast<uint32_t>(instanceExt.size()),
+      .ppEnabledExtensionNames = instanceExt.data(),
   };
   VK_CALL(vkCreateInstance(&createInfo, nullptr, &mInstance));
 
@@ -130,8 +130,8 @@ bool VkInit::init() {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
       .pNext = nullptr,
       .flags = 0,
-      .queueCount = 1,
       .queueFamilyIndex = queueFamilyIndex,
+      .queueCount = 1,
       .pQueuePriorities = priorities,
   };
 
@@ -370,6 +370,7 @@ bool VkAHardwareBufferImage::init(AHardwareBuffer *buffer, bool useExternalForma
       .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
       .pNext =
           (mConversion == VK_NULL_HANDLE) ? nullptr : &samplerConversionInfo,
+      .flags = 0,
       .image = mImage,
       .viewType = VK_IMAGE_VIEW_TYPE_2D,
       .format = useExternalFormat ? VK_FORMAT_UNDEFINED : formatInfo.format,
@@ -379,7 +380,6 @@ bool VkAHardwareBufferImage::init(AHardwareBuffer *buffer, bool useExternalForma
               VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
           },
       .subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-      .flags = 0,
   };
   VK_CALL(vkCreateImageView(mInit->device(), &viewCreateInfo, nullptr, &mView));
 
@@ -562,9 +562,9 @@ bool VkImageRenderer::init(JNIEnv *env, jobject assetMgr) {
     VkBufferCreateInfo createBufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
+        .flags = 0,
         .size = sizeof(vertexData),
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .flags = 0,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,
@@ -647,7 +647,7 @@ bool VkImageRenderer::init(JNIEnv *env, jobject assetMgr) {
   {
     AAsset *vertFile =
         AAssetManager_open(AAssetManager_fromJava(env, assetMgr),
-                           "passthrough_vsh.spv", AASSET_MODE_BUFFER);
+                           "shaders/passthrough_vsh.spv", AASSET_MODE_BUFFER);
     ASSERT(vertFile);
     size_t vertShaderLength = AAsset_getLength(vertFile);
     std::vector<uint8_t> vertShader;
@@ -658,7 +658,7 @@ bool VkImageRenderer::init(JNIEnv *env, jobject assetMgr) {
 
     AAsset *pixelFile =
         AAssetManager_open(AAssetManager_fromJava(env, assetMgr),
-                           "passthrough_fsh.spv", AASSET_MODE_BUFFER);
+                           "shaders/passthrough_fsh.spv", AASSET_MODE_BUFFER);
     ASSERT(pixelFile);
     size_t pixelShaderLength = AAsset_getLength(pixelFile);
     std::vector<uint8_t> pixelShader;
@@ -691,9 +691,9 @@ bool VkImageRenderer::init(JNIEnv *env, jobject assetMgr) {
   VkPipelineCacheCreateInfo pipelineCacheInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
       .pNext = nullptr,
+      .flags = 0, // reserved, must be 0
       .initialDataSize = 0,
       .pInitialData = nullptr,
-      .flags = 0, // reserved, must be 0
   };
   VK_CALL(vkCreatePipelineCache(mInit->device(), &pipelineCacheInfo, nullptr,
                                 &mCache));
@@ -882,15 +882,18 @@ bool VkImageRenderer::renderImageAndReadback(VkImage image, VkSampler sampler,
         }};
 
     VkViewport viewports{
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
         .x = 0,
         .y = 0,
         .width = static_cast<float>(mWidth),
         .height = static_cast<float>(mHeight),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
     };
 
-    VkRect2D scissor = {.extent = {mWidth, mHeight}, .offset = {0, 0}};
+    VkRect2D scissor = {
+      .offset = {0, 0},
+      .extent = {mWidth, mHeight},
+    };
     VkPipelineViewportStateCreateInfo viewportInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .pNext = nullptr,
@@ -912,18 +915,18 @@ bool VkImageRenderer::renderImageAndReadback(VkImage image, VkSampler sampler,
         .alphaToOneEnable = VK_FALSE,
     };
     VkPipelineColorBlendAttachmentState attachmentStates{
+        .blendEnable = VK_FALSE,
         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-        .blendEnable = VK_FALSE,
     };
     VkPipelineColorBlendStateCreateInfo colorBlendInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .pNext = nullptr,
+        .flags = 0,
         .logicOpEnable = VK_FALSE,
         .logicOp = VK_LOGIC_OP_COPY,
         .attachmentCount = 1,
         .pAttachments = &attachmentStates,
-        .flags = 0,
     };
     VkPipelineRasterizationStateCreateInfo rasterInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
@@ -950,14 +953,14 @@ bool VkImageRenderer::renderImageAndReadback(VkImage image, VkSampler sampler,
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
     VkVertexInputAttributeDescription vertex_input_attributes[2]{
         {
-            .binding = 0,
             .location = 0,
+            .binding = 0,
             .format = VK_FORMAT_R32G32_SFLOAT,
             .offset = 0,
         },
         {
-            .binding = 0,
             .location = 1,
+            .binding = 0,
             .format = VK_FORMAT_R32G32_SFLOAT,
             .offset = sizeof(float) * 2,
         }};

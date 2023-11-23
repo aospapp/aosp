@@ -25,10 +25,16 @@ import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.util.AbiUtils;
+import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.IRunUtil;
+import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.ZipUtil;
 
+import java.io.DataInputStream;
 import java.io.File;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipFile;
 
@@ -66,6 +72,10 @@ public class JvmtiAttachingHostTest extends DeviceTestCase implements IBuildRece
     }
 
     private final static String AGENT = "libctsjvmtiattachagent.so";
+
+    private final static String STARTUP_AGENT_DIR = "code_cache/startup_agents";
+
+    private static String REMOTE_SOCKET_NAME = "CtsJvmtiAttachingHostTestCases_SOCKET";
 
     @Override
     protected void setUp() throws Exception {
@@ -109,6 +119,35 @@ public class JvmtiAttachingHostTest extends DeviceTestCase implements IBuildRece
         });
     }
 
+    public void testJvmtiAgentStartupAgents() throws Exception {
+        runJvmtiAgentLoadTest((ITestDevice device, String pkg, String apk, String abiName) -> {
+            String startup_dir = null;
+            try {
+                startup_dir = getPwd(device, pkg) + "/" + STARTUP_AGENT_DIR;
+                device.executeShellCommand(
+                        "run-as " + pkg + " --user " + mCurrentUser + " mkdir -p " + startup_dir);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to install startup-agents");
+            }
+            try {
+                installLibToDataData(device, pkg, abiName, apk, startup_dir, AGENT, AGENT);
+                // Run and check attach occurs.
+                runAttachTestCmd(device, pkg, "");
+                runAttachTestCmd(device, pkg, "");
+            } catch (Exception e) {
+                throw new RuntimeException("Failed startup_agents attaching", e);
+            } finally {
+                try {
+                    // Cleanup the startup-agents directory
+                    device.executeShellCommand(
+                            "run-as " + pkg + " --user " + mCurrentUser + " rm -rf " + startup_dir);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to clean up " + startup_dir, e);
+                }
+            }
+        });
+    }
+
     public void testJvmtiAgentAppInternal() throws Exception {
         runJvmtiAgentLoadTest((ITestDevice device, String pkg, String apk, String abiName) -> {
             try {
@@ -132,16 +171,7 @@ public class JvmtiAttachingHostTest extends DeviceTestCase implements IBuildRece
     public void testJvmtiAgentAppExternal() throws Exception {
         runJvmtiAgentLoadTest((ITestDevice device, String pkg, String apk, String abiName) -> {
             try {
-                String pwd = device.executeShellCommand(
-                        "run-as " + pkg + " --user " + mCurrentUser + " pwd");
-                if (pwd == null) {
-                    throw new RuntimeException("pwd failed");
-                }
-                pwd = pwd.trim();
-                if (pwd.isEmpty()) {
-                    throw new RuntimeException("pwd failed");
-                }
-
+                String pwd = getPwd(device, pkg);
                 // Give it a different name, so we do not have "contamination" from
                 // the test APK.
                 String libInDataData = AGENT.substring(0, AGENT.length() - ".so".length())
@@ -165,6 +195,19 @@ public class JvmtiAttachingHostTest extends DeviceTestCase implements IBuildRece
                 throw new RuntimeException("Failed agent-app attaching", e);
             }
         });
+    }
+
+    private String getPwd(ITestDevice device, String pkg) throws Exception {
+        String pwd = device.executeShellCommand(
+                "run-as " + pkg + " --user " + mCurrentUser + " pwd");
+        if (pwd == null) {
+            throw new RuntimeException("pwd failed");
+        }
+        pwd = pwd.trim();
+        if (pwd.isEmpty()) {
+            throw new RuntimeException("pwd failed");
+        }
+        return pwd;
     }
 
     private void runJvmtiAgentLoadTest(TestRun runner) throws Exception {
@@ -203,13 +246,33 @@ public class JvmtiAttachingHostTest extends DeviceTestCase implements IBuildRece
 
     private static void runAttachTestCmd(ITestDevice device, String pkg, String agentParams)
             throws Exception {
-        String attachCmd = "cmd activity start -S -W " + agentParams + " -n " + pkg
-                + "/android.jvmti.JvmtiActivity";
+        // Get a reverse socket setup
+        try (final ServerSocket ss = new ServerSocket(0)) {
+            device.executeAdbCommand(
+                    "reverse", "localabstract:" + REMOTE_SOCKET_NAME, "tcp:" + ss.getLocalPort());
+            String attachCmd = "cmd activity start -S " + agentParams + " -n " + pkg
+                    + "/android.jvmti.JvmtiActivity";
 
-        // Don't try to parse the output. The test will time out anyways if this didn't
-        // work.
-        device.executeShellCommand(attachCmd, NullOutputReceiver.getReceiver(), 10,
-                TimeUnit.SECONDS, 1);
+            // Don't try to parse the output. We'll get data from the socket or a timeout if it
+            // didn't start. For some reason this command sometimes fails. Retry up to ten times to
+            // make the test less flaky.
+            device.executeShellCommand(attachCmd, NullOutputReceiver.getReceiver(), 10,
+                  TimeUnit.SECONDS, 10);
+            // Wait for startup up to 30 seconds.
+            ss.setSoTimeout(30000);
+            try (Socket s = ss.accept()) {
+                DataInputStream dis = new DataInputStream(s.getInputStream());
+                String res = dis.readUTF();
+                s.shutdownInput();
+                if (!res.trim().equals("SUCCESS")) {
+                    throw new RuntimeException("Failed test due to remote error: " + res);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to read output", e);
+            }
+        } finally {
+            device.executeAdbCommand("reverse", "--remove", "localabstract:" + REMOTE_SOCKET_NAME);
+        }
     }
 
     private String installLibToDataData(ITestDevice device, String pkg, String abiName,

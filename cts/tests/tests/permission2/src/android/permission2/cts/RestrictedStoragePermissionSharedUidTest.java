@@ -19,12 +19,12 @@ package android.permission2.cts;
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.OPSTR_LEGACY_STORAGE;
-import static android.permission.cts.PermissionUtils.eventually;
 import static android.permission.cts.PermissionUtils.isGranted;
 import static android.permission2.cts.RestrictedStoragePermissionSharedUidTest.StorageState.DENIED;
 import static android.permission2.cts.RestrictedStoragePermissionSharedUidTest.StorageState.ISOLATED;
 import static android.permission2.cts.RestrictedStoragePermissionSharedUidTest.StorageState.NON_ISOLATED;
 
+import static com.android.compatibility.common.util.SystemUtil.eventually;
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
@@ -127,9 +127,9 @@ public class RestrictedStoragePermissionSharedUidTest {
 
         void install() {
             if (isRestricted) {
-                runShellCommand("pm install -g --restrict-permissions " + mApk);
+                runShellCommand("pm install -g --force-queryable --restrict-permissions " + mApk);
             } else {
-                runShellCommand("pm install -g " + mApk);
+                runShellCommand("pm install -g --force-queryable " + mApk);
             }
         }
 
@@ -240,7 +240,7 @@ public class RestrictedStoragePermissionSharedUidTest {
             } else {
                 expectedState = ISOLATED;
             }
-        } else if (hasRequestedLegacyExternalStorage) {
+        } else if (hasRequestedLegacyExternalStorage && targetSDK <= Build.VERSION_CODES.Q) {
             expectedState = NON_ISOLATED;
         } else {
             expectedState = ISOLATED;

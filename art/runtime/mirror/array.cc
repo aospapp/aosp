@@ -54,8 +54,8 @@ static ObjPtr<Array> RecursiveCreateMultiArray(Thread* self,
   Handle<mirror::Class> h_component_type(hs.NewHandle(array_class->GetComponentType()));
   size_t component_size_shift = h_component_type->GetPrimitiveTypeSizeShift();
   gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
-  Handle<Array> new_array(hs.NewHandle(Array::Alloc<true>(
-      self, array_class.Get(), array_length, component_size_shift, allocator_type)));
+  Handle<Array> new_array(hs.NewHandle(
+      Array::Alloc(self, array_class.Get(), array_length, component_size_shift, allocator_type)));
   if (UNLIKELY(new_array == nullptr)) {
     CHECK(self->IsExceptionPending());
     return nullptr;
@@ -122,11 +122,11 @@ ObjPtr<Array> Array::CreateMultiArray(Thread* self,
 template<typename T>
 ObjPtr<PrimitiveArray<T>> PrimitiveArray<T>::Alloc(Thread* self, size_t length) {
   gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
-  ObjPtr<Array> raw_array = Array::Alloc<true>(self,
-                                               GetClassRoot<PrimitiveArray<T>>(),
-                                               length,
-                                               ComponentSizeShiftWidth(sizeof(T)),
-                                               allocator_type);
+  ObjPtr<Array> raw_array = Array::Alloc(self,
+                                         GetClassRoot<PrimitiveArray<T>>(),
+                                         length,
+                                         ComponentSizeShiftWidth(sizeof(T)),
+                                         allocator_type);
   return ObjPtr<PrimitiveArray<T>>::DownCast(raw_array);
 }
 
@@ -138,20 +138,18 @@ void Array::ThrowArrayStoreException(ObjPtr<Object> object) {
   art::ThrowArrayStoreException(object->GetClass(), this->GetClass());
 }
 
-ObjPtr<Array> Array::CopyOf(Thread* self, int32_t new_length) {
-  ObjPtr<Class> klass = GetClass();
+ObjPtr<Array> Array::CopyOf(Handle<Array> h_this, Thread* self, int32_t new_length) {
+  ObjPtr<Class> klass = h_this->GetClass();
   CHECK(klass->IsPrimitiveArray()) << "Will miss write barriers";
   DCHECK_GE(new_length, 0);
-  // We may get copied by a compacting GC.
-  StackHandleScope<1> hs(self);
-  auto h_this(hs.NewHandle(this));
   auto* heap = Runtime::Current()->GetHeap();
-  gc::AllocatorType allocator_type = heap->IsMovableObject(this) ? heap->GetCurrentAllocator() :
-      heap->GetCurrentNonMovingAllocator();
+  gc::AllocatorType allocator_type = heap->IsMovableObject(h_this.Get())
+      ? heap->GetCurrentAllocator()
+      : heap->GetCurrentNonMovingAllocator();
   const auto component_size = klass->GetComponentSize();
   const auto component_shift = klass->GetComponentSizeShift();
   ObjPtr<Array> new_array =
-      Alloc<true>(self, klass, new_length, component_shift, allocator_type);  // Invalidates klass.
+      Alloc(self, klass, new_length, component_shift, allocator_type);  // Invalidates klass.
   if (LIKELY(new_array != nullptr)) {
     memcpy(new_array->GetRawData(component_size, 0),
            h_this->GetRawData(component_size, 0),

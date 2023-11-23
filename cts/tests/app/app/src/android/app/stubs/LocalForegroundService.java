@@ -25,7 +25,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
-import android.app.stubs.R;
 
 import com.android.compatibility.common.util.IBinderParcelable;
 
@@ -34,6 +33,8 @@ public class LocalForegroundService extends LocalService {
     private static final String TAG = "LocalForegroundService";
     protected static final String EXTRA_COMMAND = "LocalForegroundService.command";
     private static final String NOTIFICATION_CHANNEL_ID = "cts/" + TAG;
+    public static String ACTION_START_FGS_RESULT =
+            "android.app.stubs.LocalForegroundService.RESULT";
 
     public static final int COMMAND_START_FOREGROUND = 1;
     public static final int COMMAND_STOP_FOREGROUND_REMOVE_NOTIFICATION = 2;
@@ -101,6 +102,9 @@ public class LocalForegroundService extends LocalService {
             default:
                 Log.e(TAG, "Unknown command: " + command);
         }
+
+        sendBroadcast(
+                new Intent(ACTION_START_FGS_RESULT).setFlags(Intent.FLAG_RECEIVER_FOREGROUND));
 
         // Do parent's onStart at the end, so we don't race with the test code waiting for us to
         // execute.

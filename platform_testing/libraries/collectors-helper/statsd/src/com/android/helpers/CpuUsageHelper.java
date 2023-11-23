@@ -111,14 +111,20 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
                         // It is possible to have multiple bucket info. Track all the gauge info
                         // and take the difference of the first and last to compute the
                         // final usage.
-                        String finalUserTimeKey = MetricUtility.constructKey(CPU_USAGE_PKG_UID,
+
+                        // Add uid suffix to CPU_USAGE_PKG_UID type of key to tell apart processes
+                        // with the same package name but different uid in multi-user situations,
+                        // so that cpu gauge info won't get mixed up when taking the difference. All
+                        // uid suffix will be removed subsequently in final result.
+
+                        String UserTimeKey = MetricUtility.constructKey(CPU_USAGE_PKG_UID,
                                 (packageName == null) ? String.valueOf(uId) : packageName,
-                                USER_TIME);
-                        String finalSystemTimeKey = MetricUtility.constructKey(CPU_USAGE_PKG_UID,
+                                USER_TIME, String.valueOf(uId));
+                        String SystemTimeKey = MetricUtility.constructKey(CPU_USAGE_PKG_UID,
                                 (packageName == null) ? String.valueOf(uId) : packageName,
-                                SYSTEM_TIME);
-                        cpuUsageMap.put(finalUserTimeKey, userTimeMillis);
-                        cpuUsageMap.put(finalSystemTimeKey, sysTimeMillis);
+                                SYSTEM_TIME, String.valueOf(uId));
+                        cpuUsageMap.put(UserTimeKey, userTimeMillis);
+                        cpuUsageMap.put(SystemTimeKey, sysTimeMillis);
                     }
 
                     // Track cpu usage per cluster_id and freq_index
@@ -151,7 +157,15 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
                 if (cpuUsage > 0) {
                     if (key.startsWith(CPU_USAGE_PKG_UID)
                             && !isPerPkgDisabled) {
-                        cpuUsageFinalMap.put(key, cpuUsage);
+                        // remove uid suffix from key.
+                        String finalKey = key.substring(0, key.lastIndexOf('_'));
+                        if (cpuUsageFinalMap.containsKey(finalKey)) {
+                            // accumulate cpu time of the same package from different uid.
+                            cpuUsageFinalMap.put(
+                                    finalKey, cpuUsage + cpuUsageFinalMap.get(finalKey));
+                        } else {
+                            cpuUsageFinalMap.put(finalKey, cpuUsage);
+                        }
                     }
                     if (key.startsWith(CPU_USAGE_FREQ)
                             && !isPerFreqDisabled) {

@@ -16,6 +16,8 @@
 
 package android.display.cts;
 
+import static android.view.Display.DEFAULT_DISPLAY;
+
 import static org.junit.Assert.*;
 
 import android.app.Activity;
@@ -36,7 +38,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.Presubmit;
-import android.test.InstrumentationTestCase;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.Display.HdrCapabilities;
@@ -56,6 +58,8 @@ import org.junit.runner.RunWith;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -76,12 +80,15 @@ public class DisplayTest {
             (float)(SECONDARY_DISPLAY_DPI + 1) / DisplayMetrics.DENSITY_DEFAULT;
     // Matches com.android.internal.R.string.display_manager_overlay_display_name.
     private static final String OVERLAY_DISPLAY_NAME_PREFIX = "Overlay #";
-    private static final String OVERLAY_DISPLAY_TYPE = "type OVERLAY";
+
+    private static final int BRIGHTNESS_MAX = 255;
 
     private DisplayManager mDisplayManager;
     private WindowManager mWindowManager;
     private UiModeManager mUiModeManager;
     private Context mContext;
+    private ColorSpace[] mSupportedWideGamuts;
+    private Display mDefaultDisplay;
 
     // To test display mode switches.
     private TestPresentation mPresentation;
@@ -90,16 +97,20 @@ public class DisplayTest {
 
     @Rule
     public ActivityTestRule<DisplayTestActivity> mDisplayTestActivity =
-            new ActivityTestRule<>(DisplayTestActivity.class,
-                    false /* initialTouchMode */, false /* launchActivity */);
+            new ActivityTestRule<>(
+                    DisplayTestActivity.class,
+                    false /* initialTouchMode */,
+                    false /* launchActivity */);
 
     @Before
     public void setUp() throws Exception {
         mScreenOnActivity = launchScreenOnActivity();
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        mDisplayManager = (DisplayManager)mContext.getSystemService(Context.DISPLAY_SERVICE);
-        mWindowManager = (WindowManager)mContext.getSystemService(Context.WINDOW_SERVICE);
-        mUiModeManager = (UiModeManager)mContext.getSystemService(Context.UI_MODE_SERVICE);
+        mDisplayManager = (DisplayManager) mContext.getSystemService(Context.DISPLAY_SERVICE);
+        mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
+        mUiModeManager = (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
+        mDefaultDisplay = mDisplayManager.getDisplay(DEFAULT_DISPLAY);
+        mSupportedWideGamuts = mDefaultDisplay.getSupportedWideColorGamut();
     }
 
     @After
@@ -140,7 +151,7 @@ public class DisplayTest {
 
     /** Check if the display is an overlay display, created by this test. */
     private boolean isSecondaryDisplay(Display display) {
-        return display.toString().contains(OVERLAY_DISPLAY_TYPE);
+        return display.getType() == Display.TYPE_OVERLAY;
     }
 
     /** Get the overlay display, created by this test. */
@@ -164,7 +175,7 @@ public class DisplayTest {
         boolean hasDefaultDisplay = false;
         boolean hasSecondaryDisplay = false;
         for (Display display : displays) {
-            if (display.getDisplayId() == Display.DEFAULT_DISPLAY) {
+            if (display.getDisplayId() == DEFAULT_DISPLAY) {
                 hasDefaultDisplay = true;
             }
             if (isSecondaryDisplay(display)) {
@@ -181,7 +192,7 @@ public class DisplayTest {
     @Presubmit
     @Test
     public void testDefaultDisplay() {
-        assertEquals(Display.DEFAULT_DISPLAY, mWindowManager.getDefaultDisplay().getDisplayId());
+        assertEquals(DEFAULT_DISPLAY, mWindowManager.getDefaultDisplay().getDisplayId());
     }
 
     /**
@@ -189,7 +200,7 @@ public class DisplayTest {
      */
     @Test
     public void testDefaultDisplayHdrCapability() {
-        Display display = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
+        Display display = mDisplayManager.getDisplay(DEFAULT_DISPLAY);
         HdrCapabilities cap = display.getHdrCapabilities();
         int[] hdrTypes = cap.getSupportedHdrTypes();
         for (int type : hdrTypes) {
@@ -198,6 +209,8 @@ public class DisplayTest {
         assertFalse(cap.getDesiredMaxLuminance() < -1.0f);
         assertFalse(cap.getDesiredMinLuminance() < -1.0f);
         assertFalse(cap.getDesiredMaxAverageLuminance() < -1.0f);
+        assertTrue(cap.getDesiredMinLuminance() <= cap.getDesiredMaxAverageLuminance());
+        assertTrue(cap.getDesiredMaxAverageLuminance() <= cap.getDesiredMaxLuminance());
         if (hdrTypes.length > 0) {
             assertTrue(display.isHdr());
         } else {
@@ -212,7 +225,7 @@ public class DisplayTest {
     public void testSecondaryDisplay() {
         Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
         assertNotNull(display);
-        assertTrue(Display.DEFAULT_DISPLAY != display.getDisplayId());
+        assertTrue(DEFAULT_DISPLAY != display.getDisplayId());
     }
 
     /**
@@ -284,14 +297,12 @@ public class DisplayTest {
         assertEquals((float)SECONDARY_DISPLAY_DPI, outMetrics.ydpi, 0.0001f);
     }
 
-    /**
-     * Test that the getFlags method returns no flag bits set for the overlay display.
-     */
+    /** Test that the getFlags method returns expected flag bits set for the overlay display. */
     @Test
     public void testFlags() {
         Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
 
-        assertEquals(Display.FLAG_PRESENTATION, display.getFlags());
+        assertEquals(Display.FLAG_PRESENTATION | Display.FLAG_TRUSTED, display.getFlags());
     }
 
     /**
@@ -377,15 +388,55 @@ public class DisplayTest {
      */
     @Test
     public void testGetPreferredWideGamutColorSpace() {
-        final Display defaultDisplay = mWindowManager.getDefaultDisplay();
-        final ColorSpace colorSpace = defaultDisplay.getPreferredWideGamutColorSpace();
+        final ColorSpace colorSpace = mDefaultDisplay.getPreferredWideGamutColorSpace();
 
-        if (defaultDisplay.isWideColorGamut()) {
+        if (mDefaultDisplay.isWideColorGamut()) {
             assertFalse(colorSpace.isSrgb());
             assertTrue(colorSpace.isWideGamut());
         } else {
             assertNull(colorSpace);
         }
+    }
+
+    @Test
+    public void testFailBrightnessChangeWithoutPermission() throws Exception {
+        final DisplayTestActivity activity = launchActivity(mDisplayTestActivity);
+        final int originalValue = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.SCREEN_BRIGHTNESS, BRIGHTNESS_MAX);
+
+        try {
+            final int valueToSet = originalValue > 128 ? 40 : 200;  // sufficiently different value
+            boolean wasSet = setBrightness(((float) valueToSet) / BRIGHTNESS_MAX);
+
+            assertFalse(wasSet);
+            int newValue = Settings.System.getInt(mContext.getContentResolver(),
+                    Settings.System.SCREEN_BRIGHTNESS, BRIGHTNESS_MAX);
+            assertEquals(originalValue, newValue);  // verify that setting the new value failed.
+        } finally {
+            try {
+                // Clean up just in case the test fails and we did actually manage to change the
+                // brightness.
+                Settings.System.putInt(mContext.getContentResolver(),
+                        Settings.System.SCREEN_BRIGHTNESS, originalValue);
+            } catch (Exception e) {
+            }
+        }
+    }
+
+    @Test
+    public void testGetSupportedWideColorGamut_shouldNotBeNull() {
+        assertNotNull(mSupportedWideGamuts);
+    }
+
+    @Test
+    public void testGetSupportWideColorGamut_displayIsWideColorGamut() {
+        final ColorSpace displayP3 = ColorSpace.get(ColorSpace.Named.DISPLAY_P3);
+        final ColorSpace dciP3 = ColorSpace.get(ColorSpace.Named.DCI_P3);
+        final List<ColorSpace> list = Arrays.asList(mSupportedWideGamuts);
+        final boolean supportsWideGamut = mDefaultDisplay.isWideColorGamut()
+                && mSupportedWideGamuts.length > 0;
+        final boolean supportsP3 = list.contains(displayP3) || list.contains(dciP3);
+        assertEquals(supportsWideGamut, supportsP3);
     }
 
     /**
@@ -434,8 +485,8 @@ public class DisplayTest {
         return monitor.waitForActivity();
     }
 
-    private Activity launchActivity(ActivityTestRule activityRule) {
-        final Activity activity = activityRule.launchActivity(null);
+    private <T extends Activity> T launchActivity(ActivityTestRule<T> activityRule) {
+        final T activity = activityRule.launchActivity(null);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         return activity;
     }
@@ -491,5 +542,13 @@ public class DisplayTest {
         T activity = (T) InstrumentationRegistry.getInstrumentation().startActivitySync(intent);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         return activity;
+    }
+
+    /**
+     * Sets the brightness via the shell cmd.
+     */
+    public boolean setBrightness(float value) throws Exception {
+        Process process = Runtime.getRuntime().exec("cmd display set-brightness " + value);
+        return 0 == process.waitFor();
     }
 }

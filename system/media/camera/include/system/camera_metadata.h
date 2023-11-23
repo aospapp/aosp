@@ -286,7 +286,7 @@ enum {
 };
 
 /**
- * Validate that a metadata is structurally sane. That is, its internal
+ * Validate that a metadata is structurally correct. That is, its internal
  * state is such that we won't get buffer overflows or run into other
  * 'impossible' issues when calling the other API functions.
  *
@@ -578,6 +578,16 @@ int camera_metadata_enum_snprint(uint32_t tag,
                                  uint32_t value,
                                  char *dst,
                                  size_t size);
+
+/**
+ * Retrieves back the binary value of a given tag enum entry name. Only works for enum tags.
+ * Returns 0 on success, -1 on failure.
+ */
+ANDROID_API
+int camera_metadata_enum_value(uint32_t tag /*in*/,
+                               const char* name /*in*/,
+                               size_t size /*in*/,
+                               uint32_t *value /*out*/);
 
 #ifdef __cplusplus
 }

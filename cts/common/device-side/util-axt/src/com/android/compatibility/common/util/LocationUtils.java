@@ -17,24 +17,44 @@
 package com.android.compatibility.common.util;
 
 import android.app.Instrumentation;
-import android.util.Log;
+import android.location.Location;
+import android.os.SystemClock;
 
 import java.io.IOException;
+import java.util.Random;
 
 public class LocationUtils {
-    private static String TAG = "LocationUtils";
+
+    private static final double MIN_LATITUDE = -90D;
+    private static final double MAX_LATITUDE = 90D;
+    private static final double MIN_LONGITUDE = -180D;
+    private static final double MAX_LONGITUDE = 180D;
+
+    private static final float MIN_ACCURACY = 1;
+    private static final float MAX_ACCURACY = 100;
 
     public static void registerMockLocationProvider(Instrumentation instrumentation,
-            boolean enable) {
-        StringBuilder command = new StringBuilder();
-        command.append("appops set ");
-        command.append(instrumentation.getContext().getPackageName());
-        command.append(" android:mock_location ");
-        command.append(enable ? "allow" : "deny");
-        try {
-            SystemUtil.runShellCommand(instrumentation, command.toString());
-        } catch (IOException e) {
-            Log.e(TAG, "Error managing mock location app. Command: " + command, e);
-        }
+            boolean enable) throws IOException {
+        SystemUtil.runShellCommand(instrumentation, "appops set "
+                + instrumentation.getContext().getPackageName()
+                + " android:mock_location "
+                + (enable ? "allow" : "deny"));
+    }
+
+    public static Location createLocation(String provider, Random random) {
+        return createLocation(provider,
+                MIN_LATITUDE + random.nextDouble() * (MAX_LATITUDE - MIN_LATITUDE),
+                MIN_LONGITUDE + random.nextDouble() * (MAX_LONGITUDE - MIN_LONGITUDE),
+                MIN_ACCURACY + random.nextFloat() * (MAX_ACCURACY - MIN_ACCURACY));
+    }
+
+    public static Location createLocation(String provider, double latitude, double longitude, float accuracy) {
+        Location location = new Location(provider);
+        location.setLatitude(latitude);
+        location.setLongitude(longitude);
+        location.setAccuracy(accuracy);
+        location.setTime(System.currentTimeMillis());
+        location.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+        return location;
     }
 }

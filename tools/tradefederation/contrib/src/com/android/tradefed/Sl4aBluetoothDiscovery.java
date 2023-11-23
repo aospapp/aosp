@@ -18,11 +18,11 @@ package com.android.tradefed;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.sl4a.Sl4aClient;
 import com.android.tradefed.util.sl4a.Sl4aEventDispatcher.EventSl4aObject;
@@ -39,18 +39,15 @@ import java.util.List;
 import java.util.Map;
 
 /** Bluetooth discovery test using Sl4A scripting layer to query some device APIs. */
-public class Sl4aBluetoothDiscovery implements IRemoteTest, IMultiDeviceTest {
+public class Sl4aBluetoothDiscovery implements IRemoteTest {
 
     private ITestDevice mDut;
     private ITestDevice mDiscoverer;
-    private Map<ITestDevice, IBuildInfo> mDevicesInfos;
 
     private static final String BLUETOOTH_NAME = "TEST_NAME";
 
-    @Override
     public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
-        mDevicesInfos = deviceInfos;
-        List<ITestDevice> listDevices = new ArrayList<>(mDevicesInfos.keySet());
+        List<ITestDevice> listDevices = new ArrayList<>(deviceInfos.keySet());
         mDut = listDevices.get(0);
         mDiscoverer = listDevices.get(1);
     }
@@ -86,7 +83,9 @@ public class Sl4aBluetoothDiscovery implements IRemoteTest, IMultiDeviceTest {
     }
 
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        setDeviceInfos(testInfo.getContext().getDeviceBuildMap());
         // We provide null path for the apk to assume it's already installed.
         Sl4aClient dutClient = Sl4aClient.startSL4A(mDut, null);
         Sl4aClient discovererClient = Sl4aClient.startSL4A(mDiscoverer, null);

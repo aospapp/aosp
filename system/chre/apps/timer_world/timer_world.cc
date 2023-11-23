@@ -34,12 +34,12 @@ int gCyclicTimerCount;
 bool nanoappStart() {
   LOGI("App started on platform ID %" PRIx64, chreGetPlatformId());
 
-  gOneShotTimerHandle = chreTimerSet(100000000 /* duration: 100ms */,
-      &gOneShotTimerHandle /* data */,
-      true /* oneShot */);
-  gCyclicTimerHandle = chreTimerSet(150000000 /* duration: 150ms */,
-      &gCyclicTimerHandle /* data */,
-      false /* oneShot */);
+  gOneShotTimerHandle =
+      chreTimerSet(100000000 /* duration: 100ms */,
+                   &gOneShotTimerHandle /* data */, true /* oneShot */);
+  gCyclicTimerHandle =
+      chreTimerSet(150000000 /* duration: 150ms */,
+                   &gCyclicTimerHandle /* data */, false /* oneShot */);
   gCyclicTimerCount = 0;
   return true;
 }
@@ -57,8 +57,7 @@ void handleTimerEvent(const void *eventData) {
   }
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
   switch (eventType) {
     case CHRE_EVENT_TIMER:
@@ -78,8 +77,8 @@ void nanoappEnd() {
 }  // anonymous namespace
 }  // namespace chre
 
-#include "chre/util/nanoapp/app_id.h"
 #include "chre/platform/static_nanoapp_init.h"
+#include "chre/util/nanoapp/app_id.h"
 
 CHRE_STATIC_NANOAPP_INIT(TimerWorld, chre::kTimerWorldAppId, 0);
 #endif  // CHRE_NANOAPP_INTERNAL

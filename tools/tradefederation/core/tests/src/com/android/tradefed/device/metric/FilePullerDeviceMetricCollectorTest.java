@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
@@ -32,6 +33,7 @@ public class FilePullerDeviceMetricCollectorTest {
     private FilePullerDeviceMetricCollector mFilePuller;
     @Mock private ITestInvocationListener mMockListener;
     @Mock private ITestDevice mMockDevice;
+    @Mock private ITestDevice mStubDevice;
     private IInvocationContext mContext;
 
     @Before
@@ -39,6 +41,8 @@ public class FilePullerDeviceMetricCollectorTest {
         MockitoAnnotations.initMocks(this);
         mContext = new InvocationContext();
         mContext.addAllocatedDevice("default", mMockDevice);
+        mContext.addAllocatedDevice("stub", mStubDevice);
+        Mockito.when(mStubDevice.getIDevice()).thenReturn(new StubDevice("serial-stub"));
         mFilePuller =
                 new FilePullerDeviceMetricCollector() {
                     @Override
@@ -88,6 +92,35 @@ public class FilePullerDeviceMetricCollectorTest {
 
         Mockito.verify(mMockListener)
                 .testLog(Mockito.eq("coverageFile"), Mockito.eq(LogDataType.TEXT), Mockito.any());
+    }
+
+    /**
+     * Test when a multiple file is found matching the matching key, then pulled and {@link
+     * FilePullerDeviceMetricCollector#processMetricFile(String, File, DeviceMetricData)} is called
+     * multiple times.
+     */
+    @Test
+    public void testPullMultipleMatchingKeyInMetrics() throws Exception {
+        OptionSetter setter = new OptionSetter(mFilePuller);
+        setter.setOptionValue("pull-pattern-keys", "coverageFile");
+        HashMap<String, Metric> currentMetrics = new HashMap<>();
+        currentMetrics.put("coverageFile", TfMetricProtoUtil.stringToMetric("/data/coverage1"));
+        currentMetrics.put("coverageFileAnother",
+                TfMetricProtoUtil.stringToMetric("/data/coverage2"));
+
+        Mockito.when(mMockDevice.pullFile(Mockito.eq("/data/coverage1")))
+                .thenReturn(new File("fake1"));
+        Mockito.when(mMockDevice.pullFile(Mockito.eq("/data/coverage2")))
+                .thenReturn(new File("fake2"));
+
+        mFilePuller.testRunStarted("fakeRun", 5);
+        mFilePuller.testRunEnded(500, currentMetrics);
+
+        Mockito.verify(mMockListener)
+                .testLog(Mockito.eq("coverageFile"), Mockito.eq(LogDataType.TEXT), Mockito.any());
+        Mockito.verify(mMockListener)
+                .testLog(Mockito.eq("coverageFileAnother"), Mockito.eq(LogDataType.TEXT),
+                        Mockito.any());
     }
 
     /**

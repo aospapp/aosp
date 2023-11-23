@@ -13,7 +13,7 @@
     <apk-info>
         <apk>
             <name>sample</name>
-            <fileName>GameQualificationSampleApp.apk</fileName>
+            <fileName>GameCoreSampleApp.apk</fileName>
             <packageName>com.android.game.qualification.example</packageName>
             <layerName>^com.android.game.qualification.example/android.app.NativeActivity.*#0$</layerName>
             <expectIntents>true</expectIntents>

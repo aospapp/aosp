@@ -92,25 +92,11 @@ public class NNAccuracyTest {
 
     @Test
     @LargeTest
-    public void testTFLite() throws BenchmarkException, IOException {
-        NNTestBase test = mModel.createNNTestBase(/*useNNAPI=*/false,
-                /*enableIntermediateTensorsDump=*/false);
-        test.setupModel(mActivity);
-        Pair<List<InferenceInOutSequence>, List<InferenceResult>> inferenceResults =
-                test.runBenchmarkCompleteInputSet(/*setRepeat=*/1, /*timeoutSec=*/3600);
-        BenchmarkResult benchmarkResult =
-                BenchmarkResult.fromInferenceResults(
-                        mModel.mModelName,
-                        BenchmarkResult.BACKEND_TFLITE_CPU,
-                        inferenceResults.first,
-                        inferenceResults.second,
-                        test.getEvaluator());
-        assertFalse(benchmarkResult.hasValidationErrors());
-    }
-
-    @Test
-    @LargeTest
     public void testNNAPI() throws BenchmarkException, IOException {
+        if (!NNTestBase.hasAccelerator()) {  // Skip.
+            return;
+        }
+
         NNTestBase test = mModel.createNNTestBase(/*useNNAPI=*/true,
                 /*enableIntermediateTensorsDump=*/false);
         test.setupModel(mActivity);

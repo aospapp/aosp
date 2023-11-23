@@ -106,16 +106,15 @@ ArchiveHelper::~ArchiveHelper() {
 bool ArchiveHelper::IterateEntries(
     const std::function<bool(ZipEntry&, const std::string&)>& callback) {
   void* iteration_cookie;
-  if (StartIteration(handle_, &iteration_cookie, nullptr, nullptr) < 0) {
+  if (StartIteration(handle_, &iteration_cookie) < 0) {
     LOG(ERROR) << "Failed to iterate " << filename_;
     return false;
   }
   ZipEntry zentry;
-  ZipString zname;
+  std::string zname;
   int result;
   while ((result = Next(iteration_cookie, &zentry, &zname)) == 0) {
-    std::string name(zname.name, zname.name + zname.name_length);
-    if (!callback(zentry, name)) {
+    if (!callback(zentry, zname)) {
       break;
     }
   }
@@ -128,7 +127,7 @@ bool ArchiveHelper::IterateEntries(
 }
 
 bool ArchiveHelper::FindEntry(const std::string& name, ZipEntry* entry) {
-  int result = ::FindEntry(handle_, ZipString(name.c_str()), entry);
+  int result = ::FindEntry(handle_, name, entry);
   if (result != 0) {
     LOG(ERROR) << "Failed to find " << name << " in " << filename_;
     return false;
@@ -410,4 +409,32 @@ constexpr int SIMPLEPERF_VERSION = 1;
 std::string GetSimpleperfVersion() {
   return android::base::StringPrintf("%d.build.%s", SIMPLEPERF_VERSION,
                                      android::build::GetBuildNumber().c_str());
+}
+
+std::vector<int> GetCpusFromString(const std::string& s) {
+  std::set<int> cpu_set;
+  bool have_dash = false;
+  const char* p = s.c_str();
+  char* endp;
+  int last_cpu;
+  int cpu;
+  // Parse line like: 0,1-3, 5, 7-8
+  while ((cpu = static_cast<int>(strtol(p, &endp, 10))) != 0 || endp != p) {
+    if (have_dash && !cpu_set.empty()) {
+      for (int t = last_cpu + 1; t < cpu; ++t) {
+        cpu_set.insert(t);
+      }
+    }
+    have_dash = false;
+    cpu_set.insert(cpu);
+    last_cpu = cpu;
+    p = endp;
+    while (!isdigit(*p) && *p != '\0') {
+      if (*p == '-') {
+        have_dash = true;
+      }
+      ++p;
+    }
+  }
+  return std::vector<int>(cpu_set.begin(), cpu_set.end());
 }

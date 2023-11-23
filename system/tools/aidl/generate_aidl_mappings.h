@@ -26,7 +26,7 @@ namespace mappings {
 
 using SignatureMap = std::unordered_map<std::string, std::string>;
 
-SignatureMap generate_mappings(const AidlDefinedType* iface);
+SignatureMap generate_mappings(const AidlDefinedType* iface, const AidlTypenames& typenames);
 }  // namespace mappings
 }  // namespace aidl
 }  // namespace android

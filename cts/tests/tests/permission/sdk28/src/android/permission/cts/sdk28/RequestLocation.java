@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.telephony.CellInfo;
 import android.telephony.NeighboringCellInfo;
 import android.telephony.TelephonyManager;
 

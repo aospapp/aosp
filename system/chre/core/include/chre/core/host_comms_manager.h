@@ -19,12 +19,13 @@
 
 #include <cstddef>
 
-#include "chre_api/chre/event.h"
 #include "chre/core/event_loop.h"
+#include "chre/platform/atomic.h"
 #include "chre/platform/host_link.h"
 #include "chre/util/buffer.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/synchronized_memory_pool.h"
+#include "chre_api/chre/event.h"
 
 namespace chre {
 
@@ -54,12 +55,12 @@ struct HostMessage : public NonCopyable {
       //! Padding used to align this structure with chreMessageFromHostData
       uint32_t reserved;
 
-      //! Message free callback supplied by the nanoapp. Must only be invoked from
-      //! the EventLoop where the nanoapp runs.
+      //! Message free callback supplied by the nanoapp. Must only be invoked
+      //! from the EventLoop where the nanoapp runs.
       chreMessageFreeFunction *nanoappFreeFunction;
 
-      //! Identifier for the host-side entity that should receive this message, or
-      //! that which sent it
+      //! Identifier for the host-side entity that should receive this message,
+      //! or that which sent it
       uint16_t hostEndpoint;
     } toHostData;
   };
@@ -81,10 +82,22 @@ typedef HostMessage MessageToHost;
  */
 class HostCommsManager : public NonCopyable {
  public:
+  HostCommsManager() : mIsNanoappBlamedForWakeup(false) {}
+
   /**
    * @see HostLink::flushMessagesSentByNanoapp
    */
   void flushMessagesSentByNanoapp(uint64_t appId);
+
+  /**
+   * Sends a Log Message to the host over the HostLink
+   * @see HostLink::sendLogMessage
+   *
+   * @param logMessage Buffer containing a (possibly encoded) log message
+   * @param logMessageSize size in bytes of the logMessage buffer
+   */
+
+  void sendLogMessage(const char *logMessage, size_t logMessageSize);
 
   /**
    * Formulates a MessageToHost using the supplied message contents and passes
@@ -107,10 +120,10 @@ class HostCommsManager : public NonCopyable {
    *
    * @see chreSendMessageToHost
    */
-  bool sendMessageToHostFromNanoapp(
-      Nanoapp *nanoapp, void *messageData, size_t messageSize,
-      uint32_t messageType, uint16_t hostEndpoint,
-      chreMessageFreeFunction *freeCallback);
+  bool sendMessageToHostFromNanoapp(Nanoapp *nanoapp, void *messageData,
+                                    size_t messageSize, uint32_t messageType,
+                                    uint16_t hostEndpoint,
+                                    chreMessageFreeFunction *freeCallback);
 
   /**
    * Makes a copy of the supplied message data and posts it to the queue for
@@ -126,9 +139,31 @@ class HostCommsManager : public NonCopyable {
    *        be null if messageSize is 0
    * @param messageSize Size of messageData, in bytes
    */
-  void sendMessageToNanoappFromHost(
-      uint64_t appId, uint32_t messageType, uint16_t hostEndpoint,
-      const void *messageData, size_t messageSize);
+  void sendMessageToNanoappFromHost(uint64_t appId, uint32_t messageType,
+                                    uint16_t hostEndpoint,
+                                    const void *messageData,
+                                    size_t messageSize);
+
+  /**
+   * This function is used by sendMessageToNanoappFromHost() for sending
+   * deferred messages. Messages are deferred when the destination nanoapp is
+   * not yet loaded.
+   *
+   * By the time this function is called through deferCallback, nanoapp load
+   * requests in the queue will have been processed and therefore all nanoapps
+   * are expected to be ready.
+   *
+   * @param craftedMessage Deferred message from host to be delivered to the
+   * destination nanoapp
+   */
+  void sendDeferredMessageToNanoappFromHost(MessageFromHost *craftedMessage);
+
+  /*
+   * Resets mIsNanoappBlamedForWakeup to false so that
+   * nanoapp->blameHostWakeup() can be called again on next wakeup for one of
+   * the nanoapps.
+   */
+  void resetBlameForNanoappHostWakeup();
 
   /**
    * Invoked by the HostLink platform layer when it is done with a message to
@@ -144,6 +179,11 @@ class HostCommsManager : public NonCopyable {
   //! The maximum number of messages we can have outstanding at any given time
   static constexpr size_t kMaxOutstandingMessages = 32;
 
+  //! Ensures that we do not blame more than once per host wakeup. This is
+  //! checked before calling host blame to make sure it is set once. The power
+  //! control managers then reset back to false on host suspend.
+  AtomicBool mIsNanoappBlamedForWakeup;
+
   //! Memory pool used to allocate message metadata (but not the contents of the
   //! messages themselves). Must be synchronized as the same HostCommsManager
   //! handles communications for all EventLoops, and also to support freeing
@@ -155,19 +195,33 @@ class HostCommsManager : public NonCopyable {
 
   /**
    * Allocates and populates the event structure used to notify a nanoapp of an
-   * incoming message from the host, and posts an event to the nanoapp for
-   * processing. Used to implement sendMessageToNanoappFromHost() - see that
+   * incoming message from the host.
+   *
+   * Used to implement sendMessageToNanoappFromHost() - see that
    * function for parameter documentation.
    *
    * All parameters must be sanitized before invoking this function.
    *
-   * @param targetInstanceId Instance ID of the destination nanoapp
-   *
    * @see sendMessageToNanoappFromHost
    */
-  void deliverNanoappMessageFromHost(
-      uint64_t appId, uint16_t hostEndpoint, uint32_t messageType,
-      const void *messageData, uint32_t messageSize, uint32_t targetInstanceId);
+  MessageFromHost *craftNanoappMessageFromHost(uint64_t appId,
+                                               uint16_t hostEndpoint,
+                                               uint32_t messageType,
+                                               const void *messageData,
+                                               uint32_t messageSize);
+
+  /**
+   * Posts a crafted event, craftedMessage, to a nanoapp for processing, and
+   * deallocates it afterwards.
+   *
+   * Used to implement sendMessageToNanoappFromHost() and
+   * sendDeferredMessageToNanoappFromHost(). They allocate and populated the
+   * event using craftNanoappMessageFromHost().
+   *
+   * @param craftedMessage Message from host to be delivered to the destination
+   * nanoapp
+   */
+  bool deliverNanoappMessageFromHost(MessageFromHost *craftedMessage);
 
   /**
    * Releases memory associated with a message to the host, including invoking
@@ -188,6 +242,6 @@ class HostCommsManager : public NonCopyable {
   static void freeMessageFromHostCallback(uint16_t type, void *data);
 };
 
-} // namespace chre
+}  // namespace chre
 
 #endif  // CHRE_CORE_HOST_COMMS_MANAGER_H_

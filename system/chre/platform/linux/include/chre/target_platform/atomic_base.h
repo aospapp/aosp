@@ -24,7 +24,7 @@ namespace chre {
 /**
  * The Linux implementation of AtomicBase.
  */
-template<typename AtomicType>
+template <typename AtomicType>
 class AtomicBase {
  protected:
   //! The underlying std::atomic struct.

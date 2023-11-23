@@ -12,13 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+cc_test_library {
+    name: "libCtsAppOpsTestCases_jni",
+
+    stl: "libc++_static",
+    gtest: false,
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+    ],
+
+    srcs: ["jni/**/*.cpp"],
+
+    shared_libs: [
+        "libbinder",
+        "libutils",
+        "liblog",
+    ],
+}
+
 android_test {
     name: "CtsAppOpsTestCases",
-    sdk_version: "test_current",
+
+    compile_multilib: "both",
 
     srcs: ["src/**/*.kt"],
 
     static_libs: [
+        "bluetooth-test-util-lib",
+        "appops-test-util-lib",
+        "AppOpsUserServiceAidl",
+        "AppOpsForegroundControlServiceAidl",
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "androidx.legacy_legacy-support-v4",
@@ -27,9 +52,45 @@ android_test {
         "androidx.test.uiautomator_uiautomator"
     ],
 
+    jni_libs: [
+        "ld-android",
+        "libbacktrace",
+        "libbase",
+        "libbinder",
+        "libbpf",
+        "libbpf_android",
+        "libc++",
+        "libcgrouprc",
+        "libcrypto",
+        "libcutils",
+        "libdl_android",
+        "libhidl-gen-utils",
+        "libhidlbase",
+        "libjsoncpp",
+        "liblog",
+        "liblzma",
+        "libnativehelper",
+        "libnetdbpf",
+        "libnetdutils",
+        "libnetworkstatsfactorytestjni",
+        "libpackagelistparser",
+        "libpcre2",
+        "libprocessgroup",
+        "libselinux",
+        "libtinyxml2",
+        "libui",
+        "libunwindstack",
+        "libutils",
+        "libutilscallstack",
+        "libvndksupport",
+        "libziparchive",
+        "libz",
+        "libCtsAppOpsTestCases_jni",
+    ],
+
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }

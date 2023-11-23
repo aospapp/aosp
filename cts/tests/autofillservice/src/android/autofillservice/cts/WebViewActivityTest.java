@@ -353,16 +353,19 @@ public class WebViewActivityTest extends AbstractWebViewTestCase<WebViewActivity
         Helper.assertTextIsSanitized(outside2FillNode);
 
         // Move focus around to make sure UI is shown accordingly
+        mActivity.clearFocus();
         mActivity.runOnUiThread(() -> mActivity.mOutside1.requestFocus());
         callback.assertUiHiddenEvent(myWebView, usernameChildId);
         mUiBot.assertDatasets("OUT1");
         callback.assertUiShownEvent(mActivity.mOutside1);
 
+        mActivity.clearFocus();
         mActivity.getPasswordInput().click();
         callback.assertUiHiddenEvent(mActivity.mOutside1);
         mUiBot.assertDatasets("PASS");
         final int passwordChildId = callback.assertUiShownEventForVirtualChild(myWebView);
 
+        mActivity.clearFocus();
         mActivity.runOnUiThread(() -> mActivity.mOutside2.requestFocus());
         callback.assertUiHiddenEvent(myWebView, passwordChildId);
         final UiObject2 datasetPicker = mUiBot.assertDatasets("OUT2");

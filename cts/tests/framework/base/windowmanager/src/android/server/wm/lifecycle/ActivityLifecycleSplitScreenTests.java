@@ -46,13 +46,12 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.platform.test.annotations.Presubmit;
 
-import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -62,29 +61,27 @@ import java.util.List;
  */
 @MediumTest
 @Presubmit
+@android.server.wm.annotation.Group3
 public class ActivityLifecycleSplitScreenTests extends ActivityLifecycleClientTestBase {
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
         assumeTrue(supportsSplitScreenMultiWindow());
+        // TODO(b/149338177): Fix test to pass with organizer API.
+        mUseTaskOrganizer = false;
     }
 
     @Test
-    @FlakyTest(bugId = 131005232)
     public void testResumedWhenRecreatedFromInNonFocusedStack() throws Exception {
         // Launch first activity
-        final Activity firstActivity =
-                mFirstActivityTestRule.launchActivity(new Intent());
+        final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Launch second activity to stop first
-        final Activity secondActivity =
-                mSecondActivityTestRule.launchActivity(new Intent());
+        final Activity secondActivity = launchActivityAndWait(SecondActivity.class);
 
-        // Wait for second activity to resume. We must also wait for the first activity to stop
-        // so that this event is not included in the logs.
-        waitAndAssertActivityStates(state(secondActivity, ON_RESUME),
-                state(firstActivity, ON_STOP));
+        // Wait for the first activity to stop, so that this event is not included in the logs.
+        waitAndAssertActivityStates(state(firstActivity, ON_STOP));
 
         // Enter split screen
         moveTaskToPrimarySplitScreenAndVerify(secondActivity);
@@ -93,122 +90,101 @@ public class ActivityLifecycleSplitScreenTests extends ActivityLifecycleClientTe
         getLifecycleLog().clear();
 
         // Start an activity in separate task (will be placed in secondary stack)
-        getLaunchActivityBuilder().execute();
+        new Launcher(ThirdActivity.class)
+                .setFlags(FLAG_ACTIVITY_MULTIPLE_TASK | FLAG_ACTIVITY_NEW_TASK)
+                .launch();
+
+        // Wait for SecondActivity in primary split screen leave minimize dock.
+        waitAndAssertActivityStates(state(secondActivity, ON_RESUME));
 
         // Finish top activity
         secondActivity.finish();
 
-        waitAndAssertActivityStates(state(secondActivity, ON_DESTROY));
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
+        waitAndAssertActivityStates(state(secondActivity, ON_DESTROY),
+                state(firstActivity, ON_RESUME));
 
         // Verify that the first activity was recreated to resume as it was created before
         // windowing mode was switched
         LifecycleVerifier.assertRecreateAndResumeSequence(FirstActivity.class, getLifecycleLog());
+
+        // Verify that the lifecycle state did not change for activity in non-focused stack
+        LifecycleVerifier.assertLaunchSequence(ThirdActivity.class, getLifecycleLog());
     }
 
     @Test
-    public void testOccludingMovedBetweenStacks() throws Exception {
+    public void testOccludingOnSplitSecondaryStack() throws Exception {
         // Launch first activity
-        final Activity firstActivity =
-                mFirstActivityTestRule.launchActivity(new Intent());
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
+        final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Enter split screen
         moveTaskToPrimarySplitScreenAndVerify(firstActivity);
 
         final ComponentName firstActivityName = getComponentName(FirstActivity.class);
-        mAmWmState.computeState(firstActivityName);
-        int primarySplitStack = mAmWmState.getAmState().getStackIdByActivity(firstActivityName);
+        mWmState.computeState(firstActivityName);
+        int primarySplitStack = mWmState.getStackIdByActivity(firstActivityName);
 
         // Launch second activity to side
         getLifecycleLog().clear();
-        final Activity secondActivity = mSecondActivityTestRule.launchActivity(
-                new Intent().setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK));
+        final Activity secondActivity = new Launcher(SecondActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
+                .launch();
 
-        // Wait for second activity to resume.
-        waitAndAssertActivityStates(state(secondActivity, ON_RESUME),
-                state(firstActivity, ON_RESUME));
+        // Wait for first activity to resume after being moved to split-screen.
+        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
         LifecycleVerifier.assertSequence(FirstActivity.class, getLifecycleLog(),
                 Arrays.asList(ON_RESUME), "launchToSide");
 
         // Launch third activity on top of second
         getLifecycleLog().clear();
-        final Activity thirdActivity = mThirdActivityTestRule.launchActivity(
-                new Intent().setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK));
-        waitAndAssertActivityStates(state(thirdActivity, ON_RESUME),
-                state(secondActivity, ON_STOP));
-
-        // Move occluding third activity to side, it will occlude first now
-        getLifecycleLog().clear();
-        moveActivityToStack(getComponentName(ThirdActivity.class), primarySplitStack);
-
-        waitAndAssertActivityStates(state(secondActivity, ON_RESUME),
-                state(firstActivity, ON_STOP));
-        LifecycleVerifier.assertEmptySequence(ThirdActivity.class, getLifecycleLog(), "moveToSide");
-        LifecycleVerifier.assertRestartAndResumeSequence(SecondActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertSequence(FirstActivity.class, getLifecycleLog(),
-                Arrays.asList(ON_PAUSE, ON_STOP), "moveToSide");
+        new Launcher(ThirdActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
+                .launch();
+        waitAndAssertActivityStates(state(secondActivity, ON_STOP));
     }
 
     @Test
-    public void testTranslucentMovedBetweenStacks() throws Exception {
+    public void testTranslucentOnSplitSecondaryStack() throws Exception {
         // Launch first activity
-        final Activity firstActivity =
-                mFirstActivityTestRule.launchActivity(new Intent());
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
+        final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Enter split screen
         moveTaskToPrimarySplitScreenAndVerify(firstActivity);
 
         final ComponentName firstActivityName = getComponentName(FirstActivity.class);
-        mAmWmState.computeState(firstActivityName);
-        int primarySplitStack = mAmWmState.getAmState().getStackIdByActivity(firstActivityName);
+        mWmState.computeState(firstActivityName);
+        int primarySplitStack = mWmState.getStackIdByActivity(firstActivityName);
 
         // Launch second activity to side
         getLifecycleLog().clear();
-        final Activity secondActivity = mSecondActivityTestRule.launchActivity(
-                new Intent().setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK));
+        final Activity secondActivity = new Launcher(SecondActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
+                .launch();
 
-        // Wait for second activity to resume.
-        waitAndAssertActivityStates(state(secondActivity, ON_RESUME),
-                state(firstActivity, ON_RESUME));
+        // Wait for first activity to resume after being moved to split-screen.
+        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
         LifecycleVerifier.assertSequence(FirstActivity.class, getLifecycleLog(),
                 Arrays.asList(ON_RESUME), "launchToSide");
 
         // Launch translucent activity on top of second
         getLifecycleLog().clear();
 
-        final Activity translucentActivity = mTranslucentActivityTestRule.launchActivity(
-                new Intent().setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK));
-        waitAndAssertActivityStates(state(translucentActivity, ON_RESUME),
-                state(secondActivity, ON_PAUSE));
-
-        // Move translucent activity to side, it will be on top of the first now
-        getLifecycleLog().clear();
-        moveActivityToStack(getComponentName(TranslucentActivity.class), primarySplitStack);
-
-        waitAndAssertActivityStates(state(firstActivity, ON_PAUSE),
-                state(secondActivity, ON_RESUME));
-        LifecycleVerifier.assertSequence(FirstActivity.class, getLifecycleLog(),
-                Arrays.asList(ON_PAUSE), "moveToSide");
-        // Translucent activity can be either relaunched or preserved depending on whether the split
-        // sizes match. Not verifying its lifecycle here.
+        new Launcher(TranslucentActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
+                .launch();
+        waitAndAssertActivityStates(state(secondActivity, ON_PAUSE));
     }
 
     @Test
+    @Ignore // TODO(b/142345211): Skipping until the issue is fixed, or it will impact other tests.
     public void testResultInNonFocusedStack() throws Exception {
         // Launch first activity
         final Activity callbackTrackingActivity =
-                mCallbackTrackingActivityTestRule.launchActivity(new Intent());
-
-        // Wait for first activity to resume
-        waitAndAssertActivityStates(state(callbackTrackingActivity, ON_TOP_POSITION_GAINED));
+                launchActivityAndWait(CallbackTrackingActivity.class);
 
         // Enter split screen, the activity will be relaunched.
         // Start side activity so callbackTrackingActivity won't be paused due to minimized dock.
         moveTaskToPrimarySplitScreen(callbackTrackingActivity.getTaskId(),
             true/* showSideActivity */);
-        waitAndAssertActivityStates(state(callbackTrackingActivity, ON_RESUME));
         getLifecycleLog().clear();
 
         // Launch second activity
@@ -232,11 +208,9 @@ public class ActivityLifecycleSplitScreenTests extends ActivityLifecycleClientTe
         waitAndAssertActivityStates(state(callbackTrackingActivity, ON_STOP));
 
         // Start an activity in separate task (will be placed in secondary stack)
-        final Activity thirdActivity = mThirdActivityTestRule.launchActivity(
-                new Intent().setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK));
-
-        // Wait for third activity to resume
-        waitAndAssertActivityStates(state(thirdActivity, ON_RESUME));
+        new Launcher(ThirdActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
+                .launch();
 
         // Finish top activity and verify that activity below became focused.
         getLifecycleLog().clear();
@@ -252,29 +226,23 @@ public class ActivityLifecycleSplitScreenTests extends ActivityLifecycleClientTe
     @Test
     public void testResumedWhenRestartedFromInNonFocusedStack() throws Exception {
         // Launch first activity
-        final Activity firstActivity =
-                mFirstActivityTestRule.launchActivity(new Intent());
-
-        // Wait for first activity to resume
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
+        final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Enter split screen
         moveTaskToPrimarySplitScreenAndVerify(firstActivity);
 
         // Start an activity in separate task (will be placed in secondary stack)
-        final Activity newTaskActivity = mThirdActivityTestRule.launchActivity(
-                new Intent().setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK));
+        final Activity newTaskActivity = new Launcher(ThirdActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
+                .launch();
 
-        waitAndAssertActivityStates(state(newTaskActivity, ON_RESUME),
-                state(firstActivity, ON_RESUME));
+        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
 
         // Launch second activity, first become stopped
         getLifecycleLog().clear();
-        final Activity secondActivity =
-                mSecondActivityTestRule.launchActivity(new Intent());
+        final Activity secondActivity = launchActivityAndWait(SecondActivity.class);
 
-        // Wait for second activity to pause and first to stop
-        waitAndAssertActivityStates(state(secondActivity, ON_RESUME));
+        // Wait for second activity to resume and first to stop
         waitAndAssertActivityStates(state(newTaskActivity, ON_STOP));
 
         // Finish top activity
@@ -293,28 +261,21 @@ public class ActivityLifecycleSplitScreenTests extends ActivityLifecycleClientTe
     @Test
     public void testResumedTranslucentWhenRestartedFromInNonFocusedStack() throws Exception {
         // Launch first activity
-        final Activity firstActivity =
-                mFirstActivityTestRule.launchActivity(new Intent());
-
-        // Wait for first activity to resume
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
+        final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Enter split screen
         moveTaskToPrimarySplitScreen(firstActivity.getTaskId(), true /* showSideActivity */);
 
         // Launch a translucent activity, first become paused
-        final Activity translucentActivity =
-                mTranslucentActivityTestRule.launchActivity(new Intent());
+        final Activity translucentActivity = launchActivityAndWait(TranslucentActivity.class);
 
-        // Wait for translucent activity to resume and first to pause
-        waitAndAssertActivityStates(state(translucentActivity, ON_RESUME));
+        // Wait for first activity to pause
         waitAndAssertActivityStates(state(firstActivity, ON_PAUSE));
 
         // Start an activity in separate task (will be placed in secondary stack)
-        final Activity newTaskActivity = mThirdActivityTestRule.launchActivity(
-                new Intent().setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK));
-
-        waitAndAssertActivityStates(state(newTaskActivity, ON_RESUME));
+        new Launcher(ThirdActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
+                .launch();
 
         getLifecycleLog().clear();
 
@@ -334,11 +295,9 @@ public class ActivityLifecycleSplitScreenTests extends ActivityLifecycleClientTe
     @Test
     public void testLifecycleOnMoveToFromSplitScreenRelaunch() throws Exception {
         // Launch a singleTop activity
-        final Activity testActivity =
-                mCallbackTrackingActivityTestRule.launchActivity(new Intent());
+        launchActivityAndWait(CallbackTrackingActivity.class);
 
         // Wait for the activity to resume
-        waitAndAssertActivityStates(state(testActivity, ON_TOP_POSITION_GAINED));
         LifecycleVerifier.assertLaunchSequence(CallbackTrackingActivity.class, getLifecycleLog());
 
         // Enter split screen
@@ -354,8 +313,7 @@ public class ActivityLifecycleSplitScreenTests extends ActivityLifecycleClientTe
         waitForActivityTransitions(CallbackTrackingActivity.class, expectedEnterSequence);
         LifecycleVerifier.assertOrder(getLifecycleLog(), CallbackTrackingActivity.class,
                 Arrays.asList(ON_TOP_POSITION_LOST, ON_PAUSE, ON_STOP, ON_DESTROY, ON_CREATE,
-                        ON_RESUME, ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST),
-                "moveToSplitScreen");
+                        ON_RESUME), "moveToSplitScreen");
         LifecycleVerifier.assertTransitionObserved(getLifecycleLog(),
                 transition(CallbackTrackingActivity.class, ON_MULTI_WINDOW_MODE_CHANGED),
                 "moveToSplitScreen");
@@ -380,23 +338,19 @@ public class ActivityLifecycleSplitScreenTests extends ActivityLifecycleClientTe
 
     @Test
     public void testLifecycleOnMoveToFromSplitScreenNoRelaunch() throws Exception {
-        // Launch a singleTop activity
-        final Activity testActivity =
-                mConfigChangeHandlingActivityTestRule.launchActivity(new Intent());
 
-        // Wait for the activity to resume
-        waitAndAssertActivityStates(state(testActivity, ON_TOP_POSITION_GAINED));
-        LifecycleVerifier.assertLaunchSequence(ConfigChangeHandlingActivity.class,
-                getLifecycleLog());
-
-        // Enter split screen
-        getLifecycleLog().clear();
-        setActivityTaskWindowingMode(CONFIG_CHANGE_HANDLING_ACTIVITY,
-                WINDOWING_MODE_SPLIT_SCREEN_PRIMARY);
+        // Launch activities and enter split screen. Launched an activity on
+        // split-screen secondary stack to ensure the TOP_POSITION_LOST is send
+        // prior to MULTI_WINDOW_MODE_CHANGED.
+        launchActivitiesInSplitScreen(
+                getLaunchActivityBuilder().
+                        setTargetActivity(getComponentName(ConfigChangeHandlingActivity.class)),
+                getLaunchActivityBuilder().
+                        setTargetActivity(getComponentName(SecondActivity.class)));
 
         // Wait for the activity to receive the change
         waitForActivityTransitions(ConfigChangeHandlingActivity.class,
-                Arrays.asList(ON_MULTI_WINDOW_MODE_CHANGED, ON_TOP_POSITION_LOST));
+                Arrays.asList(ON_TOP_POSITION_LOST, ON_MULTI_WINDOW_MODE_CHANGED));
         LifecycleVerifier.assertOrder(getLifecycleLog(), ConfigChangeHandlingActivity.class,
                 Arrays.asList(ON_MULTI_WINDOW_MODE_CHANGED, ON_TOP_POSITION_LOST),
                 "moveToSplitScreen");

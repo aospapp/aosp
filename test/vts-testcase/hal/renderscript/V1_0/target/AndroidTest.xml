@@ -25,7 +25,7 @@
         <option name="binary-test-working-directory" value="_64bit::/data/nativetest64/" />
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalRenderscriptV1_0TargetTest/VtsHalRenderscriptV1_0TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalRenderscriptV1_0TargetTest/VtsHalRenderscriptV1_0TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="exclude-coverage-path" value="frameworks/av/media" />
         <option name="exclude-coverage-path" value="hardware/interfaces/graphics/mapper/2.0" />
         <option name="exclude-coverage-path" value="hardware/qcom/display" />

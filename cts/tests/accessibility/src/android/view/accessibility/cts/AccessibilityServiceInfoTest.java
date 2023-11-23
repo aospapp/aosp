@@ -16,13 +16,28 @@
 
 package android.view.accessibility.cts;
 
-import android.accessibility.cts.common.InstrumentedAccessibilityService;
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
+import android.accessibility.cts.common.InstrumentedAccessibilityServiceTestRule;
 import android.accessibilityservice.AccessibilityServiceInfo;
-import android.app.Service;
-import android.test.InstrumentationTestCase;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.content.pm.PackageManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.RuleChain;
+import org.junit.runner.RunWith;
 
 import java.util.List;
 
@@ -33,17 +48,42 @@ import java.util.List;
  * accessibility service and the fake service used for implementing the UI
  * automation is not reported through the APIs.
  */
-public class AccessibilityServiceInfoTest  extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityServiceInfoTest {
+    private AccessibilityManager mAccessibilityManager;
+    private PackageManager mPackageManager;
 
-    @Override
+    private final InstrumentedAccessibilityServiceTestRule<SpeakingAccessibilityService>
+            mSpeakingAccessibilityServiceRule = new InstrumentedAccessibilityServiceTestRule<>(
+            SpeakingAccessibilityService.class);
+
+    private final InstrumentedAccessibilityServiceTestRule<VibratingAccessibilityService>
+            mVibratingAccessibilityServiceRule = new InstrumentedAccessibilityServiceTestRule<>(
+            VibratingAccessibilityService.class);
+
+    private final InstrumentedAccessibilityServiceTestRule<SpeakingAndVibratingAccessibilityService>
+            mSpeakingAndVibratingAccessibilityServiceRule =
+            new InstrumentedAccessibilityServiceTestRule<>(
+                    SpeakingAndVibratingAccessibilityService.class, /* enableService= */ false);
+
+    private final InstrumentedAccessibilityServiceTestRule<AccessibilityButtonService>
+            mA11yButtonServiceRule = new InstrumentedAccessibilityServiceTestRule<>(
+            AccessibilityButtonService.class, /* enableService= */ false);
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mVibratingAccessibilityServiceRule)
+            .around(mSpeakingAccessibilityServiceRule)
+            .around(mSpeakingAndVibratingAccessibilityServiceRule)
+            .around(mA11yButtonServiceRule)
+            // Inner rule capture failure and dump data before finishing a11y service
+            .around(new AccessibilityDumpOnFailureRule());
+
+    @Before
     public void setUp() throws Exception {
-        SpeakingAccessibilityService.enableSelf(getInstrumentation());
-        VibratingAccessibilityService.enableSelf(getInstrumentation());
-    }
-
-    @Override
-    public void tearDown() {
-        InstrumentedAccessibilityService.disableAllServices(getInstrumentation());
+        mAccessibilityManager = getInstrumentation().getContext().getSystemService(
+                AccessibilityManager.class);
+        mPackageManager = getInstrumentation().getContext().getPackageManager();
     }
 
     /**
@@ -52,14 +92,14 @@ public class AccessibilityServiceInfoTest  extends InstrumentationTestCase {
      */
     @MediumTest
     @SuppressWarnings("deprecation")
+    @Test
     public void testAccessibilityServiceInfoForEnabledService() {
-        AccessibilityManager accessibilityManager = (AccessibilityManager)
-                getInstrumentation().getContext().getSystemService(Service.ACCESSIBILITY_SERVICE);
-        List<AccessibilityServiceInfo> enabledServices =
-            accessibilityManager.getEnabledAccessibilityServiceList(
-                    AccessibilityServiceInfo.FEEDBACK_SPOKEN);
-        assertSame("There should be one speaking service.", 1, enabledServices.size());
-        AccessibilityServiceInfo speakingService = enabledServices.get(0);
+        final List<AccessibilityServiceInfo> enabledServices =
+                mAccessibilityManager.getEnabledAccessibilityServiceList(
+                        AccessibilityServiceInfo.FEEDBACK_SPOKEN);
+        assertSame(/* message= */ "There should be one speaking service.",
+                /* expected= */ 1, enabledServices.size());
+        final AccessibilityServiceInfo speakingService = enabledServices.get(0);
         assertSame(AccessibilityEvent.TYPES_ALL_MASK, speakingService.eventTypes);
         assertSame(AccessibilityServiceInfo.FEEDBACK_SPOKEN, speakingService.feedbackType);
         assertEquals(AccessibilityServiceInfo.DEFAULT
@@ -69,8 +109,8 @@ public class AccessibilityServiceInfoTest  extends InstrumentationTestCase {
                 | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
                 | AccessibilityServiceInfo.FLAG_REQUEST_SHORTCUT_WARNING_DIALOG_SPOKEN_FEEDBACK,
                 speakingService.flags);
-        assertSame(0l, speakingService.notificationTimeout);
-        assertEquals("Some description", speakingService.getDescription());
+        assertSame(/* expected= */ 0l, speakingService.notificationTimeout);
+        assertEquals(/* expected= */ "Some description", speakingService.getDescription());
         assertNull(speakingService.packageNames /*all packages*/);
         assertNotNull(speakingService.getId());
         assertSame(speakingService.getCapabilities(),
@@ -78,12 +118,14 @@ public class AccessibilityServiceInfoTest  extends InstrumentationTestCase {
                 | AccessibilityServiceInfo.CAPABILITY_CAN_REQUEST_TOUCH_EXPLORATION
                 | AccessibilityServiceInfo.CAPABILITY_CAN_RETRIEVE_WINDOW_CONTENT);
         assertEquals("foo.bar.Activity", speakingService.getSettingsActivityName());
-        assertEquals("Some description", speakingService.loadDescription(
-                getInstrumentation().getContext().getPackageManager()));
-        assertEquals("Some summary", speakingService.loadSummary(
-                getInstrumentation().getContext().getPackageManager()));
+        assertEquals(/* expected= */ "Some description",
+                speakingService.loadDescription(mPackageManager));
+        assertEquals(/* expected= */ "Some summary",
+                speakingService.loadSummary(mPackageManager));
         assertNotNull(speakingService.getResolveInfo());
-        assertEquals(6000, speakingService.getInteractiveUiTimeoutMillis());
-        assertEquals(1000, speakingService.getNonInteractiveUiTimeoutMillis());
+        assertEquals(/* expected= */ 6000,
+                speakingService.getInteractiveUiTimeoutMillis());
+        assertEquals(/* expected= */ 1000,
+                speakingService.getNonInteractiveUiTimeoutMillis());
     }
 }

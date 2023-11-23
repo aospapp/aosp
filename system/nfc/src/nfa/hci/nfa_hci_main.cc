@@ -699,7 +699,8 @@ static void nfa_hci_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
   uint8_t chaining_bit;
   uint8_t pipe;
   uint16_t pkt_len;
-  char buff[100];
+  const uint8_t MAX_BUFF_SIZE = 100;
+  char buff[MAX_BUFF_SIZE];
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
       "%s State: %u  Cmd: %u", __func__, nfa_hci_cb.hci_state, event);
   if (event == NFC_CONN_CREATE_CEVT) {
@@ -741,11 +742,26 @@ static void nfa_hci_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
   p = (uint8_t*)(p_pkt + 1) + p_pkt->offset;
   pkt_len = p_pkt->len;
 
+  if (pkt_len < 1) {
+    LOG(ERROR) << StringPrintf("Insufficient packet length! Dropping :%u bytes",
+                               pkt_len);
+    /* release GKI buffer */
+    GKI_freebuf(p_pkt);
+    return;
+  }
+
   chaining_bit = ((*p) >> 0x07) & 0x01;
   pipe = (*p++) & 0x7F;
   if (pkt_len != 0) pkt_len--;
 
   if (nfa_hci_cb.assembling == false) {
+    if (pkt_len < 1) {
+      LOG(ERROR) << StringPrintf(
+          "Insufficient packet length! Dropping :%u bytes", pkt_len);
+      /* release GKI buffer */
+      GKI_freebuf(p_pkt);
+      return;
+    }
     /* First Segment of a packet */
     nfa_hci_cb.type = ((*p) >> 0x06) & 0x03;
     nfa_hci_cb.inst = (*p++ & 0x3F);
@@ -789,8 +805,8 @@ static void nfa_hci_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
       "nfa_hci_conn_cback Recvd data pipe:%d  %s  chain:%d  assmbl:%d  len:%d",
       (uint8_t)pipe,
-      nfa_hciu_get_type_inst_names(pipe, nfa_hci_cb.type, nfa_hci_cb.inst,
-                                   buff),
+      nfa_hciu_get_type_inst_names(pipe, nfa_hci_cb.type, nfa_hci_cb.inst, buff,
+                                   MAX_BUFF_SIZE),
       (uint8_t)chaining_bit, (uint8_t)nfa_hci_cb.assembling, p_pkt->len);
 
   /* If still reassembling fragments, just return */

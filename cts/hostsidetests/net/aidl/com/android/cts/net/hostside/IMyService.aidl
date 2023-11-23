@@ -25,4 +25,5 @@ interface IMyService {
     String getRestrictBackgroundStatus();
     void sendNotification(int notificationId, String notificationType);
     void registerNetworkCallback(in INetworkCallback cb);
+    void unregisterNetworkCallback();
 }

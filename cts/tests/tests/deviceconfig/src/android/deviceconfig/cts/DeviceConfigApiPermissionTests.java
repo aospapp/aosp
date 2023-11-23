@@ -60,30 +60,17 @@ public final class DeviceConfigApiPermissionTests {
      * @throws Exception
      */
     @Test
-    public void testUseDeviceConfigWithoutPermissions() {
+    public void testDeviceConfigWithoutPermissions() {
         StringBuilder violations = new StringBuilder();
 
-        try {
-            DeviceConfig.setProperty(NAMESPACE2, KEY2, VALUE, /*makeDefault=*/ false);
-            violations.append("DeviceConfig.setProperty() must not be accessible without "
-                    + "WRITE_DEVICE_CONFIG permission.\n");
-        } catch (SecurityException e) {
-        }
+        // setters without write permission
+        trySetPropertyWithoutWritePermission(violations);
+        trySetPropertiesWithoutWritePermission(violations);
 
-        try {
-            String result = DeviceConfig.getProperty(NAMESPACE2, KEY2);
-            violations.append("DeviceConfig.getProperty() must not be accessible without "
-                    + "READ_DEVICE_CONFIG permission.\n");
-        } catch (SecurityException e) {
-        }
-
-        try {
-            DeviceConfig.addOnPropertiesChangedListener(
-                    NAMESPACE, EXECUTOR, new TestOnPropertiesListener());
-            violations.append("DeviceConfig.addOnPropertiesChangedListener() must not be accessible"
-                    + " without READ_DEVICE_CONFIG permission.\n");
-        } catch (SecurityException e) {
-        }
+        // getters without read permission
+        tryGetPropertyWithoutReadPermission(violations);
+        tryGetPropertiesWithoutReadPermission(violations);
+        tryAddOnPropertiesChangedListenerWithoutReadPermission(violations);
 
         // Bail if we found any violations
         if (violations.length() > 0) {
@@ -97,34 +84,21 @@ public final class DeviceConfigApiPermissionTests {
      * @throws Exception
      */
     @Test
-    public void testUseDeviceConfigWithWritePermission() {
+    public void testDeviceConfigWithWritePermission() {
 
         StringBuilder violations = new StringBuilder();
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity(WRITE_DEVICE_CONFIG_PERMISSION);
 
-        try {
-            DeviceConfig.setProperty(NAMESPACE, KEY, VALUE, /*makeDefault=*/ false);
-        } catch (SecurityException e) {
-            violations.append("DeviceConfig.setProperty() must be accessible with"
-                    + " WRITE_DEVICE_CONFIG permission.\n");
-        }
+        // setters with write permission
+        trySetPropertyWithWritePermission(violations);
+        trySetPropertiesWithWritePermission(violations);
 
-        try {
-            DeviceConfig.getProperty(NAMESPACE, KEY);
-            violations.append("DeviceConfig.getProperty() must not be accessible without"
-                    + " READ_DEVICE_CONFIG permission.\n");
-        } catch (SecurityException e) {
-        }
+        // getters without read permission
+        tryGetPropertyWithoutReadPermission(violations);
+        tryGetPropertiesWithoutReadPermission(violations);
+        tryAddOnPropertiesChangedListenerWithoutReadPermission(violations);
 
-        try {
-            DeviceConfig.addOnPropertiesChangedListener(
-                    NAMESPACE, EXECUTOR, new TestOnPropertiesListener());
-            violations.append(
-                    "DeviceConfig.addOnPropertiesChangedListener() must not be accessible"
-                            + " without READ_DEVICE_CONFIG permission.\n");
-        } catch (SecurityException e) {
-        }
         // Bail if we found any violations
         if (violations.length() > 0) {
             fail(violations.toString());
@@ -143,27 +117,14 @@ public final class DeviceConfigApiPermissionTests {
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity(READ_DEVICE_CONFIG_PERMISSION);
 
-        try {
-            DeviceConfig.setProperty(NAMESPACE, KEY, VALUE, /*makeDefault=*/ false);
-            violations.append("DeviceConfig.setProperty() must not be accessible without"
-                    + " WRITE_DEVICE_CONFIG permission\n");
-        } catch (SecurityException e) {
-        }
+        // setters without write permission
+        trySetPropertyWithoutWritePermission(violations);
+        trySetPropertiesWithoutWritePermission(violations);
 
-        try {
-            DeviceConfig.getProperty(NAMESPACE, KEY);
-        } catch (SecurityException e) {
-            violations.append("DeviceConfig.getProperty() must be accessible with"
-                    + " READ_DEVICE_CONFIG permission\n");
-        }
-
-        try {
-            DeviceConfig.addOnPropertiesChangedListener(
-                    NAMESPACE, EXECUTOR, new TestOnPropertiesListener());
-        } catch (SecurityException e) {
-            violations.append("DeviceConfig.addOnPropertiesChangeListener() must be accessible"
-                    + " with READ_DEVICE_CONFIG permission\n");
-        }
+        // getters with read permission
+        tryGetPropertyWithReadPermission(violations);
+        tryGetPropertiesWithReadPermission(violations);
+        tryAddOnPropertiesChangedListenerWithReadPermission(violations);
 
         // Bail if we found any violations
         if (violations.length() > 0) {
@@ -185,29 +146,18 @@ public final class DeviceConfigApiPermissionTests {
                         WRITE_DEVICE_CONFIG_PERMISSION,
                         READ_DEVICE_CONFIG_PERMISSION);
 
-        try {
-            DeviceConfig.setProperty(NAMESPACE, KEY, VALUE, /*makeDefault=*/ false);
-        } catch (SecurityException e) {
-            violations.append("DeviceConfig.setProperty() must be accessible with"
-                    + " WRITE_DEVICE_CONFIG permission\n");
-        }
+        // setters with write permission
+        trySetPropertyWithWritePermission(violations);
+        trySetPropertiesWithWritePermission(violations);
 
-        try {
-            String property = DeviceConfig.getProperty(NAMESPACE, KEY);
-            assertEquals("Value read from DeviceConfig API does not match written value.",
-                    property, VALUE);
-        } catch (SecurityException e) {
-            violations.append("DeviceConfig.getProperty() must be accessible with"
-                    + " READ_DEVICE_CONFIG permission\n");
-        }
-
-        try {
-            DeviceConfig.addOnPropertiesChangedListener(
-                    NAMESPACE, EXECUTOR, new TestOnPropertiesListener());
-        } catch (SecurityException e) {
-            violations.append("DeviceConfig.addOnPropertiesChangeListener() must be accessible with"
-                    + " READ_DEVICE_CONFIG permission\n");
-        }
+        // getters with read permission
+        String property = tryGetPropertyWithReadPermission(violations);
+        assertEquals("Value read from getProperty does not match written value.",
+                VALUE, property);
+        Properties properties = tryGetPropertiesWithReadPermission(violations);
+        assertEquals("Value read from getProperties does not match written value.",
+                VALUE, properties.getString(KEY2, "default_value"));
+        tryAddOnPropertiesChangedListenerWithReadPermission(violations);
 
         // Bail if we found any violations
         if (violations.length() > 0) {
@@ -232,31 +182,65 @@ public final class DeviceConfigApiPermissionTests {
         } catch (SecurityException e) {
         }
 
+        try {
+            Properties properties =
+                    new Properties.Builder(PUBLIC_NAMESPACE).setString(KEY2, VALUE).build();
+            DeviceConfig.setProperties(properties);
+            violations.append("DeviceConfig.setProperties() for public namespaces must not be "
+                    + " accessible without WRITE_DEVICE_CONFIG permission\n");
+        } catch (DeviceConfig.BadConfigException e) {
+            addExceptionToViolations(violations, "DeviceConfig.setProperties() should not throw "
+                    + "BadConfigException without a known bad configuration", e);
+        } catch (SecurityException e) {
+        }
+
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity(WRITE_DEVICE_CONFIG_PERMISSION);
 
         try {
             DeviceConfig.setProperty(PUBLIC_NAMESPACE, KEY, VALUE, /*makeDefault=*/ false);
         } catch (SecurityException e) {
-            violations.append("DeviceConfig.setProperty() must be accessible with"
-                    + " WRITE_DEVICE_CONFIG permission\n");
+            addExceptionToViolations(violations, "DeviceConfig.setProperty() must be accessible "
+                    + "with WRITE_DEVICE_CONFIG permission", e);
+        }
+
+        try {
+            Properties properties =
+                    new Properties.Builder(PUBLIC_NAMESPACE).setString(KEY, VALUE).build();
+            DeviceConfig.setProperties(properties);
+        } catch (DeviceConfig.BadConfigException e) {
+            addExceptionToViolations(violations, "DeviceConfig.setProperties() should not throw "
+                    + "BadConfigException without a known bad configuration", e);
+        } catch (SecurityException e) {
+            addExceptionToViolations(violations, "DeviceConfig.setProperties() must be accessible "
+                    + "with WRITE_DEVICE_CONFIG permission", e);
         }
 
         try {
             String property = DeviceConfig.getProperty(PUBLIC_NAMESPACE, KEY);
             assertEquals("Value read from DeviceConfig API public namespace does not match written"
-                    + " value.", property, VALUE);
+                    + " value.", VALUE, property);
         } catch (SecurityException e) {
-            violations.append("DeviceConfig.getProperty() for public namespaces must be accessible"
-                    + "without READ_DEVICE_CONFIG permission\n");
+            addExceptionToViolations(violations, "DeviceConfig.getProperty() for public namespaces "
+                    + "must be accessible without READ_DEVICE_CONFIG permission", e);
+        }
+
+        try {
+            Properties properties = DeviceConfig.getProperties(PUBLIC_NAMESPACE);
+            assertEquals("Value read from DeviceConfig API public namespace does not match written"
+                    + " value.", VALUE, properties.getString(KEY, "default_value"));
+        } catch (SecurityException e) {
+            addExceptionToViolations(violations, "DeviceConfig.getProperties() for public "
+                    + "namespaces must be accessible without READ_DEVICE_CONFIG permission", e);
         }
 
         try {
             DeviceConfig.addOnPropertiesChangedListener(
                     PUBLIC_NAMESPACE, EXECUTOR, new TestOnPropertiesListener());
         } catch (SecurityException e) {
-            violations.append("DeviceConfig.addOnPropertiesChangeListener() for public namespaces "
-                    + "must be accessible without READ_DEVICE_CONFIG permission\n");
+            addExceptionToViolations(violations, "DeviceConfig.addOnPropertiesChangeListener() for "
+                    + "public namespaces must be accessible without READ_DEVICE_CONFIG permission",
+                    e);
         }
 
         // Bail if we found any violations
@@ -269,5 +253,116 @@ public final class DeviceConfigApiPermissionTests {
         public void onPropertiesChanged(Properties properties) {
 
         }
+    }
+
+    private void trySetPropertyWithoutWritePermission(StringBuilder violations) {
+        try {
+            DeviceConfig.setProperty(NAMESPACE, KEY, VALUE, /*makeDefault=*/ false);
+            violations.append("DeviceConfig.setProperty() must not be accessible without "
+                    + "WRITE_DEVICE_CONFIG permission.\n");
+        } catch (SecurityException e) {
+        }
+    }
+
+    private void trySetPropertiesWithoutWritePermission(StringBuilder violations) {
+        try {
+            Properties properties =
+                    new Properties.Builder(NAMESPACE2).setString(KEY2, VALUE).build();
+            DeviceConfig.setProperties(properties);
+            violations.append("DeviceConfig.setProperties() must not be accessible without "
+                    + "WRITE_DEVICE_CONFIG permission.\n");
+        } catch (DeviceConfig.BadConfigException e) {
+            addExceptionToViolations(violations, "DeviceConfig.setProperties() should not throw "
+                    + "BadConfigException without a known bad configuration.", e);
+        } catch (SecurityException e) {
+        }
+    }
+
+    private void tryGetPropertyWithoutReadPermission(StringBuilder violations) {
+        try {
+            DeviceConfig.getProperty(NAMESPACE, KEY);
+            violations.append("DeviceConfig.getProperty() must not be accessible without "
+                    + "READ_DEVICE_CONFIG permission.\n");
+        } catch (SecurityException e) {
+        }
+    }
+
+    private void tryGetPropertiesWithoutReadPermission(StringBuilder violations) {
+        try {
+            DeviceConfig.getProperties(NAMESPACE2);
+            violations.append("DeviceConfig.getProperties() must not be accessible without "
+                    + "READ_DEVICE_CONFIG permission.\n");
+        } catch (SecurityException e) {
+        }
+    }
+
+    private void tryAddOnPropertiesChangedListenerWithoutReadPermission(StringBuilder violations) {
+        try {
+            DeviceConfig.addOnPropertiesChangedListener(
+                    NAMESPACE, EXECUTOR, new TestOnPropertiesListener());
+            violations.append("DeviceConfig.addOnPropertiesChangedListener() must not be accessible"
+                    + " without READ_DEVICE_CONFIG permission.\n");
+        } catch (SecurityException e) {
+        }
+    }
+
+    private void trySetPropertyWithWritePermission(StringBuilder violations) {
+        try {
+            DeviceConfig.setProperty(NAMESPACE, KEY, VALUE, /*makeDefault=*/ false);
+        } catch (SecurityException e) {
+            addExceptionToViolations(violations, "DeviceConfig.setProperty() must be accessible "
+                    + "with WRITE_DEVICE_CONFIG permission", e);
+        }
+    }
+
+    private void trySetPropertiesWithWritePermission(StringBuilder violations) {
+        try {
+            Properties properties =
+                    new Properties.Builder(NAMESPACE2).setString(KEY2, VALUE).build();
+            DeviceConfig.setProperties(properties);
+        } catch (DeviceConfig.BadConfigException e) {
+            violations.append("DeviceConfig.setProperties() should not throw BadConfigException"
+                    + " without a known bad configuration.");
+        } catch (SecurityException e) {
+            addExceptionToViolations(violations, "DeviceConfig.setProperties() must be accessible "
+                    + "with WRITE DEVICE_CONFIG permission", e);
+        }
+    }
+
+    private String tryGetPropertyWithReadPermission(StringBuilder violations) {
+        String property = null;
+        try {
+            property = DeviceConfig.getProperty(NAMESPACE, KEY);
+        } catch (SecurityException e) {
+            addExceptionToViolations(violations, "DeviceConfig.getProperty() must be accessible "
+                    + "with READ_DEVICE_CONFIG permission", e);
+        }
+        return property;
+    }
+
+    private Properties tryGetPropertiesWithReadPermission(StringBuilder violations) {
+        Properties properties = null;
+        try {
+            properties = DeviceConfig.getProperties(NAMESPACE2);
+        } catch (SecurityException e) {
+            addExceptionToViolations(violations, "DeviceConfig.getProperties() must be accessible "
+                    + "with READ_DEVICE_CONFIG permission", e);
+        }
+        return properties;
+    }
+
+    private void tryAddOnPropertiesChangedListenerWithReadPermission(StringBuilder violations) {
+        try {
+            DeviceConfig.addOnPropertiesChangedListener(
+                    NAMESPACE, EXECUTOR, new TestOnPropertiesListener());
+        } catch (SecurityException e) {
+            addExceptionToViolations(violations, "DeviceConfig.addOnPropertiesChangeListener() must"
+                    + " be accessible with READ_DEVICE_CONFIG permission", e);
+        }
+    }
+
+    private static void addExceptionToViolations(StringBuilder violations, String message,
+            Exception e) {
+        violations.append(message).append(": ").append(e).append("\n");
     }
 }

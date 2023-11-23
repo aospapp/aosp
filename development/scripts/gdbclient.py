@@ -20,13 +20,39 @@ import argparse
 import json
 import logging
 import os
+import posixpath
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
 
 # Shared functions across gdbclient.py and ndk-gdb.py.
 import gdbrunner
+
+g_temp_dirs = []
+
+
+def read_toolchain_config(root):
+    """Finds out current toolchain path and version."""
+    def get_value(str):
+        return str[str.index('"') + 1:str.rindex('"')]
+
+    config_path = os.path.join(root, 'build', 'soong', 'cc', 'config',
+                               'global.go')
+    with open(config_path) as f:
+        contents = f.readlines()
+    clang_base = ""
+    clang_version = ""
+    for line in contents:
+        line = line.strip()
+        if line.startswith('ClangDefaultBase'):
+            clang_base = get_value(line)
+        elif line.startswith('ClangDefaultVersion'):
+            clang_version = get_value(line)
+    return (clang_base, clang_version)
+
 
 def get_gdbserver_path(root, arch):
     path = "{}/prebuilts/misc/gdbserver/android-{}/gdbserver{}"
@@ -34,6 +60,17 @@ def get_gdbserver_path(root, arch):
         return path.format(root, arch, "64")
     else:
         return path.format(root, arch, "")
+
+
+def get_lldb_server_path(root, clang_base, clang_version, arch):
+    arch = {
+        'arm': 'arm',
+        'arm64': 'aarch64',
+        'x86': 'i386',
+        'x86_64': 'x86_64',
+    }[arch]
+    return os.path.join(root, clang_base, "linux-x86",
+                        clang_version, "runtimes_ndk_cxx", arch, "lldb-server")
 
 
 def get_tracer_pid(device, pid):
@@ -72,6 +109,10 @@ def parse_args():
               ".vscode/launch.json configuration needed to connect the debugging " +
               "client to the server."))
 
+    lldb_group = parser.add_mutually_exclusive_group()
+    lldb_group.add_argument("--lldb", action="store_true", help="Use lldb.")
+    lldb_group.add_argument("--no-lldb", action="store_true", help="Do not use lldb.")
+
     parser.add_argument(
         "--env", nargs=1, action="append", metavar="VAR=VALUE",
         help="set environment variable when running a binary")
@@ -101,14 +142,62 @@ def get_remote_pid(device, process_name):
     return pids[0]
 
 
-def ensure_linker(device, sysroot, is64bit):
-    local_path = os.path.join(sysroot, "system", "bin", "linker")
-    remote_path = "/system/bin/linker"
-    if is64bit:
-        local_path += "64"
-        remote_path += "64"
-    if not os.path.exists(local_path):
-        device.pull(remote_path, local_path)
+def make_temp_dir(prefix):
+    global g_temp_dirs
+    result = tempfile.mkdtemp(prefix='gdbclient-linker-')
+    g_temp_dirs.append(result)
+    return result
+
+
+def ensure_linker(device, sysroot, interp):
+    """Ensure that the device's linker exists on the host.
+
+    PT_INTERP is usually /system/bin/linker[64], but on the device, that file is
+    a symlink to /apex/com.android.runtime/bin/linker[64]. The symbolized linker
+    binary on the host is located in ${sysroot}/apex, not in ${sysroot}/system,
+    so add the ${sysroot}/apex path to the solib search path.
+
+    PT_INTERP will be /system/bin/bootstrap/linker[64] for executables using the
+    non-APEX/bootstrap linker. No search path modification is needed.
+
+    For a tapas build, only an unbundled app is built, and there is no linker in
+    ${sysroot} at all, so copy the linker from the device.
+
+    Returns:
+        A directory to add to the soinfo search path or None if no directory
+        needs to be added.
+    """
+
+    # Static executables have no interpreter.
+    if interp is None:
+        return None
+
+    # gdb will search for the linker using the PT_INTERP path. First try to find
+    # it in the sysroot.
+    local_path = os.path.join(sysroot, interp.lstrip("/"))
+    if os.path.exists(local_path):
+        return None
+
+    # If the linker on the device is a symlink, search for the symlink's target
+    # in the sysroot directory.
+    interp_real, _ = device.shell(["realpath", interp])
+    interp_real = interp_real.strip()
+    local_path = os.path.join(sysroot, interp_real.lstrip("/"))
+    if os.path.exists(local_path):
+        if posixpath.basename(interp) == posixpath.basename(interp_real):
+            # Add the interpreter's directory to the search path.
+            return os.path.dirname(local_path)
+        else:
+            # If PT_INTERP is linker_asan[64], but the sysroot file is
+            # linker[64], then copy the local file to the name gdb expects.
+            result = make_temp_dir('gdbclient-linker-')
+            shutil.copy(local_path, os.path.join(result, posixpath.basename(interp)))
+            return result
+
+    # Pull the system linker.
+    result = make_temp_dir('gdbclient-linker-')
+    device.pull(interp, os.path.join(result, posixpath.basename(interp)))
+    return result
 
 
 def handle_switches(args, sysroot):
@@ -247,7 +336,19 @@ end
 
     return gdb_commands
 
-def generate_setup_script(gdbpath, sysroot, binary_file, is64bit, port, debugger, connect_timeout=5):
+
+def generate_lldb_script(sysroot, binary_name, port, solib_search_path):
+    commands = []
+    commands.append(
+        'settings append target.exec-search-paths {}'.format(' '.join(solib_search_path)))
+
+    commands.append('target create {}'.format(binary_name))
+    commands.append('target modules search-paths add / {}/'.format(sysroot))
+    commands.append('gdb-remote {}'.format(port))
+    return '\n'.join(commands)
+
+
+def generate_setup_script(debugger_path, sysroot, linker_search_dir, binary_file, is64bit, port, debugger, connect_timeout=5):
     # Generate a setup script.
     # TODO: Detect the zygote and run 'art-on' automatically.
     root = os.environ["ANDROID_BUILD_TOP"]
@@ -259,6 +360,8 @@ def generate_setup_script(gdbpath, sysroot, binary_file, is64bit, port, debugger
     vendor_paths = ["", "hw", "egl"]
     solib_search_path += [os.path.join(symbols_dir, x) for x in symbols_paths]
     solib_search_path += [os.path.join(vendor_dir, x) for x in vendor_paths]
+    if linker_search_dir is not None:
+        solib_search_path += [linker_search_dir]
 
     dalvik_gdb_script = os.path.join(root, "development", "scripts", "gdb", "dalvik.gdb")
     if not os.path.exists(dalvik_gdb_script):
@@ -268,14 +371,17 @@ def generate_setup_script(gdbpath, sysroot, binary_file, is64bit, port, debugger
 
     if debugger == "vscode":
         return generate_vscode_script(
-            gdbpath, root, sysroot, binary_file.name, port, dalvik_gdb_script, solib_search_path)
+            debugger_path, root, sysroot, binary_file.name, port, dalvik_gdb_script, solib_search_path)
     elif debugger == "gdb":
         return generate_gdb_script(root, sysroot, binary_file.name, port, dalvik_gdb_script, solib_search_path, connect_timeout)
+    elif debugger == 'lldb':
+        return generate_lldb_script(
+            sysroot, binary_file.name, port, solib_search_path)
     else:
         raise Exception("Unknown debugger type " + debugger)
 
 
-def main():
+def do_main():
     required_env = ["ANDROID_BUILD_TOP",
                     "ANDROID_PRODUCT_OUT", "TARGET_PRODUCT"]
     for env in required_env:
@@ -303,31 +409,6 @@ def main():
     binary_file, pid, run_cmd = handle_switches(args, sysroot)
 
     with binary_file:
-        arch = gdbrunner.get_binary_arch(binary_file)
-        is64bit = arch.endswith("64")
-
-        # Make sure we have the linker
-        ensure_linker(device, sysroot, is64bit)
-
-        tracer_pid = get_tracer_pid(device, pid)
-        if tracer_pid == 0:
-            cmd_prefix = args.su_cmd
-            if args.env:
-                cmd_prefix += ['env'] + [v[0] for v in args.env]
-
-            # Start gdbserver.
-            gdbserver_local_path = get_gdbserver_path(root, arch)
-            gdbserver_remote_path = "/data/local/tmp/{}-gdbserver".format(arch)
-            gdbrunner.start_gdbserver(
-                device, gdbserver_local_path, gdbserver_remote_path,
-                target_pid=pid, run_cmd=run_cmd, debug_socket=debug_socket,
-                port=args.port, run_as_cmd=cmd_prefix)
-        else:
-            print "Connecting to tracing pid {} using local port {}".format(tracer_pid, args.port)
-            gdbrunner.forward_gdbserver_port(device, local=args.port,
-                                             remote="tcp:{}".format(args.port))
-
-        # Find where gdb is
         if sys.platform.startswith("linux"):
             platform_name = "linux-x86"
         elif sys.platform.startswith("darwin"):
@@ -335,38 +416,94 @@ def main():
         else:
             sys.exit("Unknown platform: {}".format(sys.platform))
 
-        gdb_path = os.path.join(root, "prebuilts", "gdb", platform_name, "bin",
-                                "gdb")
+        arch = gdbrunner.get_binary_arch(binary_file)
+        is64bit = arch.endswith("64")
+
+        # Make sure we have the linker
+        clang_base, clang_version = read_toolchain_config(root)
+        toolchain_path = os.path.join(root, clang_base, platform_name,
+                                      clang_version)
+        llvm_readobj_path = os.path.join(toolchain_path, "bin", "llvm-readobj")
+        interp = gdbrunner.get_binary_interp(binary_file.name, llvm_readobj_path)
+        linker_search_dir = ensure_linker(device, sysroot, interp)
+
+        tracer_pid = get_tracer_pid(device, pid)
+        use_lldb = args.lldb
+        if tracer_pid == 0:
+            cmd_prefix = args.su_cmd
+            if args.env:
+                cmd_prefix += ['env'] + [v[0] for v in args.env]
+
+            # Start gdbserver.
+            if use_lldb:
+                server_local_path = get_lldb_server_path(
+                    root, clang_base, clang_version, arch)
+                server_remote_path = "/data/local/tmp/{}-lldb-server".format(
+                    arch)
+            else:
+                server_local_path = get_gdbserver_path(root, arch)
+                server_remote_path = "/data/local/tmp/{}-gdbserver".format(
+                    arch)
+            gdbrunner.start_gdbserver(
+                device, server_local_path, server_remote_path,
+                target_pid=pid, run_cmd=run_cmd, debug_socket=debug_socket,
+                port=args.port, run_as_cmd=cmd_prefix, lldb=use_lldb)
+        else:
+            print(
+                "Connecting to tracing pid {} using local port {}".format(
+                    tracer_pid, args.port))
+            gdbrunner.forward_gdbserver_port(device, local=args.port,
+                                             remote="tcp:{}".format(args.port))
+
+        if use_lldb:
+            debugger_path = os.path.join(toolchain_path, "bin", "lldb")
+            debugger = 'lldb'
+        else:
+            debugger_path = os.path.join(
+                root, "prebuilts", "gdb", platform_name, "bin", "gdb")
+            debugger = args.setup_forwarding or "gdb"
+
         # Generate a gdb script.
-        setup_commands = generate_setup_script(gdbpath=gdb_path,
+        setup_commands = generate_setup_script(debugger_path=debugger_path,
                                                sysroot=sysroot,
+                                               linker_search_dir=linker_search_dir,
                                                binary_file=binary_file,
                                                is64bit=is64bit,
                                                port=args.port,
-                                               debugger=args.setup_forwarding or "gdb")
+                                               debugger=debugger)
 
-        if not args.setup_forwarding:
+        if use_lldb or not args.setup_forwarding:
             # Print a newline to separate our messages from the GDB session.
             print("")
 
             # Start gdb.
-            gdbrunner.start_gdb(gdb_path, setup_commands)
+            gdbrunner.start_gdb(debugger_path, setup_commands, lldb=use_lldb)
         else:
             print("")
-            print setup_commands
+            print(setup_commands)
             print("")
             if args.setup_forwarding == "vscode":
-                print textwrap.dedent("""
+                print(textwrap.dedent("""
                         Paste the above json into .vscode/launch.json and start the debugger as
                         normal. Press enter in this terminal once debugging is finished to shutdown
-                        the gdbserver and close all the ports.""")
+                        the gdbserver and close all the ports."""))
             else:
-                print textwrap.dedent("""
+                print(textwrap.dedent("""
                         Paste the above gdb commands into the gdb frontend to setup the gdbserver
                         connection. Press enter in this terminal once debugging is finished to
-                        shutdown the gdbserver and close all the ports.""")
+                        shutdown the gdbserver and close all the ports."""))
             print("")
             raw_input("Press enter to shutdown gdbserver")
+
+
+def main():
+    try:
+        do_main()
+    finally:
+        global g_temp_dirs
+        for temp_dir in g_temp_dirs:
+            shutil.rmtree(temp_dir)
+
 
 if __name__ == "__main__":
     main()

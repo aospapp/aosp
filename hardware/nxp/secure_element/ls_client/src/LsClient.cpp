@@ -130,6 +130,7 @@ void getLSScriptSourcePrefix(std::string& prefix) {
         if (c == ' ' || c == '\n' || c == '\r' || c == 0x00) break;
         prefix.push_back(c);
       }
+      fclose(fd);
     } else {
       ALOGD("%s Cannot open file %s\n", __func__, source_path);
     }
@@ -332,13 +333,20 @@ void* performLSDownload_thread(__attribute__((unused)) void* data) {
     /*Read the script content to a local buffer*/
     fseek(fIn, 0, SEEK_END);
     long lsBufSize = ftell(fIn);
+    if (lsBufSize < 0) {
+      ALOGE("%s Failed to get current value of position indicator\n", __func__);
+      fclose(fIn);
+      status = LSCSTATUS_FAILED;
+      break;
+    }
     rewind(fIn);
     if (lsHashInfo.lsRawScriptBuf == nullptr) {
       lsHashInfo.lsRawScriptBuf = (uint8_t*)phNxpEse_memalloc(lsBufSize + 1);
     }
     memset(lsHashInfo.lsRawScriptBuf, 0x00, (lsBufSize + 1));
-    fread(lsHashInfo.lsRawScriptBuf, lsBufSize, 1, fIn);
-
+    if (fread(lsHashInfo.lsRawScriptBuf, (size_t)lsBufSize, 1, fIn) != 1)
+      ALOGD_IF(ese_debug_enabled, "%s Failed to read file", __func__);
+    fclose(fIn);
     LSCSTATUS lsHashStatus = LSCSTATUS_FAILED;
 
     /*Get 20bye SHA1 of the script*/

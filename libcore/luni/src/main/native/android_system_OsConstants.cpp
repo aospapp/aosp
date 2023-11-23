@@ -351,6 +351,7 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "_LINUX_CAPABILITY_VERSION_3", _LINUX_CAPABILITY_VERSION_3);
 #endif
     initConstant(env, c, "MAP_FIXED", MAP_FIXED);
+    initConstant(env, c, "MAP_ANONYMOUS", MAP_ANONYMOUS);
     initConstant(env, c, "MAP_POPULATE", MAP_POPULATE);
     initConstant(env, c, "MAP_PRIVATE", MAP_PRIVATE);
     initConstant(env, c, "MAP_SHARED", MAP_SHARED);
@@ -374,6 +375,9 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
 #endif
     initConstant(env, c, "MCL_CURRENT", MCL_CURRENT);
     initConstant(env, c, "MCL_FUTURE", MCL_FUTURE);
+#if defined(MFD_CLOEXEC)
+    initConstant(env, c, "MFD_CLOEXEC", MFD_CLOEXEC);
+#endif
     initConstant(env, c, "MSG_CTRUNC", MSG_CTRUNC);
     initConstant(env, c, "MSG_DONTROUTE", MSG_DONTROUTE);
     initConstant(env, c, "MSG_EOR", MSG_EOR);

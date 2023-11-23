@@ -16,7 +16,8 @@
 
 # Base modules and settings for the product partition.
 PRODUCT_PACKAGES += \
-    healthd \
+    group_product \
     ModuleMetadata \
+    passwd_product \
     product_compatibility_matrix.xml \
     product_manifest.xml \

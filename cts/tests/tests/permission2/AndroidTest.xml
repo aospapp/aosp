@@ -43,6 +43,8 @@
         <option name="push" value="CtsLegacyStorageIsolatedWithSharedUid.apk->/data/local/tmp/cts/permissions2/CtsLegacyStorageIsolatedWithSharedUid.apk" />
         <option name="push" value="CtsLegacyStorageRestrictedWithSharedUid.apk->/data/local/tmp/cts/permissions2/CtsLegacyStorageRestrictedWithSharedUid.apk" />
         <option name="push" value="CtsLegacyStorageRestrictedSdk28WithSharedUid.apk->/data/local/tmp/cts/permissions2/CtsLegacyStorageRestrictedSdk28WithSharedUid.apk" />
+        <option name="push" value="CtsStoragePermissionsUserOptOutSdk30.apk->/data/local/tmp/cts/permissions2/CtsStoragePermissionsUserOptOutSdk30.apk" />
+        <option name="push" value="CtsStoragePermissionsPreservedUserOptOutSdk30.apk->/data/local/tmp/cts/permissions2/CtsStoragePermissionsPreservedUserOptOutSdk30.apk" />
         <option name="push" value="CtsSMSRestrictedWithSharedUid.apk->/data/local/tmp/cts/permissions2/CtsSMSRestrictedWithSharedUid.apk" />
         <option name="push" value="CtsSMSNotRestrictedWithSharedUid.apk->/data/local/tmp/cts/permissions2/CtsSMSNotRestrictedWithSharedUid.apk" />
     </target_preparer>

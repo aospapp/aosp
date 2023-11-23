@@ -18,23 +18,18 @@
 
 #include <cstdarg>
 #include <memory>
-#include <mutex>
 #include <utility>
-
-#include <link.h>
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/allocator.h"
 #include "base/atomic.h"
-#include "base/bit_utils.h"
 #include "base/enums.h"
+#include "base/file_utils.h"
 #include "base/logging.h"  // For VLOG.
-#include "base/memory_type_table.h"
 #include "base/mutex.h"
 #include "base/safe_map.h"
 #include "base/stl_util.h"
-#include "base/string_view_cpp20.h"
 #include "class_linker-inl.h"
 #include "class_root.h"
 #include "dex/dex_file-inl.h"
@@ -81,180 +76,6 @@ struct ScopedVAArgs {
   va_list* args;
 };
 
-static constexpr size_t kMaxReturnAddressDepth = 4;
-
-inline void* GetReturnAddress(size_t depth) {
-  DCHECK_LT(depth, kMaxReturnAddressDepth);
-  switch (depth) {
-    case 0u: return __builtin_return_address(0);
-    case 1u: return __builtin_return_address(1);
-    case 2u: return __builtin_return_address(2);
-    case 3u: return __builtin_return_address(3);
-    default:
-      return nullptr;
-  }
-}
-
-enum class SharedObjectKind {
-  kRuntime = 0,
-  kApexModule = 1,
-  kOther = 2
-};
-
-std::ostream& operator<<(std::ostream& os, SharedObjectKind kind) {
-  switch (kind) {
-    case SharedObjectKind::kRuntime:
-      os << "Runtime";
-      break;
-    case SharedObjectKind::kApexModule:
-      os << "APEX Module";
-      break;
-    case SharedObjectKind::kOther:
-      os << "Other";
-      break;
-  }
-  return os;
-}
-
-// Class holding Cached ranges of loaded shared objects to facilitate checks of field and method
-// resolutions within the Core Platform API for native callers.
-class CodeRangeCache final {
- public:
-  static CodeRangeCache& GetSingleton() {
-    static CodeRangeCache Singleton;
-    return Singleton;
-  }
-
-  SharedObjectKind GetSharedObjectKind(void* pc) {
-    uintptr_t address = reinterpret_cast<uintptr_t>(pc);
-    SharedObjectKind kind;
-    if (Find(address, &kind)) {
-      return kind;
-    }
-    return SharedObjectKind::kOther;
-  }
-
-  bool HasCache() const {
-    return memory_type_table_.Size() != 0;
-  }
-
-  void BuildCache() {
-    DCHECK(!HasCache());
-    art::MemoryTypeTable<SharedObjectKind>::Builder builder;
-    builder_ = &builder;
-    libjavacore_loaded_ = false;
-    libnativehelper_loaded_ = false;
-    libopenjdk_loaded_ = false;
-
-    // Iterate over ELF headers populating table_builder with executable ranges.
-    dl_iterate_phdr(VisitElfInfo, this);
-    memory_type_table_ = builder_->Build();
-
-    // Check expected libraries loaded when iterating headers.
-    CHECK(libjavacore_loaded_);
-    CHECK(libnativehelper_loaded_);
-    CHECK(libopenjdk_loaded_);
-    builder_ = nullptr;
-  }
-
-  void DropCache() {
-    memory_type_table_ = {};
-  }
-
- private:
-  CodeRangeCache() {}
-
-  bool Find(uintptr_t address, SharedObjectKind* kind) const {
-    const art::MemoryTypeRange<SharedObjectKind>* range = memory_type_table_.Lookup(address);
-    if (range == nullptr) {
-      return false;
-    }
-    *kind = range->Type();
-    return true;
-  }
-
-  static int VisitElfInfo(struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED, void *data)
-      NO_THREAD_SAFETY_ANALYSIS {
-    auto cache = reinterpret_cast<CodeRangeCache*>(data);
-    art::MemoryTypeTable<SharedObjectKind>::Builder* builder = cache->builder_;
-
-    for (size_t i = 0u; i < info->dlpi_phnum; ++i) {
-      const ElfW(Phdr)& phdr = info->dlpi_phdr[i];
-      if (phdr.p_type != PT_LOAD || ((phdr.p_flags & PF_X) != PF_X)) {
-        continue;  // Skip anything other than code pages
-      }
-      uintptr_t start = info->dlpi_addr + phdr.p_vaddr;
-      const uintptr_t limit = art::RoundUp(start + phdr.p_memsz, art::kPageSize);
-      SharedObjectKind kind = GetKind(info->dlpi_name, start, limit);
-      art::MemoryTypeRange<SharedObjectKind> range{start, limit, kind};
-      if (!builder->Add(range)) {
-        LOG(WARNING) << "Overlapping/invalid range found in ELF headers: " << range;
-      }
-    }
-
-    // Update sanity check state.
-    std::string_view dlpi_name{info->dlpi_name};
-    if (!cache->libjavacore_loaded_) {
-      cache->libjavacore_loaded_ = art::EndsWith(dlpi_name, kLibjavacore);
-    }
-    if (!cache->libnativehelper_loaded_) {
-      cache->libnativehelper_loaded_ = art::EndsWith(dlpi_name, kLibnativehelper);
-    }
-    if (!cache->libopenjdk_loaded_) {
-      cache->libopenjdk_loaded_ = art::EndsWith(dlpi_name, kLibopenjdk);
-    }
-
-    return 0;
-  }
-
-  static SharedObjectKind GetKind(const char* so_name, uintptr_t start, uintptr_t limit) {
-    uintptr_t runtime_method = reinterpret_cast<uintptr_t>(art::GetJniNativeInterface);
-    if (runtime_method >= start && runtime_method < limit) {
-      return SharedObjectKind::kRuntime;
-    }
-    return art::LocationIsOnApex(so_name) ? SharedObjectKind::kApexModule
-                                          : SharedObjectKind::kOther;
-  }
-
-  art::MemoryTypeTable<SharedObjectKind> memory_type_table_;
-
-  // Table builder, only valid during BuildCache().
-  art::MemoryTypeTable<SharedObjectKind>::Builder* builder_;
-
-  // Sanity checking state.
-  bool libjavacore_loaded_;
-  bool libnativehelper_loaded_;
-  bool libopenjdk_loaded_;
-
-  static constexpr std::string_view kLibjavacore = "libjavacore.so";
-  static constexpr std::string_view kLibnativehelper = "libnativehelper.so";
-  static constexpr std::string_view kLibopenjdk = art::kIsDebugBuild ? "libopenjdkd.so"
-                                                                     : "libopenjdk.so";
-
-  DISALLOW_COPY_AND_ASSIGN(CodeRangeCache);
-};
-
-// Whitelisted native callers can resolve method and field id's via JNI. Check the first caller
-// outside of the JNI library who will have called Get(Static)?(Field|Member)ID(). The presence of
-// checked JNI means we need to walk frames as the internal methods can be called directly from an
-// external shared-object or indirectly (via checked JNI) from an external shared-object.
-static inline bool IsWhitelistedNativeCaller() {
-  if (!art::kIsTargetBuild) {
-    return false;
-  }
-  for (size_t i = 0; i < kMaxReturnAddressDepth; ++i) {
-    void* return_address = GetReturnAddress(i);
-    if (return_address == nullptr) {
-      return false;
-    }
-    SharedObjectKind kind = CodeRangeCache::GetSingleton().GetSharedObjectKind(return_address);
-    if (kind != SharedObjectKind::kRuntime) {
-      return kind == SharedObjectKind::kApexModule;
-    }
-  }
-  return false;
-}
-
 }  // namespace
 
 namespace art {
@@ -266,9 +87,6 @@ static constexpr bool kWarnJniAbort = false;
 template<typename T>
 ALWAYS_INLINE static bool ShouldDenyAccessToMember(T* member, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  if (IsWhitelistedNativeCaller()) {
-    return false;
-  }
   return hiddenapi::ShouldDenyAccessToMember(
       member,
       [&]() REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -304,7 +122,7 @@ static void NotifySetObjectField(ArtField* field, jobject obj, jobject jval)
     JValue val;
     val.SetL(self->DecodeJObject(jval));
     instrumentation->FieldWriteEvent(self,
-                                     self->DecodeJObject(obj).Ptr(),
+                                     self->DecodeJObject(obj),
                                      cur_method,
                                      0,  // dex_pc is always 0 since this is a native method.
                                      field,
@@ -329,7 +147,7 @@ static void NotifySetPrimitiveField(ArtField* field, jobject obj, JValue val)
     }
     DCHECK(cur_method->IsNative());
     instrumentation->FieldWriteEvent(self,
-                                     self->DecodeJObject(obj).Ptr(),
+                                     self->DecodeJObject(obj),
                                      cur_method,
                                      0,  // dex_pc is always 0 since this is a native method.
                                      field,
@@ -353,7 +171,7 @@ static void NotifyGetField(ArtField* field, jobject obj)
     }
     DCHECK(cur_method->IsNative());
     instrumentation->FieldReadEvent(self,
-                                    self->DecodeJObject(obj).Ptr(),
+                                    self->DecodeJObject(obj),
                                     cur_method,
                                     0,  // dex_pc is always 0 since this is a native method.
                                     field);
@@ -384,21 +202,6 @@ static std::string NormalizeJniClassDescriptor(const char* name) {
   return result;
 }
 
-static void ThrowNoSuchMethodError(ScopedObjectAccess& soa,
-                                   ObjPtr<mirror::Class> c,
-                                   const char* name,
-                                   const char* sig,
-                                   const char* kind)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  std::string temp;
-  soa.Self()->ThrowNewExceptionF("Ljava/lang/NoSuchMethodError;",
-                                 "no %s method \"%s.%s%s\"",
-                                 kind,
-                                 c->GetDescriptor(&temp),
-                                 name,
-                                 sig);
-}
-
 static void ReportInvalidJNINativeMethod(const ScopedObjectAccess& soa,
                                          ObjPtr<mirror::Class> c,
                                          const char* kind,
@@ -414,48 +217,20 @@ static void ReportInvalidJNINativeMethod(const ScopedObjectAccess& soa,
                                  idx);
 }
 
-static ObjPtr<mirror::Class> EnsureInitialized(Thread* self, ObjPtr<mirror::Class> klass)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  if (LIKELY(klass->IsInitialized())) {
-    return klass;
-  }
-  StackHandleScope<1> hs(self);
-  Handle<mirror::Class> h_klass(hs.NewHandle(klass));
-  if (!Runtime::Current()->GetClassLinker()->EnsureInitialized(self, h_klass, true, true)) {
-    return nullptr;
-  }
-  return h_klass.Get();
-}
-
+template<bool kEnableIndexIds>
 static jmethodID FindMethodID(ScopedObjectAccess& soa, jclass jni_class,
                               const char* name, const char* sig, bool is_static)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  ObjPtr<mirror::Class> c = EnsureInitialized(soa.Self(), soa.Decode<mirror::Class>(jni_class));
-  if (c == nullptr) {
-    return nullptr;
-  }
-  ArtMethod* method = nullptr;
-  auto pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
-  if (c->IsInterface()) {
-    method = c->FindInterfaceMethod(name, sig, pointer_size);
-  } else {
-    method = c->FindClassMethod(name, sig, pointer_size);
-  }
-  if (method != nullptr && ShouldDenyAccessToMember(method, soa.Self())) {
-    method = nullptr;
-  }
-  if (method == nullptr || method->IsStatic() != is_static) {
-    ThrowNoSuchMethodError(soa, c, name, sig, is_static ? "static" : "non-static");
-    return nullptr;
-  }
-  return jni::EncodeArtMethod(method);
+  return jni::EncodeArtMethod<kEnableIndexIds>(FindMethodJNI(soa, jni_class, name, sig, is_static));
 }
 
+template<bool kEnableIndexIds>
 static ObjPtr<mirror::ClassLoader> GetClassLoader(const ScopedObjectAccess& soa)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ArtMethod* method = soa.Self()->GetCurrentMethod(nullptr);
   // If we are running Runtime.nativeLoad, use the overriding ClassLoader it set.
-  if (method == jni::DecodeArtMethod(WellKnownClasses::java_lang_Runtime_nativeLoad)) {
+  if (method ==
+      jni::DecodeArtMethod<kEnableIndexIds>(WellKnownClasses::java_lang_Runtime_nativeLoad)) {
     return soa.Decode<mirror::ClassLoader>(soa.Self()->GetClassLoaderOverride());
   }
   // If we have a method, use its ClassLoader for context.
@@ -481,9 +256,92 @@ static ObjPtr<mirror::ClassLoader> GetClassLoader(const ScopedObjectAccess& soa)
   return nullptr;
 }
 
+template<bool kEnableIndexIds>
 static jfieldID FindFieldID(const ScopedObjectAccess& soa, jclass jni_class, const char* name,
                             const char* sig, bool is_static)
     REQUIRES_SHARED(Locks::mutator_lock_) {
+  return jni::EncodeArtField<kEnableIndexIds>(FindFieldJNI(soa, jni_class, name, sig, is_static));
+}
+
+static void ThrowAIOOBE(ScopedObjectAccess& soa,
+                        ObjPtr<mirror::Array> array,
+                        jsize start,
+                        jsize length,
+                        const char* identifier)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  std::string type(array->PrettyTypeOf());
+  soa.Self()->ThrowNewExceptionF("Ljava/lang/ArrayIndexOutOfBoundsException;",
+                                 "%s offset=%d length=%d %s.length=%d",
+                                 type.c_str(), start, length, identifier, array->GetLength());
+}
+
+static void ThrowSIOOBE(ScopedObjectAccess& soa, jsize start, jsize length,
+                        jsize array_length)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  soa.Self()->ThrowNewExceptionF("Ljava/lang/StringIndexOutOfBoundsException;",
+                                 "offset=%d length=%d string.length()=%d", start, length,
+                                 array_length);
+}
+
+static void ThrowNoSuchMethodError(const ScopedObjectAccess& soa,
+                                   ObjPtr<mirror::Class> c,
+                                   const char* name,
+                                   const char* sig,
+                                   const char* kind)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  std::string temp;
+  soa.Self()->ThrowNewExceptionF("Ljava/lang/NoSuchMethodError;",
+                                 "no %s method \"%s.%s%s\"",
+                                 kind,
+                                 c->GetDescriptor(&temp),
+                                 name,
+                                 sig);
+}
+
+static ObjPtr<mirror::Class> EnsureInitialized(Thread* self, ObjPtr<mirror::Class> klass)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (LIKELY(klass->IsInitialized())) {
+    return klass;
+  }
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Class> h_klass(hs.NewHandle(klass));
+  if (!Runtime::Current()->GetClassLinker()->EnsureInitialized(self, h_klass, true, true)) {
+    return nullptr;
+  }
+  return h_klass.Get();
+}
+
+ArtMethod* FindMethodJNI(const ScopedObjectAccess& soa,
+                         jclass jni_class,
+                         const char* name,
+                         const char* sig,
+                         bool is_static) {
+  ObjPtr<mirror::Class> c = EnsureInitialized(soa.Self(), soa.Decode<mirror::Class>(jni_class));
+  if (c == nullptr) {
+    return nullptr;
+  }
+  ArtMethod* method = nullptr;
+  auto pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
+  if (c->IsInterface()) {
+    method = c->FindInterfaceMethod(name, sig, pointer_size);
+  } else {
+    method = c->FindClassMethod(name, sig, pointer_size);
+  }
+  if (method != nullptr && ShouldDenyAccessToMember(method, soa.Self())) {
+    method = nullptr;
+  }
+  if (method == nullptr || method->IsStatic() != is_static) {
+    ThrowNoSuchMethodError(soa, c, name, sig, is_static ? "static" : "non-static");
+    return nullptr;
+  }
+  return method;
+}
+
+ArtField* FindFieldJNI(const ScopedObjectAccess& soa,
+                       jclass jni_class,
+                       const char* name,
+                       const char* sig,
+                       bool is_static) {
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::Class> c(
       hs.NewHandle(EnsureInitialized(soa.Self(), soa.Decode<mirror::Class>(jni_class))));
@@ -533,27 +391,7 @@ static jfieldID FindFieldID(const ScopedObjectAccess& soa, jclass jni_class, con
                                    sig, name, c->GetDescriptor(&temp));
     return nullptr;
   }
-  return jni::EncodeArtField(field);
-}
-
-static void ThrowAIOOBE(ScopedObjectAccess& soa,
-                        ObjPtr<mirror::Array> array,
-                        jsize start,
-                        jsize length,
-                        const char* identifier)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  std::string type(array->PrettyTypeOf());
-  soa.Self()->ThrowNewExceptionF("Ljava/lang/ArrayIndexOutOfBoundsException;",
-                                 "%s offset=%d length=%d %s.length=%d",
-                                 type.c_str(), start, length, identifier, array->GetLength());
-}
-
-static void ThrowSIOOBE(ScopedObjectAccess& soa, jsize start, jsize length,
-                        jsize array_length)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  soa.Self()->ThrowNewExceptionF("Ljava/lang/StringIndexOutOfBoundsException;",
-                                 "offset=%d length=%d string.length()=%d", start, length,
-                                 array_length);
+  return field;
 }
 
 int ThrowNewException(JNIEnv* env, jclass exception_class, const char* msg, jobject cause)
@@ -640,6 +478,7 @@ static ArtMethod* FindMethod(ObjPtr<mirror::Class> c,
   return nullptr;
 }
 
+template <bool kEnableIndexIds>
 class JNI {
  public:
   static jint GetVersion(JNIEnv*) {
@@ -660,7 +499,7 @@ class JNI {
     ObjPtr<mirror::Class> c = nullptr;
     if (runtime->IsStarted()) {
       StackHandleScope<1> hs(soa.Self());
-      Handle<mirror::ClassLoader> class_loader(hs.NewHandle(GetClassLoader(soa)));
+      Handle<mirror::ClassLoader> class_loader(hs.NewHandle(GetClassLoader<kEnableIndexIds>(soa)));
       c = class_linker->FindClass(soa.Self(), descriptor.c_str(), class_loader);
     } else {
       c = class_linker->FindSystemClass(soa.Self(), descriptor.c_str());
@@ -671,7 +510,7 @@ class JNI {
   static jmethodID FromReflectedMethod(JNIEnv* env, jobject jlr_method) {
     CHECK_NON_NULL_ARGUMENT(jlr_method);
     ScopedObjectAccess soa(env);
-    return jni::EncodeArtMethod(ArtMethod::FromReflectedMethod(soa, jlr_method));
+    return jni::EncodeArtMethod<kEnableIndexIds>(ArtMethod::FromReflectedMethod(soa, jlr_method));
   }
 
   static jfieldID FromReflectedField(JNIEnv* env, jobject jlr_field) {
@@ -683,7 +522,7 @@ class JNI {
       return nullptr;
     }
     ObjPtr<mirror::Field> field = ObjPtr<mirror::Field>::DownCast(obj_field);
-    return jni::EncodeArtField(field->GetArtField());
+    return jni::EncodeArtField<kEnableIndexIds>(field->GetArtField());
   }
 
   static jobject ToReflectedMethod(JNIEnv* env, jclass, jmethodID mid, jboolean) {
@@ -907,8 +746,8 @@ class JNI {
     }
     if (c->IsStringClass()) {
       gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
-      return soa.AddLocalReference<jobject>(mirror::String::AllocEmptyString<true>(soa.Self(),
-                                                                              allocator_type));
+      return soa.AddLocalReference<jobject>(
+          mirror::String::AllocEmptyString(soa.Self(), allocator_type));
     }
     return soa.AddLocalReference<jobject>(c->AllocObject(soa.Self()));
   }
@@ -934,7 +773,7 @@ class JNI {
     }
     if (c->IsStringClass()) {
       // Replace calls to String.<init> with equivalent StringFactory call.
-      jmethodID sf_mid = jni::EncodeArtMethod(
+      jmethodID sf_mid = jni::EncodeArtMethod<kEnableIndexIds>(
           WellKnownClasses::StringInitToStringFactory(jni::DecodeArtMethod(mid)));
       return CallStaticObjectMethodV(env, WellKnownClasses::java_lang_StringFactory, sf_mid, args);
     }
@@ -961,7 +800,7 @@ class JNI {
     }
     if (c->IsStringClass()) {
       // Replace calls to String.<init> with equivalent StringFactory call.
-      jmethodID sf_mid = jni::EncodeArtMethod(
+      jmethodID sf_mid = jni::EncodeArtMethod<kEnableIndexIds>(
           WellKnownClasses::StringInitToStringFactory(jni::DecodeArtMethod(mid)));
       return CallStaticObjectMethodA(env, WellKnownClasses::java_lang_StringFactory, sf_mid, args);
     }
@@ -982,7 +821,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(name);
     CHECK_NON_NULL_ARGUMENT(sig);
     ScopedObjectAccess soa(env);
-    return FindMethodID(soa, java_class, name, sig, false);
+    return FindMethodID<kEnableIndexIds>(soa, java_class, name, sig, false);
   }
 
   static jmethodID GetStaticMethodID(JNIEnv* env, jclass java_class, const char* name,
@@ -991,7 +830,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(name);
     CHECK_NON_NULL_ARGUMENT(sig);
     ScopedObjectAccess soa(env);
-    return FindMethodID(soa, java_class, name, sig, true);
+    return FindMethodID<kEnableIndexIds>(soa, java_class, name, sig, true);
   }
 
   static jobject CallObjectMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
@@ -1523,7 +1362,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(name);
     CHECK_NON_NULL_ARGUMENT(sig);
     ScopedObjectAccess soa(env);
-    return FindFieldID(soa, java_class, name, sig, false);
+    return FindFieldID<kEnableIndexIds>(soa, java_class, name, sig, false);
   }
 
   static jfieldID GetStaticFieldID(JNIEnv* env, jclass java_class, const char* name,
@@ -1532,14 +1371,14 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(name);
     CHECK_NON_NULL_ARGUMENT(sig);
     ScopedObjectAccess soa(env);
-    return FindFieldID(soa, java_class, name, sig, true);
+    return FindFieldID<kEnableIndexIds>(soa, java_class, name, sig, true);
   }
 
   static jobject GetObjectField(JNIEnv* env, jobject obj, jfieldID fid) {
     CHECK_NON_NULL_ARGUMENT(obj);
     CHECK_NON_NULL_ARGUMENT(fid);
     ScopedObjectAccess soa(env);
-    ArtField* f = jni::DecodeArtField(fid);
+    ArtField* f = jni::DecodeArtField<kEnableIndexIds>(fid);
     NotifyGetField(f, obj);
     ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(obj);
     return soa.AddLocalReference<jobject>(f->GetObject(o));
@@ -1548,7 +1387,7 @@ class JNI {
   static jobject GetStaticObjectField(JNIEnv* env, jclass, jfieldID fid) {
     CHECK_NON_NULL_ARGUMENT(fid);
     ScopedObjectAccess soa(env);
-    ArtField* f = jni::DecodeArtField(fid);
+    ArtField* f = jni::DecodeArtField<kEnableIndexIds>(fid);
     NotifyGetField(f, nullptr);
     return soa.AddLocalReference<jobject>(f->GetObject(f->GetDeclaringClass()));
   }
@@ -1557,7 +1396,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(java_object);
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(fid);
     ScopedObjectAccess soa(env);
-    ArtField* f = jni::DecodeArtField(fid);
+    ArtField* f = jni::DecodeArtField<kEnableIndexIds>(fid);
     NotifySetObjectField(f, java_object, java_value);
     ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(java_object);
     ObjPtr<mirror::Object> v = soa.Decode<mirror::Object>(java_value);
@@ -1567,7 +1406,7 @@ class JNI {
   static void SetStaticObjectField(JNIEnv* env, jclass, jfieldID fid, jobject java_value) {
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(fid);
     ScopedObjectAccess soa(env);
-    ArtField* f = jni::DecodeArtField(fid);
+    ArtField* f = jni::DecodeArtField<kEnableIndexIds>(fid);
     NotifySetObjectField(f, nullptr, java_value);
     ObjPtr<mirror::Object> v = soa.Decode<mirror::Object>(java_value);
     f->SetObject<false>(f->GetDeclaringClass(), v);
@@ -1577,7 +1416,7 @@ class JNI {
   CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(instance); \
   CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(fid); \
   ScopedObjectAccess soa(env); \
-  ArtField* f = jni::DecodeArtField(fid); \
+  ArtField* f = jni::DecodeArtField<kEnableIndexIds>(fid); \
   NotifyGetField(f, instance); \
   ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(instance); \
   return f->Get ##fn (o)
@@ -1585,7 +1424,7 @@ class JNI {
 #define GET_STATIC_PRIMITIVE_FIELD(fn) \
   CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(fid); \
   ScopedObjectAccess soa(env); \
-  ArtField* f = jni::DecodeArtField(fid); \
+  ArtField* f = jni::DecodeArtField<kEnableIndexIds>(fid); \
   NotifyGetField(f, nullptr); \
   return f->Get ##fn (f->GetDeclaringClass())
 
@@ -1593,7 +1432,7 @@ class JNI {
   CHECK_NON_NULL_ARGUMENT_RETURN_VOID(instance); \
   CHECK_NON_NULL_ARGUMENT_RETURN_VOID(fid); \
   ScopedObjectAccess soa(env); \
-  ArtField* f = jni::DecodeArtField(fid); \
+  ArtField* f = jni::DecodeArtField<kEnableIndexIds>(fid); \
   NotifySetPrimitiveField(f, instance, JValue::FromPrimitive<decltype(value)>(value)); \
   ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(instance); \
   f->Set ##fn <false>(o, value)
@@ -1601,7 +1440,7 @@ class JNI {
 #define SET_STATIC_PRIMITIVE_FIELD(fn, value) \
   CHECK_NON_NULL_ARGUMENT_RETURN_VOID(fid); \
   ScopedObjectAccess soa(env); \
-  ArtField* f = jni::DecodeArtField(fid); \
+  ArtField* f = jni::DecodeArtField<kEnableIndexIds>(fid); \
   NotifySetPrimitiveField(f, nullptr, JValue::FromPrimitive<decltype(value)>(value)); \
   f->Set ##fn <false>(f->GetDeclaringClass(), value)
 
@@ -2880,244 +2719,253 @@ class JNI {
   }
 };
 
-const JNINativeInterface gJniNativeInterface = {
-  nullptr,  // reserved0.
-  nullptr,  // reserved1.
-  nullptr,  // reserved2.
-  nullptr,  // reserved3.
-  JNI::GetVersion,
-  JNI::DefineClass,
-  JNI::FindClass,
-  JNI::FromReflectedMethod,
-  JNI::FromReflectedField,
-  JNI::ToReflectedMethod,
-  JNI::GetSuperclass,
-  JNI::IsAssignableFrom,
-  JNI::ToReflectedField,
-  JNI::Throw,
-  JNI::ThrowNew,
-  JNI::ExceptionOccurred,
-  JNI::ExceptionDescribe,
-  JNI::ExceptionClear,
-  JNI::FatalError,
-  JNI::PushLocalFrame,
-  JNI::PopLocalFrame,
-  JNI::NewGlobalRef,
-  JNI::DeleteGlobalRef,
-  JNI::DeleteLocalRef,
-  JNI::IsSameObject,
-  JNI::NewLocalRef,
-  JNI::EnsureLocalCapacity,
-  JNI::AllocObject,
-  JNI::NewObject,
-  JNI::NewObjectV,
-  JNI::NewObjectA,
-  JNI::GetObjectClass,
-  JNI::IsInstanceOf,
-  JNI::GetMethodID,
-  JNI::CallObjectMethod,
-  JNI::CallObjectMethodV,
-  JNI::CallObjectMethodA,
-  JNI::CallBooleanMethod,
-  JNI::CallBooleanMethodV,
-  JNI::CallBooleanMethodA,
-  JNI::CallByteMethod,
-  JNI::CallByteMethodV,
-  JNI::CallByteMethodA,
-  JNI::CallCharMethod,
-  JNI::CallCharMethodV,
-  JNI::CallCharMethodA,
-  JNI::CallShortMethod,
-  JNI::CallShortMethodV,
-  JNI::CallShortMethodA,
-  JNI::CallIntMethod,
-  JNI::CallIntMethodV,
-  JNI::CallIntMethodA,
-  JNI::CallLongMethod,
-  JNI::CallLongMethodV,
-  JNI::CallLongMethodA,
-  JNI::CallFloatMethod,
-  JNI::CallFloatMethodV,
-  JNI::CallFloatMethodA,
-  JNI::CallDoubleMethod,
-  JNI::CallDoubleMethodV,
-  JNI::CallDoubleMethodA,
-  JNI::CallVoidMethod,
-  JNI::CallVoidMethodV,
-  JNI::CallVoidMethodA,
-  JNI::CallNonvirtualObjectMethod,
-  JNI::CallNonvirtualObjectMethodV,
-  JNI::CallNonvirtualObjectMethodA,
-  JNI::CallNonvirtualBooleanMethod,
-  JNI::CallNonvirtualBooleanMethodV,
-  JNI::CallNonvirtualBooleanMethodA,
-  JNI::CallNonvirtualByteMethod,
-  JNI::CallNonvirtualByteMethodV,
-  JNI::CallNonvirtualByteMethodA,
-  JNI::CallNonvirtualCharMethod,
-  JNI::CallNonvirtualCharMethodV,
-  JNI::CallNonvirtualCharMethodA,
-  JNI::CallNonvirtualShortMethod,
-  JNI::CallNonvirtualShortMethodV,
-  JNI::CallNonvirtualShortMethodA,
-  JNI::CallNonvirtualIntMethod,
-  JNI::CallNonvirtualIntMethodV,
-  JNI::CallNonvirtualIntMethodA,
-  JNI::CallNonvirtualLongMethod,
-  JNI::CallNonvirtualLongMethodV,
-  JNI::CallNonvirtualLongMethodA,
-  JNI::CallNonvirtualFloatMethod,
-  JNI::CallNonvirtualFloatMethodV,
-  JNI::CallNonvirtualFloatMethodA,
-  JNI::CallNonvirtualDoubleMethod,
-  JNI::CallNonvirtualDoubleMethodV,
-  JNI::CallNonvirtualDoubleMethodA,
-  JNI::CallNonvirtualVoidMethod,
-  JNI::CallNonvirtualVoidMethodV,
-  JNI::CallNonvirtualVoidMethodA,
-  JNI::GetFieldID,
-  JNI::GetObjectField,
-  JNI::GetBooleanField,
-  JNI::GetByteField,
-  JNI::GetCharField,
-  JNI::GetShortField,
-  JNI::GetIntField,
-  JNI::GetLongField,
-  JNI::GetFloatField,
-  JNI::GetDoubleField,
-  JNI::SetObjectField,
-  JNI::SetBooleanField,
-  JNI::SetByteField,
-  JNI::SetCharField,
-  JNI::SetShortField,
-  JNI::SetIntField,
-  JNI::SetLongField,
-  JNI::SetFloatField,
-  JNI::SetDoubleField,
-  JNI::GetStaticMethodID,
-  JNI::CallStaticObjectMethod,
-  JNI::CallStaticObjectMethodV,
-  JNI::CallStaticObjectMethodA,
-  JNI::CallStaticBooleanMethod,
-  JNI::CallStaticBooleanMethodV,
-  JNI::CallStaticBooleanMethodA,
-  JNI::CallStaticByteMethod,
-  JNI::CallStaticByteMethodV,
-  JNI::CallStaticByteMethodA,
-  JNI::CallStaticCharMethod,
-  JNI::CallStaticCharMethodV,
-  JNI::CallStaticCharMethodA,
-  JNI::CallStaticShortMethod,
-  JNI::CallStaticShortMethodV,
-  JNI::CallStaticShortMethodA,
-  JNI::CallStaticIntMethod,
-  JNI::CallStaticIntMethodV,
-  JNI::CallStaticIntMethodA,
-  JNI::CallStaticLongMethod,
-  JNI::CallStaticLongMethodV,
-  JNI::CallStaticLongMethodA,
-  JNI::CallStaticFloatMethod,
-  JNI::CallStaticFloatMethodV,
-  JNI::CallStaticFloatMethodA,
-  JNI::CallStaticDoubleMethod,
-  JNI::CallStaticDoubleMethodV,
-  JNI::CallStaticDoubleMethodA,
-  JNI::CallStaticVoidMethod,
-  JNI::CallStaticVoidMethodV,
-  JNI::CallStaticVoidMethodA,
-  JNI::GetStaticFieldID,
-  JNI::GetStaticObjectField,
-  JNI::GetStaticBooleanField,
-  JNI::GetStaticByteField,
-  JNI::GetStaticCharField,
-  JNI::GetStaticShortField,
-  JNI::GetStaticIntField,
-  JNI::GetStaticLongField,
-  JNI::GetStaticFloatField,
-  JNI::GetStaticDoubleField,
-  JNI::SetStaticObjectField,
-  JNI::SetStaticBooleanField,
-  JNI::SetStaticByteField,
-  JNI::SetStaticCharField,
-  JNI::SetStaticShortField,
-  JNI::SetStaticIntField,
-  JNI::SetStaticLongField,
-  JNI::SetStaticFloatField,
-  JNI::SetStaticDoubleField,
-  JNI::NewString,
-  JNI::GetStringLength,
-  JNI::GetStringChars,
-  JNI::ReleaseStringChars,
-  JNI::NewStringUTF,
-  JNI::GetStringUTFLength,
-  JNI::GetStringUTFChars,
-  JNI::ReleaseStringUTFChars,
-  JNI::GetArrayLength,
-  JNI::NewObjectArray,
-  JNI::GetObjectArrayElement,
-  JNI::SetObjectArrayElement,
-  JNI::NewBooleanArray,
-  JNI::NewByteArray,
-  JNI::NewCharArray,
-  JNI::NewShortArray,
-  JNI::NewIntArray,
-  JNI::NewLongArray,
-  JNI::NewFloatArray,
-  JNI::NewDoubleArray,
-  JNI::GetBooleanArrayElements,
-  JNI::GetByteArrayElements,
-  JNI::GetCharArrayElements,
-  JNI::GetShortArrayElements,
-  JNI::GetIntArrayElements,
-  JNI::GetLongArrayElements,
-  JNI::GetFloatArrayElements,
-  JNI::GetDoubleArrayElements,
-  JNI::ReleaseBooleanArrayElements,
-  JNI::ReleaseByteArrayElements,
-  JNI::ReleaseCharArrayElements,
-  JNI::ReleaseShortArrayElements,
-  JNI::ReleaseIntArrayElements,
-  JNI::ReleaseLongArrayElements,
-  JNI::ReleaseFloatArrayElements,
-  JNI::ReleaseDoubleArrayElements,
-  JNI::GetBooleanArrayRegion,
-  JNI::GetByteArrayRegion,
-  JNI::GetCharArrayRegion,
-  JNI::GetShortArrayRegion,
-  JNI::GetIntArrayRegion,
-  JNI::GetLongArrayRegion,
-  JNI::GetFloatArrayRegion,
-  JNI::GetDoubleArrayRegion,
-  JNI::SetBooleanArrayRegion,
-  JNI::SetByteArrayRegion,
-  JNI::SetCharArrayRegion,
-  JNI::SetShortArrayRegion,
-  JNI::SetIntArrayRegion,
-  JNI::SetLongArrayRegion,
-  JNI::SetFloatArrayRegion,
-  JNI::SetDoubleArrayRegion,
-  JNI::RegisterNatives,
-  JNI::UnregisterNatives,
-  JNI::MonitorEnter,
-  JNI::MonitorExit,
-  JNI::GetJavaVM,
-  JNI::GetStringRegion,
-  JNI::GetStringUTFRegion,
-  JNI::GetPrimitiveArrayCritical,
-  JNI::ReleasePrimitiveArrayCritical,
-  JNI::GetStringCritical,
-  JNI::ReleaseStringCritical,
-  JNI::NewWeakGlobalRef,
-  JNI::DeleteWeakGlobalRef,
-  JNI::ExceptionCheck,
-  JNI::NewDirectByteBuffer,
-  JNI::GetDirectBufferAddress,
-  JNI::GetDirectBufferCapacity,
-  JNI::GetObjectRefType,
+template<bool kEnableIndexIds>
+struct JniNativeInterfaceFunctions {
+  using JNIImpl = JNI<kEnableIndexIds>;
+  static constexpr JNINativeInterface gJniNativeInterface = {
+    nullptr,  // reserved0.
+    nullptr,  // reserved1.
+    nullptr,  // reserved2.
+    nullptr,  // reserved3.
+    JNIImpl::GetVersion,
+    JNIImpl::DefineClass,
+    JNIImpl::FindClass,
+    JNIImpl::FromReflectedMethod,
+    JNIImpl::FromReflectedField,
+    JNIImpl::ToReflectedMethod,
+    JNIImpl::GetSuperclass,
+    JNIImpl::IsAssignableFrom,
+    JNIImpl::ToReflectedField,
+    JNIImpl::Throw,
+    JNIImpl::ThrowNew,
+    JNIImpl::ExceptionOccurred,
+    JNIImpl::ExceptionDescribe,
+    JNIImpl::ExceptionClear,
+    JNIImpl::FatalError,
+    JNIImpl::PushLocalFrame,
+    JNIImpl::PopLocalFrame,
+    JNIImpl::NewGlobalRef,
+    JNIImpl::DeleteGlobalRef,
+    JNIImpl::DeleteLocalRef,
+    JNIImpl::IsSameObject,
+    JNIImpl::NewLocalRef,
+    JNIImpl::EnsureLocalCapacity,
+    JNIImpl::AllocObject,
+    JNIImpl::NewObject,
+    JNIImpl::NewObjectV,
+    JNIImpl::NewObjectA,
+    JNIImpl::GetObjectClass,
+    JNIImpl::IsInstanceOf,
+    JNIImpl::GetMethodID,
+    JNIImpl::CallObjectMethod,
+    JNIImpl::CallObjectMethodV,
+    JNIImpl::CallObjectMethodA,
+    JNIImpl::CallBooleanMethod,
+    JNIImpl::CallBooleanMethodV,
+    JNIImpl::CallBooleanMethodA,
+    JNIImpl::CallByteMethod,
+    JNIImpl::CallByteMethodV,
+    JNIImpl::CallByteMethodA,
+    JNIImpl::CallCharMethod,
+    JNIImpl::CallCharMethodV,
+    JNIImpl::CallCharMethodA,
+    JNIImpl::CallShortMethod,
+    JNIImpl::CallShortMethodV,
+    JNIImpl::CallShortMethodA,
+    JNIImpl::CallIntMethod,
+    JNIImpl::CallIntMethodV,
+    JNIImpl::CallIntMethodA,
+    JNIImpl::CallLongMethod,
+    JNIImpl::CallLongMethodV,
+    JNIImpl::CallLongMethodA,
+    JNIImpl::CallFloatMethod,
+    JNIImpl::CallFloatMethodV,
+    JNIImpl::CallFloatMethodA,
+    JNIImpl::CallDoubleMethod,
+    JNIImpl::CallDoubleMethodV,
+    JNIImpl::CallDoubleMethodA,
+    JNIImpl::CallVoidMethod,
+    JNIImpl::CallVoidMethodV,
+    JNIImpl::CallVoidMethodA,
+    JNIImpl::CallNonvirtualObjectMethod,
+    JNIImpl::CallNonvirtualObjectMethodV,
+    JNIImpl::CallNonvirtualObjectMethodA,
+    JNIImpl::CallNonvirtualBooleanMethod,
+    JNIImpl::CallNonvirtualBooleanMethodV,
+    JNIImpl::CallNonvirtualBooleanMethodA,
+    JNIImpl::CallNonvirtualByteMethod,
+    JNIImpl::CallNonvirtualByteMethodV,
+    JNIImpl::CallNonvirtualByteMethodA,
+    JNIImpl::CallNonvirtualCharMethod,
+    JNIImpl::CallNonvirtualCharMethodV,
+    JNIImpl::CallNonvirtualCharMethodA,
+    JNIImpl::CallNonvirtualShortMethod,
+    JNIImpl::CallNonvirtualShortMethodV,
+    JNIImpl::CallNonvirtualShortMethodA,
+    JNIImpl::CallNonvirtualIntMethod,
+    JNIImpl::CallNonvirtualIntMethodV,
+    JNIImpl::CallNonvirtualIntMethodA,
+    JNIImpl::CallNonvirtualLongMethod,
+    JNIImpl::CallNonvirtualLongMethodV,
+    JNIImpl::CallNonvirtualLongMethodA,
+    JNIImpl::CallNonvirtualFloatMethod,
+    JNIImpl::CallNonvirtualFloatMethodV,
+    JNIImpl::CallNonvirtualFloatMethodA,
+    JNIImpl::CallNonvirtualDoubleMethod,
+    JNIImpl::CallNonvirtualDoubleMethodV,
+    JNIImpl::CallNonvirtualDoubleMethodA,
+    JNIImpl::CallNonvirtualVoidMethod,
+    JNIImpl::CallNonvirtualVoidMethodV,
+    JNIImpl::CallNonvirtualVoidMethodA,
+    JNIImpl::GetFieldID,
+    JNIImpl::GetObjectField,
+    JNIImpl::GetBooleanField,
+    JNIImpl::GetByteField,
+    JNIImpl::GetCharField,
+    JNIImpl::GetShortField,
+    JNIImpl::GetIntField,
+    JNIImpl::GetLongField,
+    JNIImpl::GetFloatField,
+    JNIImpl::GetDoubleField,
+    JNIImpl::SetObjectField,
+    JNIImpl::SetBooleanField,
+    JNIImpl::SetByteField,
+    JNIImpl::SetCharField,
+    JNIImpl::SetShortField,
+    JNIImpl::SetIntField,
+    JNIImpl::SetLongField,
+    JNIImpl::SetFloatField,
+    JNIImpl::SetDoubleField,
+    JNIImpl::GetStaticMethodID,
+    JNIImpl::CallStaticObjectMethod,
+    JNIImpl::CallStaticObjectMethodV,
+    JNIImpl::CallStaticObjectMethodA,
+    JNIImpl::CallStaticBooleanMethod,
+    JNIImpl::CallStaticBooleanMethodV,
+    JNIImpl::CallStaticBooleanMethodA,
+    JNIImpl::CallStaticByteMethod,
+    JNIImpl::CallStaticByteMethodV,
+    JNIImpl::CallStaticByteMethodA,
+    JNIImpl::CallStaticCharMethod,
+    JNIImpl::CallStaticCharMethodV,
+    JNIImpl::CallStaticCharMethodA,
+    JNIImpl::CallStaticShortMethod,
+    JNIImpl::CallStaticShortMethodV,
+    JNIImpl::CallStaticShortMethodA,
+    JNIImpl::CallStaticIntMethod,
+    JNIImpl::CallStaticIntMethodV,
+    JNIImpl::CallStaticIntMethodA,
+    JNIImpl::CallStaticLongMethod,
+    JNIImpl::CallStaticLongMethodV,
+    JNIImpl::CallStaticLongMethodA,
+    JNIImpl::CallStaticFloatMethod,
+    JNIImpl::CallStaticFloatMethodV,
+    JNIImpl::CallStaticFloatMethodA,
+    JNIImpl::CallStaticDoubleMethod,
+    JNIImpl::CallStaticDoubleMethodV,
+    JNIImpl::CallStaticDoubleMethodA,
+    JNIImpl::CallStaticVoidMethod,
+    JNIImpl::CallStaticVoidMethodV,
+    JNIImpl::CallStaticVoidMethodA,
+    JNIImpl::GetStaticFieldID,
+    JNIImpl::GetStaticObjectField,
+    JNIImpl::GetStaticBooleanField,
+    JNIImpl::GetStaticByteField,
+    JNIImpl::GetStaticCharField,
+    JNIImpl::GetStaticShortField,
+    JNIImpl::GetStaticIntField,
+    JNIImpl::GetStaticLongField,
+    JNIImpl::GetStaticFloatField,
+    JNIImpl::GetStaticDoubleField,
+    JNIImpl::SetStaticObjectField,
+    JNIImpl::SetStaticBooleanField,
+    JNIImpl::SetStaticByteField,
+    JNIImpl::SetStaticCharField,
+    JNIImpl::SetStaticShortField,
+    JNIImpl::SetStaticIntField,
+    JNIImpl::SetStaticLongField,
+    JNIImpl::SetStaticFloatField,
+    JNIImpl::SetStaticDoubleField,
+    JNIImpl::NewString,
+    JNIImpl::GetStringLength,
+    JNIImpl::GetStringChars,
+    JNIImpl::ReleaseStringChars,
+    JNIImpl::NewStringUTF,
+    JNIImpl::GetStringUTFLength,
+    JNIImpl::GetStringUTFChars,
+    JNIImpl::ReleaseStringUTFChars,
+    JNIImpl::GetArrayLength,
+    JNIImpl::NewObjectArray,
+    JNIImpl::GetObjectArrayElement,
+    JNIImpl::SetObjectArrayElement,
+    JNIImpl::NewBooleanArray,
+    JNIImpl::NewByteArray,
+    JNIImpl::NewCharArray,
+    JNIImpl::NewShortArray,
+    JNIImpl::NewIntArray,
+    JNIImpl::NewLongArray,
+    JNIImpl::NewFloatArray,
+    JNIImpl::NewDoubleArray,
+    JNIImpl::GetBooleanArrayElements,
+    JNIImpl::GetByteArrayElements,
+    JNIImpl::GetCharArrayElements,
+    JNIImpl::GetShortArrayElements,
+    JNIImpl::GetIntArrayElements,
+    JNIImpl::GetLongArrayElements,
+    JNIImpl::GetFloatArrayElements,
+    JNIImpl::GetDoubleArrayElements,
+    JNIImpl::ReleaseBooleanArrayElements,
+    JNIImpl::ReleaseByteArrayElements,
+    JNIImpl::ReleaseCharArrayElements,
+    JNIImpl::ReleaseShortArrayElements,
+    JNIImpl::ReleaseIntArrayElements,
+    JNIImpl::ReleaseLongArrayElements,
+    JNIImpl::ReleaseFloatArrayElements,
+    JNIImpl::ReleaseDoubleArrayElements,
+    JNIImpl::GetBooleanArrayRegion,
+    JNIImpl::GetByteArrayRegion,
+    JNIImpl::GetCharArrayRegion,
+    JNIImpl::GetShortArrayRegion,
+    JNIImpl::GetIntArrayRegion,
+    JNIImpl::GetLongArrayRegion,
+    JNIImpl::GetFloatArrayRegion,
+    JNIImpl::GetDoubleArrayRegion,
+    JNIImpl::SetBooleanArrayRegion,
+    JNIImpl::SetByteArrayRegion,
+    JNIImpl::SetCharArrayRegion,
+    JNIImpl::SetShortArrayRegion,
+    JNIImpl::SetIntArrayRegion,
+    JNIImpl::SetLongArrayRegion,
+    JNIImpl::SetFloatArrayRegion,
+    JNIImpl::SetDoubleArrayRegion,
+    JNIImpl::RegisterNatives,
+    JNIImpl::UnregisterNatives,
+    JNIImpl::MonitorEnter,
+    JNIImpl::MonitorExit,
+    JNIImpl::GetJavaVM,
+    JNIImpl::GetStringRegion,
+    JNIImpl::GetStringUTFRegion,
+    JNIImpl::GetPrimitiveArrayCritical,
+    JNIImpl::ReleasePrimitiveArrayCritical,
+    JNIImpl::GetStringCritical,
+    JNIImpl::ReleaseStringCritical,
+    JNIImpl::NewWeakGlobalRef,
+    JNIImpl::DeleteWeakGlobalRef,
+    JNIImpl::ExceptionCheck,
+    JNIImpl::NewDirectByteBuffer,
+    JNIImpl::GetDirectBufferAddress,
+    JNIImpl::GetDirectBufferCapacity,
+    JNIImpl::GetObjectRefType,
+  };
 };
 
 const JNINativeInterface* GetJniNativeInterface() {
-  return &gJniNativeInterface;
+  // The template argument is passed down through the Encode/DecodeArtMethod/Field calls so if
+  // JniIdType is kPointer the calls will be a simple cast with no branches. This ensures that
+  // the normal case is still fast.
+  return Runtime::Current()->GetJniIdType() == JniIdType::kPointer
+             ? &JniNativeInterfaceFunctions<false>::gJniNativeInterface
+             : &JniNativeInterfaceFunctions<true>::gJniNativeInterface;
 }
 
 void (*gJniSleepForeverStub[])()  = {
@@ -3358,16 +3206,6 @@ void (*gJniSleepForeverStub[])()  = {
 
 const JNINativeInterface* GetRuntimeShutdownNativeInterface() {
   return reinterpret_cast<JNINativeInterface*>(&gJniSleepForeverStub);
-}
-
-void JniInitializeNativeCallerCheck() {
-  // This method should be called only once and before there are multiple runtime threads.
-  DCHECK(!CodeRangeCache::GetSingleton().HasCache());
-  CodeRangeCache::GetSingleton().BuildCache();
-}
-
-void JniShutdownNativeCallerCheck() {
-  CodeRangeCache::GetSingleton().DropCache();
 }
 
 }  // namespace art

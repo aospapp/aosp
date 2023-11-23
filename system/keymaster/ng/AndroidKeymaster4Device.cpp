@@ -21,6 +21,7 @@
 #include "include/AndroidKeymaster4Device.h"
 
 #include <keymasterV4_0/authorization_set.h>
+#include <keymasterV4_0/keymaster_utils.h>
 
 #include <keymaster/android_keymaster.h>
 #include <keymaster/android_keymaster_messages.h>
@@ -29,6 +30,8 @@
 #include <keymaster/keymaster_configuration.h>
 #include <keymaster/keymaster_enforcement.h>
 #include <keymaster/km_openssl/soft_keymaster_enforcement.h>
+
+using android::hardware::keymaster::V4_0::support::authToken2HidlVec;
 
 namespace keymaster {
 namespace V4_0 {
@@ -72,46 +75,8 @@ inline keymaster_tag_type_t typeFromTag(const keymaster_tag_t tag) {
 
 class KmParamSet : public keymaster_key_param_set_t {
   public:
-    explicit KmParamSet(const hidl_vec<KeyParameter>& keyParams) {
-        params = new keymaster_key_param_t[keyParams.size()];
-        length = keyParams.size();
-        for (size_t i = 0; i < keyParams.size(); ++i) {
-            auto tag = legacy_enum_conversion(keyParams[i].tag);
-            switch (typeFromTag(tag)) {
-            case KM_ENUM:
-            case KM_ENUM_REP:
-                params[i] = keymaster_param_enum(tag, keyParams[i].f.integer);
-                break;
-            case KM_UINT:
-            case KM_UINT_REP:
-                params[i] = keymaster_param_int(tag, keyParams[i].f.integer);
-                break;
-            case KM_ULONG:
-            case KM_ULONG_REP:
-                params[i] = keymaster_param_long(tag, keyParams[i].f.longInteger);
-                break;
-            case KM_DATE:
-                params[i] = keymaster_param_date(tag, keyParams[i].f.dateTime);
-                break;
-            case KM_BOOL:
-                if (keyParams[i].f.boolValue)
-                    params[i] = keymaster_param_bool(tag);
-                else
-                    params[i].tag = KM_TAG_INVALID;
-                break;
-            case KM_BIGNUM:
-            case KM_BYTES:
-                params[i] =
-                    keymaster_param_blob(tag, &keyParams[i].blob[0], keyParams[i].blob.size());
-                break;
-            case KM_INVALID:
-            default:
-                params[i].tag = KM_TAG_INVALID;
-                /* just skip */
-                break;
-            }
-        }
-    }
+    explicit KmParamSet(const hidl_vec<KeyParameter>& keyParams)
+        : keymaster_key_param_set_t(hidlKeyParams2Km(keyParams)) {}
     KmParamSet(KmParamSet&& other) : keymaster_key_param_set_t{other.params, other.length} {
         other.length = 0;
         other.params = nullptr;
@@ -209,14 +174,62 @@ void addClientAndAppData(const hidl_vec<uint8_t>& clientId, const hidl_vec<uint8
 
 }  // anonymous namespace
 
+keymaster_key_param_set_t hidlKeyParams2Km(const hidl_vec<KeyParameter>& keyParams) {
+    keymaster_key_param_set_t set;
+
+    set.params = new keymaster_key_param_t[keyParams.size()];
+    set.length = keyParams.size();
+
+    for (size_t i = 0; i < keyParams.size(); ++i) {
+        auto tag = legacy_enum_conversion(keyParams[i].tag);
+        switch (typeFromTag(tag)) {
+        case KM_ENUM:
+        case KM_ENUM_REP:
+            set.params[i] = keymaster_param_enum(tag, keyParams[i].f.integer);
+            break;
+        case KM_UINT:
+        case KM_UINT_REP:
+            set.params[i] = keymaster_param_int(tag, keyParams[i].f.integer);
+            break;
+        case KM_ULONG:
+        case KM_ULONG_REP:
+            set.params[i] = keymaster_param_long(tag, keyParams[i].f.longInteger);
+            break;
+        case KM_DATE:
+            set.params[i] = keymaster_param_date(tag, keyParams[i].f.dateTime);
+            break;
+        case KM_BOOL:
+            if (keyParams[i].f.boolValue)
+                set.params[i] = keymaster_param_bool(tag);
+            else
+                set.params[i].tag = KM_TAG_INVALID;
+            break;
+        case KM_BIGNUM:
+        case KM_BYTES:
+            set.params[i] =
+                keymaster_param_blob(tag, &keyParams[i].blob[0], keyParams[i].blob.size());
+            break;
+        case KM_INVALID:
+        default:
+            set.params[i].tag = KM_TAG_INVALID;
+            /* just skip */
+            break;
+        }
+    }
+
+    return set;
+}
+
 AndroidKeymaster4Device::AndroidKeymaster4Device(SecurityLevel securityLevel)
     : impl_(new ::keymaster::AndroidKeymaster(
-          []() -> auto {
-              auto context = new PureSoftKeymasterContext();
+          [&]() -> auto {
+              auto context = new PureSoftKeymasterContext(
+                  static_cast<keymaster_security_level_t>(securityLevel));
               context->SetSystemVersion(GetOsVersion(), GetOsPatchlevel());
               return context;
           }(),
-          kOperationTableSize)), securityLevel_(securityLevel) {}
+          kOperationTableSize)),
+      securityLevel_(securityLevel) {}
 
 AndroidKeymaster4Device::~AndroidKeymaster4Device() {}
 
@@ -478,21 +491,22 @@ Return<ErrorCode> AndroidKeymaster4Device::destroyAttestationIds() {
 
 Return<void> AndroidKeymaster4Device::begin(KeyPurpose purpose, const hidl_vec<uint8_t>& key,
                                             const hidl_vec<KeyParameter>& inParams,
-                                            const HardwareAuthToken& /* authToken */,
-                                            begin_cb _hidl_cb) {
+                                            const HardwareAuthToken& authToken, begin_cb _hidl_cb) {
 
     BeginOperationRequest request;
     request.purpose = legacy_enum_conversion(purpose);
     request.SetKeyMaterial(key.data(), key.size());
     request.additional_params.Reinitialize(KmParamSet(inParams));
 
+    hidl_vec<uint8_t> hidl_vec_token = authToken2HidlVec(authToken);
+    request.additional_params.push_back(
+        TAG_AUTH_TOKEN, reinterpret_cast<uint8_t*>(hidl_vec_token.data()), hidl_vec_token.size());
+
     BeginOperationResponse response;
     impl_->BeginOperation(request, &response);
 
     hidl_vec<KeyParameter> resultParams;
-    if (response.error == KM_ERROR_OK) {
-        resultParams = kmParamSet2Hidl(response.output_params);
-    }
+    if (response.error == KM_ERROR_OK) resultParams = kmParamSet2Hidl(response.output_params);
 
     _hidl_cb(legacy_enum_conversion(response.error), resultParams, response.op_handle);
     return Void();

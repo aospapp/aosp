@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include <algorithm>
+
+#include <android-base/file.h>
 #include <android-base/logging.h>
 #include <gtest/gtest.h>
 
@@ -21,88 +25,104 @@
 namespace android {
 namespace apex {
 
+namespace {
+
+std::string ToString(const ApexManifest& manifest) {
+  std::string out;
+  manifest.SerializeToString(&out);
+  return out;
+}
+
+}  // namespace
+
 TEST(ApexManifestTest, SimpleTest) {
-  auto apex_manifest = ParseManifest(
-      "{\"name\": \"com.android.example.apex\", \"version\": 1}\n");
-  ASSERT_TRUE(apex_manifest.Ok());
+  ApexManifest manifest;
+  manifest.set_name("com.android.example.apex");
+  manifest.set_version(1);
+  auto apex_manifest = ParseManifest(ToString(manifest));
+  ASSERT_RESULT_OK(apex_manifest);
   EXPECT_EQ("com.android.example.apex", std::string(apex_manifest->name()));
   EXPECT_EQ(1u, apex_manifest->version());
+  EXPECT_FALSE(apex_manifest->nocode());
 }
 
 TEST(ApexManifestTest, NameMissing) {
-  auto apex_manifest = ParseManifest("{\"version\": 1}\n");
-  ASSERT_FALSE(apex_manifest.Ok());
-  EXPECT_EQ(apex_manifest.ErrorMessage(),
+  ApexManifest manifest;
+  manifest.set_version(1);
+  auto apex_manifest = ParseManifest(ToString(manifest));
+  ASSERT_FALSE(apex_manifest.ok());
+  EXPECT_EQ(apex_manifest.error().message(),
             std::string("Missing required field \"name\" from APEX manifest."))
-      << apex_manifest.ErrorMessage();
+      << apex_manifest.error();
 }
 
 TEST(ApexManifestTest, VersionMissing) {
-  auto apex_manifest =
-      ParseManifest("{\"name\": \"com.android.example.apex\"}\n");
-  ASSERT_FALSE(apex_manifest.Ok());
+  ApexManifest manifest;
+  manifest.set_name("com.android.example.apex");
+  auto apex_manifest = ParseManifest(ToString(manifest));
+  ASSERT_FALSE(apex_manifest.ok());
   EXPECT_EQ(
-      apex_manifest.ErrorMessage(),
+      apex_manifest.error().message(),
       std::string("Missing required field \"version\" from APEX manifest."))
-      << apex_manifest.ErrorMessage();
-}
-
-TEST(ApexManifestTest, VersionNotNumber) {
-  auto apex_manifest = ParseManifest(
-      "{\"name\": \"com.android.example.apex\", \"version\": \"a\"}\n");
-
-  ASSERT_FALSE(apex_manifest.Ok());
-  EXPECT_EQ(apex_manifest.ErrorMessage(),
-            std::string("Failed to parse APEX Manifest JSON config: "
-                        "version: invalid value \"a\" for type TYPE_INT64"))
-      << apex_manifest.ErrorMessage();
+      << apex_manifest.error();
 }
 
 TEST(ApexManifestTest, NoPreInstallHook) {
-  auto apex_manifest = ParseManifest(
-      "{\"name\": \"com.android.example.apex\", \"version\": 1}\n");
-  ASSERT_TRUE(apex_manifest.Ok());
+  ApexManifest manifest;
+  manifest.set_name("com.android.example.apex");
+  manifest.set_version(1);
+  auto apex_manifest = ParseManifest(ToString(manifest));
+  ASSERT_RESULT_OK(apex_manifest);
   EXPECT_EQ("", std::string(apex_manifest->preinstallhook()));
 }
 
 TEST(ApexManifestTest, PreInstallHook) {
-  auto apex_manifest = ParseManifest(
-      "{\"name\": \"com.android.example.apex\", \"version\": 1, "
-      "\"preInstallHook\": \"bin/preInstallHook\"}\n");
-  ASSERT_TRUE(apex_manifest.Ok());
+  ApexManifest manifest;
+  manifest.set_name("com.android.example.apex");
+  manifest.set_version(1);
+  manifest.set_preinstallhook("bin/preInstallHook");
+  auto apex_manifest = ParseManifest(ToString(manifest));
+  ASSERT_RESULT_OK(apex_manifest);
   EXPECT_EQ("bin/preInstallHook", std::string(apex_manifest->preinstallhook()));
 }
 
 TEST(ApexManifestTest, NoPostInstallHook) {
-  auto apex_manifest = ParseManifest(
-      "{\"name\": \"com.android.example.apex\", \"version\": 1}\n");
-  ASSERT_TRUE(apex_manifest.Ok());
+  ApexManifest manifest;
+  manifest.set_name("com.android.example.apex");
+  manifest.set_version(1);
+  auto apex_manifest = ParseManifest(ToString(manifest));
+  ASSERT_RESULT_OK(apex_manifest);
   EXPECT_EQ("", std::string(apex_manifest->postinstallhook()));
 }
 
 TEST(ApexManifestTest, PostInstallHook) {
-  auto apex_manifest = ParseManifest(
-      "{\"name\": \"com.android.example.apex\", \"version\": 1, "
-      "\"postInstallHook\": \"bin/postInstallHook\"}\n");
-  ASSERT_TRUE(apex_manifest.Ok());
+  ApexManifest manifest;
+  manifest.set_name("com.android.example.apex");
+  manifest.set_version(1);
+  manifest.set_postinstallhook("bin/postInstallHook");
+  auto apex_manifest = ParseManifest(ToString(manifest));
+  ASSERT_RESULT_OK(apex_manifest);
   EXPECT_EQ("bin/postInstallHook",
             std::string(apex_manifest->postinstallhook()));
 }
 
 TEST(ApexManifestTest, UnparsableManifest) {
   auto apex_manifest = ParseManifest("This is an invalid pony");
-  ASSERT_FALSE(apex_manifest.Ok());
-  EXPECT_EQ(apex_manifest.ErrorMessage(),
-            std::string("Failed to parse APEX Manifest JSON config: Unexpected "
-                        "token.\nThis is an invalid p\n^"))
-      << apex_manifest.ErrorMessage();
+  ASSERT_FALSE(apex_manifest.ok());
+  EXPECT_EQ(apex_manifest.error().message(),
+            std::string("Can't parse APEX manifest."))
+      << apex_manifest.error();
+}
+
+TEST(ApexManifestTest, NoCode) {
+  ApexManifest manifest;
+  manifest.set_name("com.android.example.apex");
+  manifest.set_version(1);
+  manifest.set_nocode(true);
+  auto apex_manifest = ParseManifest(ToString(manifest));
+  ASSERT_RESULT_OK(apex_manifest);
+  EXPECT_TRUE(apex_manifest->nocode());
 }
 
 }  // namespace apex
 }  // namespace android
-
-int main(int argc, char** argv) {
-  android::base::InitLogging(argv, &android::base::StderrLogger);
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

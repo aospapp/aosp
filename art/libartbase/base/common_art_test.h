@@ -26,36 +26,38 @@
 
 #include <android-base/logging.h>
 
+#include "base/file_utils.h"
 #include "base/globals.h"
+#include "base/memory_tool.h"
 #include "base/mutex.h"
 #include "base/os.h"
 #include "base/unix_file/fd_file.h"
 #include "dex/art_dex_file_loader.h"
 #include "dex/compact_dex_level.h"
-#include "obj_ptr-inl.h"
+#include "dex/compact_dex_file.h"
 
 namespace art {
 
 using LogSeverity = android::base::LogSeverity;
 using ScopedLogSeverity = android::base::ScopedLogSeverity;
 
-template<class MirrorType>
-static inline ObjPtr<MirrorType> MakeObjPtr(MirrorType* ptr) {
-  return ptr;
-}
-
-template<class MirrorType>
-static inline ObjPtr<MirrorType> MakeObjPtr(ObjPtr<MirrorType> ptr) {
-  return ptr;
-}
-
-// OBJ pointer helpers to avoid needing .Decode everywhere.
-#define EXPECT_OBJ_PTR_EQ(a, b) EXPECT_EQ(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr())
-#define ASSERT_OBJ_PTR_EQ(a, b) ASSERT_EQ(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr())
-#define EXPECT_OBJ_PTR_NE(a, b) EXPECT_NE(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr())
-#define ASSERT_OBJ_PTR_NE(a, b) ASSERT_NE(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr())
-
 class DexFile;
+
+class ScratchDir {
+ public:
+  ScratchDir();
+
+  ~ScratchDir();
+
+  const std::string& GetPath() const {
+    return path_;
+  }
+
+ private:
+  std::string path_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScratchDir);
+};
 
 class ScratchFile {
  public:
@@ -91,13 +93,79 @@ class ScratchFile {
   std::unique_ptr<File> file_;
 };
 
+// Close to store a fake dex file and its underlying data.
+class FakeDex {
+ public:
+  static std::unique_ptr<FakeDex> Create(
+      const std::string& location,
+      uint32_t checksum,
+      uint32_t num_method_ids) {
+    FakeDex* fake_dex = new FakeDex();
+    fake_dex->dex = CreateFakeDex(location, checksum, num_method_ids, &fake_dex->storage);
+    return std::unique_ptr<FakeDex>(fake_dex);
+  }
+
+  static std::unique_ptr<const DexFile> CreateFakeDex(
+      const std::string& location,
+      uint32_t checksum,
+      uint32_t num_method_ids,
+      std::vector<uint8_t>* storage) {
+    storage->resize(kPageSize);
+    CompactDexFile::Header* header =
+        const_cast<CompactDexFile::Header*>(CompactDexFile::Header::At(storage->data()));
+    CompactDexFile::WriteMagic(header->magic_);
+    CompactDexFile::WriteCurrentVersion(header->magic_);
+    header->data_off_ = 0;
+    header->data_size_ = storage->size();
+    header->method_ids_size_ = num_method_ids;
+
+    const DexFileLoader dex_file_loader;
+    std::string error_msg;
+    std::unique_ptr<const DexFile> dex(dex_file_loader.Open(storage->data(),
+                                                            storage->size(),
+                                                            location,
+                                                            checksum,
+                                                            /*oat_dex_file=*/nullptr,
+                                                            /*verify=*/false,
+                                                            /*verify_checksum=*/false,
+                                                            &error_msg));
+    CHECK(dex != nullptr) << error_msg;
+    return dex;
+  }
+
+  std::unique_ptr<const DexFile>& Dex() {
+    return dex;
+  }
+
+ private:
+  std::vector<uint8_t> storage;
+  std::unique_ptr<const DexFile> dex;
+};
+
+// Convenience class to store multiple fake dex files in order to make
+// allocation/de-allocation easier in tests.
+class FakeDexStorage {
+ public:
+  const DexFile* AddFakeDex(
+      const std::string& location,
+      uint32_t checksum,
+      uint32_t num_method_ids) {
+    fake_dex_files.push_back(FakeDex::Create(location, checksum, num_method_ids));
+    return fake_dex_files.back()->Dex().get();
+  }
+
+ private:
+  std::vector<std::unique_ptr<FakeDex>> fake_dex_files;
+};
+
 class CommonArtTestImpl {
  public:
   CommonArtTestImpl() = default;
   virtual ~CommonArtTestImpl() = default;
 
-  // Set up ANDROID_BUILD_TOP, ANDROID_HOST_OUT, ANDROID_ROOT, ANDROID_RUNTIME_ROOT,
-  // and ANDROID_TZDATA_ROOT environment variables using sensible defaults if not already set.
+  // Set up ANDROID_BUILD_TOP, ANDROID_HOST_OUT, ANDROID_ROOT, ANDROID_I18N_ROOT,
+  // ANDROID_ART_ROOT, and ANDROID_TZDATA_ROOT environment variables using sensible defaults
+  // if not already set.
   static void SetUpAndroidRootEnvVars();
 
   // Set up the ANDROID_DATA environment variable, creating the directory if required.
@@ -200,8 +268,6 @@ class CommonArtTestImpl {
   std::unique_ptr<const DexFile> LoadExpectSingleDexFile(const char* location);
 
   void ClearDirectory(const char* dirpath, bool recursive = true);
-
-  std::string GetTestAndroidRoot();
 
   // Open a file (allows reading of framework jars).
   std::vector<std::unique_ptr<const DexFile>> OpenDexFiles(const char* filename);

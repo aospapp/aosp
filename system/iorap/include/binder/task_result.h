@@ -34,6 +34,17 @@ struct TaskResult : public AutoParcelable<TaskResult> {
   };
 
   State state;
+
+  TaskResult() = default;
+  explicit TaskResult(State state) : state(state) {}
+
+  constexpr bool operator==(const TaskResult& other) const {
+    return state == other.state;
+  }
+
+  constexpr bool operator!=(const TaskResult& other) const {
+    return !(*this == other);
+  }
 };
 
 IORAP_INTROSPECT_ADAPT_STRUCT(TaskResult, state);

@@ -71,7 +71,8 @@ class TestCasesParser(object):
              n_bit,
              test_filter,
              run_staging=False,
-             is_low_mem=False):
+             is_low_mem=False,
+             is_hwasan=False):
         """Read the definition file and yields a TestCase generator.
 
         Args:
@@ -85,7 +86,7 @@ class TestCasesParser(object):
                            if is_low_mem else ltp_configs.TEST_SUITES)
         logging.info('LTP scenario groups: %s', scenario_groups)
 
-        run_scritp = self.GenerateLtpRunScript(scenario_groups)
+        run_scritp = self.GenerateLtpRunScript(scenario_groups, is_hwasan=is_hwasan)
 
         for line in run_scritp:
             items = self.ValidateDefinition(line)
@@ -204,7 +205,7 @@ class TestCasesParser(object):
                 [testsuite, testname_modified, line[len(testname):].strip()]))
         return result
 
-    def GenerateLtpRunScript(self, scenario_groups):
+    def GenerateLtpRunScript(self, scenario_groups, is_hwasan=False):
         '''Given a scenario group generate test case script.
 
         Args:
@@ -216,6 +217,8 @@ class TestCasesParser(object):
         disabled_tests_path = os.path.join(
             self._data_path, ltp_configs.LTP_DISABLED_BUILD_TESTS_CONFIG_PATH)
         disabled_tests_list = self.ReadCommentedTxt(disabled_tests_path)
+        if is_hwasan:
+          disabled_tests_list = disabled_tests_list.union(disabled_tests.DISABLED_TESTS_HWASAN)
 
         result = []
         for testsuite in scenario_groups:

@@ -83,4 +83,11 @@ public class BitmapFactorySecurityTests extends AndroidTestCase {
             fail("OOM attempting to decode BMP");
         }
     }
+
+    @SecurityTest
+    public void test_android_bug_156261521() {
+        // Previously decoding this would crash.
+        FileDescriptor exploitImage = getResource(R.raw.bug_156261521);
+        BitmapFactory.decodeFileDescriptor(exploitImage);
+    }
 }

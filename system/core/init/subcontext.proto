@@ -39,9 +39,5 @@ message SubcontextReply {
         ExpandArgsReply expand_args_reply = 3;
     }
 
-    message PropertyToSet {
-        optional string name = 1;
-        optional string value = 2;
-    }
-    repeated PropertyToSet properties_to_set = 4;
+    optional string trigger_shutdown = 4;
 }

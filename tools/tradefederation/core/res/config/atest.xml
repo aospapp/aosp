@@ -15,4 +15,8 @@
 -->
 <configuration description="Points to the TF entry point runner for atest.">
   <test class="com.android.tradefed.testtype.suite.AtestRunner" />
+  <result_reporter class="com.android.tradefed.result.SubprocessResultsReporter" />
+  <result_reporter class="com.android.tradefed.result.proto.FileProtoResultReporter">
+    <option name="use-delimited-api" value="false" />
+  </result_reporter>
 </configuration>

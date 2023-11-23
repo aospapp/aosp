@@ -27,7 +27,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 1 (0x1)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=SE, O=AddTrust AB, OU=AddTrust External TTP Network, CN=AddTrust External CA Root
         Validity
             Not Before: May 30 10:48:38 2000 GMT
@@ -35,7 +35,7 @@ Certificate:
         Subject: C=SE, O=AddTrust AB, OU=AddTrust External TTP Network, CN=AddTrust External CA Root
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:b7:f7:1a:33:e6:f2:00:04:2d:39:e0:4e:5b:ed:
                     1f:bc:6c:0f:cd:b5:fa:23:b6:ce:de:9b:11:33:97:

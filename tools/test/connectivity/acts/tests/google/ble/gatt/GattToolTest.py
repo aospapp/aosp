@@ -49,8 +49,8 @@ class GattToolTest(BluetoothBaseTest):
     adv_instances = []
     timer_list = []
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         # Central role Android device
         self.cen_ad = self.android_devices[0]
         self.ble_mac_address = self.user_params['ble_mac_address']

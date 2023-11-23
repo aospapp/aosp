@@ -27,7 +27,7 @@ constexpr bool isSlpiUimgSupported() {
   return true;
 #else
   return false;
-#endif // CHRE_SLPI_UIMG_ENABLED
+#endif  // CHRE_SLPI_UIMG_ENABLED
 }
 
 }  // namespace chre

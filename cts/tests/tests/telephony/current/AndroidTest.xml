@@ -19,6 +19,7 @@
     <option name="config-descriptor:metadata" key="token" value="SIM_CARD" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
     <option name="not-shardable" value="true" />
     <target_preparer class="android.telephony.cts.preconditions.TelephonyPreparer">
         <option name="apk" value="CtsTelephonyPreparerApp.apk" />
@@ -33,6 +34,8 @@
         <option name="test-file-name" value="TestSmsRetrieverApp.apk"/>
         <option name="test-file-name" value="TestFinancialSmsApp.apk"/>
         <option name="test-file-name" value="LocationAccessingApp.apk"/>
+        <option name="test-file-name" value="LocationAccessingAppSdk28.apk"/>
+        <option name="test-file-name" value="TestExternalImsServiceApp.apk"/>
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.telephony.cts" />

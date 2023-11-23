@@ -24,7 +24,7 @@
         <option name="test-module-name" value="VtsHalSoundtriggerV2_2Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalSoundtriggerV2_2TargetTest/VtsHalSoundtriggerV2_2TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalSoundtriggerV2_2TargetTest/VtsHalSoundtriggerV2_2TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="exclude-coverage-path" value="hardware/interfaces/audio/" />

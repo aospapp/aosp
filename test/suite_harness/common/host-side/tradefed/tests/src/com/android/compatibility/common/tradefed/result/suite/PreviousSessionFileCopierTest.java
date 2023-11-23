@@ -95,4 +95,13 @@ public class PreviousSessionFileCopierTest {
         // File are not overriden
         assertEquals("CURRENT", FileUtil.readStringFromFile(original));
     }
+
+    @Test
+    public void testCopy_fileExcluded() throws Exception {
+        new File(mPreviousDir, "proto").mkdir();
+        mCopier.invocationStarted(mContext);
+        mCopier.invocationEnded(500L);
+        // Nothing was copied
+        assertEquals(0, mCurrentDir.listFiles().length);
+    }
 }

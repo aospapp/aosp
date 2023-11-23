@@ -144,13 +144,11 @@ public class WebViewRenderProcessClientTest extends ActivityInstrumentationTestC
         WebkitUtils.waitForFuture(rendererUnblocked);
     }
 
-    // TODO(tobiasjs) enable after webview drop
-    public void disabled_testWebViewRenderProcessClientWithoutExecutor() throws Throwable {
+    public void testWebViewRenderProcessClientWithoutExecutor() throws Throwable {
         testWebViewRenderProcessClientOnExecutor(null);
     }
 
-    // TODO(tobiasjs) enable after webview drop
-    public void disabled_testWebViewRenderProcessClientWithExecutor() throws Throwable {
+    public void testWebViewRenderProcessClientWithExecutor() throws Throwable {
         final AtomicInteger executorCount = new AtomicInteger();
         testWebViewRenderProcessClientOnExecutor(new Executor() {
             @Override
@@ -162,8 +160,7 @@ public class WebViewRenderProcessClientTest extends ActivityInstrumentationTestC
         assertEquals(2, executorCount.get());
     }
 
-    // TODO(tobiasjs) enable after webview drop
-    public void disabled_testSetWebViewRenderProcessClient() throws Throwable {
+    public void testSetWebViewRenderProcessClient() throws Throwable {
         assertNull("Initially the renderer client should be null",
                 mOnUiThread.getWebViewRenderProcessClient());
 

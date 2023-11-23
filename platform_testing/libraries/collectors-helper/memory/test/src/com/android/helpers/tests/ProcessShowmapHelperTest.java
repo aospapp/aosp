@@ -35,7 +35,7 @@ import java.util.Map;
  * Android Unit tests for {@link ProcessShowmapHelper}.
  *
  * To run:
- * atest CollectorsHelperTest:com.android.helpers.tests.ProcessShowmapHelper
+ * atest CollectorsHelperTest:com.android.helpers.tests.ProcessShowmapHelperTest
  */
 @RunWith(AndroidJUnit4.class)
 public class ProcessShowmapHelperTest {

@@ -27,6 +27,22 @@ DNS_SHORT_LIFETIME = 3
 
 
 class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
+    def setup_class(self):
+        super().setup_class()
+        self.unpack_userparams(sub_mask="255.255.255.0",
+                               mac_dst="get_from_dut",
+                               mac_src="get_local",
+                               ipv4_dst="get_from_dut",
+                               ipv4_src="get_local",
+                               ipv6_dst="get_from_dut",
+                               ipv6_src="get_local",
+                               ipv6_src_type="LINK_LOCAL",
+                               ipv4_gwt="192.168.1.1",
+                               mac_dst_fake="40:90:28:EF:4B:20",
+                               ipv4_dst_fake="192.168.1.60",
+                               ipv6_dst_fake="fe80::300f:40ee:ee0a:5000",
+                               interval=1)
+
     def set_connection(self):
         """Setup connection between AP and client.
 
@@ -38,8 +54,9 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         indices = [2, 4]
         self.decode_test_configs(attrs, indices)
         # Change DTIMx1 on the phone to receive all Multicast packets
-        rebooted = wputils.change_dtim(
-            self.dut, gEnableModulatedDTIM=1, gMaxLIModulatedDTIM=10)
+        rebooted = wputils.change_dtim(self.dut,
+                                       gEnableModulatedDTIM=1,
+                                       gMaxLIModulatedDTIM=10)
         self.dut.log.info('DTIM value of the phone is now DTIMx1')
         if rebooted:
             self.dut_rockbottom()
@@ -79,7 +96,7 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(self.ipv4_dst_fake)
+        packet = pkt_gen.generate(ip_dst=self.ipv4_dst_fake)
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='dd3ff80d-97ce-4408-92f8-f2c72ce8d79c')
@@ -87,8 +104,8 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(
-            ip_dst='0.0.0.0', eth_dst=self.pkt_gen_config['dst_mac'])
+        packet = pkt_gen.generate(ip_dst='0.0.0.0',
+                                  eth_dst=self.pkt_gen_config['dst_mac'])
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='5dcb16f1-725c-45de-8103-340104d60a22')
@@ -96,8 +113,8 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(
-            ip_dst=self.ipv4_dst_fake, eth_dst=self.pkt_gen_config['dst_mac'])
+        packet = pkt_gen.generate(ip_dst=self.ipv4_dst_fake,
+                                  eth_dst=self.pkt_gen_config['dst_mac'])
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='5ec4800f-a82e-4462-8b65-4fcd0b1940a2')
@@ -105,12 +122,11 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(
-            op='is-at',
-            ip_src='0.0.0.0',
-            ip_dst=self.ipv4_dst_fake,
-            hwdst=self.mac_dst_fake,
-            eth_dst=self.pkt_gen_config['dst_mac'])
+        packet = pkt_gen.generate(op='is-at',
+                                  ip_src='0.0.0.0',
+                                  ip_dst=self.ipv4_dst_fake,
+                                  hwdst=self.mac_dst_fake,
+                                  eth_dst=self.pkt_gen_config['dst_mac'])
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='6c5c0e9e-7a00-43d0-a6e8-355141467703')
@@ -118,11 +134,10 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(
-            op='is-at',
-            ip_dst=self.ipv4_dst_fake,
-            hwdst=self.mac_dst_fake,
-            eth_dst=self.pkt_gen_config['dst_mac'])
+        packet = pkt_gen.generate(op='is-at',
+                                  ip_dst=self.ipv4_dst_fake,
+                                  hwdst=self.mac_dst_fake,
+                                  eth_dst=self.pkt_gen_config['dst_mac'])
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='8e534d3b-5a25-429a-a1bb-8119d7d28b5a')
@@ -138,7 +153,7 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.NsGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(self.ipv6_dst_fake)
+        packet = pkt_gen.generate(ip_dst=self.ipv6_dst_fake)
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='5eed3174-8e94-428e-8527-19a9b5a90322')
@@ -178,8 +193,9 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.RaGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(
-            RA_LONG_LIFETIME, enableDNS=True, dns_lifetime=DNS_SHORT_LIFETIME)
+        packet = pkt_gen.generate(RA_LONG_LIFETIME,
+                                  enableDNS=True,
+                                  dns_lifetime=DNS_SHORT_LIFETIME)
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='84d2f1ff-bd4f-46c6-9b06-826d9b14909c')
@@ -187,8 +203,9 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.RaGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(
-            RA_LONG_LIFETIME, enableDNS=True, dns_lifetime=DNS_LONG_LIFETIME)
+        packet = pkt_gen.generate(RA_LONG_LIFETIME,
+                                  enableDNS=True,
+                                  dns_lifetime=DNS_LONG_LIFETIME)
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='4a17e74f-3e7f-4e90-ac9e-884a7c13cede')
@@ -333,8 +350,9 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.RaGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(
-            RA_LONG_LIFETIME, enableDNS=True, dns_lifetime=DNS_SHORT_LIFETIME)
+        packet = pkt_gen.generate(RA_LONG_LIFETIME,
+                                  enableDNS=True,
+                                  dns_lifetime=DNS_SHORT_LIFETIME)
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='62b99cd7-75bf-45be-b93f-bb037a13b3e2')
@@ -342,8 +360,9 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.set_connection()
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.RaGenerator(**self.pkt_gen_config)
-        packet = pkt_gen.generate(
-            RA_LONG_LIFETIME, enableDNS=True, dns_lifetime=DNS_LONG_LIFETIME)
+        packet = pkt_gen.generate(RA_LONG_LIFETIME,
+                                  enableDNS=True,
+                                  dns_lifetime=DNS_LONG_LIFETIME)
         self.sendPacketAndMeasure(packet)
 
     @test_tracker_info(uuid='4088af4c-a64b-4fc1-848c-688936cc6c12')

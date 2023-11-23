@@ -31,7 +31,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             18:da:d1:9e:26:7d:e8:bb:4a:21:58:cd:cc:6b:3b:4a
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=(c) 2006 VeriSign, Inc. - For authorized use only, CN=VeriSign Class 3 Public Primary Certification Authority - G5
         Validity
             Not Before: Nov  8 00:00:00 2006 GMT
@@ -39,7 +39,7 @@ Certificate:
         Subject: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=(c) 2006 VeriSign, Inc. - For authorized use only, CN=VeriSign Class 3 Public Primary Certification Authority - G5
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:af:24:08:08:29:7a:35:9e:60:0c:aa:e7:4b:3b:
                     4e:dc:7c:bc:3c:45:1c:bb:2b:e0:fe:29:02:f9:57:

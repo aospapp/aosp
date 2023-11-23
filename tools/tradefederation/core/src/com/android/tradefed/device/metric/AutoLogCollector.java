@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.device.metric;
 
+import java.lang.reflect.InvocationTargetException;
+
 /** Enumeration describing which collector can automatically be handled by the harness. */
 public enum AutoLogCollector {
     BUGREPORTZ_ON_FAILURE(BugreportzOnFailureCollector.class),
@@ -31,9 +33,12 @@ public enum AutoLogCollector {
     /** Returns the instance of collector associated with the {@link AutoLogCollector} value. */
     public BaseDeviceMetricCollector getInstanceForValue() {
         try {
-            Object o = mClass.newInstance();
+            Object o = mClass.getDeclaredConstructor().newInstance();
             return (BaseDeviceMetricCollector) o;
-        } catch (InstantiationException | IllegalAccessException e) {
+        } catch (InstantiationException
+                | IllegalAccessException
+                | InvocationTargetException
+                | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
     }

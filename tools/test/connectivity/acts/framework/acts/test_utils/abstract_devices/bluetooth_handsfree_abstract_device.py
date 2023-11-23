@@ -14,8 +14,11 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 import inspect
-
+import time
+from acts import asserts
 from acts.controllers.buds_lib.dev_utils import apollo_sink_events
+from acts.test_utils.bt.bt_constants import bt_default_timeout
+
 
 
 def validate_controller(controller, abstract_device_class):
@@ -29,8 +32,8 @@ def validate_controller(controller, abstract_device_class):
          NotImplementedError: if controller is missing one or more methods.
     """
     ctlr_methods = inspect.getmembers(controller, predicate=callable)
-    reqd_methods = inspect.getmembers(abstract_device_class,
-                                      predicate=inspect.ismethod)
+    reqd_methods = inspect.getmembers(
+        abstract_device_class, predicate=inspect.ismethod)
     expected_func_names = {method[0] for method in reqd_methods}
     controller_func_names = {method[0] for method in ctlr_methods}
 
@@ -47,8 +50,7 @@ def validate_controller(controller, abstract_device_class):
         if inspect.signature(controller_func) != required_signature:
             raise NotImplementedError(
                 'Method {} must have the signature {}{}.'.format(
-                    controller_func.__qualname__,
-                    controller_func.__name__,
+                    controller_func.__qualname__, controller_func.__name__,
                     required_signature))
 
 
@@ -58,6 +60,7 @@ class BluetoothHandsfreeAbstractDevice:
     Desired controller classes should have a corresponding Bluetooth handsfree
     abstract device class defined in this module.
     """
+
     @property
     def mac_address(self):
         raise NotImplementedError
@@ -100,7 +103,7 @@ class BluetoothHandsfreeAbstractDevice:
 
 
 class PixelBudsBluetoothHandsfreeAbstractDevice(
-    BluetoothHandsfreeAbstractDevice):
+        BluetoothHandsfreeAbstractDevice):
 
     CMD_EVENT = 'EvtHex'
 
@@ -115,7 +118,8 @@ class PixelBudsBluetoothHandsfreeAbstractDevice(
         return self.pixel_buds_controller.bluetooth_address
 
     def accept_call(self):
-        return self.pixel_buds_controller.cmd(self.format_cmd('EventUsrAnswer'))
+        return self.pixel_buds_controller.cmd(
+            self.format_cmd('EventUsrAnswer'))
 
     def end_call(self):
         return self.pixel_buds_controller.cmd(
@@ -147,7 +151,8 @@ class PixelBudsBluetoothHandsfreeAbstractDevice(
             self.format_cmd('EventUsrAvrcpSkipBackward'))
 
     def reject_call(self):
-        return self.pixel_buds_controller.cmd(self.format_cmd('EventUsrReject'))
+        return self.pixel_buds_controller.cmd(
+            self.format_cmd('EventUsrReject'))
 
     def volume_down(self):
         return self.pixel_buds_controller.volume('Down')
@@ -158,7 +163,6 @@ class PixelBudsBluetoothHandsfreeAbstractDevice(
 
 class EarstudioReceiverBluetoothHandsfreeAbstractDevice(
         BluetoothHandsfreeAbstractDevice):
-
     def __init__(self, earstudio_controller):
         self.earstudio_controller = earstudio_controller
 
@@ -205,7 +209,6 @@ class EarstudioReceiverBluetoothHandsfreeAbstractDevice(
 
 class JaybirdX3EarbudsBluetoothHandsfreeAbstractDevice(
         BluetoothHandsfreeAbstractDevice):
-
     def __init__(self, jaybird_controller):
         self.jaybird_controller = jaybird_controller
 
@@ -250,6 +253,73 @@ class JaybirdX3EarbudsBluetoothHandsfreeAbstractDevice(
         return self.jaybird_controller.press_volume_up()
 
 
+class AndroidHeadsetBluetoothHandsfreeAbstractDevice(
+        BluetoothHandsfreeAbstractDevice):
+    def __init__(self, ad_controller):
+        self.ad_controller = ad_controller
+
+    @property
+    def mac_address(self):
+        """Getting device mac with more stability ensurance.
+
+        Sometime, getting mac address is flaky that it returns None. Adding a
+        loop to add more ensurance of getting correct mac address.
+        """
+        device_mac = None
+        start_time = time.time()
+        end_time = start_time + bt_default_timeout
+        while not device_mac and time.time() < end_time:
+            device_mac = self.ad_controller.droid.bluetoothGetLocalAddress()
+        asserts.assert_true(device_mac, 'Can not get the MAC address')
+        return device_mac
+
+    def accept_call(self):
+        return self.ad_controller.droid.telecomAcceptRingingCall(None)
+
+    def end_call(self):
+        return self.ad_controller.droid.telecomEndCall()
+
+    def enter_pairing_mode(self):
+        self.ad_controller.droid.bluetoothStartPairingHelper(True)
+        return self.ad_controller.droid.bluetoothMakeDiscoverable()
+
+    def next_track(self):
+        return (self.ad_controller.droid.bluetoothMediaPassthrough("skipNext"))
+
+    def pause(self):
+        return self.ad_controller.droid.bluetoothMediaPassthrough("pause")
+
+    def play(self):
+        return self.ad_controller.droid.bluetoothMediaPassthrough("play")
+
+    def power_off(self):
+        return self.ad_controller.droid.bluetoothToggleState(False)
+
+    def power_on(self):
+        return self.ad_controller.droid.bluetoothToggleState(True)
+
+    def previous_track(self):
+        return (self.ad_controller.droid.bluetoothMediaPassthrough("skipPrev"))
+
+    def reject_call(self):
+        return self.ad_controller.droid.telecomCallDisconnect(
+            self.ad_controller.droid.telecomCallGetCallIds()[0])
+
+    def reset(self):
+        return self.ad_controller.droid.bluetoothFactoryReset()
+
+    def volume_down(self):
+        target_step = self.ad_controller.droid.getMediaVolume() - 1
+        target_step = max(target_step, 0)
+        return self.ad_controller.droid.setMediaVolume(target_step)
+
+    def volume_up(self):
+        target_step = self.ad_controller.droid.getMediaVolume() + 1
+        max_step = self.ad_controller.droid.getMaxMediaVolume()
+        target_step = min(target_step, max_step)
+        return self.ad_controller.droid.setMediaVolume(target_step)
+
+
 class BluetoothHandsfreeAbstractDeviceFactory:
     """Generates a BluetoothHandsfreeAbstractDevice for any device controller.
     """
@@ -257,7 +327,8 @@ class BluetoothHandsfreeAbstractDeviceFactory:
     _controller_abstract_devices = {
         'EarstudioReceiver': EarstudioReceiverBluetoothHandsfreeAbstractDevice,
         'JaybirdX3Earbuds': JaybirdX3EarbudsBluetoothHandsfreeAbstractDevice,
-        'ParentDevice': PixelBudsBluetoothHandsfreeAbstractDevice
+        'ParentDevice': PixelBudsBluetoothHandsfreeAbstractDevice,
+        'AndroidDevice': AndroidHeadsetBluetoothHandsfreeAbstractDevice
     }
 
     def generate(self, controller):

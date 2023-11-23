@@ -23,11 +23,39 @@ namespace gsi {
 
 static constexpr char kGsiServiceName[] = "gsiservice";
 
-static constexpr char kGsiBootedIndicatorFile[] = "/metadata/gsi/dsu/booted";
+#define DSU_METADATA_PREFIX "/metadata/gsi/dsu/"
+
+static constexpr char kGsiBootedIndicatorFile[] = DSU_METADATA_PREFIX "booted";
+
+static constexpr char kGsiLpNamesFile[] = DSU_METADATA_PREFIX "lp_names";
+
+static constexpr char kDsuActiveFile[] = DSU_METADATA_PREFIX "active";
+
+static constexpr char kDsuAvbKeyDir[] = DSU_METADATA_PREFIX "avb/";
+
+static inline std::string DsuLpMetadataFile(const std::string& dsu_slot) {
+    return DSU_METADATA_PREFIX + dsu_slot + "/lp_metadata";
+}
+
+static inline std::string DsuInstallDirFile(const std::string& dsu_slot) {
+    return DSU_METADATA_PREFIX + dsu_slot + "/install_dir";
+}
+
+// install_dir "/data/gsi/dsu/dsu" has a slot name "dsu"
+// install_dir "/data/gsi/dsu/dsu2" has a slot name "dsu2"
+std::string GetDsuSlot(const std::string& install_dir);
 
 static constexpr char kGsiBootedProp[] = "ro.gsid.image_running";
 
+static constexpr char kGsiInstalledProp[] = "gsid.image_installed";
+
+static constexpr char kDsuPostfix[] = "_gsi";
+
 static constexpr int kMaxBootAttempts = 1;
+
+// Get the currently active dsu slot
+// Return true on success
+bool GetActiveDsu(std::string* active_dsu);
 
 // Returns true if the currently running system image is a live GSI.
 bool IsGsiRunning();
@@ -43,11 +71,10 @@ bool UninstallGsi();
 bool DisableGsi();
 
 // Returns true if init should attempt to boot into a live GSI image, false
-// otherwise. If true, then the path to the liblp metadata file is set. If
-// false, an error message is set instead.
+// otherwise. If false, an error message is set.
 //
 // This is only called by first-stage init.
-bool CanBootIntoGsi(std::string* metadata_file, std::string* error);
+bool CanBootIntoGsi(std::string* error);
 
 // Called by first-stage init to indicate that we're about to boot into a
 // GSI.

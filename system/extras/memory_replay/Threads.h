@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef _MEMORY_REPLAY_THREADS_H
-#define _MEMORY_REPLAY_THREADS_H
+#pragma once
 
 #include <stdint.h>
 #include <sys/types.h>
 
+// Forward Declarations.
 class Pointers;
 class Thread;
 
@@ -53,5 +53,3 @@ class Threads {
 
   friend Thread;
 };
-
-#endif // _MEMORY_REPLAY_THREADS_H

@@ -21,6 +21,9 @@ import static com.google.common.truth.Truth.assertThat;
 import android.platform.test.annotations.AppModeFull;
 
 import com.android.compatibility.common.util.BackupUtils;
+import com.android.compatibility.common.util.ProtoUtils;
+import com.android.server.job.JobSchedulerServiceDumpProto;
+import com.android.server.job.JobStatusShortInfoProto;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -29,10 +32,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** Test that key-value and full backup jobs are scheduled in a profile. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -60,7 +60,6 @@ public class ProfileScheduledJobHostSideTest extends BaseMultiUserBackupHostSide
     private static final int TIMEOUT_FOR_KEY_VALUE_SECONDS = 5 * 60; // 5 minutes.
     private static final int TIMEOUT_FOR_FULL_BACKUP_SECONDS = 5 * 60; // 5 minutes.
 
-    private static final String DUMPSYS_JOB_SCHEDULER = "dumpsys jobscheduler";
     private static final String JOB_SCHEDULER_RUN_COMMAND = "cmd jobscheduler run -f android";
 
     private final BackupUtils mBackupUtils = getBackupUtils();
@@ -196,10 +195,19 @@ public class ProfileScheduledJobHostSideTest extends BaseMultiUserBackupHostSide
     }
 
     /** Returns {@code true} if there is a system job scheduled with the specified parameters. */
-    private boolean isSystemJobScheduled(int jobId, String jobName) throws IOException {
-        String output = mBackupUtils.executeShellCommandAndReturnOutput(DUMPSYS_JOB_SCHEDULER);
-        String jobRegex = String.format("JOB #1000/%d.*%s", jobId, jobName);
-        Matcher matcher = Pattern.compile(jobRegex).matcher(output.trim());
-        return matcher.find();
+    private boolean isSystemJobScheduled(int jobId, String jobName) throws Exception {
+        // TODO: Look into making a higher level adb command or a system API for this instead.
+        //  (e.g. "adb shell cmd jobscheduler is-job-scheduled system JOB-ID JOB-NAME")
+        final JobSchedulerServiceDumpProto dump =
+                ProtoUtils.getProto(mDevice, JobSchedulerServiceDumpProto.parser(),
+                        ProtoUtils.DUMPSYS_JOB_SCHEDULER);
+        for (JobSchedulerServiceDumpProto.RegisteredJob job : dump.getRegisteredJobsList()) {
+            final JobStatusShortInfoProto info = job.getInfo();
+            if (info.getCallingUid() == 1000 && info.getJobId() == jobId
+                    && jobName.equals(info.getBatteryName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

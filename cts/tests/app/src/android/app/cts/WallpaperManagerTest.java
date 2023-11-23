@@ -16,11 +16,15 @@
 
 package android.app.cts;
 
+import static android.opengl.cts.Egl14Utils.getMaxTextureSize;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -35,6 +39,7 @@ import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorSpace;
 import android.graphics.Point;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -46,6 +51,7 @@ import android.view.WindowManager;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -66,15 +72,40 @@ public class WallpaperManagerTest {
     private WallpaperManager mWallpaperManager;
     private Context mContext;
     private Handler mHandler;
+    private BroadcastReceiver mBroadcastReceiver;
+    private CountDownLatch mCountDownLatch;
+    private boolean mEnableWcg;
 
     @Before
     public void setUp() throws Exception {
-        MockitoAnnotations.initMocks(this);
         mContext = InstrumentationRegistry.getTargetContext();
         mWallpaperManager = WallpaperManager.getInstance(mContext);
+        assumeTrue("Device does not support wallpapers", mWallpaperManager.isWallpaperSupported());
+
+        MockitoAnnotations.initMocks(this);
         final HandlerThread handlerThread = new HandlerThread("TestCallbacks");
         handlerThread.start();
         mHandler = new Handler(handlerThread.getLooper());
+        mCountDownLatch = new CountDownLatch(1);
+        mBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                mCountDownLatch.countDown();
+                if (DEBUG) {
+                    Log.d(TAG, "broadcast state count down: " + mCountDownLatch.getCount());
+                }
+            }
+        };
+        mContext.registerReceiver(mBroadcastReceiver,
+                new IntentFilter(Intent.ACTION_WALLPAPER_CHANGED));
+        mEnableWcg = mWallpaperManager.shouldEnableWideColorGamut();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        if (mBroadcastReceiver != null) {
+            mContext.unregisterReceiver(mBroadcastReceiver);
+        }
     }
 
     @Test
@@ -117,22 +148,12 @@ public class WallpaperManagerTest {
         Canvas canvas = new Canvas(tmpWallpaper);
         canvas.drawColor(Color.BLACK);
 
-        CountDownLatch latch = new CountDownLatch(1);
-        mContext.registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                latch.countDown();
-            }
-        }, new IntentFilter(Intent.ACTION_WALLPAPER_CHANGED));
-
         try {
             mWallpaperManager.setBitmap(tmpWallpaper);
 
             // Wait for up to 5 sec since this is an async call.
             // Should fail if Intent.ACTION_WALLPAPER_CHANGED isn't delivered.
-            if (!latch.await(5, TimeUnit.SECONDS)) {
-                throw new AssertionError("Intent.ACTION_WALLPAPER_CHANGED not received.");
-            }
+            Assert.assertTrue(mCountDownLatch.await(5, TimeUnit.SECONDS));
         } catch (InterruptedException | IOException e) {
             throw new AssertionError("Intent.ACTION_WALLPAPER_CHANGED not received.");
         } finally {
@@ -142,22 +163,12 @@ public class WallpaperManagerTest {
 
     @Test
     public void wallpaperClearBroadcastTest() {
-        CountDownLatch latch = new CountDownLatch(1);
-        mContext.registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                latch.countDown();
-            }
-        }, new IntentFilter(Intent.ACTION_WALLPAPER_CHANGED));
-
         try {
             mWallpaperManager.clear(WallpaperManager.FLAG_LOCK | WallpaperManager.FLAG_SYSTEM);
 
             // Wait for 5 sec since this is an async call.
             // Should fail if Intent.ACTION_WALLPAPER_CHANGED isn't delivered.
-            if (!latch.await(5, TimeUnit.SECONDS)) {
-                throw new AssertionError("Intent.ACTION_WALLPAPER_CHANGED not received.");
-            }
+            Assert.assertTrue(mCountDownLatch.await(5, TimeUnit.SECONDS));
         } catch (InterruptedException | IOException e) {
             throw new AssertionError(e);
         }
@@ -231,8 +242,16 @@ public class WallpaperManagerTest {
     @Test
     public void suggestDesiredDimensionsTest() {
         final Point min = getScreenSize();
-        final int w = min.x * 3;
-        final int h = min.y * 2;
+        int w = min.x * 3;
+        int h = min.y * 2;
+
+        // b/120847476: WallpaperManager limits at GL_MAX_TEXTURE_SIZE
+        final int max = getMaxTextureSize();
+        if (max > 0) {
+            w = Math.min(w, max);
+            h = Math.min(h, max);
+        }
+
         assertDesiredDimension(new Point(min.x / 2, min.y / 2), new Point(min.x / 2, min.y / 2));
 
         assertDesiredDimension(new Point(w, h), new Point(w, h));
@@ -297,6 +316,102 @@ public class WallpaperManagerTest {
         } finally {
             tmpWallpaper.recycle();
         }
+    }
+
+    @Test
+    public void highRatioWallpaper_largeWidth() throws Exception {
+        Bitmap highRatioWallpaper = Bitmap.createBitmap(8000, 800, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(highRatioWallpaper);
+        canvas.drawColor(Color.RED);
+
+        try {
+            mWallpaperManager.setBitmap(highRatioWallpaper);
+            assertBitmapDimensions(mWallpaperManager.getBitmap());
+        } finally {
+            highRatioWallpaper.recycle();
+        }
+    }
+
+    @Test
+    public void highRatioWallpaper_largeHeight() throws Exception {
+        Bitmap highRatioWallpaper = Bitmap.createBitmap(800, 8000, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(highRatioWallpaper);
+        canvas.drawColor(Color.RED);
+
+        try {
+            mWallpaperManager.setBitmap(highRatioWallpaper);
+            assertBitmapDimensions(mWallpaperManager.getBitmap());
+        } finally {
+            highRatioWallpaper.recycle();
+        }
+    }
+
+    @Test
+    public void highResolutionWallpaper() throws Exception {
+        Bitmap highResolutionWallpaper = Bitmap.createBitmap(10000, 10000, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(highResolutionWallpaper);
+        canvas.drawColor(Color.BLUE);
+
+        try {
+            mWallpaperManager.setBitmap(highResolutionWallpaper);
+            assertBitmapDimensions(mWallpaperManager.getBitmap());
+        } finally {
+            highResolutionWallpaper.recycle();
+        }
+    }
+
+    @Test
+    public void testWideGamutWallpaper() throws IOException {
+        final ColorSpace srgb = ColorSpace.get(ColorSpace.Named.SRGB);
+        final ColorSpace p3 = ColorSpace.get(ColorSpace.Named.DISPLAY_P3);
+        final Bitmap.Config config = Bitmap.Config.ARGB_8888;
+        final Bitmap srgbBitmap = Bitmap.createBitmap(100, 100, config);
+        final Bitmap p3Bitmap = Bitmap.createBitmap(100, 100, config, false, p3);
+
+        try {
+            // sRGB is the default color space
+            mWallpaperManager.setBitmap(srgbBitmap);
+            assertThat(mWallpaperManager.getBitmap().getColorSpace()).isEqualTo(srgb);
+
+            // If wide gamut is enabled, Display-P3 should be supported.
+            mWallpaperManager.setBitmap(p3Bitmap);
+
+            final boolean isDisplayP3 = mWallpaperManager.getBitmap().getColorSpace().equals(p3);
+            // Assert false only when device enabled WCG, but display does not support Display-P3
+            assertThat(mEnableWcg && !isDisplayP3).isFalse();
+        } finally {
+            srgbBitmap.recycle();
+            p3Bitmap.recycle();
+        }
+    }
+
+    @Test
+    public void testWallpaperSupportsWcg() throws IOException {
+        final int sysWallpaper = WallpaperManager.FLAG_SYSTEM;
+
+        final Bitmap srgbBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        final Bitmap p3Bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888, false,
+                ColorSpace.get(ColorSpace.Named.DISPLAY_P3));
+
+        try {
+            mWallpaperManager.setBitmap(srgbBitmap);
+            assertThat(mWallpaperManager.wallpaperSupportsWcg(sysWallpaper)).isFalse();
+
+            mWallpaperManager.setBitmap(p3Bitmap);
+            assertThat(mWallpaperManager.wallpaperSupportsWcg(sysWallpaper)).isEqualTo(mEnableWcg);
+        } finally {
+            srgbBitmap.recycle();
+            p3Bitmap.recycle();
+        }
+    }
+
+    private void assertBitmapDimensions(Bitmap bitmap) {
+        int maxSize = getMaxTextureSize();
+        boolean safe = false;
+        if (bitmap != null) {
+            safe = bitmap.getWidth() <= maxSize && bitmap.getHeight() <= maxSize;
+        }
+        assertThat(safe).isTrue();
     }
 
     private void assertDesiredDimension(Point suggestedSize, Point expectedSize) {
@@ -422,31 +537,22 @@ public class WallpaperManagerTest {
         // • System colors are known
         // • Lock colors are known
         final int expectedEvents = 5;
-        CountDownLatch latch = new CountDownLatch(expectedEvents);
+        mCountDownLatch = new CountDownLatch(expectedEvents);
         if (DEBUG) {
-            Log.d("WP", "Started latch expecting: " + latch.getCount());
+            Log.d(TAG, "Started latch expecting: " + mCountDownLatch.getCount());
         }
-        BroadcastReceiver receiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                latch.countDown();
-                if (DEBUG) {
-                    Log.d("WP", "broadcast state count down: " + latch.getCount());
-                }
-            }
-        };
+
         WallpaperManager.OnColorsChangedListener callback = (colors, which) -> {
             if ((which & WallpaperManager.FLAG_LOCK) != 0) {
-                latch.countDown();
+                mCountDownLatch.countDown();
             }
             if ((which & WallpaperManager.FLAG_SYSTEM) != 0) {
-                latch.countDown();
+                mCountDownLatch.countDown();
             }
             if (DEBUG) {
-                Log.d("WP", "color state count down: " + which + " - " + colors);
+                Log.d(TAG, "color state count down: " + which + " - " + colors);
             }
         };
-        mContext.registerReceiver(receiver, new IntentFilter(Intent.ACTION_WALLPAPER_CHANGED));
         mWallpaperManager.addOnColorsChangedListener(callback, mHandler);
 
         try {
@@ -454,14 +560,11 @@ public class WallpaperManagerTest {
 
             // Wait for up to 10 sec since this is an async call.
             // Will pass as soon as the expected callbacks are executed.
-            latch.await(10, TimeUnit.SECONDS);
-            if (latch.getCount() != 0) {
-                Log.w(TAG, "Did not receive all events! This is probably a bug.");
-            }
+            Assert.assertTrue(mCountDownLatch.await(10, TimeUnit.SECONDS));
+            Assert.assertEquals(0, mCountDownLatch.getCount());
         } catch (InterruptedException | IOException e) {
             throw new RuntimeException("Can't ensure a clean state.");
         } finally {
-            mContext.unregisterReceiver(receiver);
             mWallpaperManager.removeOnColorsChangedListener(callback);
             bmp.recycle();
         }

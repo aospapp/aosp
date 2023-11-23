@@ -181,6 +181,11 @@ LazyServiceRegistrar::LazyServiceRegistrar() {
     mImpl = std::make_shared<details::LazyServiceRegistrarImpl>();
 }
 
+LazyServiceRegistrar& LazyServiceRegistrar::getInstance() {
+    static auto registrarInstance = new LazyServiceRegistrar();
+    return *registrarInstance;
+}
+
 status_t LazyServiceRegistrar::registerService(
     const sp<::android::hidl::base::V1_0::IBase>& service, const std::string& name) {
     return mImpl->registerService(service, name);

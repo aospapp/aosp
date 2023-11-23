@@ -143,6 +143,19 @@ public final class ZipInputStreamTest extends TestCaseWithRules {
         zis.close();
     }
 
+    private static final byte[] ZIP_WITH_DATA_DESCRIPTOR = new byte[] {
+(byte) 80, 75, 3, 4, 10, 0, 8, 0, 0, 0, -51, 90, -121, 80, -20, 62, -84, -103, 2, 0, 0, 0, 2, 0, 0, 0, 8, 0, 28, 0, 116, 101, 115, 116, 46, 116, 120, 116, 85, 84, 9, 0, 3, 97, 84, -116, 94, 102, 84, -116, 94, 117, 120, 11, 0, 1, 4, -119, 66, 0, 0, 4, 83, 95, 1, 0, 72, 10, 80, 75, 7, 8, -20, 62, -84, -103, 2, 0, 0, 0, 2, 0, 0, 0, 80, 75, 1, 2, 30, 3, 10, 0, 0, 0, 0, 0, -51, 90, -121, 80, -20, 62, -84, -103, 2, 0, 0, 0, 2, 0, 0, 0, 8, 0, 24, 0, 0, 0, 0, 0, 1, 0, 0, 0, -92, -127, 0, 0, 0, 0, 116, 101, 115, 116, 46, 116, 120, 116, 85, 84, 5, 0, 3, 97, 84, -116, 94, 117, 120, 11, 0, 1, 4, -119, 66, 0, 0, 4, 83, 95, 1, 0, 80, 75, 5, 6, 0, 0, 0, 0, 1, 0, 1, 0, 78, 0, 0, 0, 84, 0, 0, 0, 0, 0 };
+
+    public void testDataDescriptorOnStoredEntry() throws Exception {
+        ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(
+                ZIP_WITH_DATA_DESCRIPTOR));
+
+        ZipEntry entry = zis.getNextEntry();
+        assertEquals("test.txt", entry.getName());
+
+        zis.close();
+    }
+
     private static byte[] zip(String[] names, byte[] bytes) throws IOException {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         ZipOutputStream zippedOut = new ZipOutputStream(bytesOut);

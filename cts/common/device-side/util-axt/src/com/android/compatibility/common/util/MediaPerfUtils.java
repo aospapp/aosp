@@ -173,4 +173,41 @@ public class MediaPerfUtils {
         return "Expected " + kind + ": " + reported + ".\n"
                 + "Measured frame rate: " + Arrays.toString(measuredFps) + ".\n";
     }
+
+    /** Verifies |requestedFps| does not exceed reported achievable rates.
+     *  Returns null if *ALL* requested rates are claimed to be achievable.
+     *  Otherwise, returns a diagnostic explaining why it's not achievable.
+     *  (one of the rates was too fast, we don't have achievability information, etc).
+     *
+     *  we're looking for 90% confidence, which is documented as being:
+     *  "higher than half of the lower limit at least 90% of the time in tested configurations"
+     *
+     *  NB: we only invoke this for the SW codecs; we use performance point info for the
+     *  hardware codecs.
+     *  */
+    public static String areAchievableFrameRates(
+            String name, String mime, int w, int h, double... requestedFps) {
+        Range<Double> reported =
+            MediaUtils.getVideoCapabilities(name, mime).getAchievableFrameRatesFor(w, h);
+        String kind = "achievable frame rates for " + name + " " + mime + " " + w + "x" + h;
+        if (reported == null) {
+            return "Failed to get " + kind;
+        }
+
+        double confidence90 = reported.getLower() / 2.0;
+
+        Log.d(TAG, name + " " + mime + " " + w + "x" + h +
+                " lower " + reported.getLower() + " 90% confidence " + confidence90 +
+                " requested " + Arrays.toString(requestedFps));
+
+        // if *any* of them are too fast, we say no.
+        for (double requested : requestedFps) {
+            if (requested > confidence90) {
+                return "Expected " + kind + ": " + reported + ", 90% confidence: " + confidence90
+                       + ".\n"
+                       + "Requested frame rate: " + Arrays.toString(requestedFps) + ".\n";
+            }
+        }
+        return null;
+    }
 }

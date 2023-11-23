@@ -68,7 +68,7 @@ public class RecentsRedactionActivity extends DialogTestListActivity {
                 throw new IllegalArgumentException("Unknown id: " + target.getId());
         }
         Intent resultIntent = TestResult.createResult(RecentsRedactionActivity.this, resultCode,
-                getTestId(), getTestDetails(), getReportLog());
+                getTestId(), getTestDetails(), getReportLog(), getHistoryCollection());
 
         new ByodFlowTestHelper(this).sendResultToPrimary(resultIntent);
         finish();

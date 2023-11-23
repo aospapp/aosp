@@ -16,12 +16,14 @@
 
 #pragma once
 
-#include "adb.h"
-#include "sysdeps.h"
-#include "transport.h"
-
+#include <functional>
 #include <optional>
 #include <string>
+
+#include "adb.h"
+#include "adb_unique_fd.h"
+#include "sysdeps.h"
+#include "transport.h"
 
 // Explicitly check the adb server version.
 // All of the commands below do this implicitly.
@@ -33,7 +35,11 @@ bool adb_check_server_version(std::string* _Nonnull error);
 int adb_connect(std::string_view service, std::string* _Nonnull error);
 
 // Same as above, except returning the TransportId for the service that we've connected to.
-int adb_connect(TransportId* _Nullable id, std::string_view service, std::string* _Nonnull error);
+// force_switch_device forces the function to attempt to select a device, even if the service
+// string appears to be a host: service (for use with host services that are device specific, like
+// forward).
+int adb_connect(TransportId* _Nullable id, std::string_view service, std::string* _Nonnull error,
+                bool force_switch_device = false);
 
 // Kill the currently running adb server, if it exists.
 bool adb_kill_server();
@@ -64,7 +70,7 @@ int adb_send_emulator_command(int argc, const char* _Nonnull* _Nonnull argv,
 
 // Reads a standard adb status response (OKAY|FAIL) and returns true in the
 // event of OKAY, false in the event of FAIL or protocol error.
-bool adb_status(int fd, std::string* _Nonnull error);
+bool adb_status(borrowed_fd fd, std::string* _Nonnull error);
 
 // Create a host command corresponding to selected transport type/serial.
 std::string format_host_command(const char* _Nonnull command);
@@ -81,3 +87,19 @@ std::optional<std::string> adb_get_server_executable_path();
 // Globally acccesible argv/envp, for the purpose of re-execing adb.
 extern const char* _Nullable * _Nullable __adb_argv;
 extern const char* _Nullable * _Nullable __adb_envp;
+
+// ADB Secure DNS service interface. Used to query what ADB Secure DNS services have been
+// resolved, and to run some kind of callback for each one.
+using adb_secure_foreach_service_callback = std::function<void(
+        const char* _Nonnull service_name, const char* _Nonnull ip_address, uint16_t port)>;
+
+// Queries pairing/connect services that have been discovered and resolved.
+// If |host_name| is not null, run |cb| only for services
+// matching |host_name|. Otherwise, run for all services.
+void adb_secure_foreach_pairing_service(const char* _Nullable service_name,
+                                        adb_secure_foreach_service_callback cb);
+void adb_secure_foreach_connect_service(const char* _Nullable service_name,
+                                        adb_secure_foreach_service_callback cb);
+// Tries to connect to a |service_name| if found. Returns true if found and
+// connected, false otherwise.
+bool adb_secure_connect_by_service_name(const char* _Nonnull service_name);

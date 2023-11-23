@@ -23,7 +23,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 1 (0x1)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=JP, O=Japan Certification Services, Inc., CN=SecureSign RootCA11
         Validity
             Not Before: Apr  8 04:56:47 2009 GMT
@@ -31,7 +31,7 @@ Certificate:
         Subject: C=JP, O=Japan Certification Services, Inc., CN=SecureSign RootCA11
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:fd:77:aa:a5:1c:90:05:3b:cb:4c:9b:33:8b:5a:
                     14:45:a4:e7:90:16:d1:df:57:d2:21:10:a4:17:fd:

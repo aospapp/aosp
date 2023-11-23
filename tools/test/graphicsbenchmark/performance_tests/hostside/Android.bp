@@ -13,7 +13,7 @@
 // limitations under the License.
 
 java_test_host {
-    name: "GameQualificationPerformanceTest",
+    name: "GameCorePerformanceTest",
 
     srcs: ["src/**/*.java"],
     java_resource_dirs: ["res"],
@@ -22,14 +22,9 @@ java_test_host {
         "tradefed",
     ],
     static_libs: [
-        "GameQualificationHelperHost",
+        "GameCoreHelperHost",
         "truth-prebuilt-host-jar",
         "gson-prebuilt-jar",
-    ],
-
-    test_suites: [
-        "general-tests",
-        "vts",
     ],
 }
 

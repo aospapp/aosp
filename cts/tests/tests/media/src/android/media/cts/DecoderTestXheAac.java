@@ -32,9 +32,14 @@ import android.media.MediaFormat;
 import android.media.cts.DecoderTest.AudioParameter;
 import android.media.cts.DecoderTestAacDrc.DrcParams;
 import android.media.cts.R;
+import android.os.Build;
 import android.util.Log;
+import android.os.Bundle;
 
 import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.MediaUtils;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -47,6 +52,9 @@ import java.util.List;
 
 public class DecoderTestXheAac {
     private static final String TAG = "DecoderTestXheAac";
+
+    private static final boolean sIsAndroidRAndAbove =
+            ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R);
 
     private Resources mResources;
 
@@ -116,7 +124,7 @@ public class DecoderTestXheAac {
         } catch (Exception e) {
             Log.v(TAG, "testDecodeUsacDrcEffectTypeM4a Night/2/0 failed for dec=" + aacDecName);
             throw new RuntimeException(e);
-        } 
+        }
 
         // test DRC effectTypeID 2 "NOISY"
         // L +3dB -> normalization factor = 1/(10^( 3/10)) = 1.9952f
@@ -220,6 +228,43 @@ public class DecoderTestXheAac {
     }
 
     /**
+     * Verify the correct decoding of USAC bitstreams with album mode.
+     */
+    @Test
+    public void testDecodeUsacDrcAlbumModeM4a() throws Exception {
+        Log.v(TAG, "START testDecodeUsacDrcAlbumModeM4a");
+
+        // Album mode is R feature
+        if (!MediaUtils.check(sIsAndroidRAndAbove, "Album mode support requires Android R"))
+                return;
+
+        assertTrue("No AAC decoder found", sAacDecoderNames.size() > 0);
+
+        for (String aacDecName : sAacDecoderNames) {
+            try {
+                runDecodeUsacDrcAlbumModeM4a(aacDecName);
+            } catch (Error err) {
+                throw new Error(err.getMessage() + " [dec=" + aacDecName + "]" , err);
+            }
+        }
+    }
+
+    private void runDecodeUsacDrcAlbumModeM4a(String aacDecName) throws Exception {
+        // test DRC Album Mode
+        // Track loudness = -19dB
+        // Album Loudness = -21 dB
+        // Fading Gains = -6 dB
+        // Album Mode ON : Gains = -24 - (-21) = -3dB
+        // Album Mode OFF : Gains = (-24 -(-19)) + (-6) = -11 dB
+        try {
+            checkUsacDrcAlbumMode(R.raw.noise_2ch_48khz_tlou_19lufs_alou_21lufs_mp4, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcAlbumModeM4a for decoder" + aacDecName);
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * Verify the correct decoding of USAC bitstreams with config changes.
      */
     @Test
@@ -317,6 +362,234 @@ public class DecoderTestXheAac {
         }
     }
 
+    /**
+     * Verify the correct decoding of USAC bitstreams with different boost and attenuation settings
+     */
+    @Test
+    public void testDecodeUsacDrcBoostAndAttenuationM4a() throws Exception {
+        Log.v(TAG, "START testDecodeUsacDrcBoostAndAttenuationM4a");
+
+        if (!MediaUtils.check(sIsAndroidRAndAbove, "Att/Boost corrected in Android R"))
+            return;
+
+        assertTrue("No AAC decoder found", sAacDecoderNames.size() > 0);
+
+        for (String aacDecName : sAacDecoderNames) {
+            try {
+                runDecodeUsacDrcBoostAndAttenuationM4a(aacDecName);
+            } catch (Error err) {
+                throw new Error(err.getMessage() + " [dec=" + aacDecName + "]" , err);
+            }
+        }
+    }
+
+    private void runDecodeUsacDrcBoostAndAttenuationM4a(String aacDecName) throws Exception {
+        Log.v(TAG, "testDecodeUsacDrcBoostAndAttenuationM4a running for dec=" + aacDecName);
+        // test drcBoost and drcAttenuation parameters
+        // DRC effectTypeID 6 "GENERAL"
+        // L +6dB -> normalization factor = 10^(6/10 * (1 - boostFactor:64/127)) = 1.9844f
+        // R -3dB -> normalization factor = 10^(-3/10 * (1 - attenuationFactor:127/127)) = 1.0f
+        try {
+            checkUsacDrcBoostAndAttenuation(1.9844f, 1.0f, 64, 127, 2, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcBoostAndAttenuationM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+
+        // test drcBoost and drcAttenuation parameters
+        // DRC effectTypeID 6 "GENERAL"
+        // L +6dB -> normalization factor = 10^(6/10 * (1 - boostFactor:127/127)) = 1.0f
+        // R -3dB -> normalization factor = 10^(-3/10 * (1 - attenuationFactor:64/127)) = 0.7099f
+        try {
+            checkUsacDrcBoostAndAttenuation(1.0f, 0.7099f, 127, 64, 2, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcBoostAndAttenuationM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+
+        // test drcBoost and drcAttenuation parameters
+        // DRC effectTypeID 6 "GENERAL"
+        // L +6dB -> normalization factor = 10^(6/10 * (1 - boostFactor:0/127)) = 3.9811f
+        // R -3dB -> normalization factor = 10^(-3/10 * (1 - attenuationFactor:127/127)) = 1.0f
+        try {
+            checkUsacDrcBoostAndAttenuation(3.9811f, 1.0f, 0, 127, 2, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcBoostAndAttenuationM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+
+        // test drcBoost and drcAttenuation parameters
+        // DRC effectTypeID 6 "GENERAL"
+        // L +6dB -> normalization factor = 10^(6/10 * (1 - boostFactor:127/127)) = 1.0f
+        // R -3dB -> normalization factor = 10^(-3/10 * (1 - attenuationFactor:0/127)) = 0.5012f
+        try {
+            checkUsacDrcBoostAndAttenuation(1.0f, 0.5012f, 127, 0, 2, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcBoostAndAttenuationM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * verify the correct decoding of USAC bitstreams when different kinds of loudness values
+     * are present
+     */
+    @Test
+    public void testDecodeUsacDrcLoudnessPreferenceM4a() throws Exception {
+        Log.v(TAG, "START testDecodeUsacDrcLoudnessPreferenceM4a");
+
+        if (!MediaUtils.check(sIsAndroidRAndAbove, "Loudness preference in Android R"))
+            return;
+
+        assertTrue("No AAC decoder found", sAacDecoderNames.size() > 0);
+
+        for (String aacDecName : sAacDecoderNames) {
+            try {
+                runDecodeUsacDrcLoudnessPreferenceM4a(aacDecName);
+            } catch (Error err) {
+                throw new Error(err.getMessage() + " [dec=" + aacDecName + "]" , err);
+            }
+        }
+    }
+
+    private void runDecodeUsacDrcLoudnessPreferenceM4a(String aacDecName) throws Exception {
+        Log.v(TAG, "testDecodeUsacDrcLoudnessPreferenceM4a running for dec=" + aacDecName);
+        // test drc loudness preference
+        // anchor loudness (-17 LUFS) and program loudness (-19 LUFS) are present in one stream
+        // -> anchor loudness should be selected
+        // the bitstream is decoded with targetLoudnessLevel = -16 LUFS and
+        // checked against the energy of the decoded signal without loudness normalization
+        // normfactor = loudness of waveform - targetLoudnessLevel = -1dB = 0.7943
+        try {
+            checkUsacDrcLoudnessPreference(
+                    R.raw.noise_2ch_48khz_tlou_19lufs_anchor_17lufs_mp4, 0.7943f, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcLoudnessPreferenceM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+
+        // test drc loudness preference
+        // expert loudness (-23 LUFS) and program loudness (-19 LUFS) are present in one stream
+        // -> expert loudness should be selected
+        // the bitstream is decoded with targetLoudnessLevel = -16 LUFS and
+        // checked against the energy of the decoded signal without loudness normalization
+        // normfactor = loudness of waveform - targetLoudnessLevel = -7dB = 0.1995
+        try {
+            checkUsacDrcLoudnessPreference(
+                    R.raw.noise_2ch_48khz_tlou_19lufs_expert_23lufs_mp4, 0.1995f, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcLoudnessPreferenceM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Verify that the correct output loudness values are returned when decoding USAC bitstreams
+     */
+    @Test
+    public void testDecodeUsacDrcOutputLoudnessM4a() throws Exception {
+        Log.v(TAG, "START testDecodeUsacDrcOutputLoudnessM4a");
+
+        assertTrue("No AAC decoder found", sAacDecoderNames.size() > 0);
+
+        for (String aacDecName : sAacDecoderNames) {
+            try {
+                runDecodeUsacDrcOutputLoudnessM4a(aacDecName);
+            } catch (Error err) {
+                throw new Error(err.getMessage() + " [dec=" + aacDecName + "]" , err);
+            }
+        }
+    }
+
+    private void runDecodeUsacDrcOutputLoudnessM4a(String aacDecName) throws Exception {
+        Log.v(TAG, "testDecodeUsacDrcOutputLoudnessM4a running for dec=" + aacDecName);
+        // test drc output loudness
+        // testfile without loudness metadata and loudness normalization off -> expected value: -1
+        try {
+            checkUsacDrcOutputLoudness(
+                    R.raw.noise_2ch_19_2khz_aot42_no_ludt_mp4, -1, -1, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcOutputLoudnessM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+
+        Log.v(TAG, "testDecodeUsacDrcOutputLoudnessM4a running for dec=" + aacDecName);
+        // test drc output loudness
+        // testfile without loudness metadata and loudness normalization on
+        // -> expected value: -1
+        try {
+            checkUsacDrcOutputLoudness(
+                    R.raw.noise_2ch_19_2khz_aot42_no_ludt_mp4, 64, -1, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcOutputLoudnessM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+
+        // test drc output loudness
+        // testfile with MPEG-D DRC loudness metadata and loudness normalization off
+        // -> expected value: loudness metadata in bitstream (-19*-4 = 76)
+        try {
+            checkUsacDrcOutputLoudness(
+                    R.raw.noise_2ch_08khz_aot42_19_lufs_mp4, -1, 76, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcOutputLoudnessM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+
+        // test drc output loudness
+        // testfile with MPEG-D DRC loudness metadata and loudness normalization off
+        // -> expected value: loudness metadata in bitstream (-22*-4 = 88)
+        try {
+            checkUsacDrcOutputLoudness(
+                    R.raw.noise_1ch_38_4khz_aot42_19_lufs_config_change_mp4, -1, 88, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcOutputLoudnessM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+
+        // test drc output loudness
+        // testfile with MPEG-D DRC loudness metadata and loudness normalization on
+        // -> expected value: target loudness value (92)
+        try {
+            checkUsacDrcOutputLoudness(
+                    R.raw.noise_2ch_08khz_aot42_19_lufs_mp4, 92, 92, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacDrcOutputLoudnessM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    /**
+     * Verify that seeking works correctly for USAC.
+     * Sync samples have to be taken into consideration.
+     */
+    @Test
+    public void testDecodeUsacSyncSampleSeekingM4a() throws Exception {
+        Log.v(TAG, "START testDecodeUsacSyncSampleSeekingM4a");
+
+        assertTrue("No AAC decoder found", sAacDecoderNames.size() > 0);
+
+        for (String aacDecName : sAacDecoderNames) {
+            try {
+                runDecodeUsacSyncSampleSeekingM4a(aacDecName);
+            } catch (Error err) {
+                throw new Error(err.getMessage() + " [dec=" + aacDecName + "]" , err);
+            }
+        }
+    }
+
+    private void runDecodeUsacSyncSampleSeekingM4a(String aacDecName) throws Exception {
+        Log.v(TAG, "testDecodeUsacSyncSampleSeekingM4a running for dec=" + aacDecName);
+        // test usac seeking
+        try {
+            checkUsacSyncSampleSeeking(R.raw.sine_2ch_48khz_aot42_seek_mp4, aacDecName);
+        } catch (Exception e) {
+            Log.v(TAG, "testDecodeUsacSyncSampleSeekingM4a failed for dec=" + aacDecName);
+            throw new RuntimeException(e);
+        }
+        Log.v(TAG, "testDecodeUsacSyncSampleSeekingM4a running for dec=" + aacDecName);
+    }
 
     /**
      *  Internal utilities
@@ -328,40 +601,46 @@ public class DecoderTestXheAac {
     private void checkUsacDrcEffectType(int effectTypeID, float normFactor_L, float normFactor_R,
                  String effectTypeName, int nCh, int aggressiveDrc, String decoderName)
                          throws Exception {
-        int testinput = -1;
-        AudioParameter decParams = new AudioParameter();
-        DrcParams drcParams_def  = new DrcParams(127, 127, 96, 0, -1);
-        DrcParams drcParams_test = new DrcParams(127, 127, 96, 0, effectTypeID);
+        for (boolean runtimeChange : new boolean[] {false, true}) {
+            if (runtimeChange && !sIsAndroidRAndAbove) {
+                // changing decoder configuration after it has been initialized requires R and above
+                continue;
+            }
+            int testinput = -1;
+            AudioParameter decParams = new AudioParameter();
+            DrcParams drcParams_def  = new DrcParams(127, 127, 96, 0, -1);
+            DrcParams drcParams_test = new DrcParams(127, 127, 96, 0, effectTypeID);
 
-        if (aggressiveDrc == 0) {
-            testinput = R.raw.noise_2ch_32khz_aot42_19_lufs_drc_mp4;
-        } else {
+            if (aggressiveDrc == 0) {
+                testinput = R.raw.noise_2ch_32khz_aot42_19_lufs_drc_mp4;
+            } else {
+                if (nCh == 2) {
+                    testinput = R.raw.noise_2ch_35_28khz_aot42_19_lufs_drc_config_change_mp4;
+                } else if (nCh == 1){
+                    testinput = R.raw.noise_1ch_29_4khz_aot42_19_lufs_drc_config_change_mp4;
+                }
+            }
+
+            short[] decSamples_def  = decodeToMemory(decParams, testinput,
+                    -1, null, drcParams_def, decoderName);
+            short[] decSamples_test = decodeToMemory(decParams, testinput,
+                    -1, null, drcParams_test, decoderName, runtimeChange);
+
+            float[] nrg_def  = checkEnergyUSAC(decSamples_def, decParams, nCh, 1, 0);
+            float[] nrg_test = checkEnergyUSAC(decSamples_test, decParams, nCh, 1, 1);
+
             if (nCh == 2) {
-                testinput = R.raw.noise_2ch_35_28khz_aot42_19_lufs_drc_config_change_mp4;
+                float nrgRatio_L = (nrg_test[1]/nrg_def[1])/normFactor_L;
+                float nrgRatio_R = (nrg_test[2]/nrg_def[2])/normFactor_R;
+                if ((nrgRatio_R > 1.05f || nrgRatio_R < 0.95f)
+                        || (nrgRatio_L > 1.05f || nrgRatio_L < 0.95f) ){
+                    throw new Exception("DRC Effect Type '" + effectTypeName + "' not as expected");
+                }
             } else if (nCh == 1){
-                testinput = R.raw.noise_1ch_29_4khz_aot42_19_lufs_drc_config_change_mp4;
-            }
-        }
-
-        short[] decSamples_def  = decodeToMemory(decParams, testinput,
-                -1, null, drcParams_def, decoderName);
-        short[] decSamples_test = decodeToMemory(decParams, testinput,
-                -1, null, drcParams_test, decoderName);
-
-        float[] nrg_def  = checkEnergyUSAC(decSamples_def, decParams, nCh, 1, 0);
-        float[] nrg_test = checkEnergyUSAC(decSamples_test, decParams, nCh, 1, 1);
-
-        if (nCh == 2) {
-            float nrgRatio_L = (nrg_test[1]/nrg_def[1])/normFactor_L;
-            float nrgRatio_R = (nrg_test[2]/nrg_def[2])/normFactor_R;
-            if ((nrgRatio_R > 1.05f || nrgRatio_R < 0.95f) 
-                    || (nrgRatio_L > 1.05f || nrgRatio_L < 0.95f) ){
-                throw new Exception("DRC Effect Type '" + effectTypeName + "' not as expected");
-            }
-        } else if (nCh == 1){
-            float nrgRatio_L = (nrg_test[0]/nrg_def[0])/normFactor_L;
-            if (nrgRatio_L > 1.05f || nrgRatio_L < 0.95f){
-                throw new Exception("DRC Effect Type '" + effectTypeName + "' not as expected");
+                float nrgRatio_L = (nrg_test[0]/nrg_def[0])/normFactor_L;
+                if (nrgRatio_L > 1.05f || nrgRatio_L < 0.95f){
+                    throw new Exception("DRC Effect Type '" + effectTypeName + "' not as expected");
+                }
             }
         }
     }
@@ -436,6 +715,128 @@ public class DecoderTestXheAac {
         if (nrgRatio > 1.05f || nrgRatio < 0.95f ){
             throw new Exception("Sampling rate not supported");
         }
+    }
+
+    /**
+     * USAC test DRC Album Mode
+     */
+    private void checkUsacDrcAlbumMode(int testinput, String decoderName) throws Exception {
+        for (boolean runtimeChange : new boolean[] {false, true}) {
+            AudioParameter decParams = new AudioParameter();
+            DrcParams drcParams_album_off = new DrcParams(127, 127, 64, 0, 0, 0);
+            DrcParams drcParams_album_on  = new DrcParams(127, 127, 64, 0, 0, 1);
+
+            short[] decSamples_album_off = decodeToMemory(
+                    decParams, testinput, -1, null, drcParams_album_off, decoderName);
+            short[] decSamples_album_on = decodeToMemory(
+                    decParams, testinput, -1, null, drcParams_album_on, decoderName, runtimeChange);
+
+            float[] nrg_album_off  = checkEnergyUSAC(decSamples_album_off, decParams, 2, 1);
+            float[] nrg_album_on = checkEnergyUSAC(decSamples_album_on, decParams, 2, 1);
+
+            float normFactor = 6.3095f;
+
+            float nrgRatio = (nrg_album_on[0]/nrg_album_off[0])/normFactor;
+            float nrgRatio_L = (nrg_album_on[1]/nrg_album_off[1])/normFactor;
+            float nrgRatio_R = (nrg_album_on[2]/nrg_album_off[2])/normFactor;
+
+            if (nrgRatio > 1.05f || nrgRatio < 0.95f ){
+                throw new Exception("DRC Album Mode not supported, energy ratio " + nrgRatio);
+            }
+        }
+    }
+
+    /**
+     * USAC test DRC Boost and Attenuation
+     */
+    private void checkUsacDrcBoostAndAttenuation(float normFactor_L, float normFactor_R,
+                                                 int boostFactor, int attenuationFactor,
+                                                 int nCh, String decoderName) throws Exception {
+        for (boolean runtimeChange : new boolean[] {false, true}) {
+            if (runtimeChange && !sIsAndroidRAndAbove) {
+                // changing decoder configuration after it has been initialized requires R and above
+                continue;
+            }
+
+            int testinput = R.raw.noise_2ch_32khz_aot42_19_lufs_drc_mp4;
+
+            AudioParameter decParams = new AudioParameter();
+            DrcParams drcParams_def = new DrcParams(127, 127, 64, 0, 6);
+            DrcParams drcParams_test = new DrcParams(boostFactor, attenuationFactor, 64, 0, 6);
+
+            short[] decSamples_def = decodeToMemory(decParams, testinput, -1, null,
+                    drcParams_def, decoderName);
+            short[] decSamples_test = decodeToMemory(decParams, testinput, -1, null,
+                    drcParams_test, decoderName, runtimeChange);
+
+            float[] nrg_def = checkEnergyUSAC(decSamples_def, decParams, 2, 1);
+            float[] nrg_test = checkEnergyUSAC(decSamples_test, decParams, 2, 1);
+
+            float nrgRatioLeft = nrg_test[1] / nrg_def[1];
+            float nrgRatioRight = nrg_test[2] / nrg_def[2];
+
+            float testValueLeft = normFactor_L * nrgRatioLeft;
+            float testValueRight = normFactor_R * nrgRatioRight;
+
+            // Check whether loudness behavior is as expected
+            if (testValueLeft > 1.05f || testValueLeft < 0.95f) {
+                throw new Exception("DRC boost/attenuation behavior not as expected");
+            }
+            if (testValueRight > 1.05f || testValueRight < 0.95f) {
+                throw new Exception("DRC boost/attenuation behavior not as expected");
+            }
+        }
+    }
+
+    /**
+    * USAC test Loudness Preference
+    */
+    private void checkUsacDrcLoudnessPreference(int testInput, float normFactor, String decoderName) throws Exception {
+
+        AudioParameter decParams = new AudioParameter();
+        DrcParams drcParams_def = new DrcParams(127, 127, -1, 0, 6);
+        DrcParams drcParams_test = new DrcParams(127, 127, 64, 0, 6);
+
+        // Check drc loudness preference
+        short[] decSamples_def = decodeToMemory(decParams, testInput, -1, null, drcParams_def, decoderName);
+        short[] decSamples_test = decodeToMemory(decParams, testInput, -1, null, drcParams_test, decoderName);
+
+        float[] nrg_def  = checkEnergyUSAC(decSamples_def, decParams, 2, 1);
+        float[] nrg_test = checkEnergyUSAC(decSamples_test, decParams, 2, 1);
+
+        float nrgRatio = (nrg_test[0]/nrg_def[0]);
+        nrgRatio = nrgRatio * normFactor;
+
+        if (nrgRatio > 1.05f || nrgRatio < 0.95f ){
+            throw new Exception("DRC Loudness preference not as expected");
+        }
+    }
+
+    /**
+    * USAC test Output Loudness
+    */
+    private void checkUsacDrcOutputLoudness(int testInput, int decoderTargetLevel,
+            int expectedOutputLoudness, String decoderName) throws Exception {
+        for (boolean runtimeChange : new boolean[] {false, true}) {
+            AudioParameter decParams = new AudioParameter();
+            DrcParams drcParams_test = new DrcParams(127, 127, decoderTargetLevel, 0, 6);
+
+            // Check drc loudness preference
+            short[] decSamples_test = decodeToMemory(
+                    decParams, testInput, -1, null, drcParams_test,
+                    decoderName, runtimeChange, expectedOutputLoudness);
+        }
+    }
+
+    private void checkUsacSyncSampleSeeking(int testInput, String decoderName) throws Exception {
+
+        AudioParameter decParams = new AudioParameter();
+        DrcParams drcParams_def = new DrcParams();
+
+        short[] decSamples_seek_next_sync = decodeToMemory(decParams, testInput, -1, null,
+                drcParams_def, decoderName, false, -2, true, 1100000,
+                MediaExtractor.SEEK_TO_NEXT_SYNC);
+        float[] nrg_seek_next_sync = checkEnergyUSAC(decSamples_seek_next_sync, decParams, 2, 1);
     }
 
     /**
@@ -810,12 +1211,20 @@ public class DecoderTestXheAac {
      * @param drcParams the MPEG-D DRC decoder parameter configuration
      * @param decoderName if non null, the name of the decoder to use for the decoding, otherwise
      *     the default decoder for the format will be used
+     * @param runtimeChange defines whether the decoder is configured at runtime or configured
+     *                      before starting to decode
+     * @param expectedOutputLoudness value to check if the correct output loudness is returned
+     *     by the decoder
+     * @param seek_enable defines whether there will be an initial seek
+     * @param seek_duration seeking duration in microseconds
+     * @param seek_mode seeking mode 
+     *
      * @throws RuntimeException
      */
-    public short[] decodeToMemory(AudioParameter audioParams, int testinput,
-            int eossample, List<Long> timestamps, DrcParams drcParams, String decoderName)
-            throws IOException
-    {
+    public short[] decodeToMemory(AudioParameter audioParams, int testinput, int eossample,
+            List<Long> timestamps, DrcParams drcParams, String decoderName, boolean runtimeChange,
+            int expectedOutputLoudness,
+            boolean seek_enable, int seek_duration, int seek_mode) throws IOException {
         // TODO: code is the same as in DecoderTest, differences are:
         //          - addition of application of DRC parameters
         //          - no need/use of resetMode, configMode
@@ -851,27 +1260,84 @@ public class DecoderTestXheAac {
 
         // set DRC parameters
         if (drcParams != null) {
-            configFormat.setInteger(MediaFormat.KEY_AAC_DRC_BOOST_FACTOR, drcParams.mBoost);
-            configFormat.setInteger(MediaFormat.KEY_AAC_DRC_ATTENUATION_FACTOR, drcParams.mCut);
-            if (drcParams.mDecoderTargetLevel != 0) {
-                configFormat.setInteger(MediaFormat.KEY_AAC_DRC_TARGET_REFERENCE_LEVEL,
-                        drcParams.mDecoderTargetLevel);
-            }
             configFormat.setInteger(MediaFormat.KEY_AAC_DRC_HEAVY_COMPRESSION, drcParams.mHeavy);
-            if (drcParams.mEffectType != 0){
-                configFormat.setInteger(MediaFormat.KEY_AAC_DRC_EFFECT_TYPE,
-                        drcParams.mEffectType);
+            if (!runtimeChange) {
+                configFormat.setInteger(MediaFormat.KEY_AAC_DRC_BOOST_FACTOR, drcParams.mBoost);
+                configFormat.setInteger(MediaFormat.KEY_AAC_DRC_ATTENUATION_FACTOR, drcParams.mCut);
+                if (drcParams.mDecoderTargetLevel != 0) {
+                    configFormat.setInteger(MediaFormat.KEY_AAC_DRC_TARGET_REFERENCE_LEVEL,
+                            drcParams.mDecoderTargetLevel);
+                }
+                if (drcParams.mEffectType != 0){
+                    configFormat.setInteger(MediaFormat.KEY_AAC_DRC_EFFECT_TYPE,
+                            drcParams.mEffectType);
+                }
+                if (drcParams.mAlbumMode != 0) {
+                    configFormat.setInteger(MediaFormat.KEY_AAC_DRC_ALBUM_MODE,
+                            drcParams.mAlbumMode);
+                }
             }
         }
 
         Log.v(localTag, "configuring with " + configFormat);
         codec.configure(configFormat, null /* surface */, null /* crypto */, 0 /* flags */);
 
+        if (drcParams != null && sIsAndroidRAndAbove) { // querying output format requires R
+            if(!runtimeChange) {
+                if (drcParams.mAlbumMode != 0) {
+                    int albumModeFromCodec = codec.getOutputFormat()
+                            .getInteger(MediaFormat.KEY_AAC_DRC_ALBUM_MODE);
+                    if (albumModeFromCodec != drcParams.mAlbumMode) {
+                        fail("Drc AlbumMode received from MediaCodec is not the Album Mode set");
+                    }
+                }
+                if (drcParams.mEffectType != 0) {
+                    final int effectTypeFromCodec = codec.getOutputFormat()
+                            .getInteger(MediaFormat.KEY_AAC_DRC_EFFECT_TYPE);
+                    if (effectTypeFromCodec != drcParams.mEffectType) {
+                        fail("Drc Effect Type received from MediaCodec is not the Effect Type set");
+                    }
+                }
+                if (drcParams.mDecoderTargetLevel != 0) {
+                    final int targetLevelFromCodec = codec.getOutputFormat()
+                            .getInteger(MediaFormat.KEY_AAC_DRC_TARGET_REFERENCE_LEVEL);
+                    if (targetLevelFromCodec != drcParams.mDecoderTargetLevel) {
+                        fail("Drc Target Reference Level received from MediaCodec is not the Target Reference Level set");
+                    }
+                }
+            }
+        }
+
         codec.start();
         codecInputBuffers = codec.getInputBuffers();
         codecOutputBuffers = codec.getOutputBuffers();
 
+        if (drcParams != null) {
+            if (runtimeChange) {
+                Bundle b = new Bundle();
+                b.putInt(MediaFormat.KEY_AAC_DRC_BOOST_FACTOR, drcParams.mBoost);
+                b.putInt(MediaFormat.KEY_AAC_DRC_ATTENUATION_FACTOR, drcParams.mCut);
+                if (drcParams.mEffectType != 0) {
+                    b.putInt(MediaFormat.KEY_AAC_DRC_EFFECT_TYPE, drcParams.mEffectType);
+                }
+                if (drcParams.mDecoderTargetLevel != 0) {
+                    b.putInt(MediaFormat.KEY_AAC_DRC_TARGET_REFERENCE_LEVEL,
+                            drcParams.mDecoderTargetLevel);
+                }
+                if (drcParams.mAlbumMode != 0) {
+                    b.putInt(MediaFormat.KEY_AAC_DRC_ALBUM_MODE, drcParams.mAlbumMode);
+                }
+                codec.setParameters(b);
+            }
+        }
+
         extractor.selectTrack(0);
+
+        // execute initial seeking if specified
+        if (seek_enable) {
+            codec.flush();
+            extractor.seekTo(seek_duration, seek_mode);
+        }
 
         // start decoding
         final long kTimeOutUs = 5000;
@@ -972,10 +1438,80 @@ public class DecoderTestXheAac {
             fail("decoder stopped outputting data");
         }
 
+        // check if MediaCodec gives back correct drc parameters
+        if (drcParams != null && sIsAndroidRAndAbove) {
+            if (drcParams.mAlbumMode != 0) {
+                final int albumModeFromCodec = codec.getOutputFormat()
+                        .getInteger(MediaFormat.KEY_AAC_DRC_ALBUM_MODE);
+                assertEquals("DRC AlbumMode received from MediaCodec is not the Album Mode set"
+                        + " runtime:" + runtimeChange, drcParams.mAlbumMode, albumModeFromCodec);
+            }
+            if (drcParams.mEffectType != 0) {
+                final int effectTypeFromCodec = codec.getOutputFormat()
+                        .getInteger(MediaFormat.KEY_AAC_DRC_EFFECT_TYPE);
+                assertEquals("DRC Effect Type received from MediaCodec is not the Effect Type set"
+                        + " runtime:" + runtimeChange, drcParams.mEffectType, effectTypeFromCodec);
+            }
+            if (drcParams.mDecoderTargetLevel != 0) {
+                final int targetLevelFromCodec = codec.getOutputFormat()
+                        .getInteger(MediaFormat.KEY_AAC_DRC_TARGET_REFERENCE_LEVEL);
+                assertEquals("DRC Target Ref Level received from MediaCodec is not the level set"
+                        + " runtime:" + runtimeChange,
+                        drcParams.mDecoderTargetLevel, targetLevelFromCodec);
+            }
+
+            final MediaFormat outputFormat = codec.getOutputFormat();
+            final int cutFromCodec = outputFormat.getInteger(
+                    MediaFormat.KEY_AAC_DRC_ATTENUATION_FACTOR);
+            assertEquals("Attenuation factor received from MediaCodec differs from set:",
+                    drcParams.mCut, cutFromCodec);
+            final int boostFromCodec = outputFormat.getInteger(
+                    MediaFormat.KEY_AAC_DRC_BOOST_FACTOR);
+            assertEquals("Boost factor received from MediaCodec differs from set:",
+                    drcParams.mBoost, boostFromCodec);
+        }
+
+        // expectedOutputLoudness == -2 indicates that output loudness is not tested
+        if (expectedOutputLoudness != -2 && sIsAndroidRAndAbove) {
+            final int outputLoudnessFromCodec = codec.getOutputFormat()
+                    .getInteger(MediaFormat.KEY_AAC_DRC_OUTPUT_LOUDNESS);
+            if (outputLoudnessFromCodec != expectedOutputLoudness) {
+                fail("Received decoder output loudness is not the expected value");
+            }
+        }
+
         codec.stop();
         codec.release();
         return decoded;
     }
 
+    private short[] decodeToMemory(AudioParameter audioParams, int testinput,
+            int eossample, List<Long> timestamps, DrcParams drcParams, String decoderName)
+            throws IOException
+    {
+        final short[] decoded = decodeToMemory(audioParams, testinput, eossample, timestamps,
+                drcParams, decoderName, false, -2, false, 0, 0);
+        return decoded;
+    }
+
+    private short[] decodeToMemory(AudioParameter audioParams, int testinput,
+            int eossample, List<Long> timestamps, DrcParams drcParams, String decoderName,
+            boolean runtimeChange)
+        throws IOException
+    {
+        final short[] decoded = decodeToMemory(audioParams, testinput, eossample, timestamps,
+                drcParams, decoderName, runtimeChange, -2, false, 0, 0);
+        return decoded;
+    }
+
+    private short[] decodeToMemory(AudioParameter audioParams, int testinput,
+        int eossample, List<Long> timestamps, DrcParams drcParams, String decoderName,
+        boolean runtimeChange, int expectedOutputLoudness)
+        throws IOException
+    {
+        short [] decoded = decodeToMemory(audioParams, testinput, eossample, timestamps, drcParams,
+                decoderName, runtimeChange, expectedOutputLoudness, false, 0, 0);
+        return decoded;
+    }
 }
 

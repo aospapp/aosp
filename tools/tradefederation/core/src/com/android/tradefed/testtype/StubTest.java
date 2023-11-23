@@ -17,9 +17,12 @@
 package com.android.tradefed.testtype;
 
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -30,10 +33,8 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-/**
- * No-op empty test implementation.
- */
-public class StubTest implements IShardableTest {
+/** No-op empty test implementation. */
+public class StubTest implements IShardableTest, IConfigurationReceiver, IAbiReceiver {
 
     public static final String DNAE_MESSAGE = "StubTest DeviceNotAvailableException";
 
@@ -73,11 +74,18 @@ public class StubTest implements IShardableTest {
     )
     private boolean mRunTest = false;
 
-    /**
-     * {@inheritDoc}
-     */
+    private IConfiguration mConfig;
+    private IAbi mAbi;
+
+    /* Get whether the stub test trigger some test callbacks on the invocation. */
+    public boolean getRunTest() {
+        return mRunTest;
+    }
+
+    /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         if (mThrowRuntime) {
             throw new RuntimeException("StubTest RuntimeException");
         }
@@ -110,5 +118,29 @@ public class StubTest implements IShardableTest {
             return shards;
         }
         return null;
+    }
+
+    @Override
+    public void setConfiguration(IConfiguration configuration) {
+        mConfig = configuration;
+    }
+
+    public IConfiguration getConfiguration() {
+        return mConfig;
+    }
+
+    @Override
+    public void setAbi(IAbi abi) {
+        mAbi = abi;
+    }
+
+    @Override
+    public IAbi getAbi() {
+        return mAbi;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + mAbi;
     }
 }

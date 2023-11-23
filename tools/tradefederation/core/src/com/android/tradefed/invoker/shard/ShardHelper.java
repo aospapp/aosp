@@ -16,29 +16,32 @@
 package com.android.tradefed.invoker.shard;
 
 import com.android.annotations.VisibleForTesting;
+import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationException;
-import com.android.tradefed.config.ConfigurationFactory;
+import com.android.tradefed.config.DynamicRemoteFileResolver;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IGlobalConfiguration;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.invoker.ShardListener;
-import com.android.tradefed.invoker.ShardMasterResultForwarder;
+import com.android.tradefed.invoker.ShardMainResultForwarder;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.shard.token.ITokenRequest;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.IShardableListener;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ITestLoggerReceiver;
+import com.android.tradefed.retry.IRetryDecision;
 import com.android.tradefed.suite.checker.ISystemStatusChecker;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
-import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
-import com.android.tradefed.util.QuotationAwareTokenizer;
 import com.android.tradefed.util.keystore.IKeyStoreClient;
 import com.android.tradefed.util.keystore.KeyStoreException;
 
@@ -52,6 +55,9 @@ import java.util.concurrent.CountDownLatch;
 /** Helper class that handles creating the shards and scheduling them for an invocation. */
 public class ShardHelper implements IShardHelper {
 
+    public static final String LAST_SHARD_DETECTOR = "last_shard_detector";
+    public static final String SHARED_TEST_INFORMATION = "shared_test_information";
+
     /**
      * List of the list configuration obj that should be clone to each shard in order to avoid state
      * issues.
@@ -61,12 +67,21 @@ public class ShardHelper implements IShardHelper {
     static {
         CONFIG_OBJ_TO_CLONE.add(Configuration.SYSTEM_STATUS_CHECKER_TYPE_NAME);
         CONFIG_OBJ_TO_CLONE.add(Configuration.DEVICE_METRICS_COLLECTOR_TYPE_NAME);
+        // Copy all the objects under the <device> tag from
+        // {@link Configuration#getMultiDeviceSupportedTag()} except DEVICE_REQUIREMENTS_TYPE_NAME
+        // which should be shared since all shards should have the same requirements.
+        CONFIG_OBJ_TO_CLONE.add(Configuration.BUILD_PROVIDER_TYPE_NAME);
         CONFIG_OBJ_TO_CLONE.add(Configuration.TARGET_PREPARER_TYPE_NAME);
+        CONFIG_OBJ_TO_CLONE.add(Configuration.DEVICE_RECOVERY_TYPE_NAME);
+        CONFIG_OBJ_TO_CLONE.add(Configuration.DEVICE_OPTIONS_TYPE_NAME);
+
         CONFIG_OBJ_TO_CLONE.add(Configuration.MULTI_PREPARER_TYPE_NAME);
         CONFIG_OBJ_TO_CLONE.add(Configuration.CMD_OPTIONS_TYPE_NAME);
         CONFIG_OBJ_TO_CLONE.add(Configuration.LOGGER_TYPE_NAME);
         // Deep clone of log_saver to ensure each shard manages its own logs
         CONFIG_OBJ_TO_CLONE.add(Configuration.LOG_SAVER_TYPE_NAME);
+        // Deep clone RetryDecision to ensure each shard retry independently
+        CONFIG_OBJ_TO_CLONE.add(Configuration.RETRY_DECISION_TYPE_NAME);
     }
 
     /**
@@ -79,18 +94,22 @@ public class ShardHelper implements IShardHelper {
      * @see IShardableTest
      * @see IRescheduler
      * @param config the current {@link IConfiguration}.
-     * @param context the {@link IInvocationContext} holding the tests information.
+     * @param testInfo the {@link TestInformation} holding the tests information.
      * @param rescheduler the {@link IRescheduler}
      * @return true if test was sharded. Otherwise return <code>false</code>
      */
     @Override
     public boolean shardConfig(
-            IConfiguration config, IInvocationContext context, IRescheduler rescheduler) {
+            IConfiguration config,
+            TestInformation testInfo,
+            IRescheduler rescheduler,
+            ITestLogger logger) {
+        IInvocationContext context = testInfo.getContext();
         List<IRemoteTest> shardableTests = new ArrayList<IRemoteTest>();
         boolean isSharded = false;
         Integer shardCount = config.getCommandOptions().getShardCount();
         for (IRemoteTest test : config.getTests()) {
-            isSharded |= shardTest(shardableTests, test, shardCount, context);
+            isSharded |= shardTest(shardableTests, test, shardCount, testInfo, logger);
         }
         if (!isSharded) {
             return false;
@@ -103,8 +122,11 @@ public class ShardHelper implements IShardHelper {
         if (shardCount != null) {
             expectedShard = Math.min(shardCount, shardableTests.size());
         }
-        ShardMasterResultForwarder resultCollector =
-                new ShardMasterResultForwarder(buildMasterShardListeners(config), expectedShard);
+        // Add a tracker so we know in invocation if the last shard is done running.
+        LastShardDetector lastShard = new LastShardDetector();
+        ShardMainResultForwarder resultCollector =
+                new ShardMainResultForwarder(
+                        buildMainShardListeners(config, lastShard), expectedShard);
 
         config.getLogSaver().invocationStarted(context);
         resultCollector.invocationStarted(context);
@@ -123,11 +145,17 @@ public class ShardHelper implements IShardHelper {
                     tokenPool = extractTokenTests(shardableTests);
                 }
                 for (int i = 0; i < maxShard; i++) {
-                    IConfiguration shardConfig = config.clone();
+                    IConfiguration shardConfig = cloneConfigObject(config);
+                    try {
+                        shardConfig.setConfigurationObject(LAST_SHARD_DETECTOR, lastShard);
+                    } catch (ConfigurationException e) {
+                        throw new RuntimeException(e);
+                    }
                     TestsPoolPoller poller =
                             new TestsPoolPoller(shardableTests, tokenPool, tracker);
                     shardConfig.setTest(poller);
-                    rescheduleConfig(shardConfig, config, context, rescheduler, resultCollector, i);
+                    rescheduleConfig(
+                            shardConfig, config, testInfo, rescheduler, resultCollector, i);
                 }
             } else {
                 CountDownLatch tracker = new CountDownLatch(shardableTests.size());
@@ -138,7 +166,12 @@ public class ShardHelper implements IShardHelper {
                 int i = 0;
                 for (IRemoteTest testShard : shardableTests) {
                     CLog.d("Rescheduling sharded config...");
-                    IConfiguration shardConfig = config.clone();
+                    IConfiguration shardConfig = cloneConfigObject(config);
+                    try {
+                        shardConfig.setConfigurationObject(LAST_SHARD_DETECTOR, lastShard);
+                    } catch (ConfigurationException e) {
+                        throw new RuntimeException(e);
+                    }
                     if (config.getCommandOptions().shouldUseDynamicSharding()) {
                         TestsPoolPoller poller =
                                 new TestsPoolPoller(shardableTests, tokenPool, tracker);
@@ -146,7 +179,8 @@ public class ShardHelper implements IShardHelper {
                     } else {
                         shardConfig.setTest(testShard);
                     }
-                    rescheduleConfig(shardConfig, config, context, rescheduler, resultCollector, i);
+                    rescheduleConfig(
+                            shardConfig, config, testInfo, rescheduler, resultCollector, i);
                     i++;
                 }
             }
@@ -163,15 +197,15 @@ public class ShardHelper implements IShardHelper {
     private void rescheduleConfig(
             IConfiguration shardConfig,
             IConfiguration config,
-            IInvocationContext context,
+            TestInformation testInfo,
             IRescheduler rescheduler,
-            ShardMasterResultForwarder resultCollector,
+            ShardMainResultForwarder resultCollector,
             int index) {
-        cloneConfigObject(config, shardConfig);
-        ShardBuildCloner.cloneBuildInfos(config, shardConfig, context);
+        validateOptions(testInfo, shardConfig);
+        ShardBuildCloner.cloneBuildInfos(config, shardConfig, testInfo);
 
         shardConfig.setTestInvocationListeners(
-                buildShardListeners(resultCollector, config.getTestInvocationListeners()));
+                buildShardListeners(resultCollector, config, config.getTestInvocationListeners()));
 
         // Set the host_log suffix to avoid similar names
         String suffix = String.format("_shard_index_%s", index);
@@ -193,16 +227,24 @@ public class ShardHelper implements IShardHelper {
         return GlobalConfiguration.getInstance();
     }
 
-    /** Runs the {@link IConfiguration#validateOptions(boolean)} on the config. */
+    /** Runs the {@link IConfiguration#validateOptions()} on the config. */
     @VisibleForTesting
-    protected void validateOptions(IConfiguration config) throws ConfigurationException {
-        config.validateOptions(true);
+    protected void validateOptions(TestInformation testInfo, IConfiguration config) {
+        try {
+            config.validateOptions();
+            DynamicRemoteFileResolver resolver = new DynamicRemoteFileResolver();
+            resolver.setDevice(testInfo.getDevice());
+            resolver.addExtraArgs(config.getCommandOptions().getDynamicDownloadArgs());
+            config.resolveDynamicOptions(resolver);
+        } catch (ConfigurationException | BuildRetrievalError e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
      * Helper to clone {@link ISystemStatusChecker}s from the original config to the clonedConfig.
      */
-    private void cloneConfigObject(IConfiguration oriConfig, IConfiguration clonedConfig) {
+    private IConfiguration cloneConfigObject(IConfiguration origConfig) {
         IKeyStoreClient client = null;
         try {
             client = getGlobalConfiguration().getKeyStoreFactory().createKeyStoreClient();
@@ -212,27 +254,15 @@ public class ShardHelper implements IShardHelper {
                             "failed to load keystore client when sharding: %s", e.getMessage()),
                     e);
         }
+
         try {
-            IConfiguration deepCopy =
-                    ConfigurationFactory.getInstance()
-                            .createConfigurationFromArgs(
-                                    QuotationAwareTokenizer.tokenizeLine(
-                                            oriConfig.getCommandLine()),
-                                    null,
-                                    client);
-            for (String objType : CONFIG_OBJ_TO_CLONE) {
-                clonedConfig.setConfigurationObjectList(
-                        objType, deepCopy.getConfigurationObjectList(objType));
-            }
+            IConfiguration deepCopy = origConfig.partialDeepClone(CONFIG_OBJ_TO_CLONE, client);
             // Sharding was done, no need for children to look into it.
-            clonedConfig.getCommandOptions().setShardCount(null);
-            clonedConfig
-                    .getConfigurationDescription()
+            deepCopy.getCommandOptions().setShardCount(null);
+            deepCopy.getConfigurationDescription()
                     .addMetadata(ConfigurationDescriptor.LOCAL_SHARDED_KEY, "true");
-            // Validate and download the dynamic options
-            validateOptions(clonedConfig);
+            return deepCopy;
         } catch (ConfigurationException e) {
-            // should not happen
             throw new RuntimeException(
                     String.format("failed to deep copy a configuration: %s", e.getMessage()), e);
         }
@@ -244,38 +274,35 @@ public class ShardHelper implements IShardHelper {
      * @param shardableTests the list of {@link IRemoteTest}s to add to
      * @param test the {@link IRemoteTest} to shard
      * @param shardCount attempted number of shard, can be null.
-     * @param context the {@link IInvocationContext} of the current invocation.
+     * @param testInfo the {@link TestInformation} of the current invocation.
      * @return <code>true</code> if test was sharded
      */
     private static boolean shardTest(
             List<IRemoteTest> shardableTests,
             IRemoteTest test,
             Integer shardCount,
-            IInvocationContext context) {
+            TestInformation testInfo,
+            ITestLogger logger) {
         boolean isSharded = false;
         if (test instanceof IShardableTest) {
             // inject device and build since they might be required to shard.
             if (test instanceof IBuildReceiver) {
-                ((IBuildReceiver) test).setBuild(context.getBuildInfos().get(0));
+                ((IBuildReceiver) test).setBuild(testInfo.getBuildInfo());
             }
             if (test instanceof IDeviceTest) {
-                ((IDeviceTest) test).setDevice(context.getDevices().get(0));
-            }
-            if (test instanceof IMultiDeviceTest) {
-                ((IMultiDeviceTest) test).setDeviceInfos(context.getDeviceBuildMap());
+                ((IDeviceTest) test).setDevice(testInfo.getDevice());
             }
             if (test instanceof IInvocationContextReceiver) {
-                ((IInvocationContextReceiver) test).setInvocationContext(context);
+                ((IInvocationContextReceiver) test).setInvocationContext(testInfo.getContext());
+            }
+            if (test instanceof ITestLoggerReceiver) {
+                ((ITestLoggerReceiver) test).setTestLogger(logger);
             }
 
             IShardableTest shardableTest = (IShardableTest) test;
             Collection<IRemoteTest> shards = null;
             // Give the shardCount hint to tests if they need it.
-            if (shardCount != null) {
-                shards = shardableTest.split(shardCount);
-            } else {
-                shards = shardableTest.split();
-            }
+            shards = shardableTest.split(shardCount, testInfo);
             if (shards != null) {
                 shardableTests.addAll(shards);
                 isSharded = true;
@@ -291,23 +318,27 @@ public class ShardHelper implements IShardHelper {
      * Builds the {@link ITestInvocationListener} listeners that will collect the results from all
      * shards. Currently excludes {@link IShardableListener}s.
      */
-    private static List<ITestInvocationListener> buildMasterShardListeners(IConfiguration config) {
+    private static List<ITestInvocationListener> buildMainShardListeners(
+            IConfiguration config, LastShardDetector lastShardDetector) {
         List<ITestInvocationListener> newListeners = new ArrayList<ITestInvocationListener>();
         for (ITestInvocationListener l : config.getTestInvocationListeners()) {
             if (!(l instanceof IShardableListener)) {
                 newListeners.add(l);
             }
         }
+        newListeners.add(lastShardDetector);
         return newListeners;
     }
 
     /**
      * Builds the list of {@link ITestInvocationListener}s for each shard. Currently includes any
-     * {@link IShardableListener}, plus a single listener that will forward results to the master
+     * {@link IShardableListener}, plus a single listener that will forward results to the main
      * shard collector.
      */
     private static List<ITestInvocationListener> buildShardListeners(
-            ITestInvocationListener resultCollector, List<ITestInvocationListener> origListeners) {
+            ITestInvocationListener resultCollector,
+            IConfiguration config,
+            List<ITestInvocationListener> origListeners) {
         List<ITestInvocationListener> shardListeners = new ArrayList<ITestInvocationListener>();
         for (ITestInvocationListener l : origListeners) {
             if (l instanceof IShardableListener) {
@@ -315,8 +346,17 @@ public class ShardHelper implements IShardHelper {
             }
         }
         ShardListener origConfigListener = new ShardListener(resultCollector);
+        origConfigListener.setSupportGranularResults(isAutoRetryEnabled(config));
         shardListeners.add(origConfigListener);
         return shardListeners;
+    }
+
+    private static boolean isAutoRetryEnabled(IConfiguration config) {
+        IRetryDecision decision = config.getRetryDecision();
+        if (decision.isAutoRetryEnabled() && decision.getMaxRetryCount() > 0) {
+            return true;
+        }
+        return false;
     }
 
     private Collection<ITokenRequest> extractTokenTests(Collection<IRemoteTest> shardableTests) {

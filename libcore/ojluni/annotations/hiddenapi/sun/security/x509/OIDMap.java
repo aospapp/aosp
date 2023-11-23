@@ -60,7 +60,7 @@ public class OIDMap {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.lang.Class<?> getClass(sun.security.util.ObjectIdentifier oid)
             throws java.security.cert.CertificateException {
         throw new RuntimeException("Stub!");
@@ -136,14 +136,14 @@ public class OIDMap {
     private static final java.lang.String SUB_KEY_IDENTIFIER =
             "x509.info.extensions.SubjectKeyIdentifier";
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static final java.util.Map<java.lang.String, sun.security.x509.OIDMap.OIDInfo> nameMap;
 
     static {
         nameMap = null;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static final java.util.Map<
                     sun.security.util.ObjectIdentifier, sun.security.x509.OIDMap.OIDInfo>
             oidMap;
@@ -166,7 +166,7 @@ public class OIDMap {
             throw new RuntimeException("Stub!");
         }
 
-        @dalvik.annotation.compat.UnsupportedAppUsage private volatile java.lang.Class<?> clazz;
+        @android.compat.annotation.UnsupportedAppUsage private volatile java.lang.Class<?> clazz;
 
         final java.lang.String name;
 

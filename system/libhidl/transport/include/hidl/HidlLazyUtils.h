@@ -29,12 +29,13 @@ class LazyServiceRegistrarImpl;
 /** Exits when all HALs registered through this object have 0 clients */
 class LazyServiceRegistrar {
    public:
-    LazyServiceRegistrar();
-    status_t registerService(const sp<::android::hidl::base::V1_0::IBase>& service,
-                             const std::string& name = "default");
+     static LazyServiceRegistrar& getInstance();
+     status_t registerService(const sp<::android::hidl::base::V1_0::IBase>& service,
+                              const std::string& name = "default");
 
    private:
-    std::shared_ptr<details::LazyServiceRegistrarImpl> mImpl;
+     std::shared_ptr<details::LazyServiceRegistrarImpl> mImpl;
+     LazyServiceRegistrar();
 };
 
 }  // namespace hardware

@@ -30,7 +30,7 @@ import sys
 import time
 
 from utils import AdbHelper, bytes_to_str, extant_dir, get_script_dir, get_target_binary_path
-from utils import log_debug, log_info, log_exit, ReadElf, remove, str_to_bytes
+from utils import log_debug, log_info, log_exit, ReadElf, remove, set_log_level, str_to_bytes
 
 NATIVE_LIBS_DIR_ON_DEVICE = '/data/local/tmp/native_libs/'
 
@@ -62,6 +62,8 @@ class NativeLibDownloader(object):
         self.need_archs = self._get_need_archs()
         self.host_build_id_map = {}  # Map from build_id to HostElfEntry.
         self.device_build_id_map = {}  # Map from build_id to relative_path on device.
+        # Map from filename to HostElfEntry for elf files without build id.
+        self.no_build_id_file_map = {}
         self.name_count_map = {}  # Used to give a unique name for each library.
         self.dir_on_device = NATIVE_LIBS_DIR_ON_DEVICE
         self.build_id_list_file = 'build_id_list'
@@ -87,9 +89,6 @@ class NativeLibDownloader(object):
                 self.add_native_lib_on_host(os.path.join(root, name), name)
 
     def add_native_lib_on_host(self, path, name):
-        build_id = self.readelf.get_build_id(path)
-        if not build_id:
-            return
         arch = self.readelf.get_arch(path)
         if arch not in self.need_archs:
             return
@@ -101,22 +100,38 @@ class NativeLibDownloader(object):
             score = 2
         elif '.symtab' in sections:
             score = 1
-        entry = self.host_build_id_map.get(build_id)
-        if entry:
-            if entry.score < score:
-                entry.path = path
-                entry.score = score
+        build_id = self.readelf.get_build_id(path)
+        if build_id:
+            entry = self.host_build_id_map.get(build_id)
+            if entry:
+                if entry.score < score:
+                    entry.path = path
+                    entry.score = score
+            else:
+                repeat_count = self.name_count_map.get(name, 0)
+                self.name_count_map[name] = repeat_count + 1
+                unique_name = name if repeat_count == 0 else name + '_' + str(repeat_count)
+                self.host_build_id_map[build_id] = HostElfEntry(path, unique_name, score)
         else:
-            repeat_count = self.name_count_map.get(name, 0)
-            self.name_count_map[name] = repeat_count + 1
-            unique_name = name if repeat_count == 0 else name + '_' + str(repeat_count)
-            self.host_build_id_map[build_id] = HostElfEntry(path, unique_name, score)
+            entry = self.no_build_id_file_map.get(name)
+            if entry:
+                if entry.score < score:
+                    entry.path = path
+                    entry.score = score
+            else:
+                self.no_build_id_file_map[name] = HostElfEntry(path, name, score)
 
     def collect_native_libs_on_device(self):
         self.device_build_id_map.clear()
         self.adb.check_run(['shell', 'mkdir', '-p', self.dir_on_device])
         if os.path.exists(self.build_id_list_file):
             os.remove(self.build_id_list_file)
+        result, output = self.adb.run_and_return_output(['shell', 'ls', self.dir_on_device])
+        if not result:
+            return
+        file_set = set(output.strip().split())
+        if self.build_id_list_file not in file_set:
+            return
         self.adb.run(['pull', self.dir_on_device + self.build_id_list_file])
         if os.path.exists(self.build_id_list_file):
             with open(self.build_id_list_file, 'rb') as fh:
@@ -124,10 +139,12 @@ class NativeLibDownloader(object):
                     line = bytes_to_str(line).strip()
                     items = line.split('=')
                     if len(items) == 2:
-                        self.device_build_id_map[items[0]] = items[1]
+                        build_id, filename = items
+                        if filename in file_set:
+                            self.device_build_id_map[build_id] = filename
             remove(self.build_id_list_file)
 
-    def sync_natives_libs_on_device(self):
+    def sync_native_libs_on_device(self):
         # Push missing native libs on device.
         for build_id in self.host_build_id_map:
             if build_id not in self.device_build_id_map:
@@ -146,6 +163,24 @@ class NativeLibDownloader(object):
         self.adb.check_run(['push', self.build_id_list_file,
                             self.dir_on_device + self.build_id_list_file])
         os.remove(self.build_id_list_file)
+
+        # Push elf files without build id on device.
+        for entry in self.no_build_id_file_map.values():
+            target = self.dir_on_device + entry.name
+
+            # Skip download if we have a file with the same name and size on device.
+            result, output = self.adb.run_and_return_output(
+                ['shell', 'ls', '-l', target], log_output=False, log_stderr=False)
+            if result:
+                items = output.split()
+                if len(items) > 5:
+                    try:
+                        file_size = int(items[4])
+                    except ValueError:
+                        file_size = 0
+                    if file_size == os.path.getsize(entry.path):
+                        continue
+            self.adb.check_run(['push', entry.path, target])
 
 
 class ProfilerBase(object):
@@ -186,7 +221,7 @@ class ProfilerBase(object):
         downloader = NativeLibDownloader(self.args.ndk_path, self.device_arch, self.adb)
         downloader.collect_native_libs_on_host(self.args.native_lib_dir)
         downloader.collect_native_libs_on_device()
-        downloader.sync_natives_libs_on_device()
+        downloader.sync_native_libs_on_device()
 
     def start(self):
         raise NotImplementedError
@@ -195,11 +230,12 @@ class ProfilerBase(object):
         """Start simpleperf reocrd process on device."""
         args = ['/data/local/tmp/simpleperf', 'record', '-o', '/data/local/tmp/perf.data',
                 self.args.record_options]
-        if self.adb.run(['shell', 'ls', NATIVE_LIBS_DIR_ON_DEVICE]):
+        if self.adb.run(['shell', 'ls', NATIVE_LIBS_DIR_ON_DEVICE, '>/dev/null', '2>&1']):
             args += ['--symfs', NATIVE_LIBS_DIR_ON_DEVICE]
+        args += ['--log', self.args.log]
         args += target_args
         adb_args = [self.adb.adb_path, 'shell'] + args
-        log_debug('run adb cmd: %s' % adb_args)
+        log_info('run adb cmd: %s' % adb_args)
         self.record_subproc = subprocess.Popen(adb_args)
 
     def wait_profiling(self):
@@ -236,7 +272,7 @@ class ProfilerBase(object):
         if not self.args.skip_collect_binaries:
             binary_cache_args = [sys.executable,
                                  os.path.join(get_script_dir(), 'binary_cache_builder.py')]
-            binary_cache_args += ['-i', self.args.perf_data_path]
+            binary_cache_args += ['-i', self.args.perf_data_path, '--log', self.args.log]
             if self.args.native_lib_dir:
                 binary_cache_args += ['-lib', self.args.native_lib_dir]
             if self.args.disable_adb_root:
@@ -417,12 +453,15 @@ def main():
                              help="""Force adb to run in non root mode. By default, app_profiler.py
                                      will try to switch to root mode to be able to profile released
                                      Android apps.""")
+    other_group.add_argument(
+        '--log', choices=['debug', 'info', 'warning'], default='info', help='set log level')
 
     def check_args(args):
         if (not args.app) and (args.compile_java_code or args.activity or args.test):
             log_exit('--compile_java_code, -a, -t can only be used when profiling an Android app.')
 
     args = parser.parse_args()
+    set_log_level(args.log)
     check_args(args)
     if args.app:
         profiler = AppProfiler(args)

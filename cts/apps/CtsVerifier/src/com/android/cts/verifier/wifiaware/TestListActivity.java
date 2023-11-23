@@ -85,6 +85,16 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                 DataPathPassphrasePassiveSubscribeTestActivity.class.getName(),
                 new Intent(this, DataPathPassphrasePassiveSubscribeTestActivity.class), null));
         adapter.add(TestListAdapter.TestListItem.newCategory(this,
+                R.string.aware_dp_ib_pmk_unsolicited));
+        adapter.add(TestListAdapter.TestListItem.newTest(this,
+                R.string.aware_publish,
+                DataPathPmkUnsolicitedPublishTestActivity.class.getName(),
+                new Intent(this, DataPathPmkUnsolicitedPublishTestActivity.class), null));
+        adapter.add(TestListAdapter.TestListItem.newTest(this,
+                R.string.aware_subscribe,
+                DataPathPmkPassiveSubscribeTestActivity.class.getName(),
+                new Intent(this, DataPathPmkPassiveSubscribeTestActivity.class), null));
+        adapter.add(TestListAdapter.TestListItem.newCategory(this,
                 R.string.aware_dp_ib_open_solicited));
         adapter.add(TestListAdapter.TestListItem.newTest(this,
                 R.string.aware_publish,
@@ -104,6 +114,16 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                 R.string.aware_subscribe,
                 DataPathPassphraseActiveSubscribeTestActivity.class.getName(),
                 new Intent(this, DataPathPassphraseActiveSubscribeTestActivity.class), null));
+        adapter.add(TestListAdapter.TestListItem.newCategory(this,
+                R.string.aware_dp_ib_pmk_solicited));
+        adapter.add(TestListAdapter.TestListItem.newTest(this,
+                R.string.aware_publish,
+                DataPathPmkSolicitedPublishTestActivity.class.getName(),
+                new Intent(this, DataPathPmkSolicitedPublishTestActivity.class), null));
+        adapter.add(TestListAdapter.TestListItem.newTest(this,
+                R.string.aware_subscribe,
+                DataPathPmkActiveSubscribeTestActivity.class.getName(),
+                new Intent(this, DataPathPmkActiveSubscribeTestActivity.class), null));
         adapter.add(TestListAdapter.TestListItem.newCategory(this,
                 R.string.aware_dp_oob_open));
         adapter.add(TestListAdapter.TestListItem.newTest(this,

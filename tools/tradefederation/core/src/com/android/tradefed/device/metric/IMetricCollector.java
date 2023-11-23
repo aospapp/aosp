@@ -113,4 +113,18 @@ public interface IMetricCollector extends ITestInvocationListener, IDisableable 
      */
     public void onTestEnd(
             DeviceMetricData testData, final Map<String, Metric> currentTestCaseMetrics);
+
+    /**
+     * Callback when a test case is ended. This should be the time for clean up.
+     *
+     * @param testData the {@link DeviceMetricData} holding the data for the test case. Will be the
+     *     same object as during {@link #onTestStart(DeviceMetricData)}.
+     * @param currentTestCaseMetrics the current map of metrics passed to {@link
+     *     #testEnded(TestDescription, Map)}.
+     * @param test the {@link TestDescription} of the test case in progress.
+     */
+    public void onTestEnd(
+            DeviceMetricData testData,
+            final Map<String, Metric> currentTestCaseMetrics,
+            TestDescription test);
 }

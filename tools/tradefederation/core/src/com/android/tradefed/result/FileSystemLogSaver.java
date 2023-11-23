@@ -195,8 +195,7 @@ public class FileSystemLogSaver implements ILogSaver {
         File logReportDir;
         // now create unique directory within the buildDir
         try {
-            File buildDir = createBuildDir(buildInfo, reportDir);
-            logReportDir = FileUtil.createTempDir("inv_", buildDir);
+            logReportDir = generateLogReportDir(buildInfo, reportDir);
         } catch (IOException e) {
             CLog.e("Unable to create unique directory in %s. Attempting to use tmp dir instead",
                     reportDir.getAbsolutePath());
@@ -215,6 +214,18 @@ public class FileSystemLogSaver implements ILogSaver {
         }
         CLog.d("Using log file directory %s", logReportDir.getAbsolutePath());
         return logReportDir;
+    }
+
+    /**
+     * An exposed method that allow subclass to customize generating path logic.
+     *
+     * @param buildInfo the {@link IBuildInfo}
+     * @param reportDir the {@link File} for the report directory.
+     * @return The directory created.
+     */
+    protected File generateLogReportDir(IBuildInfo buildInfo, File reportDir) throws IOException {
+        File buildDir = createBuildDir(buildInfo, reportDir);
+        return FileUtil.createTempDir("inv_", buildDir);
     }
 
     /**
@@ -330,5 +341,9 @@ public class FileSystemLogSaver implements ILogSaver {
      */
     void setLogRetentionDays(int logRetentionDays) {
         mLogRetentionDays = logRetentionDays;
+    }
+
+    public void setCompressFiles(boolean compress) {
+        mCompressFiles = compress;
     }
 }

@@ -24,13 +24,17 @@
 #include <vector>
 
 #include "base/time/time.h"
+#include "hci/address.h"
+#include "hci/hci_packets.h"
 #include "link_layer_controller.h"
 #include "model/devices/device.h"
 #include "model/setup/async_manager.h"
 #include "security_manager.h"
-#include "types/address.h"
 
 namespace test_vendor_lib {
+
+using ::bluetooth::hci::Address;
+using ::bluetooth::hci::CommandPacketView;
 
 // Emulates a dual mode BR/EDR + LE controller by maintaining the link layer
 // state machine detailed in the Bluetooth Core Specification Version 4.2,
@@ -60,17 +64,16 @@ class DualModeController : public Device {
 
   virtual std::string GetTypeString() const override;
 
-  virtual void IncomingPacket(packets::LinkLayerPacketView incoming) override;
+  virtual void IncomingPacket(
+      model::packets::LinkLayerPacketView incoming) override;
 
   virtual void TimerTick() override;
-
-  // Send packets to remote devices
-  void SendLinkLayerPacket(std::shared_ptr<packets::LinkLayerPacketBuilder> to_send, Phy::Type phy_type);
 
   // Route commands and data from the stack.
   void HandleAcl(std::shared_ptr<std::vector<uint8_t>> acl_packet);
   void HandleCommand(std::shared_ptr<std::vector<uint8_t>> command_packet);
   void HandleSco(std::shared_ptr<std::vector<uint8_t>> sco_packet);
+  void HandleIso(std::shared_ptr<std::vector<uint8_t>> iso_packet);
 
   // Set the callbacks for scheduling tasks.
   void RegisterTaskScheduler(std::function<AsyncTaskId(std::chrono::milliseconds, const TaskCallback&)> evtScheduler);
@@ -82,11 +85,20 @@ class DualModeController : public Device {
   void RegisterTaskCancel(std::function<void(AsyncTaskId)> cancel);
 
   // Set the callbacks for sending packets to the HCI.
-  void RegisterEventChannel(const std::function<void(std::shared_ptr<std::vector<uint8_t>>)>& send_event);
+  void RegisterEventChannel(
+      const std::function<void(std::shared_ptr<std::vector<uint8_t>>)>&
+          send_event);
 
   void RegisterAclChannel(const std::function<void(std::shared_ptr<std::vector<uint8_t>>)>& send_acl);
 
   void RegisterScoChannel(const std::function<void(std::shared_ptr<std::vector<uint8_t>>)>& send_sco);
+
+  void RegisterIsoChannel(
+      const std::function<void(std::shared_ptr<std::vector<uint8_t>>)>&
+          send_iso);
+
+  // Set the device's address.
+  void SetAddress(Address address) override;
 
   // Controller commands. For error codes, see the Bluetooth Core Specification,
   // Version 4.2, Volume 2, Part D (page 370).
@@ -95,261 +107,372 @@ class DualModeController : public Device {
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.1
 
   // 7.1.1
-  void HciInquiry(packets::PacketView<true> args);
+  void Inquiry(CommandPacketView args);
 
   // 7.1.2
-  void HciInquiryCancel(packets::PacketView<true> args);
+  void InquiryCancel(CommandPacketView args);
 
   // 7.1.5
-  void HciCreateConnection(packets::PacketView<true> args);
+  void CreateConnection(CommandPacketView args);
 
   // 7.1.6
-  void HciDisconnect(packets::PacketView<true> args);
+  void Disconnect(CommandPacketView args);
 
   // 7.1.8
-  void HciAcceptConnectionRequest(packets::PacketView<true> args);
+  void AcceptConnectionRequest(CommandPacketView args);
 
   // 7.1.9
-  void HciRejectConnectionRequest(packets::PacketView<true> args);
+  void RejectConnectionRequest(CommandPacketView args);
 
   // 7.1.10
-  void HciLinkKeyRequestReply(packets::PacketView<true> args);
+  void LinkKeyRequestReply(CommandPacketView args);
 
   // 7.1.11
-  void HciLinkKeyRequestNegativeReply(packets::PacketView<true> args);
+  void LinkKeyRequestNegativeReply(CommandPacketView args);
 
   // 7.1.14
-  void HciChangeConnectionPacketType(packets::PacketView<true> args);
+  void ChangeConnectionPacketType(CommandPacketView args);
 
   // 7.1.15
-  void HciAuthenticationRequested(packets::PacketView<true> args);
+  void AuthenticationRequested(CommandPacketView args);
 
   // 7.1.16
-  void HciSetConnectionEncryption(packets::PacketView<true> args);
+  void SetConnectionEncryption(CommandPacketView args);
+
+  // 7.1.17
+  void ChangeConnectionLinkKey(CommandPacketView args);
+
+  // 7.1.18
+  void MasterLinkKey(CommandPacketView args);
 
   // 7.1.19
-  void HciRemoteNameRequest(packets::PacketView<true> args);
+  void RemoteNameRequest(CommandPacketView args);
+
+  // 7.2.8
+  void SwitchRole(CommandPacketView args);
 
   // 7.1.21
-  void HciReadRemoteSupportedFeatures(packets::PacketView<true> args);
+  void ReadRemoteSupportedFeatures(CommandPacketView args);
 
   // 7.1.22
-  void HciReadRemoteExtendedFeatures(packets::PacketView<true> args);
+  void ReadRemoteExtendedFeatures(CommandPacketView args);
 
   // 7.1.23
-  void HciReadRemoteVersionInformation(packets::PacketView<true> args);
+  void ReadRemoteVersionInformation(CommandPacketView args);
 
   // 7.1.24
-  void HciReadClockOffset(packets::PacketView<true> args);
+  void ReadClockOffset(CommandPacketView args);
 
   // 7.1.29
-  void HciIoCapabilityRequestReply(packets::PacketView<true> args);
+  void IoCapabilityRequestReply(CommandPacketView args);
 
   // 7.1.30
-  void HciUserConfirmationRequestReply(packets::PacketView<true> args);
+  void UserConfirmationRequestReply(CommandPacketView args);
 
   // 7.1.31
-  void HciUserConfirmationRequestNegativeReply(packets::PacketView<true> args);
+  void UserConfirmationRequestNegativeReply(CommandPacketView args);
 
   // 7.1.32
-  void HciUserPasskeyRequestReply(packets::PacketView<true> args);
+  void UserPasskeyRequestReply(CommandPacketView args);
 
   // 7.1.33
-  void HciUserPasskeyRequestNegativeReply(packets::PacketView<true> args);
+  void UserPasskeyRequestNegativeReply(CommandPacketView args);
 
   // 7.1.34
-  void HciRemoteOobDataRequestReply(packets::PacketView<true> args);
+  void RemoteOobDataRequestReply(CommandPacketView args);
 
   // 7.1.35
-  void HciRemoteOobDataRequestNegativeReply(packets::PacketView<true> args);
+  void RemoteOobDataRequestNegativeReply(CommandPacketView args);
 
   // 7.1.36
-  void HciIoCapabilityRequestNegativeReply(packets::PacketView<true> args);
+  void IoCapabilityRequestNegativeReply(CommandPacketView args);
 
   // Link Policy Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.2
 
+  // 7.2.1
+  void HoldMode(CommandPacketView args);
+
+  // 7.2.2
+  void SniffMode(CommandPacketView args);
+
+  // 7.2.3
+  void ExitSniffMode(CommandPacketView args);
+
+  // 7.2.6
+  void QosSetup(CommandPacketView args);
+
   // 7.2.10
-  void HciWriteLinkPolicySettings(packets::PacketView<true> args);
+  void WriteLinkPolicySettings(CommandPacketView args);
 
   // 7.2.12
-  void HciWriteDefaultLinkPolicySettings(packets::PacketView<true> args);
+  void WriteDefaultLinkPolicySettings(CommandPacketView args);
+
+  // 7.2.13
+  void FlowSpecification(CommandPacketView args);
 
   // 7.2.14
-  void HciSniffSubrating(packets::PacketView<true> args);
+  void SniffSubrating(CommandPacketView args);
 
   // Link Controller Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.3
 
   // 7.3.1
-  void HciSetEventMask(packets::PacketView<true> args);
+  void SetEventMask(CommandPacketView args);
 
   // 7.3.2
-  void HciReset(packets::PacketView<true> args);
+  void Reset(CommandPacketView args);
 
   // 7.3.3
-  void HciSetEventFilter(packets::PacketView<true> args);
+  void SetEventFilter(CommandPacketView args);
 
   // 7.3.10
-  void HciDeleteStoredLinkKey(packets::PacketView<true> args);
+  void DeleteStoredLinkKey(CommandPacketView args);
 
   // 7.3.11
-  void HciWriteLocalName(packets::PacketView<true> args);
+  void WriteLocalName(CommandPacketView args);
 
   // 7.3.12
-  void HciReadLocalName(packets::PacketView<true> args);
+  void ReadLocalName(CommandPacketView args);
+
+  // 7.3.15
+  void ReadPageTimeout(CommandPacketView args);
 
   // 7.3.16
-  void HciWritePageTimeout(packets::PacketView<true> args);
+  void WritePageTimeout(CommandPacketView args);
+
+  // 7.3.17
+  void ReadScanEnable(CommandPacketView args);
 
   // 7.3.18
-  void HciWriteScanEnable(packets::PacketView<true> args);
+  void WriteScanEnable(CommandPacketView args);
+
+  // 7.3.19
+  void ReadPageScanActivity(CommandPacketView args);
+
+  // 7.3.20
+  void WritePageScanActivity(CommandPacketView args);
+
+  // 7.3.21
+  void ReadInquiryScanActivity(CommandPacketView args);
 
   // 7.3.22
-  void HciWriteInquiryScanActivity(packets::PacketView<true> args);
+  void WriteInquiryScanActivity(CommandPacketView args);
 
   // 7.3.23
-  void HciReadAuthenticationEnable(packets::PacketView<true> args);
+  void ReadAuthenticationEnable(CommandPacketView args);
 
   // 7.3.24
-  void HciWriteAuthenticationEnable(packets::PacketView<true> args);
+  void WriteAuthenticationEnable(CommandPacketView args);
 
   // 7.3.26
-  void HciWriteClassOfDevice(packets::PacketView<true> args);
+  void WriteClassOfDevice(CommandPacketView args);
 
   // 7.3.28
-  void HciWriteVoiceSetting(packets::PacketView<true> args);
+  void WriteVoiceSetting(CommandPacketView args);
 
   // 7.3.39
-  void HciHostBufferSize(packets::PacketView<true> args);
+  void HostBufferSize(CommandPacketView args);
 
   // 7.3.42
-  void HciWriteLinkSupervisionTimeout(packets::PacketView<true> args);
+  void WriteLinkSupervisionTimeout(CommandPacketView args);
+
+  // 7.3.43
+  void ReadNumberOfSupportedIac(CommandPacketView args);
+
+  // 7.3.44
+  void ReadCurrentIacLap(CommandPacketView args);
 
   // 7.3.45
-  void HciWriteCurrentIacLap(packets::PacketView<true> args);
+  void WriteCurrentIacLap(CommandPacketView args);
+
+  // 7.3.47
+  void ReadInquiryScanType(CommandPacketView args);
 
   // 7.3.48
-  void HciWriteInquiryScanType(packets::PacketView<true> args);
+  void WriteInquiryScanType(CommandPacketView args);
+
+  // 7.3.49
+  void ReadInquiryMode(CommandPacketView args);
 
   // 7.3.50
-  void HciWriteInquiryMode(packets::PacketView<true> args);
+  void WriteInquiryMode(CommandPacketView args);
 
   // 7.3.52
-  void HciWritePageScanType(packets::PacketView<true> args);
+  void ReadPageScanType(CommandPacketView args);
+
+  // 7.3.52
+  void WritePageScanType(CommandPacketView args);
 
   // 7.3.56
-  void HciWriteExtendedInquiryResponse(packets::PacketView<true> args);
+  void WriteExtendedInquiryResponse(CommandPacketView args);
+
+  // 7.3.57
+  void RefreshEncryptionKey(CommandPacketView args);
 
   // 7.3.59
-  void HciWriteSimplePairingMode(packets::PacketView<true> args);
+  void WriteSimplePairingMode(CommandPacketView args);
+
+  // 7.3.61
+  void ReadInquiryResponseTransmitPowerLevel(CommandPacketView args);
 
   // 7.3.79
-  void HciWriteLeHostSupport(packets::PacketView<true> args);
+  void WriteLeHostSupport(CommandPacketView args);
+
+  // 7.3.92
+  void WriteSecureConnectionsHostSupport(CommandPacketView args);
 
   // Informational Parameters Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.4
 
   // 7.4.5
-  void HciReadBufferSize(packets::PacketView<true> args);
+  void ReadBufferSize(CommandPacketView args);
 
   // 7.4.1
-  void HciReadLocalVersionInformation(packets::PacketView<true> args);
+  void ReadLocalVersionInformation(CommandPacketView args);
 
   // 7.4.6
-  void HciReadBdAddr(packets::PacketView<true> args);
+  void ReadBdAddr(CommandPacketView args);
 
   // 7.4.2
-  void HciReadLocalSupportedCommands(packets::PacketView<true> args);
+  void ReadLocalSupportedCommands(CommandPacketView args);
+
+  // 7.4.3
+  void ReadLocalSupportedFeatures(CommandPacketView args);
 
   // 7.4.4
-  void HciReadLocalExtendedFeatures(packets::PacketView<true> args);
+  void ReadLocalExtendedFeatures(CommandPacketView args);
 
   // 7.4.8
-  void HciReadLocalSupportedCodecs(packets::PacketView<true> args);
+  void ReadLocalSupportedCodecs(CommandPacketView args);
 
   // Status Parameters Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.5
+
+  // 7.5.7
+  void ReadEncryptionKeySize(CommandPacketView args);
 
   // Test Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.7
 
   // 7.7.1
-  void HciReadLoopbackMode(packets::PacketView<true> args);
+  void ReadLoopbackMode(CommandPacketView args);
 
   // 7.7.2
-  void HciWriteLoopbackMode(packets::PacketView<true> args);
+  void WriteLoopbackMode(CommandPacketView args);
 
   // LE Controller Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.8
 
   // 7.8.1
-  void HciLeSetEventMask(packets::PacketView<true> args);
+  void LeSetEventMask(CommandPacketView args);
 
   // 7.8.2
-  void HciLeReadBufferSize(packets::PacketView<true> args);
+  void LeReadBufferSize(CommandPacketView args);
 
   // 7.8.3
-  void HciLeReadLocalSupportedFeatures(packets::PacketView<true> args);
+  void LeReadLocalSupportedFeatures(CommandPacketView args);
 
   // 7.8.4
-  void HciLeSetRandomAddress(packets::PacketView<true> args);
+  void LeSetRandomAddress(CommandPacketView args);
 
   // 7.8.5
-  void HciLeSetAdvertisingParameters(packets::PacketView<true> args);
+  void LeSetAdvertisingParameters(CommandPacketView args);
 
   // 7.8.7
-  void HciLeSetAdvertisingData(packets::PacketView<true> args);
+  void LeSetAdvertisingData(CommandPacketView args);
+
+  // 7.8.8
+  void LeSetScanResponseData(CommandPacketView args);
+
+  // 7.8.9
+  void LeSetAdvertisingEnable(CommandPacketView args);
 
   // 7.8.10
-  void HciLeSetScanParameters(packets::PacketView<true> args);
+  void LeSetScanParameters(CommandPacketView args);
 
   // 7.8.11
-  void HciLeSetScanEnable(packets::PacketView<true> args);
+  void LeSetScanEnable(CommandPacketView args);
 
   // 7.8.12
-  void HciLeCreateConnection(packets::PacketView<true> args);
+  void LeCreateConnection(CommandPacketView args);
 
   // 7.8.18
-  void HciLeConnectionUpdate(packets::PacketView<true> args);
+  void LeConnectionUpdate(CommandPacketView args);
 
   // 7.8.13
-  void HciLeConnectionCancel(packets::PacketView<true> args);
+  void LeConnectionCancel(CommandPacketView args);
 
   // 7.8.14
-  void HciLeReadWhiteListSize(packets::PacketView<true> args);
+  void LeReadWhiteListSize(CommandPacketView args);
 
   // 7.8.15
-  void HciLeClearWhiteList(packets::PacketView<true> args);
+  void LeClearWhiteList(CommandPacketView args);
 
   // 7.8.16
-  void HciLeAddDeviceToWhiteList(packets::PacketView<true> args);
+  void LeAddDeviceToWhiteList(CommandPacketView args);
 
   // 7.8.17
-  void HciLeRemoveDeviceFromWhiteList(packets::PacketView<true> args);
+  void LeRemoveDeviceFromWhiteList(CommandPacketView args);
 
   // 7.8.21
-  void HciLeReadRemoteFeatures(packets::PacketView<true> args);
+  void LeReadRemoteFeatures(CommandPacketView args);
 
   // 7.8.23
-  void HciLeRand(packets::PacketView<true> args);
+  void LeRand(CommandPacketView args);
 
   // 7.8.24
-  void HciLeStartEncryption(packets::PacketView<true> args);
+  void LeStartEncryption(CommandPacketView args);
 
   // 7.8.27
-  void HciLeReadSupportedStates(packets::PacketView<true> args);
+  void LeReadSupportedStates(CommandPacketView args);
+
+  // 7.8.38
+  void LeAddDeviceToResolvingList(CommandPacketView args);
+
+  // 7.8.39
+  void LeRemoveDeviceFromResolvingList(CommandPacketView args);
+
+  // 7.8.40
+  void LeClearResolvingList(CommandPacketView args);
+
+  // 7.8.52
+  void LeSetExtendedAdvertisingRandomAddress(CommandPacketView args);
+
+  // 7.8.53
+  void LeSetExtendedAdvertisingParameters(CommandPacketView args);
+
+  // 7.8.54
+  void LeSetExtendedAdvertisingData(CommandPacketView args);
+
+  // 7.8.55
+  void LeSetExtendedAdvertisingScanResponse(CommandPacketView args);
+
+  // 7.8.56
+  void LeSetExtendedAdvertisingEnable(CommandPacketView args);
+
+  // 7.8.64
+  void LeSetExtendedScanParameters(CommandPacketView args);
+
+  // 7.8.65
+  void LeSetExtendedScanEnable(CommandPacketView args);
+
+  // 7.8.66
+  void LeExtendedCreateConnection(CommandPacketView args);
+
+  // 7.8.77
+  void LeSetPrivacyMode(CommandPacketView args);
 
   // Vendor-specific Commands
 
-  void HciLeVendorSleepMode(packets::PacketView<true> args);
-  void HciLeVendorCap(packets::PacketView<true> args);
-  void HciLeVendorMultiAdv(packets::PacketView<true> args);
-  void HciLeVendor155(packets::PacketView<true> args);
-  void HciLeVendor157(packets::PacketView<true> args);
-  void HciLeEnergyInfo(packets::PacketView<true> args);
-  void HciLeAdvertisingFilter(packets::PacketView<true> args);
-  void HciLeExtendedScanParams(packets::PacketView<true> args);
+  void LeVendorSleepMode(CommandPacketView args);
+  void LeVendorCap(CommandPacketView args);
+  void LeVendorMultiAdv(CommandPacketView args);
+  void LeVendor155(CommandPacketView args);
+  void LeVendor157(CommandPacketView args);
+  void LeEnergyInfo(CommandPacketView args);
+  void LeAdvertisingFilter(CommandPacketView args);
+  void LeExtendedScanParams(CommandPacketView args);
 
   void SetTimerPeriod(std::chrono::milliseconds new_period);
   void StartTimer();
@@ -364,37 +487,24 @@ class DualModeController : public Device {
 
   void AddConnectionAction(const TaskCallback& callback, uint16_t handle);
 
-  // Creates a command complete event and sends it back to the HCI.
-  void SendCommandComplete(hci::OpCode command_opcode, const std::vector<uint8_t>& return_parameters) const;
-
-  // Sends a command complete event with no return parameters.
-  void SendCommandCompleteSuccess(hci::OpCode command_opcode) const;
-
   void SendCommandCompleteUnknownOpCodeEvent(uint16_t command_opcode) const;
 
-  // Sends a command complete event with no return parameters.
-  void SendCommandCompleteOnlyStatus(hci::OpCode command_opcode, hci::Status status) const;
-
-  void SendCommandCompleteStatusAndAddress(hci::OpCode command_opcode, hci::Status status,
-                                           const Address& address) const;
-
-  // Creates a command status event and sends it back to the HCI.
-  void SendCommandStatus(hci::Status status, hci::OpCode command_opcode) const;
-
-  // Sends a command status event with default event parameters.
-  void SendCommandStatusSuccess(hci::OpCode command_opcode) const;
-
   // Callbacks to send packets back to the HCI.
-  std::function<void(std::shared_ptr<std::vector<uint8_t>>)> send_acl_;
-  std::function<void(std::shared_ptr<std::vector<uint8_t>>)> send_event_;
+  std::function<void(std::shared_ptr<bluetooth::hci::AclPacketBuilder>)>
+      send_acl_;
+  std::function<void(std::shared_ptr<bluetooth::hci::EventPacketBuilder>)>
+      send_event_;
   std::function<void(std::shared_ptr<std::vector<uint8_t>>)> send_sco_;
+  std::function<void(std::shared_ptr<std::vector<uint8_t>>)> send_iso_;
 
   // Maintains the commands to be registered and used in the HciHandler object.
   // Keys are command opcodes and values are the callbacks to handle each
   // command.
-  std::unordered_map<uint16_t, std::function<void(packets::PacketView<true>)>> active_hci_commands_;
+  std::unordered_map<bluetooth::hci::OpCode,
+                     std::function<void(bluetooth::hci::CommandPacketView)>>
+      active_hci_commands_;
 
-  hci::LoopbackMode loopback_mode_;
+  bluetooth::hci::LoopbackMode loopback_mode_;
 
   SecurityManager security_manager_;
 

@@ -16,6 +16,7 @@
 vts_test_bin_packages := \
     android.hardware.tests.msgq@1.0-service-benchmark \
     android.hardware.tests.msgq@1.0-service-test \
+    ashmemd_test \
     fiemap_writer_test \
     fmq_test \
     gsi_boot_test \
@@ -29,8 +30,8 @@ vts_test_bin_packages := \
     libhwbinder_latency \
     libbinder_benchmark \
     libdm_test \
-    liblp_test_static \
     vts_codelab_target_binary \
+    vts_kernel_liblp_test \
     vts_selftest_flaky_test \
     vts_selftest_zero_testcase_binary_test \
     vts_test_binary_crash_app \
@@ -43,6 +44,7 @@ vts_test_bin_packages := \
     libcutils_test_static \
     vts_test_binary_qtaguid_module \
     vts_test_binary_bpf_module \
+    ion-unit-tests \
 
 # Proto fuzzer executable
 vts_test_bin_packages += \
@@ -51,7 +53,6 @@ vts_test_bin_packages += \
 # VTS Treble VINTF Test
 vts_test_bin_packages += \
     vts_ibase_test \
-    vts_treble_vintf_test_o_mr1 \
     vts_treble_vintf_framework_test \
     vts_treble_vintf_vendor_test  \
 
@@ -63,10 +64,13 @@ vts_test_bin_packages += \
 vts_test_bin_packages += \
     dt_early_mount_test \
     kernel_net_tests \
+    vts_kernel_encryption_test \
     vts_kernel_loopconfig_test \
     vts_kernel_tun_test \
     vts_kernel_toolchain \
+    vts_libsnapshot_test \
     vts_meminfo_test \
+    vts_virtual_ab_test \
 
 # Binder tests.
 vts_test_bin_packages += \

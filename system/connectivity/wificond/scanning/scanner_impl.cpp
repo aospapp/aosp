@@ -23,18 +23,16 @@
 #include <android-base/logging.h>
 
 #include "wificond/client_interface_impl.h"
-#include "wificond/scanning/offload/offload_scan_manager.h"
-#include "wificond/scanning/offload/offload_service_utils.h"
 #include "wificond/scanning/scan_utils.h"
 
 using android::binder::Status;
-using android::net::wifi::IPnoScanEvent;
-using android::net::wifi::IScanEvent;
-using android::net::wifi::IWifiScannerImpl;
 using android::sp;
-using com::android::server::wifi::wificond::NativeScanResult;
-using com::android::server::wifi::wificond::PnoSettings;
-using com::android::server::wifi::wificond::SingleScanSettings;
+using android::net::wifi::nl80211::IPnoScanEvent;
+using android::net::wifi::nl80211::IScanEvent;
+using android::net::wifi::nl80211::IWifiScannerImpl;
+using android::net::wifi::nl80211::NativeScanResult;
+using android::net::wifi::nl80211::PnoSettings;
+using android::net::wifi::nl80211::SingleScanSettings;
 
 using std::string;
 using std::vector;
@@ -71,14 +69,11 @@ ScannerImpl::ScannerImpl(uint32_t interface_index,
                          const ScanCapabilities& scan_capabilities,
                          const WiphyFeatures& wiphy_features,
                          ClientInterfaceImpl* client_interface,
-                         ScanUtils* scan_utils,
-                         weak_ptr<OffloadServiceUtils> offload_service_utils)
+                         ScanUtils* scan_utils)
     : valid_(true),
       scan_started_(false),
       pno_scan_started_(false),
-      offload_scan_supported_(false),
-      pno_scan_running_over_offload_(false),
-      pno_scan_results_from_offload_(false),
+      nodev_counter_(0),
       interface_index_(interface_index),
       scan_capabilities_(scan_capabilities),
       wiphy_features_(wiphy_features),
@@ -97,12 +92,6 @@ ScannerImpl::ScannerImpl(uint32_t interface_index,
       std::bind(&ScannerImpl::OnSchedScanResultsReady,
                 this,
                 _1, _2));
-  std::shared_ptr<OffloadScanCallbackInterfaceImpl>
-      offload_scan_callback_interface =
-          offload_service_utils.lock()->GetOffloadScanCallbackInterface(this);
-  offload_scan_manager_ = offload_service_utils.lock()->GetOffloadScanManager(
-      offload_service_utils, offload_scan_callback_interface);
-  offload_scan_supported_ = offload_service_utils.lock()->IsOffloadScanSupported();
 }
 
 ScannerImpl::~ScannerImpl() {}
@@ -138,14 +127,8 @@ Status ScannerImpl::getPnoScanResults(
   if (!CheckIsValid()) {
     return Status::ok();
   }
-  if (pno_scan_results_from_offload_) {
-    if (!offload_scan_manager_->getScanResults(out_scan_results)) {
-      LOG(ERROR) << "Failed to get scan results via Offload HAL";
-    }
-  } else {
-    if (!scan_utils_->GetScanResult(interface_index_, out_scan_results)) {
-      LOG(ERROR) << "Failed to get scan results via NL80211";
-    }
+  if (!scan_utils_->GetScanResult(interface_index_, out_scan_results)) {
+    LOG(ERROR) << "Failed to get scan results via NL80211";
   }
   return Status::ok();
 }
@@ -192,10 +175,16 @@ Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
   int error_code = 0;
   if (!scan_utils_->Scan(interface_index_, request_random_mac, scan_type,
                          ssids, freqs, &error_code)) {
-    CHECK(error_code != ENODEV) << "Driver is in a bad state, restarting wificond";
+    if (error_code == ENODEV) {
+        nodev_counter_ ++;
+        LOG(WARNING) << "Scan failed with error=nodev. counter=" << nodev_counter_;
+    }
+    CHECK(error_code != ENODEV || nodev_counter_ <= 3)
+        << "Driver is in a bad state, restarting wificond";
     *out_success = false;
     return Status::ok();
   }
+  nodev_counter_ = 0;
   scan_started_ = true;
   *out_success = true;
   return Status::ok();
@@ -204,39 +193,9 @@ Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
 Status ScannerImpl::startPnoScan(const PnoSettings& pno_settings,
                                  bool* out_success) {
   pno_settings_ = pno_settings;
-  pno_scan_results_from_offload_ = false;
   LOG(VERBOSE) << "startPnoScan";
-  if (offload_scan_supported_ && StartPnoScanOffload(pno_settings)) {
-    // scanning over offload succeeded
-    *out_success = true;
-  } else {
-    *out_success = StartPnoScanDefault(pno_settings);
-  }
+  *out_success = StartPnoScanDefault(pno_settings);
   return Status::ok();
-}
-
-bool ScannerImpl::StartPnoScanOffload(const PnoSettings& pno_settings) {
-  OffloadScanManager::ReasonCode reason_code;
-  vector<vector<uint8_t>> scan_ssids;
-  vector<vector<uint8_t>> match_ssids;
-  vector<uint8_t> match_security;
-  // Empty frequency list: scan all frequencies.
-  vector<uint32_t> freqs;
-
-  ParsePnoSettings(pno_settings, &scan_ssids, &match_ssids, &freqs,
-                   &match_security);
-  pno_scan_running_over_offload_ = offload_scan_manager_->startScan(
-      pno_settings.interval_ms_,
-      // TODO: honor both rssi thresholds.
-      pno_settings.min_5g_rssi_, scan_ssids, match_ssids, match_security, freqs,
-      &reason_code);
-  if (pno_scan_running_over_offload_) {
-    LOG(VERBOSE) << "Pno scans requested over Offload HAL";
-    if (pno_scan_event_handler_ != nullptr) {
-      pno_scan_event_handler_->OnPnoScanOverOffloadStarted();
-    }
-  }
-  return pno_scan_running_over_offload_;
 }
 
 void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
@@ -253,7 +212,6 @@ void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
   for (auto& network : pno_settings.pno_networks_) {
     // Add hidden network ssid.
     if (network.is_hidden_) {
-      // TODO remove pruning for Offload Scans
       if (scan_ssids->size() + 1 >
           scan_capabilities_.max_num_sched_scan_ssids) {
         skipped_scan_ssids.emplace_back(network.ssid_);
@@ -323,13 +281,19 @@ bool ScannerImpl::StartPnoScanDefault(const PnoSettings& pno_settings) {
                                        GenerateIntervalSetting(pno_settings),
                                        pno_settings.min_2g_rssi_,
                                        pno_settings.min_5g_rssi_,
+                                       pno_settings.min_6g_rssi_,
                                        req_flags,
                                        scan_ssids,
                                        match_ssids,
                                        freqs,
                                        &error_code)) {
+    if (error_code == ENODEV) {
+        nodev_counter_ ++;
+        LOG(WARNING) << "Pno Scan failed with error=nodev. counter=" << nodev_counter_;
+    }
     LOG(ERROR) << "Failed to start pno scan";
-    CHECK(error_code != ENODEV) << "Driver is in a bad state, restarting wificond";
+    CHECK(error_code != ENODEV || nodev_counter_ <= 3)
+        << "Driver is in a bad state, restarting wificond";
     return false;
   }
   string freq_string;
@@ -342,32 +306,14 @@ bool ScannerImpl::StartPnoScanDefault(const PnoSettings& pno_settings) {
     }
   }
   LOG(INFO) << "Pno scan started " << freq_string;
+  nodev_counter_ = 0;
   pno_scan_started_ = true;
   return true;
 }
 
 Status ScannerImpl::stopPnoScan(bool* out_success) {
-  if (offload_scan_supported_ && StopPnoScanOffload()) {
-    // Pno scans over offload stopped successfully
-    *out_success = true;
-  } else {
-    // Pno scans were not requested over offload
-    *out_success = StopPnoScanDefault();
-  }
+  *out_success = StopPnoScanDefault();
   return Status::ok();
-}
-
-bool ScannerImpl::StopPnoScanOffload() {
-  OffloadScanManager::ReasonCode reason_code;
-  if (!pno_scan_running_over_offload_) {
-    return false;
-  }
-  if (!offload_scan_manager_->stopScan(&reason_code)) {
-    LOG(WARNING) << "Unable to unsubscribe to Offload scan results";
-  }
-  pno_scan_running_over_offload_ = false;
-  LOG(VERBOSE) << "Pno scans over Offload stopped";
-  return true;
 }
 
 bool ScannerImpl::StopPnoScanDefault() {
@@ -472,14 +418,13 @@ void ScannerImpl::OnSchedScanResultsReady(uint32_t interface_index,
       pno_scan_started_ = false;
     } else {
       LOG(INFO) << "Pno scan result ready event";
-      pno_scan_results_from_offload_ = false;
       pno_scan_event_handler_->OnPnoNetworkFound();
     }
   }
 }
 
 SchedScanIntervalSetting ScannerImpl::GenerateIntervalSetting(
-    const ::com::android::server::wifi::wificond::PnoSettings&
+    const android::net::wifi::nl80211::PnoSettings&
         pno_settings) const {
   bool support_num_scan_plans = scan_capabilities_.max_num_scan_plans >= 2;
   bool support_scan_plan_interval =
@@ -503,65 +448,6 @@ SchedScanIntervalSetting ScannerImpl::GenerateIntervalSetting(
     // logic internally using |pno_settings.interval_ms_| as "fast scan"
     // interval.
     return SchedScanIntervalSetting{{}, fast_scan_interval};
-  }
-}
-
-void ScannerImpl::OnOffloadScanResult() {
-  if (!pno_scan_running_over_offload_) {
-    LOG(WARNING) << "Scan results from Offload HAL but scan not requested over "
-                    "this interface";
-    return;
-  }
-  LOG(INFO) << "Offload Scan results received";
-  pno_scan_results_from_offload_ = true;
-  if (pno_scan_event_handler_ != nullptr) {
-    pno_scan_event_handler_->OnPnoNetworkFound();
-  } else {
-    LOG(WARNING) << "No scan event handler Offload Scan result";
-  }
-}
-
-void ScannerImpl::OnOffloadError(
-    OffloadScanCallbackInterface::AsyncErrorReason error_code) {
-  if (!pno_scan_running_over_offload_) {
-    // Ignore irrelevant error notifications
-    LOG(WARNING) << "Offload HAL Async Error occured but Offload HAL is not "
-                    "subscribed to";
-    return;
-  }
-  LOG(ERROR) << "Offload Service Async Failure error_code=" << error_code;
-  switch (error_code) {
-    case OffloadScanCallbackInterface::AsyncErrorReason::BINDER_DEATH:
-      LOG(ERROR) << "Binder death";
-      if (pno_scan_event_handler_ != nullptr) {
-        pno_scan_event_handler_->OnPnoScanOverOffloadFailed(
-            net::wifi::IPnoScanEvent::PNO_SCAN_OVER_OFFLOAD_BINDER_FAILURE);
-      }
-      break;
-    case OffloadScanCallbackInterface::AsyncErrorReason::REMOTE_FAILURE:
-      LOG(ERROR) << "Remote failure";
-      if (pno_scan_event_handler_ != nullptr) {
-        pno_scan_event_handler_->OnPnoScanOverOffloadFailed(
-            net::wifi::IPnoScanEvent::PNO_SCAN_OVER_OFFLOAD_REMOTE_FAILURE);
-      }
-      break;
-    default:
-      LOG(WARNING) << "Invalid Error code";
-      break;
-  }
-  bool success = false;
-  // Stop scans over Offload HAL and request them over netlink
-  stopPnoScan(&success);
-  if (success) {
-    LOG(INFO) << "Pno scans stopped";
-  }
-  // Restart PNO scans over netlink interface
-  success = StartPnoScanDefault(pno_settings_);
-  if (success) {
-    LOG(INFO) << "Pno scans restarted";
-  } else {
-    LOG(ERROR) << "Unable to fall back to netlink pno scan";
-    pno_scan_event_handler_->OnPnoScanFailed();
   }
 }
 

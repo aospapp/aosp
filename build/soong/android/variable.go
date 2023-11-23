@@ -25,7 +25,7 @@ import (
 
 func init() {
 	PreDepsMutators(func(ctx RegisterMutatorsContext) {
-		ctx.BottomUp("variable", variableMutator).Parallel()
+		ctx.BottomUp("variable", VariableMutator).Parallel()
 	})
 }
 
@@ -43,8 +43,10 @@ type variableProperties struct {
 		} `android:"arch_variant"`
 
 		Malloc_not_svelte struct {
-			Cflags      []string `android:"arch_variant"`
-			Shared_libs []string `android:"arch_variant"`
+			Cflags              []string `android:"arch_variant"`
+			Shared_libs         []string `android:"arch_variant"`
+			Whole_static_libs   []string `android:"arch_variant"`
+			Exclude_static_libs []string `android:"arch_variant"`
 		} `android:"arch_variant"`
 
 		Safestack struct {
@@ -57,17 +59,6 @@ type variableProperties struct {
 
 		Override_rs_driver struct {
 			Cflags []string
-		}
-
-		// Product_is_iot is true for Android Things devices.
-		Product_is_iot struct {
-			Cflags       []string
-			Enabled      bool
-			Exclude_srcs []string
-			Init_rc      []string
-			Shared_libs  []string
-			Srcs         []string
-			Static_libs  []string
 		}
 
 		// treble_linker_namespaces is true when the system/vendor linker namespace separation is
@@ -85,10 +76,12 @@ type variableProperties struct {
 		// are used for dogfooding and performance testing, and should be as similar to user builds
 		// as possible.
 		Debuggable struct {
-			Cflags   []string
-			Cppflags []string
-			Init_rc  []string
-			Required []string
+			Cflags          []string
+			Cppflags        []string
+			Init_rc         []string
+			Required        []string
+			Host_required   []string
+			Target_required []string
 		}
 
 		// eng is true for -eng builds, and can be used to turn on additionaly heavyweight debugging
@@ -124,25 +117,37 @@ type variableProperties struct {
 			Static_libs  []string
 			Srcs         []string
 		}
+
+		Flatten_apex struct {
+			Enabled *bool
+		}
+
+		Experimental_mte struct {
+			Cflags []string `android:"arch_variant"`
+		} `android:"arch_variant"`
+
+		Native_coverage struct {
+			Src          *string  `android:"arch_variant"`
+			Srcs         []string `android:"arch_variant"`
+			Exclude_srcs []string `android:"arch_variant"`
+		} `android:"arch_variant"`
 	} `android:"arch_variant"`
 }
 
-var zeroProductVariables variableProperties
+var defaultProductVariables interface{} = variableProperties{}
 
 type productVariables struct {
 	// Suffix to add to generated Makefiles
 	Make_suffix *string `json:",omitempty"`
 
-	BuildId             *string `json:",omitempty"`
-	BuildNumberFromFile *string `json:",omitempty"`
-	DateFromFile        *string `json:",omitempty"`
+	BuildId         *string `json:",omitempty"`
+	BuildNumberFile *string `json:",omitempty"`
 
 	Platform_version_name                     *string  `json:",omitempty"`
 	Platform_sdk_version                      *int     `json:",omitempty"`
 	Platform_sdk_codename                     *string  `json:",omitempty"`
 	Platform_sdk_final                        *bool    `json:",omitempty"`
 	Platform_version_active_codenames         []string `json:",omitempty"`
-	Platform_version_future_codenames         []string `json:",omitempty"`
 	Platform_vndk_version                     *string  `json:",omitempty"`
 	Platform_systemsdk_versions               []string `json:",omitempty"`
 	Platform_security_patch                   *string  `json:",omitempty"`
@@ -163,6 +168,18 @@ type productVariables struct {
 	DeviceSecondaryCpuVariant  *string  `json:",omitempty"`
 	DeviceSecondaryAbi         []string `json:",omitempty"`
 
+	NativeBridgeArch         *string  `json:",omitempty"`
+	NativeBridgeArchVariant  *string  `json:",omitempty"`
+	NativeBridgeCpuVariant   *string  `json:",omitempty"`
+	NativeBridgeAbi          []string `json:",omitempty"`
+	NativeBridgeRelativePath *string  `json:",omitempty"`
+
+	NativeBridgeSecondaryArch         *string  `json:",omitempty"`
+	NativeBridgeSecondaryArchVariant  *string  `json:",omitempty"`
+	NativeBridgeSecondaryCpuVariant   *string  `json:",omitempty"`
+	NativeBridgeSecondaryAbi          []string `json:",omitempty"`
+	NativeBridgeSecondaryRelativePath *string  `json:",omitempty"`
+
 	HostArch          *string `json:",omitempty"`
 	HostSecondaryArch *string `json:",omitempty"`
 
@@ -170,9 +187,11 @@ type productVariables struct {
 	CrossHostArch          *string `json:",omitempty"`
 	CrossHostSecondaryArch *string `json:",omitempty"`
 
-	DeviceResourceOverlays     []string `json:",omitempty"`
-	ProductResourceOverlays    []string `json:",omitempty"`
-	EnforceRROTargets          []string `json:",omitempty"`
+	DeviceResourceOverlays  []string `json:",omitempty"`
+	ProductResourceOverlays []string `json:",omitempty"`
+	EnforceRROTargets       []string `json:",omitempty"`
+	// TODO(b/150820813) Some modules depend on static overlay, remove this after eliminating the dependency.
+	EnforceRROExemptedTargets  []string `json:",omitempty"`
 	EnforceRROExcludedOverlays []string `json:",omitempty"`
 
 	AAPTCharacteristics *string  `json:",omitempty"`
@@ -192,6 +211,10 @@ type productVariables struct {
 	HostStaticBinaries               *bool `json:",omitempty"`
 	Binder32bit                      *bool `json:",omitempty"`
 	UseGoma                          *bool `json:",omitempty"`
+	UseRBE                           *bool `json:",omitempty"`
+	UseRBEJAVAC                      *bool `json:",omitempty"`
+	UseRBER8                         *bool `json:",omitempty"`
+	UseRBED8                         *bool `json:",omitempty"`
 	Debuggable                       *bool `json:",omitempty"`
 	Eng                              *bool `json:",omitempty"`
 	Treble_linker_namespaces         *bool `json:",omitempty"`
@@ -207,7 +230,8 @@ type productVariables struct {
 	UncompressPrivAppDex             *bool    `json:",omitempty"`
 	ModulesLoadedByPrivilegedModules []string `json:",omitempty"`
 
-	BootJars []string `json:",omitempty"`
+	BootJars          []string `json:",omitempty"`
+	UpdatableBootJars []string `json:",omitempty"`
 
 	IntegerOverflowExcludePaths []string `json:",omitempty"`
 
@@ -217,20 +241,28 @@ type productVariables struct {
 
 	DisableScudo *bool `json:",omitempty"`
 
-	EnableXOM       *bool    `json:",omitempty"`
-	XOMExcludePaths []string `json:",omitempty"`
+	Experimental_mte *bool `json:",omitempty"`
 
-	VendorPath          *string `json:",omitempty"`
-	OdmPath             *string `json:",omitempty"`
-	ProductPath         *string `json:",omitempty"`
-	ProductServicesPath *string `json:",omitempty"`
+	VendorPath    *string `json:",omitempty"`
+	OdmPath       *string `json:",omitempty"`
+	ProductPath   *string `json:",omitempty"`
+	SystemExtPath *string `json:",omitempty"`
 
 	ClangTidy  *bool   `json:",omitempty"`
 	TidyChecks *string `json:",omitempty"`
 
-	NativeCoverage       *bool    `json:",omitempty"`
-	CoveragePaths        []string `json:",omitempty"`
-	CoverageExcludePaths []string `json:",omitempty"`
+	SamplingPGO *bool `json:",omitempty"`
+
+	JavaCoveragePaths        []string `json:",omitempty"`
+	JavaCoverageExcludePaths []string `json:",omitempty"`
+
+	GcovCoverage               *bool    `json:",omitempty"`
+	ClangCoverage              *bool    `json:",omitempty"`
+	NativeCoveragePaths        []string `json:",omitempty"`
+	NativeCoverageExcludePaths []string `json:",omitempty"`
+
+	// Set by NewConfig
+	Native_coverage *bool
 
 	DevicePrefer32BitApps        *bool `json:",omitempty"`
 	DevicePrefer32BitExecutables *bool `json:",omitempty"`
@@ -247,8 +279,6 @@ type productVariables struct {
 
 	Override_rs_driver *string `json:",omitempty"`
 
-	Product_is_iot *bool `json:",omitempty"`
-
 	Fuchsia *bool `json:",omitempty"`
 
 	DeviceKernelHeaders []string `json:",omitempty"`
@@ -259,19 +289,24 @@ type productVariables struct {
 
 	PgoAdditionalProfileDirs []string `json:",omitempty"`
 
-	VndkUseCoreVariant *bool `json:",omitempty"`
+	VndkUseCoreVariant         *bool `json:",omitempty"`
+	VndkSnapshotBuildArtifacts *bool `json:",omitempty"`
 
 	BoardVendorSepolicyDirs      []string `json:",omitempty"`
 	BoardOdmSepolicyDirs         []string `json:",omitempty"`
 	BoardPlatPublicSepolicyDirs  []string `json:",omitempty"`
 	BoardPlatPrivateSepolicyDirs []string `json:",omitempty"`
+	BoardSepolicyM4Defs          []string `json:",omitempty"`
+
+	BoardVndkRuntimeDisable *bool `json:",omitempty"`
 
 	VendorVars map[string]map[string]string `json:",omitempty"`
 
 	Ndk_abis               *bool `json:",omitempty"`
 	Exclude_draft_ndk_apis *bool `json:",omitempty"`
 
-	FlattenApex *bool `json:",omitempty"`
+	Flatten_apex *bool `json:",omitempty"`
+	Aml_abis     *bool `json:",omitempty"`
 
 	DexpreoptGlobalConfig *string `json:",omitempty"`
 
@@ -280,13 +315,27 @@ type productVariables struct {
 	PackageNameOverrides         []string `json:",omitempty"`
 
 	EnforceSystemCertificate          *bool    `json:",omitempty"`
-	EnforceSystemCertificateWhitelist []string `json:",omitempty"`
+	EnforceSystemCertificateAllowList []string `json:",omitempty"`
 
 	ProductHiddenAPIStubs       []string `json:",omitempty"`
 	ProductHiddenAPIStubsSystem []string `json:",omitempty"`
 	ProductHiddenAPIStubsTest   []string `json:",omitempty"`
 
+	ProductPublicSepolicyDirs  []string `json:",omitempty"`
+	ProductPrivateSepolicyDirs []string `json:",omitempty"`
+	ProductCompatibleProperty  *bool    `json:",omitempty"`
+
+	ProductVndkVersion *string `json:",omitempty"`
+
 	TargetFSConfigGen []string `json:",omitempty"`
+
+	MissingUsesLibraries []string `json:",omitempty"`
+
+	EnforceProductPartitionInterface *bool `json:",omitempty"`
+
+	InstallExtraFlattenedApexes *bool `json:",omitempty"`
+
+	BoardUsesRecoveryAsBoot *bool `json:",omitempty"`
 }
 
 func boolPtr(v bool) *bool {
@@ -303,9 +352,14 @@ func stringPtr(v string) *string {
 
 func (v *productVariables) SetDefaultConfig() {
 	*v = productVariables{
-		Platform_sdk_version:              intPtr(26),
-		Platform_version_active_codenames: []string{"P"},
-		Platform_version_future_codenames: []string{"P"},
+		BuildNumberFile: stringPtr("build_number.txt"),
+
+		Platform_version_name:             stringPtr("Q"),
+		Platform_sdk_version:              intPtr(28),
+		Platform_sdk_codename:             stringPtr("Q"),
+		Platform_sdk_final:                boolPtr(false),
+		Platform_version_active_codenames: []string{"Q"},
+		Platform_vndk_version:             stringPtr("Q"),
 
 		HostArch:                   stringPtr("x86_64"),
 		HostSecondaryArch:          stringPtr("x86"),
@@ -335,7 +389,7 @@ func (v *productVariables) SetDefaultConfig() {
 	}
 }
 
-func variableMutator(mctx BottomUpMutatorContext) {
+func VariableMutator(mctx BottomUpMutatorContext) {
 	var module Module
 	var ok bool
 	if module, ok = mctx.Module().(Module); !ok {
@@ -344,12 +398,15 @@ func variableMutator(mctx BottomUpMutatorContext) {
 
 	// TODO: depend on config variable, create variants, propagate variants up tree
 	a := module.base()
-	variableValues := reflect.ValueOf(&a.variableProperties.Product_variables).Elem()
-	zeroValues := reflect.ValueOf(zeroProductVariables.Product_variables)
+
+	if a.variableProperties == nil {
+		return
+	}
+
+	variableValues := reflect.ValueOf(a.variableProperties).Elem().FieldByName("Product_variables")
 
 	for i := 0; i < variableValues.NumField(); i++ {
 		variableValue := variableValues.Field(i)
-		zeroValue := zeroValues.Field(i)
 		name := variableValues.Type().Field(i).Name
 		property := "product_variables." + proptools.PropertyNameForField(name)
 
@@ -367,20 +424,19 @@ func variableMutator(mctx BottomUpMutatorContext) {
 		}
 
 		// Check if any properties were set for the module
-		if reflect.DeepEqual(variableValue.Interface(), zeroValue.Interface()) {
+		if variableValue.IsZero() {
 			continue
 		}
-
 		a.setVariableProperties(mctx, property, variableValue, val.Interface())
 	}
 }
 
-func (a *ModuleBase) setVariableProperties(ctx BottomUpMutatorContext,
+func (m *ModuleBase) setVariableProperties(ctx BottomUpMutatorContext,
 	prefix string, productVariablePropertyValue reflect.Value, variableValue interface{}) {
 
 	printfIntoProperties(ctx, prefix, productVariablePropertyValue, variableValue)
 
-	err := proptools.AppendMatchingProperties(a.generalProperties,
+	err := proptools.AppendMatchingProperties(m.generalProperties,
 		productVariablePropertyValue.Addr().Interface(), nil)
 	if err != nil {
 		if propertyErr, ok := err.(*proptools.ExtendPropertyError); ok {
@@ -473,4 +529,121 @@ func printfIntoProperty(propertyValue reflect.Value, variableValue interface{}) 
 	propertyValue.Set(reflect.ValueOf(fmt.Sprintf(s, variableValue)))
 
 	return nil
+}
+
+var variablePropTypeMap OncePer
+
+// sliceToTypeArray takes a slice of property structs and returns a reflection created array containing the
+// reflect.Types of each property struct.  The result can be used as a key in a map.
+func sliceToTypeArray(s []interface{}) interface{} {
+	// Create an array using reflection whose length is the length of the input slice
+	ret := reflect.New(reflect.ArrayOf(len(s), reflect.TypeOf(reflect.TypeOf(0)))).Elem()
+	for i, e := range s {
+		ret.Index(i).Set(reflect.ValueOf(reflect.TypeOf(e)))
+	}
+	return ret.Interface()
+}
+
+func initProductVariableModule(m Module) {
+	base := m.base()
+
+	// Allow tests to override the default product variables
+	if base.variableProperties == nil {
+		base.variableProperties = defaultProductVariables
+	}
+	// Filter the product variables properties to the ones that exist on this module
+	base.variableProperties = createVariableProperties(m.GetProperties(), base.variableProperties)
+	if base.variableProperties != nil {
+		m.AddProperties(base.variableProperties)
+	}
+}
+
+// createVariableProperties takes the list of property structs for a module and returns a property struct that
+// contains the product variable properties that exist in the property structs, or nil if there are none.  It
+// caches the result.
+func createVariableProperties(moduleTypeProps []interface{}, productVariables interface{}) interface{} {
+	// Convert the moduleTypeProps to an array of reflect.Types that can be used as a key in the OncePer.
+	key := sliceToTypeArray(moduleTypeProps)
+
+	// Use the variablePropTypeMap OncePer to cache the result for each set of property struct types.
+	typ, _ := variablePropTypeMap.Once(NewCustomOnceKey(key), func() interface{} {
+		// Compute the filtered property struct type.
+		return createVariablePropertiesType(moduleTypeProps, productVariables)
+	}).(reflect.Type)
+
+	if typ == nil {
+		return nil
+	}
+
+	// Create a new pointer to a filtered property struct.
+	return reflect.New(typ).Interface()
+}
+
+// createVariablePropertiesType creates a new type that contains only the product variable properties that exist in
+// a list of property structs.
+func createVariablePropertiesType(moduleTypeProps []interface{}, productVariables interface{}) reflect.Type {
+	typ, _ := proptools.FilterPropertyStruct(reflect.TypeOf(productVariables),
+		func(field reflect.StructField, prefix string) (bool, reflect.StructField) {
+			// Filter function, returns true if the field should be in the resulting struct
+			if prefix == "" {
+				// Keep the top level Product_variables field
+				return true, field
+			}
+			_, rest := splitPrefix(prefix)
+			if rest == "" {
+				// Keep the 2nd level field (i.e. Product_variables.Eng)
+				return true, field
+			}
+
+			// Strip off the first 2 levels of the prefix
+			_, prefix = splitPrefix(rest)
+
+			for _, p := range moduleTypeProps {
+				if fieldExistsByNameRecursive(reflect.TypeOf(p).Elem(), prefix, field.Name) {
+					// Keep any fields that exist in one of the property structs
+					return true, field
+				}
+			}
+
+			return false, field
+		})
+	return typ
+}
+
+func splitPrefix(prefix string) (first, rest string) {
+	index := strings.IndexByte(prefix, '.')
+	if index == -1 {
+		return prefix, ""
+	}
+	return prefix[:index], prefix[index+1:]
+}
+
+func fieldExistsByNameRecursive(t reflect.Type, prefix, name string) bool {
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Errorf("fieldExistsByNameRecursive can only be called on a reflect.Struct"))
+	}
+
+	if prefix != "" {
+		split := strings.SplitN(prefix, ".", 2)
+		firstPrefix := split[0]
+		rest := ""
+		if len(split) > 1 {
+			rest = split[1]
+		}
+		f, exists := t.FieldByName(firstPrefix)
+		if !exists {
+			return false
+		}
+		ft := f.Type
+		if ft.Kind() == reflect.Ptr {
+			ft = ft.Elem()
+		}
+		if ft.Kind() != reflect.Struct {
+			panic(fmt.Errorf("field %q in %q is not a struct", firstPrefix, t))
+		}
+		return fieldExistsByNameRecursive(ft, rest, name)
+	} else {
+		_, exists := t.FieldByName(name)
+		return exists
+	}
 }

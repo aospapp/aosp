@@ -29,6 +29,7 @@ import android.os.cts.R;
 import android.os.storage.OnObbStateChangeListener;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
+import android.os.storage.StorageManager.StorageVolumeCallback;
 import android.platform.test.annotations.AppModeFull;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -37,9 +38,13 @@ import android.test.AndroidTestCase;
 import android.test.ComparisonFailure;
 import android.util.Log;
 
+import androidx.test.platform.app.InstrumentationRegistry;
+
 import com.android.compatibility.common.util.FileUtils;
 
 import junit.framework.AssertionFailedError;
+
+import org.junit.Assume;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -53,9 +58,12 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class StorageManagerTest extends AndroidTestCase {
 
@@ -233,6 +241,7 @@ public class StorageManagerTest extends AndroidTestCase {
         }
     }
 
+    @AppModeFull(reason = "Instant apps cannot access external storage")
     public void testGetStorageVolumes() throws Exception {
         final List<StorageVolume> volumes = mStorageManager.getStorageVolumes();
         assertFalse("No volume return", volumes.isEmpty());
@@ -247,6 +256,17 @@ public class StorageManagerTest extends AndroidTestCase {
         assertStorageVolumesEquals(primary, mStorageManager.getPrimaryStorageVolume());
     }
 
+    @AppModeFull(reason = "Instant apps cannot access external storage")
+    public void testGetRecentStorageVolumes() throws Exception {
+        // At a minimum recent volumes should include current volumes
+        final Set<String> currentNames = mStorageManager.getStorageVolumes().stream()
+                .map((v) -> v.getMediaStoreVolumeName()).collect(Collectors.toSet());
+        final Set<String> recentNames = mStorageManager.getRecentStorageVolumes().stream()
+                .map((v) -> v.getMediaStoreVolumeName()).collect(Collectors.toSet());
+        assertTrue(recentNames.containsAll(currentNames));
+    }
+
+    @AppModeFull(reason = "Instant apps cannot access external storage")
     public void testGetStorageVolume() throws Exception {
         assertNull("Should not get volume for null path",
                 mStorageManager.getStorageVolume((File) null));
@@ -295,6 +315,33 @@ public class StorageManagerTest extends AndroidTestCase {
 
         assertEquals(extUuid, mStorageManager.getUuidForPath(mContext.getExternalCacheDir()));
         assertEquals(extUuid, mStorageManager.getUuidForPath(new File("/sdcard/")));
+    }
+
+    @AppModeFull(reason = "Instant apps cannot access external storage")
+    public void testCallback() throws Exception {
+        final CountDownLatch mounted = new CountDownLatch(1);
+        final CountDownLatch unmounted = new CountDownLatch(1);
+        final StorageVolumeCallback callback = new StorageVolumeCallback() {
+            @Override
+            public void onStateChanged(StorageVolume volume) {
+                switch (volume.getState()) {
+                    case Environment.MEDIA_MOUNTED: mounted.countDown(); break;
+                    case Environment.MEDIA_UNMOUNTED: unmounted.countDown(); break;
+                }
+            }
+        };
+
+        // Unmount primary storage, verify we can see it take effect
+        mStorageManager.registerStorageVolumeCallback(mContext.getMainExecutor(), callback);
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .executeShellCommand("sm unmount emulated;0");
+        assertTrue(unmounted.await(15, TimeUnit.SECONDS));
+
+        // Now unregister and verify we don't hear future events
+        mStorageManager.unregisterStorageVolumeCallback(callback);
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .executeShellCommand("sm mount emulated;0");
+        assertFalse(mounted.await(15, TimeUnit.SECONDS));
     }
 
     private static class TestProxyFileDescriptorCallback extends ProxyFileDescriptorCallback {

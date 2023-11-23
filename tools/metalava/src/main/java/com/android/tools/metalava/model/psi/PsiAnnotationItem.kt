@@ -32,6 +32,7 @@ import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.psi.CodePrinter.Companion.constantToExpression
 import com.android.tools.metalava.model.psi.CodePrinter.Companion.constantToSource
 import com.intellij.psi.PsiAnnotation
+import com.intellij.psi.PsiAnnotationMethod
 import com.intellij.psi.PsiAnnotationMemberValue
 import com.intellij.psi.PsiArrayInitializerMemberValue
 import com.intellij.psi.PsiBinaryExpression
@@ -57,9 +58,9 @@ class PsiAnnotationItem private constructor(
 
     override fun toString(): String = toSource()
 
-    override fun toSource(target: AnnotationTarget): String {
+    override fun toSource(target: AnnotationTarget, showDefaultAttrs: Boolean): String {
         val sb = StringBuilder(60)
-        appendAnnotation(codebase, sb, psiAnnotation, originalName, target)
+        appendAnnotation(codebase, sb, psiAnnotation, originalName, target, showDefaultAttrs)
         return sb.toString()
     }
 
@@ -68,7 +69,7 @@ class PsiAnnotationItem private constructor(
     }
 
     override fun isNonNull(): Boolean {
-        if (psiAnnotation is KtLightNullabilityAnnotation &&
+        if (psiAnnotation is KtLightNullabilityAnnotation<*> &&
             originalName == ""
         ) {
             // Hack/workaround: some UAST annotation nodes do not provide qualified name :=(
@@ -124,16 +125,36 @@ class PsiAnnotationItem private constructor(
             }
         }
 
+        private fun getAttributes(annotation: PsiAnnotation, showDefaultAttrs: Boolean):
+                List<Pair<String?, PsiAnnotationMemberValue?>> {
+            val annotationClass = annotation.nameReferenceElement?.resolve() as? PsiClass
+            val list = mutableListOf<Pair<String?, PsiAnnotationMemberValue?>>()
+            if (annotationClass != null && showDefaultAttrs) {
+                for (method in annotationClass.methods) {
+                    if (method !is PsiAnnotationMethod) {
+                        continue
+                    }
+                    list.add(Pair(method.name, annotation.findAttributeValue(method.name)))
+                }
+            } else {
+                for (attr in annotation.parameterList.attributes) {
+                    list.add(Pair(attr.name, attr.value))
+                }
+            }
+            return list
+        }
+
         private fun appendAnnotation(
             codebase: PsiBasedCodebase,
             sb: StringBuilder,
             psiAnnotation: PsiAnnotation,
             originalName: String?,
-            target: AnnotationTarget
+            target: AnnotationTarget,
+            showDefaultAttrs: Boolean
         ) {
             val qualifiedName = AnnotationItem.mapName(codebase, originalName, null, target) ?: return
 
-            val attributes = psiAnnotation.parameterList.attributes
+            val attributes = getAttributes(psiAnnotation, showDefaultAttrs)
             if (attributes.isEmpty()) {
                 sb.append("@$qualifiedName")
                 return
@@ -142,9 +163,9 @@ class PsiAnnotationItem private constructor(
             sb.append("@")
             sb.append(qualifiedName)
             sb.append("(")
-            if (attributes.size == 1 && (attributes[0].name == null || attributes[0].name == ATTR_VALUE)) {
+            if (attributes.size == 1 && (attributes[0].first == null || attributes[0].first == ATTR_VALUE)) {
                 // Special case: omit "value" if it's the only attribute
-                appendValue(codebase, sb, attributes[0].value, target)
+                appendValue(codebase, sb, attributes[0].second, target, showDefaultAttrs)
             } else {
                 var first = true
                 for (attribute in attributes) {
@@ -153,9 +174,9 @@ class PsiAnnotationItem private constructor(
                     } else {
                         sb.append(", ")
                     }
-                    sb.append(attribute.name ?: ATTR_VALUE)
+                    sb.append(attribute.first ?: ATTR_VALUE)
                     sb.append('=')
-                    appendValue(codebase, sb, attribute.value, target)
+                    appendValue(codebase, sb, attribute.second, target, showDefaultAttrs)
                 }
             }
             sb.append(")")
@@ -165,7 +186,8 @@ class PsiAnnotationItem private constructor(
             codebase: PsiBasedCodebase,
             sb: StringBuilder,
             value: PsiAnnotationMemberValue?,
-            target: AnnotationTarget
+            target: AnnotationTarget,
+            showDefaultAttrs: Boolean
         ) {
             // Compute annotation string -- we don't just use value.text here
             // because that may not use fully qualified names, e.g. the source may say
@@ -210,11 +232,11 @@ class PsiAnnotationItem private constructor(
                     }
                 }
                 is PsiBinaryExpression -> {
-                    appendValue(codebase, sb, value.lOperand, target)
+                    appendValue(codebase, sb, value.lOperand, target, showDefaultAttrs)
                     sb.append(' ')
                     sb.append(value.operationSign.text)
                     sb.append(' ')
-                    appendValue(codebase, sb, value.rOperand, target)
+                    appendValue(codebase, sb, value.rOperand, target, showDefaultAttrs)
                 }
                 is PsiArrayInitializerMemberValue -> {
                     sb.append('{')
@@ -225,12 +247,12 @@ class PsiAnnotationItem private constructor(
                         } else {
                             sb.append(", ")
                         }
-                        appendValue(codebase, sb, initializer, target)
+                        appendValue(codebase, sb, initializer, target, showDefaultAttrs)
                     }
                     sb.append('}')
                 }
                 is PsiAnnotation -> {
-                    appendAnnotation(codebase, sb, value, value.qualifiedName, target)
+                    appendAnnotation(codebase, sb, value, value.qualifiedName, target, showDefaultAttrs)
                 }
                 else -> {
                     if (value is PsiExpression) {

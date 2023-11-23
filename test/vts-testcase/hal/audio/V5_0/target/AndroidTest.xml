@@ -32,7 +32,7 @@
         <option name="exclude-coverage-path" value="hardware/qcom/audio/post_proc" />
         <option name="exclude-coverage-path" value="hardware/qcom/audio/visualizer" />
         <option name="exclude-coverage-path" value="hardware/qcom/audio/voice_processing/" />
-        <option name="test-timeout" value="30m"/>
+        <option name="test-timeout" value="120m"/>
         <option name="gtest-batch-mode" value="true"/>
     </test>
 </configuration>

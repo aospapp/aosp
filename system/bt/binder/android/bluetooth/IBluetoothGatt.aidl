@@ -46,9 +46,9 @@ interface IBluetoothGatt {
     void registerScanner(in IScannerCallback callback, in WorkSource workSource);
     void unregisterScanner(in int scannerId);
     void startScan(in int scannerId, in ScanSettings settings, in List<ScanFilter> filters,
-                   in List scanStorages, in String callingPackage);
+                   in List scanStorages, in String callingPackage, String callingFeatureId);
     void startScanForIntent(in PendingIntent intent, in ScanSettings settings, in List<ScanFilter> filters,
-                            in String callingPackage);
+                            in String callingPackage, String callingFeatureId);
     void stopScanForIntent(in PendingIntent intent, in String callingPackage);
     void stopScan(in int scannerId);
     void flushPendingBatchResults(in int scannerId);
@@ -71,8 +71,10 @@ interface IBluetoothGatt {
     void registerSync(in ScanResult scanResult, in int skip, in int timeout, in IPeriodicAdvertisingCallback callback);
     void unregisterSync(in IPeriodicAdvertisingCallback callback);
 
+    @UnsupportedAppUsage
     void registerClient(in ParcelUuid appId, in IBluetoothGattCallback callback);
 
+    @UnsupportedAppUsage
     void unregisterClient(in int clientIf);
     void clientConnect(in int clientIf, in String address, in boolean isDirect, in int transport, in boolean opportunistic, in int phy);
     void clientDisconnect(in int clientIf, in String address);

@@ -21,7 +21,6 @@
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
-#include <cutils/properties.h>
 
 #ifdef LIBHIDL_TARGET_DEBUGGABLE
 #include <dirent.h>
@@ -52,17 +51,7 @@ void logAlwaysFatal(const char* message) {
 }
 
 std::string getVndkVersionStr() {
-    static std::string vndkVersion("0");
-    // "0" means the vndkVersion must be initialized with the property value.
-    // Otherwise, return the value.
-    if (vndkVersion == "0") {
-        vndkVersion = android::base::GetProperty("ro.vndk.version", "");
-        if (vndkVersion != "" && vndkVersion != "current") {
-            vndkVersion = "-" + vndkVersion;
-        } else {
-            vndkVersion = "";
-        }
-    }
+    static std::string vndkVersion = base::GetProperty("ro.vndk.version", "");
     return vndkVersion;
 }
 
@@ -76,44 +65,44 @@ HidlInstrumentor::HidlInstrumentor(const std::string& package, const std::string
     configureInstrumentation(false);
     if (__sanitizer_cov_dump != nullptr) {
         ::android::add_sysprop_change_callback(
-            []() {
-                bool enableCoverage = property_get_bool(kSysPropHalCoverage, false);
-                if (enableCoverage) {
-                    __sanitizer_cov_dump();
-                }
-            },
-            0);
+                []() {
+                    bool enableCoverage = base::GetBoolProperty(kSysPropHalCoverage, false);
+                    if (enableCoverage) {
+                        __sanitizer_cov_dump();
+                    }
+                },
+                0);
     }
-    if (property_get_bool("ro.vts.coverage", false)) {
+    if (base::GetBoolProperty("ro.vts.coverage", false)) {
         const char* prefixOverride = getenv(kGcovPrefixOverrideEnvVar);
         if (prefixOverride == nullptr || strcmp(prefixOverride, "true") != 0) {
             const std::string gcovPath = kGcovPrefixPath + std::to_string(getpid());
             setenv(kGcovPrefixEnvVar, gcovPath.c_str(), true /* overwrite */);
         }
         ::android::add_sysprop_change_callback(
-            []() {
-                const bool enableCoverage = property_get_bool(kSysPropHalCoverage, false);
-                if (enableCoverage) {
-                    dl_iterate_phdr(
-                        [](struct dl_phdr_info* info, size_t /* size */, void* /* data */) {
-                            if (strlen(info->dlpi_name) == 0) return 0;
+                []() {
+                    const bool enableCoverage = base::GetBoolProperty(kSysPropHalCoverage, false);
+                    if (enableCoverage) {
+                        dl_iterate_phdr(
+                                [](struct dl_phdr_info* info, size_t /* size */, void* /* data */) {
+                                    if (strlen(info->dlpi_name) == 0) return 0;
 
-                            void* handle = dlopen(info->dlpi_name, RTLD_LAZY);
-                            if (handle == nullptr) {
-                                LOG(INFO) << "coverage dlopen failed: " << dlerror();
-                                return 0;
-                            }
-                            void (*flush)() = (void (*)())dlsym(handle, "__gcov_flush");
-                            if (flush == nullptr) {
-                                return 0;
-                            }
-                            flush();
-                            return 0;
-                        },
-                        nullptr /* data */);
-                }
-            },
-            0 /* priority */);
+                                    void* handle = dlopen(info->dlpi_name, RTLD_LAZY);
+                                    if (handle == nullptr) {
+                                        LOG(INFO) << "coverage dlopen failed: " << dlerror();
+                                        return 0;
+                                    }
+                                    void (*flush)() = (void (*)())dlsym(handle, "__gcov_flush");
+                                    if (flush == nullptr) {
+                                        return 0;
+                                    }
+                                    flush();
+                                    return 0;
+                                },
+                                nullptr /* data */);
+                    }
+                },
+                0 /* priority */);
     }
 #endif
 }
@@ -121,7 +110,7 @@ HidlInstrumentor::HidlInstrumentor(const std::string& package, const std::string
 HidlInstrumentor::~HidlInstrumentor() {}
 
 void HidlInstrumentor::configureInstrumentation(bool log) {
-    mEnableInstrumentation = property_get_bool("hal.instrumentation.enable", false);
+    mEnableInstrumentation = base::GetBoolProperty("hal.instrumentation.enable", false);
     if (mEnableInstrumentation) {
         if (log) {
             LOG(INFO) << "Enable instrumentation.";
@@ -140,8 +129,8 @@ void HidlInstrumentor::registerInstrumentationCallbacks(
         std::vector<InstrumentationCallback> *instrumentationCallbacks) {
 #ifdef LIBHIDL_TARGET_DEBUGGABLE
     std::vector<std::string> instrumentationLibPaths;
-    char instrumentationLibPath[PROPERTY_VALUE_MAX];
-    if (property_get(kSysPropInstrumentationPath, instrumentationLibPath, "") > 0) {
+    const std::string instrumentationLibPath = base::GetProperty(kSysPropInstrumentationPath, "");
+    if (instrumentationLibPath.size() > 0) {
         instrumentationLibPaths.push_back(instrumentationLibPath);
     } else {
         static std::string halLibPathVndkSp = android::base::StringPrintf(

@@ -95,7 +95,7 @@ public class PKIXExtensions {
         CRLNumber_data = new int[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final sun.security.util.ObjectIdentifier CertificateIssuer_Id;
 
     static {

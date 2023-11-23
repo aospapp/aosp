@@ -21,6 +21,8 @@ import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 
+import org.junit.runners.Parameterized;
+import org.junit.runner.RunWith;
 import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;
@@ -28,6 +30,8 @@ import static org.junit.Assert.assertTrue;
 /**
  * <p>Basic test for CameraManager class.</p>
  */
+
+@RunWith(Parameterized.class)
 public class NativeStillCaptureTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "NativeStillCaptureTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -44,9 +48,9 @@ public class NativeStillCaptureTest extends Camera2SurfaceViewTestCase {
         // Init preview surface to a guaranteed working size
         updatePreviewSurface(new Size(640, 480));
         assertTrue("testStillCapture fail, see log for details",
-                testStillCaptureNative(mDebugFileNameBase, mPreviewSurface));
+                testStillCaptureNative(mDebugFileNameBase, mPreviewSurface, mOverrideCameraId));
     }
 
     private static native boolean testStillCaptureNative(
-            String filePath, Surface previewSurface);
+            String filePath, Surface previewSurface, String overrideCameraId);
 }

@@ -82,7 +82,7 @@ function python_check()
 
     local pkg=""
 
-    if python -c "import $mod" >& /dev/null
+    if python3 -c "import $mod" >& /dev/null
     then
         return 0
     fi
@@ -106,10 +106,10 @@ function python_check()
 
 binary_check xmllint libxml2 libxml2-utils
 binary_check tidy tidy tidy
-binary_check python python27 python2.7
-python_check bs4 py27-beautifulsoup4 python-bs4
-python_check mako py27-mako python-mako
-python_check markdown py27-markdown python-markdown
+binary_check python3 python3 python3
+python_check bs4 python-bs4 python3-bs4
+python_check mako python3-mako python3-mako
+python_check markdown python-markdown python3-markdown
 
 exit $retcode
 

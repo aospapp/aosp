@@ -37,7 +37,7 @@ public abstract class AbstractCalendar extends sun.util.calendar.CalendarSystem 
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.util.calendar.Era[] getEras() {
         throw new RuntimeException("Stub!");
     }
@@ -75,7 +75,7 @@ public abstract class AbstractCalendar extends sun.util.calendar.CalendarSystem 
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public long getTimeOfDayValue(sun.util.calendar.CalendarDate date) {
         throw new RuntimeException("Stub!");
     }
@@ -104,7 +104,7 @@ public abstract class AbstractCalendar extends sun.util.calendar.CalendarSystem 
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static long getDayOfWeekDateOnOrBefore(long fixedDate, int dayOfWeek) {
         throw new RuntimeException("Stub!");
     }

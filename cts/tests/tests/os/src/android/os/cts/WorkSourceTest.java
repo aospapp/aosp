@@ -106,7 +106,7 @@ public class WorkSourceTest extends AndroidTestCase {
             failWorkSource(op, ws, uids);
         }
         for (int i=0; i<uids.length; i++) {
-            if (uids[i] != ws.get(i)) {
+            if (uids[i] != ws.getUid(i)) {
                 failWorkSource(op, ws, uids);
             }
         }
@@ -126,7 +126,7 @@ public class WorkSourceTest extends AndroidTestCase {
             failWorkSource(op, ws, uids, names);
         }
         for (int i=0; i<uids.length; i++) {
-            if (uids[i] != ws.get(i) || !names[i].equals(ws.getName(i))) {
+            if (uids[i] != ws.getUid(i) || !names[i].equals(ws.getPackageName(i))) {
                 failWorkSource(op, ws, uids, names);
             }
         }
@@ -482,5 +482,43 @@ public class WorkSourceTest extends AndroidTestCase {
                 new int[] { 10, 20, 30, 40 },
                 new int[] { },
                 true);
+    }
+
+    public void testIsEmptyByDefault() {
+        WorkSource ws = new WorkSource();
+        assertTrue("isEmpty false for empty WorkSource", ws.isEmpty());
+    }
+
+    public void testIsEmptyOnClear() {
+        WorkSource ws = wsNew(new int[] {1, 2, 3}, new String[] {"a", "aa", "aaa"});
+        assertFalse(ws.isEmpty());
+        ws.clear();
+        assertTrue(ws.isEmpty());
+    }
+
+    public void testWithoutNames() {
+        WorkSource ws = wsNew(
+                new int[] {10, 12, 12, 15, 15, 17},
+                new String[] {"a", "b", "c", "d", "e", "f"});
+        WorkSource wsWithoutNames = ws.withoutNames();
+
+        int[] expectedUids = new int[] {10, 12, 15, 17};
+        if (expectedUids.length != wsWithoutNames.size()) {
+            failWorkSource("withoutNames", wsWithoutNames, expectedUids);
+        }
+        for (int i = 0; i < expectedUids.length; i++) {
+            if (wsWithoutNames.getUid(i) != expectedUids[i]) {
+                failWorkSource("withoutNames", wsWithoutNames, expectedUids);
+            }
+            if (wsWithoutNames.getPackageName(i) != null) {
+                fail("Name " + wsWithoutNames.getPackageName(i) + " found at i = " + i);
+            }
+        }
+        try {
+            wsWithoutNames.add(50, "name");
+            fail("Added name to unnamed worksource");
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
     }
 }

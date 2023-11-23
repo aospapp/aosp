@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# APKs used by VTS framework.
+# APKs used by VTS10 framework.
 vts_apk_packages := \
   VtsAgentApp \
   CtsVerifier \
   sl4a \
-  VtsHalNeuralnetworksV1_2BenchmarkTestCases \
 
-# Other tests APKs included as part of VTS.
+# Other tests APKs included as part of VTS10.
 vts_apk_packages += \
   DeviceHealthTests
 

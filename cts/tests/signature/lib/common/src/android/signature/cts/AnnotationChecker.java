@@ -28,7 +28,7 @@ import java.util.Set;
  */
 public class AnnotationChecker extends AbstractApiChecker {
 
-    private final Class<? extends Annotation> annotationClass;
+    private final String annotationSpec;
 
     private final Map<String, Class<?>> annotatedClassesMap = new HashMap<>();
     private final Map<String, Set<Constructor<?>>> annotatedConstructorsMap = new HashMap<>();
@@ -40,24 +40,24 @@ public class AnnotationChecker extends AbstractApiChecker {
      *      android.annotation.SystemApi)
      */
     public AnnotationChecker(
-            ResultObserver resultObserver, ClassProvider classProvider, String annotationName) {
+            ResultObserver resultObserver, ClassProvider classProvider, String annotationSpec) {
         super(classProvider, resultObserver);
 
-        annotationClass = ReflectionHelper.getAnnotationClass(annotationName);
+        this.annotationSpec = annotationSpec;
         classProvider.getAllClasses().forEach(clazz -> {
-            if (clazz.isAnnotationPresent(annotationClass)) {
+            if (ReflectionHelper.hasMatchingAnnotation(clazz, annotationSpec)) {
                 annotatedClassesMap.put(clazz.getName(), clazz);
             }
             Set<Constructor<?>> constructors = ReflectionHelper.getAnnotatedConstructors(clazz,
-                    annotationClass);
+                    annotationSpec);
             if (!constructors.isEmpty()) {
                 annotatedConstructorsMap.put(clazz.getName(), constructors);
             }
-            Set<Method> methods = ReflectionHelper.getAnnotatedMethods(clazz, annotationClass);
+            Set<Method> methods = ReflectionHelper.getAnnotatedMethods(clazz, annotationSpec);
             if (!methods.isEmpty()) {
                 annotatedMethodsMap.put(clazz.getName(), methods);
             }
-            Set<Field> fields = ReflectionHelper.getAnnotatedFields(clazz, annotationClass);
+            Set<Field> fields = ReflectionHelper.getAnnotatedFields(clazz, annotationSpec);
             if (!fields.isEmpty()) {
                 annotatedFieldsMap.put(clazz.getName(), fields);
             }
@@ -68,27 +68,27 @@ public class AnnotationChecker extends AbstractApiChecker {
     public void checkDeferred() {
         for (Class<?> clazz : annotatedClassesMap.values()) {
             resultObserver.notifyFailure(FailureType.EXTRA_CLASS, clazz.getName(),
-                    "Class annotated with " + annotationClass.getName()
+                    "Class annotated with " + annotationSpec
                             + " does not exist in the documented API");
         }
         for (Set<Constructor<?>> set : annotatedConstructorsMap.values()) {
             for (Constructor<?> c : set) {
                 resultObserver.notifyFailure(FailureType.EXTRA_METHOD, c.toString(),
-                        "Constructor annotated with " + annotationClass.getName()
+                        "Constructor annotated with " + annotationSpec
                                 + " does not exist in the API");
             }
         }
         for (Set<Method> set : annotatedMethodsMap.values()) {
             for (Method m : set) {
                 resultObserver.notifyFailure(FailureType.EXTRA_METHOD, m.toString(),
-                        "Method annotated with " + annotationClass.getName()
+                        "Method annotated with " + annotationSpec
                                 + " does not exist in the API");
             }
         }
         for (Set<Field> set : annotatedFieldsMap.values()) {
             for (Field f : set) {
                 resultObserver.notifyFailure(FailureType.EXTRA_FIELD, f.toString(),
-                        "Field annotated with " + annotationClass.getName()
+                        "Field annotated with " + annotationSpec
                                 + " does not exist in the API");
             }
         }
@@ -116,10 +116,10 @@ public class AnnotationChecker extends AbstractApiChecker {
     protected void checkField(JDiffClassDescription classDescription, Class<?> runtimeClass,
             JDiffClassDescription.JDiffField fieldDescription, Field field) {
         // make sure that the field (or its declaring class) is annotated
-        if (!ReflectionHelper.isAnnotatedOrInAnnotatedClass(field, annotationClass)) {
+        if (!ReflectionHelper.isAnnotatedOrInAnnotatedClass(field, annotationSpec)) {
             resultObserver.notifyFailure(FailureType.MISSING_ANNOTATION,
                     field.toString(),
-                    "Annotation " + annotationClass.getName() + " is missing");
+                    "Annotation " + annotationSpec + " is missing");
         }
 
         // remove it from the set if found in the API doc
@@ -136,11 +136,11 @@ public class AnnotationChecker extends AbstractApiChecker {
                 .get(runtimeClass.getName());
 
         // make sure that the constructor (or its declaring class) is annotated
-        if (annotationClass != null) {
-            if (!ReflectionHelper.isAnnotatedOrInAnnotatedClass(ctor, annotationClass)) {
+        if (annotationSpec != null) {
+            if (!ReflectionHelper.isAnnotatedOrInAnnotatedClass(ctor, annotationSpec)) {
                 resultObserver.notifyFailure(FailureType.MISSING_ANNOTATION,
                         ctor.toString(),
-                        "Annotation " + annotationClass.getName() + " is missing");
+                        "Annotation " + annotationSpec + " is missing");
             }
         }
 
@@ -155,12 +155,12 @@ public class AnnotationChecker extends AbstractApiChecker {
             JDiffClassDescription.JDiffMethod methodDescription, Method method) {
         // make sure that the method (or its declaring class) is annotated or overriding
         // annotated method.
-        if (!ReflectionHelper.isAnnotatedOrInAnnotatedClass(method, annotationClass)
+        if (!ReflectionHelper.isAnnotatedOrInAnnotatedClass(method, annotationSpec)
                 && !ReflectionHelper.isOverridingAnnotatedMethod(method,
-                        annotationClass)) {
+                        annotationSpec)) {
             resultObserver.notifyFailure(FailureType.MISSING_ANNOTATION,
                     method.toString(),
-                    "Annotation " + annotationClass.getName() + " is missing");
+                    "Annotation " + annotationSpec + " is missing");
         }
 
         // remove it from the set if found in the API doc

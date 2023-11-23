@@ -51,7 +51,7 @@ public class BasePackageInstallTest extends InstrumentationTestCase {
     protected Context mContext;
     protected UiDevice mDevice;
     protected DevicePolicyManager mDevicePolicyManager;
-    private PackageManager mPackageManager;
+    protected PackageManager mPackageManager;
     private PackageInstaller mPackageInstaller;
     private PackageInstaller.Session mSession;
     protected boolean mCallbackReceived;

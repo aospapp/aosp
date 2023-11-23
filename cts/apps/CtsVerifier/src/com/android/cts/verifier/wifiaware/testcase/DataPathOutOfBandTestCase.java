@@ -288,7 +288,11 @@ public class DataPathOutOfBandTestCase extends BaseTestCase {
         mListener.onTestMsgReceived(mContext.getString(R.string.aware_status_network_requested));
         if (DBG) Log.d(TAG, "executeTestResponder: requested network");
         Pair<Network, NetworkCapabilities> info = networkCb.waitForNetworkCapabilities();
+
+        // 7. Sleep for 5 second for Initiator to get NetworkCapabilities.
+        Thread.sleep(5000);
         cm.unregisterNetworkCallback(networkCb);
+
         if (info == null) {
             setFailureReason(mContext.getString(R.string.aware_status_network_failed));
             Log.e(TAG, "executeTestResponder: network request rejected - ON_UNAVAILABLE");
@@ -429,7 +433,11 @@ public class DataPathOutOfBandTestCase extends BaseTestCase {
         mListener.onTestMsgReceived(mContext.getString(R.string.aware_status_network_requested));
         if (DBG) Log.d(TAG, "executeTestInitiator: requested network");
         Pair<Network, NetworkCapabilities> info = networkCb.waitForNetworkCapabilities();
+
+        // 9. Sleep for 5 second for Responder to get NetworkCapabilities.
+        Thread.sleep(5000);
         cm.unregisterNetworkCallback(networkCb);
+
         if (info == null) {
             setFailureReason(mContext.getString(R.string.aware_status_network_failed));
             Log.e(TAG, "executeTestInitiator: network request rejected - ON_UNAVAILABLE");

@@ -20,6 +20,7 @@ import static com.android.compatibility.common.util.WidgetTestUtils.sameCharSequ
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
@@ -261,6 +262,17 @@ public class BoringLayoutTest {
         assertNull(BoringLayout.isBoring("hello \n\n\n android", paint));
         assertNull(BoringLayout.isBoring("\nhello \n android\n", paint));
         assertNull(BoringLayout.isBoring("hello android\n\n\n", paint));
+    }
+
+    @Test
+    public void testIsBoringForEmptyString() {
+        Metrics metrics = new Metrics();
+        assertNotNull(BoringLayout.isBoring("", new TextPaint(), metrics));
+
+        // The default font Roboto has non-zero ascent/descent values. If metrics returns zeros, it
+        // means failed to retrieve the font metrics.
+        assertNotEquals(0, metrics.ascent);
+        assertNotEquals(0, metrics.descent);
     }
 
     @Test

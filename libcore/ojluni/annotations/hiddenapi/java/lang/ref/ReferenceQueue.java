@@ -26,7 +26,7 @@
 
 package java.lang.ref;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ReferenceQueue<T> {

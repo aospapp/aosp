@@ -22,7 +22,7 @@ import android.provider.Settings;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.google.common.base.Preconditions;
+import java.util.Objects;
 
 /**
  * Manages the state of a preference backed by {@link Settings}.
@@ -42,9 +42,9 @@ public class SettingsStateManager implements StateManager<String> {
      */
     public SettingsStateManager(@NonNull Context context, @NonNull String namespace,
             @NonNull String key) {
-        mContext = Preconditions.checkNotNull(context);
-        mNamespace = Preconditions.checkNotNull(namespace);
-        mKey = Preconditions.checkNotNull(key);
+        mContext = Objects.requireNonNull(context);
+        mNamespace = Objects.requireNonNull(namespace);
+        mKey = Objects.requireNonNull(key);
     }
 
     @Override

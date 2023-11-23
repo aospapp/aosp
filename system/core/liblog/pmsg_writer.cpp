@@ -14,88 +14,52 @@
  * limitations under the License.
  */
 
-/*
- * pmsg write handler
- */
+#include "pmsg_writer.h"
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
 
 #include <log/log_properties.h>
-#include <private/android_filesystem_config.h>
 #include <private/android_logger.h>
 
-#include "config_write.h"
-#include "log_portability.h"
 #include "logger.h"
 #include "uio.h"
 
-static int pmsgOpen();
-static void pmsgClose();
-static int pmsgAvailable(log_id_t logId);
-static int pmsgWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, size_t nr);
+static atomic_int pmsg_fd;
 
-struct android_log_transport_write pmsgLoggerWrite = {
-    .node = {&pmsgLoggerWrite.node, &pmsgLoggerWrite.node},
-    .context.fd = -1,
-    .name = "pmsg",
-    .available = pmsgAvailable,
-    .open = pmsgOpen,
-    .close = pmsgClose,
-    .write = pmsgWrite,
-};
-
-static int pmsgOpen() {
-  int fd = atomic_load(&pmsgLoggerWrite.context.fd);
-  if (fd < 0) {
-    int i;
-
-    fd = TEMP_FAILURE_RETRY(open("/dev/pmsg0", O_WRONLY | O_CLOEXEC));
-    i = atomic_exchange(&pmsgLoggerWrite.context.fd, fd);
-    if ((i >= 0) && (i != fd)) {
-      close(i);
-    }
+// pmsg_fd should only beopened once.  If we see that pmsg_fd is uninitialized, we open "/dev/pmsg0"
+// then attempt to compare/exchange it into pmsg_fd.  If the compare/exchange was successful, then
+// that will be the fd used for the duration of the program, otherwise a different thread has
+// already opened and written the fd to the atomic, so close the new fd and return.
+static void GetPmsgFd() {
+  if (pmsg_fd != 0) {
+    return;
   }
 
-  return fd;
-}
+  int new_fd = TEMP_FAILURE_RETRY(open("/dev/pmsg0", O_WRONLY | O_CLOEXEC));
+  if (new_fd <= 0) {
+    return;
+  }
 
-static void pmsgClose() {
-  int fd = atomic_exchange(&pmsgLoggerWrite.context.fd, -1);
-  if (fd >= 0) {
-    close(fd);
+  int uninitialized_value = 0;
+  if (!pmsg_fd.compare_exchange_strong(uninitialized_value, new_fd)) {
+    close(new_fd);
+    return;
   }
 }
 
-static int pmsgAvailable(log_id_t logId) {
-  if (logId > LOG_ID_SECURITY) {
-    return -EINVAL;
+void PmsgClose() {
+  if (pmsg_fd > 0) {
+    close(pmsg_fd);
   }
-  if ((logId != LOG_ID_SECURITY) && (logId != LOG_ID_EVENTS) && !__android_log_is_debuggable()) {
-    return -EINVAL;
-  }
-  if (atomic_load(&pmsgLoggerWrite.context.fd) < 0) {
-    if (access("/dev/pmsg0", W_OK) == 0) {
-      return 0;
-    }
-    return -EBADF;
-  }
-  return 1;
+  pmsg_fd = 0;
 }
 
-/*
- * Extract a 4-byte value from a byte stream.
- */
-static inline uint32_t get4LE(const uint8_t* src) {
-  return src[0] | (src[1] << 8) | (src[2] << 16) | (src[3] << 24);
-}
-
-static int pmsgWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, size_t nr) {
+int PmsgWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, size_t nr) {
   static const unsigned headerLength = 2;
   struct iovec newVec[nr + headerLength];
   android_log_header_t header;
@@ -103,17 +67,25 @@ static int pmsgWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, siz
   size_t i, payloadSize;
   ssize_t ret;
 
-  if ((logId == LOG_ID_EVENTS) && !__android_log_is_debuggable()) {
-    if (vec[0].iov_len < 4) {
-      return -EINVAL;
+  if (!__android_log_is_debuggable()) {
+    if (logId != LOG_ID_EVENTS && logId != LOG_ID_SECURITY) {
+      return -1;
     }
 
-    if (SNET_EVENT_LOG_TAG != get4LE(static_cast<uint8_t*>(vec[0].iov_base))) {
-      return -EPERM;
+    if (logId == LOG_ID_EVENTS) {
+      if (vec[0].iov_len < 4) {
+        return -EINVAL;
+      }
+
+      if (SNET_EVENT_LOG_TAG != *static_cast<uint32_t*>(vec[0].iov_base)) {
+        return -EPERM;
+      }
     }
   }
 
-  if (atomic_load(&pmsgLoggerWrite.context.fd) < 0) {
+  GetPmsgFd();
+
+  if (pmsg_fd <= 0) {
     return -EBADF;
   }
 
@@ -139,7 +111,7 @@ static int pmsgWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, siz
 
   pmsgHeader.magic = LOGGER_MAGIC;
   pmsgHeader.len = sizeof(pmsgHeader) + sizeof(header);
-  pmsgHeader.uid = __android_log_uid();
+  pmsgHeader.uid = getuid();
   pmsgHeader.pid = getpid();
 
   header.id = logId;
@@ -167,7 +139,7 @@ static int pmsgWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, siz
   }
   pmsgHeader.len += payloadSize;
 
-  ret = TEMP_FAILURE_RETRY(writev(atomic_load(&pmsgLoggerWrite.context.fd), newVec, i));
+  ret = TEMP_FAILURE_RETRY(writev(pmsg_fd, newVec, i));
   if (ret < 0) {
     ret = errno ? -errno : -ENOTCONN;
   }
@@ -202,7 +174,6 @@ static inline const char* strnrchr(const char* buf, size_t len, char c) {
 /* Write a buffer as filename references (tag = <basedir>:<basename>) */
 ssize_t __android_log_pmsg_file_write(log_id_t logId, char prio, const char* filename,
                                       const char* buf, size_t len) {
-  bool weOpened;
   size_t length, packet_len;
   const char* tag;
   char *cp, *slash;
@@ -242,7 +213,6 @@ ssize_t __android_log_pmsg_file_write(log_id_t logId, char prio, const char* fil
   vec[1].iov_base = (unsigned char*)tag;
   vec[1].iov_len = length;
 
-  weOpened = false;
   for (ts.tv_nsec = 0, length = len; length; ts.tv_nsec += ANDROID_LOG_PMSG_FILE_SEQUENCE) {
     ssize_t ret;
     size_t transfer;
@@ -263,36 +233,14 @@ ssize_t __android_log_pmsg_file_write(log_id_t logId, char prio, const char* fil
     vec[2].iov_base = (unsigned char*)buf;
     vec[2].iov_len = transfer;
 
-    if (atomic_load(&pmsgLoggerWrite.context.fd) < 0) {
-      if (!weOpened) { /* Impossible for weOpened = true here */
-        __android_log_lock();
-      }
-      weOpened = atomic_load(&pmsgLoggerWrite.context.fd) < 0;
-      if (!weOpened) {
-        __android_log_unlock();
-      } else if (pmsgOpen() < 0) {
-        __android_log_unlock();
-        free(cp);
-        return -EBADF;
-      }
-    }
-
-    ret = pmsgWrite(logId, &ts, vec, sizeof(vec) / sizeof(vec[0]));
+    ret = PmsgWrite(logId, &ts, vec, sizeof(vec) / sizeof(vec[0]));
 
     if (ret <= 0) {
-      if (weOpened) {
-        pmsgClose();
-        __android_log_unlock();
-      }
       free(cp);
       return ret ? ret : (len - length);
     }
     length -= transfer;
     buf += transfer;
-  }
-  if (weOpened) {
-    pmsgClose();
-    __android_log_unlock();
   }
   free(cp);
   return len;

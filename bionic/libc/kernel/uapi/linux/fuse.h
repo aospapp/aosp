@@ -20,7 +20,7 @@
 #define _LINUX_FUSE_H
 #include <stdint.h>
 #define FUSE_KERNEL_VERSION 7
-#define FUSE_KERNEL_MINOR_VERSION 28
+#define FUSE_KERNEL_MINOR_VERSION 31
 #define FUSE_ROOT_ID 1
 struct fuse_attr {
   uint64_t ino;
@@ -73,6 +73,7 @@ struct fuse_file_lock {
 #define FOPEN_KEEP_CACHE (1 << 1)
 #define FOPEN_NONSEEKABLE (1 << 2)
 #define FOPEN_CACHE_DIR (1 << 3)
+#define FOPEN_STREAM (1 << 4)
 #define FUSE_ASYNC_READ (1 << 0)
 #define FUSE_POSIX_LOCKS (1 << 1)
 #define FUSE_FILE_OPS (1 << 2)
@@ -97,6 +98,9 @@ struct fuse_file_lock {
 #define FUSE_ABORT_ERROR (1 << 21)
 #define FUSE_MAX_PAGES (1 << 22)
 #define FUSE_CACHE_SYMLINKS (1 << 23)
+#define FUSE_NO_OPENDIR_SUPPORT (1 << 24)
+#define FUSE_EXPLICIT_INVAL_DATA (1 << 25)
+#define FUSE_MAP_ALIGNMENT (1 << 26)
 #define CUSE_UNRESTRICTED_IOCTL (1 << 0)
 #define FUSE_RELEASE_FLUSH (1 << 0)
 #define FUSE_RELEASE_FLOCK_UNLOCK (1 << 1)
@@ -104,14 +108,17 @@ struct fuse_file_lock {
 #define FUSE_LK_FLOCK (1 << 0)
 #define FUSE_WRITE_CACHE (1 << 0)
 #define FUSE_WRITE_LOCKOWNER (1 << 1)
+#define FUSE_WRITE_KILL_PRIV (1 << 2)
 #define FUSE_READ_LOCKOWNER (1 << 1)
 #define FUSE_IOCTL_COMPAT (1 << 0)
 #define FUSE_IOCTL_UNRESTRICTED (1 << 1)
 #define FUSE_IOCTL_RETRY (1 << 2)
 #define FUSE_IOCTL_32BIT (1 << 3)
 #define FUSE_IOCTL_DIR (1 << 4)
+#define FUSE_IOCTL_COMPAT_X32 (1 << 5)
 #define FUSE_IOCTL_MAX_IOV 256
 #define FUSE_POLL_SCHEDULE_NOTIFY (1 << 0)
+#define FUSE_FSYNC_FDATASYNC (1 << 0)
 enum fuse_opcode {
   FUSE_LOOKUP = 1,
   FUSE_FORGET = 2,
@@ -158,7 +165,11 @@ enum fuse_opcode {
   FUSE_RENAME2 = 45,
   FUSE_LSEEK = 46,
   FUSE_COPY_FILE_RANGE = 47,
+  FUSE_SETUPMAPPING = 48,
+  FUSE_REMOVEMAPPING = 49,
   CUSE_INIT = 4096,
+  CUSE_INIT_BSWAP_RESERVED = 1048576,
+  FUSE_INIT_BSWAP_RESERVED = 436207616,
 };
 enum fuse_notify_code {
   FUSE_NOTIFY_POLL = 1,
@@ -346,7 +357,7 @@ struct fuse_init_out {
   uint32_t max_write;
   uint32_t time_gran;
   uint16_t max_pages;
-  uint16_t padding;
+  uint16_t map_alignment;
   uint32_t unused[8];
 };
 #define CUSE_INIT_INFO_MAX 4096

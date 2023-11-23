@@ -43,7 +43,6 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
     // These constants are those in PackageManager.
     public static final String FEATURE_BLUETOOTH_LE = "android.hardware.bluetooth_le";
     public static final String FEATURE_LEANBACK_ONLY = "android.software.leanback_only";
-    public static final String FEATURE_LOCATION_GPS = "android.hardware.location.gps";
 
     private static final int STATE_TIME_TOP_INDEX = 4;
     private static final int STATE_TIME_FOREGROUND_SERVICE_INDEX = 5;
@@ -62,7 +61,6 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
     public static final String KEY_ACTION = "action";
     public static final String ACTION_BLE_SCAN_OPTIMIZED = "action.ble_scan_optimized";
     public static final String ACTION_BLE_SCAN_UNOPTIMIZED = "action.ble_scan_unoptimized";
-    public static final String ACTION_GPS = "action.gps";
     public static final String ACTION_JOB_SCHEDULE = "action.jobs";
     public static final String ACTION_SYNC = "action.sync";
     public static final String ACTION_SLEEP_WHILE_BACKGROUND = "action.sleep_background";
@@ -148,41 +146,9 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         batteryOffScreenOn();
     }
 
-    public void testWakeLockDuration() throws Exception {
-        batteryOnScreenOff();
-
-        installPackage(DEVICE_SIDE_TEST_APK, /* grantPermissions= */ true);
-
-        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsWakeLockTests",
-                "testHoldShortWakeLock");
-
-        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsWakeLockTests",
-                "testHoldLongWakeLock");
-
-        assertValueRange("wl", "BSShortWakeLock", 15, (long) (500 * 0.9), 500 * 2); // partial max duration
-        assertValueRange("wl", "BSLongWakeLock", 15, (long) (3000 * 0.9), 3000 * 2);  // partial max duration
-
-        batteryOffScreenOn();
-    }
-
     private void startSimpleActivity() throws Exception {
         getDevice().executeShellCommand(
                 "am start -n com.android.server.cts.device.batterystats/.SimpleActivity");
-    }
-
-    public void testServiceForegroundDuration() throws Exception {
-        batteryOnScreenOff();
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-
-        startSimpleActivity();
-        assertValueRange("st", "", STATE_TIME_FOREGROUND_SERVICE_INDEX, 0,
-                0); // No foreground service time before test
-        final long startTime = System.nanoTime();
-        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsProcessStateTests",
-                "testForegroundService");
-        assertValueRange("st", "", STATE_TIME_FOREGROUND_SERVICE_INDEX, (long) (2000 * 0.8),
-                (System.nanoTime() - startTime) / 1000000);
-        batteryOffScreenOn();
     }
 
     public void testUidForegroundDuration() throws Exception {
@@ -270,193 +236,6 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         assertTrue("Screen could not be turned on", screenAwake);
     }
 
-    public void testBleScans() throws Exception {
-        if (noBattery() || !hasFeature(FEATURE_BLUETOOTH_LE, true)) {
-            return;
-        }
-
-        batteryOnScreenOff();
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-        turnScreenOnForReal();
-        assertScreenOn();
-
-        // Background test.
-        executeBackground(ACTION_BLE_SCAN_UNOPTIMIZED, 40_000);
-        assertValueRange("blem", "", 5, 1, 1); // ble_scan_count
-        assertValueRange("blem", "", 6, 1, 1); // ble_scan_count_bg
-
-        // Foreground test.
-        executeForeground(ACTION_BLE_SCAN_UNOPTIMIZED, 40_000);
-        assertValueRange("blem", "", 5, 2, 2); // ble_scan_count
-        assertValueRange("blem", "", 6, 1, 1); // ble_scan_count_bg
-
-        batteryOffScreenOn();
-    }
-
-
-    public void testUnoptimizedBleScans() throws Exception {
-        if (noBattery() || !hasFeature(FEATURE_BLUETOOTH_LE, true)) {
-            return;
-        }
-        batteryOnScreenOff();
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-        turnScreenOnForReal();
-        assertScreenOn();
-        // Ble scan time in BatteryStatsBgVsFgActions is 2 seconds, but be lenient.
-        final int minTime = 1500; // min single scan time in ms
-        final int maxTime = 3000; // max single scan time in ms
-
-        // Optimized - Background.
-        executeBackground(ACTION_BLE_SCAN_OPTIMIZED, 40_000);
-        assertValueRange("blem", "", 7, 1*minTime, 1*maxTime); // actualTime
-        assertValueRange("blem", "", 8, 1*minTime, 1*maxTime); // actualTimeBg
-        assertValueRange("blem", "", 11, 0, 0); // unoptimizedScanTotalTime
-        assertValueRange("blem", "", 12, 0, 0); // unoptimizedScanTotalTimeBg
-        assertValueRange("blem", "", 13, 0, 0); // unoptimizedScanMaxTime
-        assertValueRange("blem", "", 14, 0, 0); // unoptimizedScanMaxTimeBg
-
-        // Optimized - Foreground.
-        executeForeground(ACTION_BLE_SCAN_OPTIMIZED, 40_000);
-        assertValueRange("blem", "", 7, 2*minTime, 2*maxTime); // actualTime
-        assertValueRange("blem", "", 8, 1*minTime, 1*maxTime); // actualTimeBg
-        assertValueRange("blem", "", 11, 0, 0); // unoptimizedScanTotalTime
-        assertValueRange("blem", "", 12, 0, 0); // unoptimizedScanTotalTimeBg
-        assertValueRange("blem", "", 13, 0, 0); // unoptimizedScanMaxTime
-        assertValueRange("blem", "", 14, 0, 0); // unoptimizedScanMaxTimeBg
-
-        // Unoptimized - Background.
-        executeBackground(ACTION_BLE_SCAN_UNOPTIMIZED, 40_000);
-        assertValueRange("blem", "", 7, 3*minTime, 3*maxTime); // actualTime
-        assertValueRange("blem", "", 8, 2*minTime, 2*maxTime); // actualTimeBg
-        assertValueRange("blem", "", 11, 1*minTime, 1*maxTime); // unoptimizedScanTotalTime
-        assertValueRange("blem", "", 12, 1*minTime, 1*maxTime); // unoptimizedScanTotalTimeBg
-        assertValueRange("blem", "", 13, 1*minTime, 1*maxTime); // unoptimizedScanMaxTime
-        assertValueRange("blem", "", 14, 1*minTime, 1*maxTime); // unoptimizedScanMaxTimeBg
-
-        // Unoptimized - Foreground.
-        executeForeground(ACTION_BLE_SCAN_UNOPTIMIZED, 40_000);
-        assertValueRange("blem", "", 7, 4*minTime, 4*maxTime); // actualTime
-        assertValueRange("blem", "", 8, 2*minTime, 2*maxTime); // actualTimeBg
-        assertValueRange("blem", "", 11, 2*minTime, 2*maxTime); // unoptimizedScanTotalTime
-        assertValueRange("blem", "", 12, 1*minTime, 1*maxTime); // unoptimizedScanTotalTimeBg
-        assertValueRange("blem", "", 13, 1*minTime, 1*maxTime); // unoptimizedScanMaxTime
-        assertValueRange("blem", "", 14, 1*minTime, 1*maxTime); // unoptimizedScanMaxTimeBg
-
-        batteryOffScreenOn();
-    }
-
-    public void testGpsUpdates() throws Exception {
-        if (noBattery() || !hasFeature(FEATURE_LOCATION_GPS, true)) {
-            return;
-        }
-
-        final String gpsSensorNumber = "-10000";
-
-        batteryOnScreenOff();
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-        // Whitelist this app against background location request throttling
-        String origWhitelist = getDevice().executeShellCommand(
-                "settings get global location_background_throttle_package_whitelist").trim();
-        getDevice().executeShellCommand(String.format(
-                "settings put global location_background_throttle_package_whitelist %s",
-                DEVICE_SIDE_TEST_PACKAGE));
-
-        try {
-            // Background test.
-            executeBackground(ACTION_GPS, 60_000);
-            assertValueRange("sr", gpsSensorNumber, 6, 1, 1); // count
-            assertValueRange("sr", gpsSensorNumber, 7, 1, 1); // background_count
-
-            // Foreground test.
-            executeForeground(ACTION_GPS, 60_000);
-            assertValueRange("sr", gpsSensorNumber, 6, 2, 2); // count
-            assertValueRange("sr", gpsSensorNumber, 7, 1, 1); // background_count
-        } finally {
-            if ("null".equals(origWhitelist) || "".equals(origWhitelist)) {
-                getDevice().executeShellCommand(
-                        "settings delete global location_background_throttle_package_whitelist");
-            } else {
-                getDevice().executeShellCommand(String.format(
-                        "settings put global location_background_throttle_package_whitelist %s",
-                        origWhitelist));
-            }
-            batteryOffScreenOn();
-        }
-    }
-
-    public void testJobBgVsFg() throws Exception {
-        if (noBattery()) {
-            return;
-        }
-        batteryOnScreenOff();
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-        turnScreenOnForReal();
-        assertScreenOn();
-        allowImmediateSyncs();
-
-        // Background test.
-        executeBackground(ACTION_JOB_SCHEDULE, 60_000);
-        assertValueRange("jb", "", 6, 1, 1); // count
-        assertValueRange("jb", "", 8, 1, 1); // background_count
-
-        // Foreground test.
-        executeForeground(ACTION_JOB_SCHEDULE, 60_000);
-        assertValueRange("jb", "", 6, 2, 2); // count
-        assertValueRange("jb", "", 8, 1, 1); // background_count
-
-        batteryOffScreenOn();
-    }
-
-    public void testSyncBgVsFg() throws Exception {
-        if (noBattery()) {
-            return;
-        }
-        batteryOnScreenOff();
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-        turnScreenOnForReal();
-        assertScreenOn();
-        allowImmediateSyncs();
-
-        // Background test.
-        executeBackground(ACTION_SYNC, 60_000);
-        // Allow one or two syncs in this time frame (not just one) due to unpredictable syncs.
-        assertValueRange("sy", DEVICE_SIDE_SYNC_COMPONENT, 6, 1, 2); // count
-        assertValueRange("sy", DEVICE_SIDE_SYNC_COMPONENT, 8, 1, 2); // background_count
-
-        // Foreground test.
-        executeForeground(ACTION_SYNC, 60_000);
-        assertValueRange("sy", DEVICE_SIDE_SYNC_COMPONENT, 6, 2, 4); // count
-        assertValueRange("sy", DEVICE_SIDE_SYNC_COMPONENT, 8, 1, 2); // background_count
-
-        batteryOffScreenOn();
-    }
-
-    /**
-     * Tests whether the on-battery realtime and total realtime values
-     * are properly updated in battery stats.
-     */
-    public void testRealtime() throws Exception {
-        batteryOnScreenOff();
-        long startingValueRealtime = getLongValue(0, "bt", "", 7);
-        long startingValueBatteryRealtime = getLongValue(0, "bt", "", 5);
-        // After going on battery
-        Thread.sleep(2000);
-        batteryOffScreenOn();
-        // After going off battery
-        Thread.sleep(2000);
-
-        long currentValueRealtime = getLongValue(0, "bt", "", 7);
-        long currentValueBatteryRealtime = getLongValue(0, "bt", "", 5);
-
-        // Total realtime increase should be 4000ms at least
-        assertTrue(currentValueRealtime >= startingValueRealtime + 4000);
-        // But not too much more
-        assertTrue(currentValueRealtime < startingValueRealtime + 6000);
-        // Battery on realtime should be more than 2000 but less than 4000
-        assertTrue(currentValueBatteryRealtime >= startingValueBatteryRealtime + 2000);
-        assertTrue(currentValueBatteryRealtime < startingValueBatteryRealtime + 4000);
-    }
-
     /**
      * Tests the total duration reported for jobs run on the job scheduler.
      */
@@ -473,26 +252,6 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         // bounds to account for possible errors due to thread scheduling and cpu load.
         assertValueRange("jb", DEVICE_SIDE_JOB_COMPONENT, 5, (long) (15000 * 0.8), 15000 * 2);
         batteryOffScreenOn();
-    }
-
-    /**
-     * Tests the total duration and # of syncs reported for sync activities.
-     */
-    public void testSyncs() throws Exception {
-        batteryOnScreenOff();
-
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-        allowImmediateSyncs();
-
-        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsSyncTest", "testRunSyncs");
-
-        // First, check the count, which should be 10.
-        // (It could be 11, if the initial sync actually happened before getting cancelled.)
-        assertValueRange("sy", DEVICE_SIDE_SYNC_COMPONENT, 6, 10L, 11L);
-
-        // Should be approximately, but at least 10 seconds. Use 2x as the upper
-        // bounds to account for possible errors due to thread scheduling and cpu load.
-        assertValueRange("sy", DEVICE_SIDE_SYNC_COMPONENT, 5, 10000, 10000 * 2);
     }
 
     private int getUid() throws Exception {

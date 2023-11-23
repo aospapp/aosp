@@ -20,7 +20,6 @@
           android:targetSandboxVersion="2">
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <application>
         <!--
          * Some tests (e.g. ShadowTests#testShadowLayout) may have different results depending on

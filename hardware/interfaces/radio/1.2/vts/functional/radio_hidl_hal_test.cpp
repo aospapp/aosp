@@ -14,22 +14,13 @@
  * limitations under the License.
  */
 
-#include <android/hardware/radio/1.1/IRadio.h>
 #include <radio_hidl_hal_utils_v1_2.h>
 
 void RadioHidlTest_v1_2::SetUp() {
-    radio_v1_2 =
-        ::testing::VtsHalHidlTargetTestBase::getService<::android::hardware::radio::V1_2::IRadio>(
-            RadioHidlEnvironment::Instance()
-                ->getServiceName<::android::hardware::radio::V1_2::IRadio>(
-                    hidl_string(RADIO_SERVICE_NAME)));
+    radio_v1_2 = ::android::hardware::radio::V1_2::IRadio::getService(GetParam());
     if (radio_v1_2 == NULL) {
         sleep(60);
-        radio_v1_2 = ::testing::VtsHalHidlTargetTestBase::getService<
-            ::android::hardware::radio::V1_2::IRadio>(
-            RadioHidlEnvironment::Instance()
-                ->getServiceName<::android::hardware::radio::V1_2::IRadio>(
-                    hidl_string(RADIO_SERVICE_NAME)));
+        radio_v1_2 = ::android::hardware::radio::V1_2::IRadio::getService(GetParam());
     }
     ASSERT_NE(nullptr, radio_v1_2.get());
 
@@ -52,8 +43,7 @@ void RadioHidlTest_v1_2::SetUp() {
     /* Enforce Vts Testing with Sim Status Present only. */
     EXPECT_EQ(CardState::PRESENT, cardStatus.base.cardState);
 
-    radioConfig = ::testing::VtsHalHidlTargetTestBase::getService<
-            ::android::hardware::radio::config::V1_1::IRadioConfig>();
+    radioConfig = ::android::hardware::radio::config::V1_1::IRadioConfig::getService();
 
     /* Enforce Vts tesing with RadioConfig for network scan excemption. */
     // Some devices can only perform network scan on logical modem that currently used for packet
@@ -154,25 +144,7 @@ void RadioHidlTest_v1_2::updateSimCardStatus() {
 }
 
 void RadioHidlTest_v1_2::stopNetworkScan() {
-    sp<::android::hardware::radio::V1_1::IRadio> radio_v1_1;
-
-    radio_v1_1 = ::testing::VtsHalHidlTargetTestBase::getService<
-            ::android::hardware::radio::V1_1::IRadio>(
-            RadioHidlEnvironment::Instance()
-                    ->getServiceName<::android::hardware::radio::V1_1::IRadio>(
-                            hidl_string(RADIO_SERVICE_NAME)));
-    if (radio_v1_1 == NULL) {
-        sleep(60);
-        radio_v1_1 = ::testing::VtsHalHidlTargetTestBase::getService<
-                ::android::hardware::radio::V1_1::IRadio>(
-                RadioHidlEnvironment::Instance()
-                        ->getServiceName<::android::hardware::radio::V1_1::IRadio>(
-                                hidl_string(RADIO_SERVICE_NAME)));
-    }
-    ASSERT_NE(nullptr, radio_v1_1.get());
-
     serial = GetRandomSerialNumber();
-
-    radio_v1_1->stopNetworkScan(serial);
+    radio_v1_2->stopNetworkScan(serial);
     EXPECT_EQ(std::cv_status::no_timeout, wait());
 }

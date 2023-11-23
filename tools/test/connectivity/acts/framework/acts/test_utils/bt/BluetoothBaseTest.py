@@ -21,10 +21,8 @@ import threading
 import time
 import traceback
 import os
-from acts import utils
 from acts.base_test import BaseTestClass
 from acts.signals import TestSignal
-from acts.utils import create_dir
 from acts.utils import dump_string_to_file
 
 from acts.controllers import android_device
@@ -48,18 +46,6 @@ class BluetoothBaseTest(BaseTestClass):
     DEFAULT_TIMEOUT = 10
     start_time = 0
     timer_list = []
-
-    def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
-        for ad in self.android_devices:
-            self._setup_bt_libs(ad)
-        if 'preferred_device_order' in self.user_params:
-            prefered_device_order = self.user_params['preferred_device_order']
-            for i, ad in enumerate(self.android_devices):
-                if ad.serial in prefered_device_order:
-                    index = prefered_device_order.index(ad.serial)
-                    self.android_devices[i], self.android_devices[index] = \
-                        self.android_devices[index], self.android_devices[i]
 
     def collect_bluetooth_manager_metrics_logs(self, ads, test_name):
         """
@@ -131,6 +117,17 @@ class BluetoothBaseTest(BaseTestClass):
         return _safe_wrap_test_case
 
     def setup_class(self):
+        super().setup_class()
+        for ad in self.android_devices:
+            self._setup_bt_libs(ad)
+        if 'preferred_device_order' in self.user_params:
+            prefered_device_order = self.user_params['preferred_device_order']
+            for i, ad in enumerate(self.android_devices):
+                if ad.serial in prefered_device_order:
+                    index = prefered_device_order.index(ad.serial)
+                    self.android_devices[i], self.android_devices[index] = \
+                        self.android_devices[index], self.android_devices[i]
+
         if "reboot_between_test_class" in self.user_params:
             threads = []
             for a in self.android_devices:
@@ -161,7 +158,7 @@ class BluetoothBaseTest(BaseTestClass):
                     return False
             for ad in self.android_devices:
                 ad.metrics_path = os.path.join(ad.log_path, "BluetoothMetrics")
-                create_dir(ad.metrics_path)
+                os.makedirs(ad.metrics_path, exist_ok=True)
                 ad.bluetooth_proto_module = \
                     compile_import_proto(ad.metrics_path, self.bluetooth_proto_path)
                 if not ad.bluetooth_proto_module:

@@ -275,10 +275,8 @@ void PrintPids(DataContainer& data, std::unordered_map<int, uint64_t>& cpuDataMa
             stats.rbytes += (newerSample->readbytes() - olderSample->readbytes());
             stats.wbytes += (newerSample->writebytes() - olderSample->writebytes());
 
-            // Note that all of these are explicitly `long long`s, not int64_t,
-            // so we can't use PRId64 here.
-#define NUMBER "%-13lld"
-            printf("%5lld - %-5lld  " NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER "%-9.2f\n",
+#define NUMBER "%-13" PRId64
+            printf("%5" PRId64 " - %-5" PRId64 "  " NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER "%-9.2f\n",
 #undef NUMBER
                    olderSample->uptime(),
                    newerSample->uptime(),
@@ -292,7 +290,7 @@ void PrintPids(DataContainer& data, std::unordered_map<int, uint64_t>& cpuDataMa
             isFirstSample = false;
         }
         printf("-----------------------------------------------------------------------------\n");
-#define NUMBER "%-13lld"
+#define NUMBER "%-13" PRId64
         printf("%-15s" NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER "\n",
 #undef NUMBER
                "Total",

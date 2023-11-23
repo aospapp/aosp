@@ -88,7 +88,7 @@ public class FilesystemUtil {
     /** Save a bugreport to the given file */
     public static void saveBugreportz(Instrumentation instr) throws IOException {
         try {
-            ActivityManager.getService().requestBugReport(ActivityManager.BUGREPORT_OPTION_FULL);
+            ActivityManager.getService().requestFullBugReport();
         } catch (RemoteException e) {
             throw new IOException("Could not capture bugreportz", e);
         }

@@ -25,13 +25,10 @@
 
 package sun.security.x509;
 
-import java.io.*;
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class X509Key implements java.security.PublicKey {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509Key() {
         throw new RuntimeException("Stub!");
     }
@@ -49,7 +46,7 @@ public class X509Key implements java.security.PublicKey {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.security.PublicKey parse(sun.security.util.DerValue in)
             throws java.io.IOException {
         throw new RuntimeException("Stub!");
@@ -129,15 +126,15 @@ public class X509Key implements java.security.PublicKey {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage protected sun.security.x509.AlgorithmId algid;
+    @android.compat.annotation.UnsupportedAppUsage protected sun.security.x509.AlgorithmId algid;
 
     private sun.security.util.BitArray bitStringKey;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage protected byte[] encodedKey;
+    @android.compat.annotation.UnsupportedAppUsage protected byte[] encodedKey;
 
-    @Deprecated @dalvik.annotation.compat.UnsupportedAppUsage protected byte[] key;
+    @Deprecated @android.compat.annotation.UnsupportedAppUsage protected byte[] key;
 
     private static final long serialVersionUID = -5359250853002055002L; // 0xb5a01dbe649a72a6L
 
-    @Deprecated @dalvik.annotation.compat.UnsupportedAppUsage private int unusedBits = 0; // 0x0
+    @Deprecated @android.compat.annotation.UnsupportedAppUsage private int unusedBits = 0; // 0x0
 }

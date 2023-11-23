@@ -33,7 +33,7 @@ public class PropertyExpander {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.lang.String expand(java.lang.String value)
             throws sun.security.util.PropertyExpander.ExpandException {
         throw new RuntimeException("Stub!");

@@ -89,11 +89,9 @@ struct StringLiteralExpression : public Expression {
 struct Variable : public Expression {
   const std::string type;
   std::string name;
-  int dimension = 0;
 
   Variable() = default;
   Variable(const std::string& type, const std::string& name);
-  Variable(const std::string& type, const std::string& name, int dimension);
   virtual ~Variable() = default;
 
   void WriteDeclaration(CodeWriter* to) const;
@@ -101,10 +99,10 @@ struct Variable : public Expression {
 };
 
 struct FieldVariable : public Expression {
-  std::variant<Expression*, std::string> receiver;
+  std::variant<std::shared_ptr<Expression>, std::string> receiver;
   std::string name;
 
-  FieldVariable(Expression* object, const std::string& name);
+  FieldVariable(std::shared_ptr<Expression> object, const std::string& name);
   FieldVariable(const std::string& clazz, const std::string& name);
   virtual ~FieldVariable() = default;
 
@@ -115,11 +113,11 @@ struct Field : public ClassElement {
   std::string comment;
   std::vector<std::string> annotations;
   int modifiers = 0;
-  Variable* variable = nullptr;
+  std::shared_ptr<Variable> variable = nullptr;
   std::string value;
 
   Field() = default;
-  Field(int modifiers, Variable* variable);
+  Field(int modifiers, std::shared_ptr<Variable> variable);
   virtual ~Field() = default;
 
   void Write(CodeWriter* to) const override;
@@ -140,110 +138,108 @@ struct LiteralStatement : public Statement {
 };
 
 struct StatementBlock : public Statement {
-  std::vector<Statement*> statements;
+  std::vector<std::shared_ptr<Statement>> statements;
 
   StatementBlock() = default;
   virtual ~StatementBlock() = default;
   void Write(CodeWriter* to) const override;
 
-  void Add(Statement* statement);
-  void Add(Expression* expression);
+  void Add(std::shared_ptr<Statement> statement);
+  void Add(std::shared_ptr<Expression> expression);
 };
 
 struct ExpressionStatement : public Statement {
-  Expression* expression;
+  std::shared_ptr<Expression> expression;
 
-  explicit ExpressionStatement(Expression* expression);
+  explicit ExpressionStatement(std::shared_ptr<Expression> expression);
   virtual ~ExpressionStatement() = default;
   void Write(CodeWriter* to) const override;
 };
 
 struct Assignment : public Expression {
-  Variable* lvalue;
-  Expression* rvalue;
+  std::shared_ptr<Variable> lvalue;
+  std::shared_ptr<Expression> rvalue;
   std::optional<std::string> cast = std::nullopt;
 
-  Assignment(Variable* lvalue, Expression* rvalue);
-  Assignment(Variable* lvalue, Expression* rvalue, std::string cast);
+  Assignment(std::shared_ptr<Variable> lvalue, std::shared_ptr<Expression> rvalue);
+  Assignment(std::shared_ptr<Variable> lvalue, std::shared_ptr<Expression> rvalue,
+             std::string cast);
   virtual ~Assignment() = default;
   void Write(CodeWriter* to) const override;
 };
 
 struct MethodCall : public Expression {
-  std::variant<std::monostate, Expression*, std::string> receiver;
+  std::variant<std::monostate, std::shared_ptr<Expression>, std::string> receiver;
   std::string name;
-  std::vector<Expression*> arguments;
+  std::vector<std::shared_ptr<Expression>> arguments;
   std::vector<std::string> exceptions;
 
   explicit MethodCall(const std::string& name);
-  MethodCall(const std::string& name, int argc, ...);
-  MethodCall(Expression* obj, const std::string& name);
+  MethodCall(const std::string& name, const std::vector<std::shared_ptr<Expression>>& args);
+  MethodCall(std::shared_ptr<Expression> obj, const std::string& name);
   MethodCall(const std::string& clazz, const std::string& name);
-  MethodCall(Expression* obj, const std::string& name, int argc, ...);
-  MethodCall(const std::string&, const std::string& name, int argc, ...);
+  MethodCall(std::shared_ptr<Expression> obj, const std::string& name,
+             const std::vector<std::shared_ptr<Expression>>& args);
+  MethodCall(const std::string&, const std::string& name,
+             const std::vector<std::shared_ptr<Expression>>& args);
   virtual ~MethodCall() = default;
   void Write(CodeWriter* to) const override;
-
- private:
-  void init(int n, va_list args);
 };
 
 struct Comparison : public Expression {
-  Expression* lvalue;
+  std::shared_ptr<Expression> lvalue;
   std::string op;
-  Expression* rvalue;
+  std::shared_ptr<Expression> rvalue;
 
-  Comparison(Expression* lvalue, const std::string& op, Expression* rvalue);
+  Comparison(std::shared_ptr<Expression> lvalue, const std::string& op,
+             std::shared_ptr<Expression> rvalue);
   virtual ~Comparison() = default;
   void Write(CodeWriter* to) const override;
 };
 
 struct NewExpression : public Expression {
   const std::string instantiableName;
-  std::vector<Expression*> arguments;
+  std::vector<std::shared_ptr<Expression>> arguments;
 
   explicit NewExpression(const std::string& name);
-  NewExpression(const std::string& name, int argc, ...);
+  NewExpression(const std::string& name, const std::vector<std::shared_ptr<Expression>>& args);
   virtual ~NewExpression() = default;
   void Write(CodeWriter* to) const override;
-
- private:
-  void init(int n, va_list args);
 };
 
 struct NewArrayExpression : public Expression {
   const std::string type;
-  Expression* size;
+  std::shared_ptr<Expression> size;
 
-  NewArrayExpression(const std::string& type, Expression* size);
+  NewArrayExpression(const std::string& type, std::shared_ptr<Expression> size);
   virtual ~NewArrayExpression() = default;
   void Write(CodeWriter* to) const override;
 };
 
 struct Cast : public Expression {
   const std::string type;
-  Expression* expression = nullptr;
+  std::shared_ptr<Expression> expression = nullptr;
 
   Cast() = default;
-  Cast(const std::string& type, Expression* expression);
+  Cast(const std::string& type, std::shared_ptr<Expression> expression);
   virtual ~Cast() = default;
   void Write(CodeWriter* to) const override;
 };
 
 struct VariableDeclaration : public Statement {
-  Variable* lvalue = nullptr;
-  Expression* rvalue = nullptr;
+  std::shared_ptr<Variable> lvalue = nullptr;
+  std::shared_ptr<Expression> rvalue = nullptr;
 
-  explicit VariableDeclaration(Variable* lvalue);
-  VariableDeclaration(Variable* lvalue, Expression* rvalue);
+  explicit VariableDeclaration(std::shared_ptr<Variable> lvalue);
+  VariableDeclaration(std::shared_ptr<Variable> lvalue, std::shared_ptr<Expression> rvalue);
   virtual ~VariableDeclaration() = default;
   void Write(CodeWriter* to) const override;
 };
 
 struct IfStatement : public Statement {
-  Expression* expression = nullptr;
-  StatementBlock* statements = new StatementBlock;
-  IfStatement* elseif = nullptr;
+  std::shared_ptr<Expression> expression = nullptr;
+  std::shared_ptr<StatementBlock> statements = std::make_shared<StatementBlock>();
+  std::shared_ptr<IfStatement> elseif = nullptr;
 
   IfStatement() = default;
   virtual ~IfStatement() = default;
@@ -251,15 +247,15 @@ struct IfStatement : public Statement {
 };
 
 struct ReturnStatement : public Statement {
-  Expression* expression;
+  std::shared_ptr<Expression> expression;
 
-  explicit ReturnStatement(Expression* expression);
+  explicit ReturnStatement(std::shared_ptr<Expression> expression);
   virtual ~ReturnStatement() = default;
   void Write(CodeWriter* to) const override;
 };
 
 struct TryStatement : public Statement {
-  StatementBlock* statements = new StatementBlock;
+  std::shared_ptr<StatementBlock> statements = std::make_shared<StatementBlock>();
 
   TryStatement() = default;
   virtual ~TryStatement() = default;
@@ -267,7 +263,7 @@ struct TryStatement : public Statement {
 };
 
 struct FinallyStatement : public Statement {
-  StatementBlock* statements = new StatementBlock;
+  std::shared_ptr<StatementBlock> statements = std::make_shared<StatementBlock>();
 
   FinallyStatement() = default;
   virtual ~FinallyStatement() = default;
@@ -276,7 +272,7 @@ struct FinallyStatement : public Statement {
 
 struct Case : public AstNode {
   std::vector<std::string> cases;
-  StatementBlock* statements = new StatementBlock;
+  std::shared_ptr<StatementBlock> statements = std::make_shared<StatementBlock>();
 
   Case() = default;
   explicit Case(const std::string& c);
@@ -285,10 +281,10 @@ struct Case : public AstNode {
 };
 
 struct SwitchStatement : public Statement {
-  Expression* expression;
-  std::vector<Case*> cases;
+  std::shared_ptr<Expression> expression;
+  std::vector<std::shared_ptr<Case>> cases;
 
-  explicit SwitchStatement(Expression* expression);
+  explicit SwitchStatement(std::shared_ptr<Expression> expression);
   virtual ~SwitchStatement() = default;
   void Write(CodeWriter* to) const override;
 };
@@ -298,11 +294,10 @@ struct Method : public ClassElement {
   std::vector<std::string> annotations;
   int modifiers = 0;
   std::optional<std::string> returnType = std::nullopt;  // nullopt means constructor
-  size_t returnTypeDimension = 0;
   std::string name;
-  std::vector<Variable*> parameters;
+  std::vector<std::shared_ptr<Variable>> parameters;
   std::vector<std::string> exceptions;
-  StatementBlock* statements = nullptr;
+  std::shared_ptr<StatementBlock> statements = nullptr;
 
   Method() = default;
   virtual ~Method() = default;
@@ -329,7 +324,7 @@ struct Class : public ClassElement {
   std::string type;
   std::optional<std::string> extends = std::nullopt;
   std::vector<std::string> interfaces;
-  std::vector<ClassElement*> elements;
+  std::vector<std::shared_ptr<ClassElement>> elements;
 
   Class() = default;
   virtual ~Class() = default;
@@ -351,6 +346,11 @@ class Document : public AstNode {
   std::unique_ptr<Class> clazz_;
 };
 
+extern std::shared_ptr<Expression> NULL_VALUE;
+extern std::shared_ptr<Expression> THIS_VALUE;
+extern std::shared_ptr<Expression> SUPER_VALUE;
+extern std::shared_ptr<Expression> TRUE_VALUE;
+extern std::shared_ptr<Expression> FALSE_VALUE;
 }  // namespace java
 }  // namespace aidl
 }  // namespace android

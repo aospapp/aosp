@@ -19,21 +19,26 @@ package com.android.tradefed.testtype;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.fail;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
 
+import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.testtype.coverage.CoverageOptions;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -49,7 +54,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -58,7 +62,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.StringJoiner;
 import java.util.zip.ZipFile;
 
 /** Unit tests for {@link NativeCodeCoverageListener}. */
@@ -69,48 +72,42 @@ public class NativeCodeCoverageListenerTest {
     private static final int TEST_COUNT = 5;
     private static final long ELAPSED_TIME = 1000;
 
-    private static final ByteString COVERAGE_MEASUREMENT =
-            ByteString.copyFromUtf8("Mi estas kovrado mezurado");
-
     @Rule public TemporaryFolder folder = new TemporaryFolder();
 
     @Mock ITestDevice mMockDevice;
 
     LogFileReader mFakeListener = new LogFileReader();
 
+    /** Options for coverage. */
+    CoverageOptions mCoverageOptions = null;
+
+    OptionSetter mCoverageOptionsSetter = null;
+
     /** Object under test. */
     NativeCodeCoverageListener mCodeCoverageListener;
 
     @Before
-    public void setUp() {
+    public void setUp() throws ConfigurationException {
         MockitoAnnotations.initMocks(this);
 
-        mCodeCoverageListener = new NativeCodeCoverageListener(mMockDevice, mFakeListener);
+        mCoverageOptions = new CoverageOptions();
+        mCoverageOptionsSetter = new OptionSetter(mCoverageOptions);
     }
 
     @Test
     public void test_logsCoverageZip() throws DeviceNotAvailableException, IOException {
+        mCodeCoverageListener = new NativeCodeCoverageListener(mMockDevice, mFakeListener);
+
         // Setup mocks to write the coverage measurement to the file.
         doReturn(true).when(mMockDevice).enableAdbRoot();
-        doReturn(
-                        new StringJoiner("\n")
-                                .add("/data/misc/trace/proc/self/cwd/out/path/to/coverage.gcda")
-                                .add(
-                                        "/data/misc/trace/proc/self/cwd/out/path/to/.hidden/coverage2.gcda")
-                                .toString())
-                .when(mMockDevice)
-                .executeShellCommand(anyString());
-        doAnswer(
-                        inv -> {
-                            File destFile = (File) inv.getArgument(1);
-                            try (OutputStream out = new FileOutputStream(destFile)) {
-                                // Write the filename as the contents.
-                                out.write(destFile.getName().getBytes(StandardCharsets.UTF_8));
-                            }
-                            return true;
-                        })
-                .when(mMockDevice)
-                .pullFile(anyString(), any());
+        File tar =
+                createTar(
+                        ImmutableMap.of(
+                                "path/to/coverage.gcda",
+                                ByteString.copyFromUtf8("coverage.gcda"),
+                                "path/to/.hidden/coverage2.gcda",
+                                ByteString.copyFromUtf8("coverage2.gcda")));
+        doReturn(tar).when(mMockDevice).pullFile(anyString());
 
         // Simulate a test run.
         mCodeCoverageListener.testRunStarted(RUN_NAME, TEST_COUNT);
@@ -139,8 +136,10 @@ public class NativeCodeCoverageListenerTest {
 
     @Test
     public void testNoCoverageFiles_logsEmptyZip() throws DeviceNotAvailableException, IOException {
+        mCodeCoverageListener = new NativeCodeCoverageListener(mMockDevice, mFakeListener);
+
         doReturn(true).when(mMockDevice).enableAdbRoot();
-        doReturn("").when(mMockDevice).executeShellCommand(anyString());
+        doReturn(createTar(ImmutableMap.of())).when(mMockDevice).pullFile(anyString());
 
         // Simulate a test run.
         mCodeCoverageListener.testRunStarted(RUN_NAME, TEST_COUNT);
@@ -155,18 +154,63 @@ public class NativeCodeCoverageListenerTest {
             logs.get(0).writeTo(out);
         }
 
-        ZipFile loggedZip = new ZipFile(outputZip);
-        assertThat(loggedZip.size()).isEqualTo(0);
+        try (ZipFile loggedZip = new ZipFile(outputZip)) {
+            assertThat(loggedZip.size()).isEqualTo(0);
+        }
+    }
+
+    @Test
+    public void testCoverageFlushAllProcesses_flushAllCommandCalled()
+            throws ConfigurationException, DeviceNotAvailableException, IOException {
+        mCoverageOptionsSetter.setOptionValue("coverage-flush", "true");
+
+        mCodeCoverageListener =
+                new NativeCodeCoverageListener(mMockDevice, mCoverageOptions, mFakeListener);
+
+        doReturn(true).when(mMockDevice).enableAdbRoot();
+        doReturn(true).when(mMockDevice).isAdbRoot();
+        doReturn(createTar(ImmutableMap.of())).when(mMockDevice).pullFile(anyString());
+
+        // Simulate a test run.
+        mCodeCoverageListener.testRunStarted(RUN_NAME, TEST_COUNT);
+        Map<String, String> metric = new HashMap<>();
+        mCodeCoverageListener.testRunEnded(ELAPSED_TIME, TfMetricProtoUtil.upgradeConvert(metric));
+
+        // Verify the flush-all-coverage command was called.
+        verify(mMockDevice).executeShellCommand("kill -37 -1");
+    }
+
+    @Test
+    public void testCoverageFlushSpecificProcesses_flushCommandCalled()
+            throws ConfigurationException, DeviceNotAvailableException, IOException {
+        mCoverageOptionsSetter.setOptionValue("coverage-flush", "true");
+        mCoverageOptionsSetter.setOptionValue("coverage-processes", "mediaserver");
+        mCoverageOptionsSetter.setOptionValue("coverage-processes", "adbd");
+
+        mCodeCoverageListener =
+                new NativeCodeCoverageListener(mMockDevice, mCoverageOptions, mFakeListener);
+
+        doReturn(true).when(mMockDevice).enableAdbRoot();
+        doReturn(true).when(mMockDevice).isAdbRoot();
+        doReturn("123").when(mMockDevice).getProcessPid("mediaserver");
+        doReturn("56789").when(mMockDevice).getProcessPid("adbd");
+        doReturn(createTar(ImmutableMap.of())).when(mMockDevice).pullFile(anyString());
+
+        // Simulate a test run.
+        mCodeCoverageListener.testRunStarted(RUN_NAME, TEST_COUNT);
+        Map<String, String> metric = new HashMap<>();
+        mCodeCoverageListener.testRunEnded(ELAPSED_TIME, TfMetricProtoUtil.upgradeConvert(metric));
+
+        // Verify the flush-coverage command was called with the specific pids.
+        verify(mMockDevice).executeShellCommand("kill -37 123 56789");
     }
 
     @Test
     public void testFailure_unableToPullFile() throws DeviceNotAvailableException {
+        mCodeCoverageListener = new NativeCodeCoverageListener(mMockDevice, mFakeListener);
+
         // Setup mocks.
         doReturn(true).when(mMockDevice).enableAdbRoot();
-        doReturn("/data/misc/trace/proc/self/cwd/out/some/path/to/coverage.gcda\n")
-                .when(mMockDevice)
-                .executeShellCommand(anyString());
-        doReturn(false).when(mMockDevice).pullFile(anyString(), any());
 
         // Simulate a test run.
         mCodeCoverageListener.testRunStarted(RUN_NAME, TEST_COUNT);
@@ -182,6 +226,46 @@ public class NativeCodeCoverageListenerTest {
 
         // Verify testLog(..) was not called.
         assertThat(mFakeListener.getLogs()).isEmpty();
+    }
+
+    @Test
+    public void testNoCollectOnTestEnd_noCoverageMeasurements() throws Exception {
+        mCodeCoverageListener = new NativeCodeCoverageListener(mMockDevice, mFakeListener);
+        mCodeCoverageListener.setCollectOnTestEnd(false);
+
+        // Simute a test run.
+        mCodeCoverageListener.testRunStarted(RUN_NAME, TEST_COUNT);
+        Map<String, String> metric = new HashMap<>();
+        mCodeCoverageListener.testRunEnded(ELAPSED_TIME, TfMetricProtoUtil.upgradeConvert(metric));
+
+        // Verify nothing was logged.
+        assertThat(mFakeListener.getLogs()).isEmpty();
+
+        // Setup mocks to write the coverage measurement to the file.
+        doReturn(true).when(mMockDevice).enableAdbRoot();
+        File tar =
+                createTar(
+                        ImmutableMap.of(
+                                "path/to/coverage.gcda", ByteString.copyFromUtf8("coverage.gcda")));
+        doReturn(tar).when(mMockDevice).pullFile(anyString());
+
+        // Manually call logCoverageMeasurements().
+        mCodeCoverageListener.logCoverageMeasurements("manual");
+
+        // Verify testLog(..) was called with the coverage file in a zip.
+        List<ByteString> logs = mFakeListener.getLogs();
+        assertThat(logs).hasSize(1);
+        File outputZip = folder.newFile("coverage.zip");
+        try (OutputStream out = new FileOutputStream(outputZip)) {
+            logs.get(0).writeTo(out);
+        }
+
+        URI uri = URI.create(String.format("jar:file:%s", outputZip));
+        try (FileSystem filesystem = FileSystems.newFileSystem(uri, new HashMap<>())) {
+            Path path = filesystem.getPath("/path/to/coverage.gcda");
+            assertThat(ByteString.readFrom(Files.newInputStream(path)))
+                    .isEqualTo(ByteString.copyFromUtf8("coverage.gcda"));
+        }
     }
 
     /** An {@link ITestInvocationListener} which reads test log data streams for verification. */
@@ -201,5 +285,22 @@ public class NativeCodeCoverageListenerTest {
         List<ByteString> getLogs() {
             return new ArrayList<>(mLogs);
         }
+    }
+
+    /** Utility method to create .tar files. */
+    private File createTar(Map<String, ByteString> fileContents) throws IOException {
+        File tarFile = folder.newFile("coverage.tar");
+        try (TarArchiveOutputStream out =
+                new TarArchiveOutputStream(new FileOutputStream(tarFile))) {
+            for (Map.Entry<String, ByteString> file : fileContents.entrySet()) {
+                TarArchiveEntry entry = new TarArchiveEntry(file.getKey());
+                entry.setSize(file.getValue().size());
+
+                out.putArchiveEntry(entry);
+                file.getValue().writeTo(out);
+                out.closeArchiveEntry();
+            }
+        }
+        return tarFile;
     }
 }

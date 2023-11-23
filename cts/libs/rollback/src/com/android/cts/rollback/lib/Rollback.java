@@ -19,6 +19,8 @@ package com.android.cts.rollback.lib;
 import android.content.pm.VersionedPackage;
 import android.content.rollback.PackageRollbackInfo;
 
+import com.android.cts.install.lib.TestApp;
+
 /**
  * Helper class for asserting PackageRollbackInfo contents.
  */
@@ -36,6 +38,10 @@ public class Rollback {
         mFrom = from.getVersionedPackage();
     }
 
+    private Rollback(String packageName, long versionCode) {
+        mFrom = new VersionedPackage(packageName, versionCode);
+    }
+
     /**
      * Creates a package Rollback info with versionRolledBackFrom
      * matching the package name and version of the given test app.
@@ -45,11 +51,27 @@ public class Rollback {
     }
 
     /**
+     * Creates a package Rollback info with versionRolledBackFrom
+     * matching the package name and version provided as parameter.
+     */
+    public static Rollback from(String packageName, long versionCode) {
+        return new Rollback(packageName, versionCode);
+    }
+
+    /**
      * Sets versionRolledBackTo to have the package name and version of the
      * given test app.
      */
     public Rollback to(TestApp app) {
         mTo = app.getVersionedPackage();
+        return this;
+    }
+
+    /**
+     * Sets versionRolledBackTo to have the package name and version provided as parameter.
+     */
+    public Rollback to(String packageName, long versionCode) {
+        mTo = new VersionedPackage(packageName, versionCode);
         return this;
     }
 
@@ -65,9 +87,6 @@ public class Rollback {
         }
 
         Rollback r = (Rollback) other;
-        return mFrom.getPackageName().equals(r.mFrom.getPackageName())
-            && mFrom.getLongVersionCode() == r.mFrom.getVersionCode()
-            && mTo.getPackageName().equals(r.mTo.getPackageName())
-            && mTo.getLongVersionCode() == r.mTo.getVersionCode();
+        return mFrom.equals(r.mFrom) && mTo.equals(r.mTo);
     }
 }

@@ -43,7 +43,7 @@ public class FpUtils {
     }
 
     @Deprecated
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static double rawCopySign(double magnitude, double sign) {
         throw new RuntimeException("Stub!");
     }
@@ -165,5 +165,5 @@ public class FpUtils {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private static boolean $assertionsDisabled;
+    @android.compat.annotation.UnsupportedAppUsage private static boolean $assertionsDisabled;
 }

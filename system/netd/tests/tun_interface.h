@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * tun_interface.h - creates tun interfaces for testing purposes
+ * tun_interface.h - creates tun or tap interfaces for testing purposes
  */
 
 #ifndef _SYSTEM_NETD_TESTS_TUN_INTERACE_H
@@ -27,9 +27,14 @@ public:
     TunInterface() = default;
     ~TunInterface() { destroy(); }
 
-    // Creates a tun interface. Returns 0 on success or -errno on failure. Must succeed before it is
-    // legal to call any of the other methods in this class.
-    int init(const std::string& ifName = "");
+    // Creates a tun or tap interface. Returns 0 on success or -errno on failure. Must succeed
+    // before it is legal to call any of the other methods in this class.
+    int init(const std::string& ifName, bool isTap);
+
+    // Convenience overloads.
+    int init() { return init("", false); }
+    int init(const std::string& ifName) { return init(ifName, false); }
+    int init(bool isTap) { return init("", isTap); }
     void destroy();
 
     const std::string& name() const { return mIfName; }

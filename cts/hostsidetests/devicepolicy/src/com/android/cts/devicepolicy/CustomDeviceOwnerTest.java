@@ -16,11 +16,12 @@
 
 package com.android.cts.devicepolicy;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.cts.devicepolicy.BaseDevicePolicyTest.Settings;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import java.io.File;
-import java.lang.Exception;
+import android.platform.test.annotations.FlakyTest;
+
+import org.junit.Test;
 
 /**
  * This class is used for tests that need to do something special before setting the device
@@ -53,6 +54,7 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
         super.tearDown();
     }
 
+    @Test
     public void testOwnerChangedBroadcast() throws Exception {
         if (!mHasFeature) {
             return;
@@ -84,6 +86,7 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
         }
     }
 
+    @Test
     public void testCannotSetDeviceOwnerWhenSecondaryUserPresent() throws Exception {
         if (!mHasFeature || getMaxNumberOfUsersSupported() < 2) {
             return;
@@ -101,6 +104,8 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
         }
     }
 
+    @FlakyTest
+    @Test
     public void testCannotSetDeviceOwnerWhenAccountPresent() throws Exception {
         if (!mHasFeature) {
             return;
@@ -120,6 +125,7 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
         }
     }
 
+    @Test
     public void testIsProvisioningAllowed() throws Exception {
         // Must install the apk since the test runs in the DO apk.
         installAppAsUser(DEVICE_OWNER_APK, mPrimaryUserId);

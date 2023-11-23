@@ -32,7 +32,7 @@ import sun.security.util.*;
 public class NetscapeCertTypeExtension extends sun.security.x509.Extension
         implements sun.security.x509.CertAttrSet<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public NetscapeCertTypeExtension(byte[] bitString) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -70,7 +70,7 @@ public class NetscapeCertTypeExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.Boolean get(java.lang.String name) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

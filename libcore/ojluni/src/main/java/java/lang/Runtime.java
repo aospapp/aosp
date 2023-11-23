@@ -35,7 +35,8 @@ import sun.reflect.CallerSensitive;
 import java.lang.ref.FinalizerReference;
 import java.util.ArrayList;
 import java.util.List;
-import dalvik.system.BaseDexClassLoader;
+import dalvik.system.DelegateLastClassLoader;
+import dalvik.system.PathClassLoader;
 import dalvik.system.VMDebug;
 import dalvik.system.VMRuntime;
 import sun.reflect.Reflection;
@@ -1058,6 +1059,21 @@ public class Runtime {
         // have returned null; therefore we treat BootClassLoader the same as null here.
         if (loader != null && !(loader instanceof BootClassLoader)) {
             String filename = loader.findLibrary(libraryName);
+            if (filename == null &&
+                    (loader.getClass() == PathClassLoader.class ||
+                     loader.getClass() == DelegateLastClassLoader.class)) {
+                // Don't give up even if we failed to find the library in the native lib paths.
+                // The underlying dynamic linker might be able to find the lib in one of the linker
+                // namespaces associated with the current linker namespace. In order to give the
+                // dynamic linker a chance, proceed to load the library with its soname, which
+                // is the fileName.
+                // Note that we do this only for PathClassLoader  and DelegateLastClassLoader to
+                // minimize the scope of this behavioral change as much as possible, which might
+                // cause problem like b/143649498. These two class loaders are the only
+                // platform-provided class loaders that can load apps. See the classLoader attribute
+                // of the application tag in app manifest.
+                filename = System.mapLibraryName(libraryName);
+            }
             if (filename == null) {
                 // It's not necessarily true that the ClassLoader used
                 // System.mapLibraryName, but the default setup does, and it's

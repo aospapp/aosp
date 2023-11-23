@@ -26,7 +26,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 80544274841616 (0x49412ce40010)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=HU, L=Budapest, O=NetLock Kft., OU=Tan\xC3\xBAs\xC3\xADtv\xC3\xA1nykiad\xC3\xB3k (Certification Services), CN=NetLock Arany (Class Gold) F\xC5\x91tan\xC3\xBAs\xC3\xADtv\xC3\xA1ny
         Validity
             Not Before: Dec 11 15:08:21 2008 GMT
@@ -34,7 +34,7 @@ Certificate:
         Subject: C=HU, L=Budapest, O=NetLock Kft., OU=Tan\xC3\xBAs\xC3\xADtv\xC3\xA1nykiad\xC3\xB3k (Certification Services), CN=NetLock Arany (Class Gold) F\xC5\x91tan\xC3\xBAs\xC3\xADtv\xC3\xA1ny
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:c4:24:5e:73:be:4b:6d:14:c3:a1:f4:e3:97:90:
                     6e:d2:30:45:1e:3c:ee:67:d9:64:e0:1a:8a:7f:ca:

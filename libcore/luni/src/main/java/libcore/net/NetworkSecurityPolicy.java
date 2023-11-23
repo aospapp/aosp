@@ -16,7 +16,7 @@
 
 package libcore.net;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 /**
  * Network security policy for this process/application.

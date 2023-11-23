@@ -18,8 +18,15 @@ package android.autofillservice.cts;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
-abstract class AbstractWebViewTestCase<A extends AbstractWebViewActivity>
+public abstract class AbstractWebViewTestCase<A extends AbstractWebViewActivity>
         extends AutoFillServiceTestCase.AutoActivityLaunch<A> {
+
+    protected AbstractWebViewTestCase() {
+    }
+
+    protected AbstractWebViewTestCase(UiBot inlineUiBot) {
+        super(inlineUiBot);
+    }
 
     // TODO(b/64951517): WebView currently does not trigger the autofill callbacks when values are
     // set using accessibility.

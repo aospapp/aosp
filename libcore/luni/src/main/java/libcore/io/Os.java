@@ -23,7 +23,6 @@ import android.system.Int64Ref;
 import android.system.StructAddrinfo;
 import android.system.StructCapUserData;
 import android.system.StructCapUserHeader;
-import android.system.StructFlock;
 import android.system.StructGroupReq;
 import android.system.StructIfaddrs;
 import android.system.StructLinger;
@@ -36,7 +35,7 @@ import android.system.StructTimeval;
 import android.system.StructUcred;
 import android.system.StructUtsname;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import java.io.FileDescriptor;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
@@ -76,7 +75,6 @@ public interface Os {
     public void execve(String filename, String[] argv, String[] envp) throws ErrnoException;
     public void fchmod(FileDescriptor fd, int mode) throws ErrnoException;
     public void fchown(FileDescriptor fd, int uid, int gid) throws ErrnoException;
-    public int fcntlFlock(FileDescriptor fd, int cmd, StructFlock arg) throws ErrnoException, InterruptedIOException;
     public int fcntlInt(FileDescriptor fd, int cmd, int arg) throws ErrnoException;
     public int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException;
     public void fdatasync(FileDescriptor fd) throws ErrnoException;
@@ -125,6 +123,7 @@ public interface Os {
     public String[] listxattr(String path) throws ErrnoException;
     public long lseek(FileDescriptor fd, long offset, int whence) throws ErrnoException;
     public StructStat lstat(String path) throws ErrnoException;
+    public FileDescriptor memfd_create(String name, int flags) throws ErrnoException;
     public void mincore(long address, long byteCount, byte[] vector) throws ErrnoException;
     public void mkdir(String path, int mode) throws ErrnoException;
     public void mkfifo(String path, int mode) throws ErrnoException;

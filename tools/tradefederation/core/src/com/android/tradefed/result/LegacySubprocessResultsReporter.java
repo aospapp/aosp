@@ -19,6 +19,7 @@ import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.util.SubprocessEventHelper.BaseTestEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.FailedTestEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.InvocationFailedEventInfo;
@@ -28,30 +29,34 @@ import com.android.tradefed.util.SubprocessEventHelper.TestRunEndedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestRunFailedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestRunStartedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestStartedEventInfo;
+import com.android.tradefed.util.SubprocessEventHelper.TestModuleStartedEventInfo;
+import com.android.tradefed.util.SubprocessEventHelper.LogAssociationEventInfo;
 import com.android.tradefed.util.SubprocessTestResultsParser;
 
+import org.json.JSONObject;
+
+import java.io.Serializable;
 import java.util.Map;
 
 /**
- * A class for freezed subprocess results reporter which is compatible with M & N version of CTS.
- * Methods in this class were part of ITestInvocationListener in pre-O version of TF/CTS. Changes
- * are not supposed to be made on this class.
+ * A frozen implementation of the subprocess results reporter which should remain compatible with
+ * earlier versions of TF/CTS (e.g. 8+), despite changes in its superclass.
  */
 public final class LegacySubprocessResultsReporter extends SubprocessResultsReporter {
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     public void testAssumptionFailure(TestIdentifier testId, String trace) {
         FailedTestEventInfo info =
                 new FailedTestEventInfo(testId.getClassName(), testId.getTestName(), trace);
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_ASSUMPTION_FAILURE, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     public void testEnded(TestIdentifier testId, Map<String, String> metrics) {
         testEnded(testId, System.currentTimeMillis(), metrics);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     public void testEnded(TestIdentifier testId, long endTime, Map<String, String> metrics) {
         TestEndedEventInfo info =
                 new TestEndedEventInfo(
@@ -59,100 +64,123 @@ public final class LegacySubprocessResultsReporter extends SubprocessResultsRepo
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_ENDED, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     public void testFailed(TestIdentifier testId, String reason) {
         FailedTestEventInfo info =
                 new FailedTestEventInfo(testId.getClassName(), testId.getTestName(), reason);
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_FAILED, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     public void testIgnored(TestIdentifier testId) {
         BaseTestEventInfo info = new BaseTestEventInfo(testId.getClassName(), testId.getTestName());
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_IGNORED, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     public void testStarted(TestIdentifier testId) {
         testStarted(testId, System.currentTimeMillis());
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     public void testStarted(TestIdentifier testId, long startTime) {
         TestStartedEventInfo info =
                 new TestStartedEventInfo(testId.getClassName(), testId.getTestName(), startTime);
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_STARTED, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     public void invocationStarted(IBuildInfo buildInfo) {
         InvocationStartedEventInfo info =
                 new InvocationStartedEventInfo(buildInfo.getTestTag(), System.currentTimeMillis());
         printEvent(SubprocessTestResultsParser.StatusKeys.INVOCATION_STARTED, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     @Override
     public void invocationFailed(Throwable cause) {
         InvocationFailedEventInfo info = new InvocationFailedEventInfo(cause);
         printEvent(SubprocessTestResultsParser.StatusKeys.INVOCATION_FAILED, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8. */
     @Override
     public void invocationEnded(long elapsedTime) {
         // ignore
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     @Override
     public void testRunFailed(String reason) {
         TestRunFailedEventInfo info = new TestRunFailedEventInfo(reason);
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_RUN_FAILED, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     @Override
     public void testRunStarted(String runName, int testCount) {
         TestRunStartedEventInfo info = new TestRunStartedEventInfo(runName, testCount);
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_RUN_STARTED, info);
     }
 
-    /* Legacy method based on M cts api, pls do not change*/
+    /* Legacy method compatible with TF/CTS 8+. */
     @Override
     public void testRunEnded(long time, Map<String, String> runMetrics) {
         TestRunEndedEventInfo info = new TestRunEndedEventInfo(time, runMetrics);
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_RUN_ENDED, info);
     }
 
-    /** A intentionally inop function to handle incompatibility problem in CTS 8.1 */
+    /* Legacy method compatible with TF/CTS 9+ (skipped in 8.1 and not called in 8). */
     @Override
     public void testModuleStarted(IInvocationContext moduleContext) {
-        CLog.d("testModuleStarted is called but ignored intentionally");
+        if (!Serializable.class.isAssignableFrom(IAbi.class)) {
+            // TODO(b/154349022): remove after releasing serialization fix
+            // Test packages prior to 1d6869f will fail with a not serializable exception.
+            // see https://cs.android.com/android/_/android/platform/tools/tradefederation/+/1d6869f
+            CLog.d("testModuleStarted is called but ignored intentionally");
+            return;
+        }
+        TestModuleStartedEventInfo info = new TestModuleStartedEventInfo(moduleContext);
+        printEvent(SubprocessTestResultsParser.StatusKeys.TEST_MODULE_STARTED, info);
     }
 
-    /** A intentionally inop function to handle incompatibility problem in CTS 8.1 */
+    /* Legacy method compatible with TF/CTS 9+ (skipped in 8.1 and not called in 8). */
     @Override
     public void testModuleEnded() {
-        CLog.d("testModuleEnded is called but ignored intentionally");
+        if (!Serializable.class.isAssignableFrom(IAbi.class)) {
+            // TODO(b/154349022): remove after releasing serialization fix
+            // Test packages prior to 1d6869f will fail with a not serializable exception.
+            // see https://cs.android.com/android/_/android/platform/tools/tradefederation/+/1d6869f
+            CLog.d("testModuleEnded is called but ignored intentionally");
+            return;
+        }
+        printEvent(SubprocessTestResultsParser.StatusKeys.TEST_MODULE_ENDED, new JSONObject());
     }
 
-    /** A intentionally inop function to handle incompatibility problem in CTS 8.1 */
+    /* Legacy method compatible with TF/CTS 8.1+ (not called in 8). */
     @Override
     public void testLogSaved(
             String dataName, LogDataType dataType, InputStreamSource dataStream, LogFile logFile) {
-        CLog.d("testLogSaved is called but ignored intentionally");
+        // ignore
     }
 
-    /** A intentionally inop function to handle incompatibility problem in CTS 8.1 */
+    /* Legacy method compatible with TF/CTS 9+ (skipped in 8.1 and not called in 8). */
     @Override
     public void logAssociation(String dataName, LogFile logFile) {
-        CLog.d("logAssociation is called but ignored intentionally");
+        if (!Serializable.class.isAssignableFrom(LogFile.class)) {
+            // TODO(b/154349022): remove after releasing serialization fix
+            // Test packages prior to 52fb8df will fail with a not serializable exception.
+            // see https://cs.android.com/android/_/android/platform/tools/tradefederation/+/52fb8df
+            CLog.d("logAssociation is called but ignored intentionally");
+            return;
+        }
+        LogAssociationEventInfo info = new LogAssociationEventInfo(dataName, logFile);
+        printEvent(SubprocessTestResultsParser.StatusKeys.LOG_ASSOCIATION, info);
     }
 
-    /** A intentionally inop function to handle incompatibility problem in CTS 8.1 */
+    /* Legacy method compatible with TF/CTS 8.1+ (not called in 8). */
     @Override
     public void setLogSaver(ILogSaver logSaver) {
-        CLog.d("setLogSaver is called but ignored intentionally");
+        // ignore
     }
 }

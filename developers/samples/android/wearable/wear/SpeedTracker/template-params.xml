@@ -61,7 +61,7 @@ coordinates on a map on the phone.
 
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <!-- See http://go/sample-categories for details on the next 4 fields. -->
         <!-- Most samples just need to udpate the Categories field. This is a comma-
              seperated list of topic tags. Unlike the old category system, samples
@@ -112,29 +112,18 @@ coordinates on a map on the phone.
             Avoid simply rearranging the sample's title. What does this sample actually
             accomplish, and how does it do it? -->
         <description>
-            Sample demonstrates recording location and speed with a Wear device in mind. Location is
-            retrieved via FusedLocatinProvider which retrieves coordinates from the phone or Wear
-            depending on whether the phone is disconnected or not and whether the Wear device has a
-            GPS chip.
+            <![CDATA[
+Sample moved to [github.com/android/wear-os][1].
+
+[1]: https://github.com/android/wear-os
+]]>
         </description>
 
-        <!-- Multi-paragraph introduction to sample, from an educational point-of-view.
-        Markdown formatting allowed. This will be used to generate a mini-article for the
-        sample on DAC. -->
         <intro>
-<![CDATA[
+            <![CDATA[
+This repo and all Wear OS samples have been moved to [github.com/android/wear-os][1]. Please check out the code there. Thank you!
 
-Steps for trying out this sample:
-* Compile and install the mobile app onto your mobile device or emulator.
-* Compile and install the wearable app onto your Wear device or emulator.
-(**Note:** wearable apps are not automatically pushed from your mobile device
-unless you build a production release, see [here][1] for more info).
-
-Sample demonstrates retrieving location and speed samples on Wear using the FusedLocationProvider.
-It also passes GPS location information back to the mobile device via the Data Layer to be rendered
-on a Map Fragment.
-
-[1]: https://developer.android.com/training/wearables/apps/creating.html#Install
+[1]: https://github.com/android/wear-os
 ]]>
         </intro>
     </metadata>

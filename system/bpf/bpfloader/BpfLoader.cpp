@@ -49,25 +49,12 @@
 #include "bpf/BpfUtils.h"
 
 using android::base::EndsWith;
-using android::base::unique_fd;
 using std::string;
 
 #define BPF_PROG_PATH "/system/etc/bpf/"
 
-#define CLEANANDEXIT(ret, mapPatterns)                    \
-    do {                                                  \
-        for (size_t i = 0; i < mapPatterns.size(); i++) { \
-            if (mapPatterns[i].fd > -1) {                 \
-                close(mapPatterns[i].fd);                 \
-            }                                             \
-        }                                                 \
-        return ret;                                       \
-    } while (0)
-
-using android::bpf::BpfMapInfo;
-using android::bpf::BpfProgInfo;
-
-void loadAllElfObjects(void) {
+int loadAllElfObjects(void) {
+    int retVal = 0;
     DIR* dir;
     struct dirent* ent;
 
@@ -78,27 +65,35 @@ void loadAllElfObjects(void) {
 
             string progPath = BPF_PROG_PATH + s;
 
-            int ret = android::bpf::loadProg(progPath.c_str());
-            ALOGI("Attempted load object: %s, ret: %s", progPath.c_str(), std::strerror(-ret));
+            bool critical;
+            int ret = android::bpf::loadProg(progPath.c_str(), &critical);
+            if (ret) {
+                if (critical) retVal = ret;
+                ALOGE("Failed to load object: %s, ret: %s", progPath.c_str(), std::strerror(-ret));
+            } else {
+                ALOGI("Loaded object: %s", progPath.c_str());
+            }
         }
         closedir(dir);
     }
+    return retVal;
 }
 
 int main() {
-    std::string value = android::base::GetProperty("bpf.progs_loaded", "");
-    if (value == "1") {
-        ALOGI("Property bpf.progs_loaded is set, progs already loaded.\n");
-        return 0;
-    }
+    if (!android::bpf::isBpfSupported()) return 0;
 
-    if (android::bpf::getBpfSupportLevel() != android::bpf::BpfLevel::NONE) {
-        // Load all ELF objects, create programs and maps, and pin them
-        loadAllElfObjects();
+    // Load all ELF objects, create programs and maps, and pin them
+    if (loadAllElfObjects() != 0) {
+        ALOGE("=== CRITICAL FAILURE LOADING BPF PROGRAMS ===");
+        ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
+        ALOGE("If this triggers randomly, you might be hitting some memory allocation problems or "
+              "startup script race.");
+        ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+        return 2;
     }
 
     if (android::base::SetProperty("bpf.progs_loaded", "1") == false) {
-        ALOGE("Failed to set bpf.progs_loaded property\n");
+        ALOGE("Failed to set bpf.progs_loaded property");
         return 1;
     }
 

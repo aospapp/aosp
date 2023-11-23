@@ -276,8 +276,9 @@ class RpcClient(object):
                     break
         except BrokenPipeError as e:
             if self.is_alive:
-                self._log.exception('Exception %s happened for sl4a call %s',
-                                    e, method)
+                self._log.exception('The device disconnected during RPC call '
+                                    '%s. Please check the logcat for a crash '
+                                    'or disconnect.', method)
                 self.on_error(connection)
             else:
                 self._log.warning('The connection was killed during cleanup:')

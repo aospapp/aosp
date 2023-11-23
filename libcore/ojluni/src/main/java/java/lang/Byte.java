@@ -25,6 +25,8 @@
 
 package java.lang;
 
+import libcore.util.HexEncoding;
+
 /**
  *
  * The {@code Byte} class wraps a value of primitive type {@code byte}
@@ -523,24 +525,8 @@ public final class Byte extends Number implements Comparable<Byte> {
      * @hide
      */
     public static String toHexString(byte b, boolean upperCase) {
-        char[] digits = upperCase ? UPPER_CASE_DIGITS : DIGITS;
-        char[] buf = new char[2]; // We always want two digits.
-        buf[0] = digits[(b >> 4) & 0xf];
-        buf[1] = digits[b & 0xf];
-        return new String(0, 2, buf);
+        // This method currently retained because it is marked @UnsupportedAppUsage.
+        return HexEncoding.encodeToString(b, upperCase);
     }
-    private static final char[] DIGITS = {
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
-        'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
-        'u', 'v', 'w', 'x', 'y', 'z'
-    };
-
-    private static final char[] UPPER_CASE_DIGITS = {
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-        'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-        'U', 'V', 'W', 'X', 'Y', 'Z'
-    };
     // END Android-added: toHexString() for internal use.
 }

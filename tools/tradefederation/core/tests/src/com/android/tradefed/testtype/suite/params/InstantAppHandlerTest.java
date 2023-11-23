@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.targetprep.suite.SuiteApkInstaller;
 import com.android.tradefed.testtype.IRemoteTest;
@@ -48,7 +49,7 @@ public class InstantAppHandlerTest {
         mModuleConfig = new Configuration("test", "test");
     }
 
-    private class TestFilterable implements IRemoteTest, ITestAnnotationFilterReceiver {
+    protected static class TestFilterable implements IRemoteTest, ITestAnnotationFilterReceiver {
 
         public Set<String> mReceivedFiltered = new HashSet<>();
 
@@ -93,7 +94,8 @@ public class InstantAppHandlerTest {
         }
 
         @Override
-        public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+        public void run(TestInformation testInfo, ITestInvocationListener listener)
+                throws DeviceNotAvailableException {
             // ignore
         }
     }

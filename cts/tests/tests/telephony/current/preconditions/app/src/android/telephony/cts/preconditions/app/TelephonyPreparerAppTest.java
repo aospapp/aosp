@@ -15,10 +15,15 @@
  */
 package android.telephony.cts.preconditions.app;
 
-import android.content.Context;
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
+import static org.junit.Assert.assertTrue;
+
 import android.content.pm.PackageManager;
+import android.net.wifi.WifiManager;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
 import com.android.compatibility.common.preconditions.TelephonyHelper;
 
 /**
@@ -27,19 +32,31 @@ import com.android.compatibility.common.preconditions.TelephonyHelper;
 public class TelephonyPreparerAppTest extends AndroidTestCase {
     private static final String TAG = "TelephonyPreparerAppTest";
 
+
+    private boolean hasTelephony() {
+        final PackageManager pm = getContext().getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
+    }
+
     /**
      * Test if device has a valid phone number
      * @throws Exception
      */
     public void testPhoneNumberPresent() throws Exception {
-        PackageManager pm = this.getContext().getPackageManager();
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return; // do not test for phone number on devices without telephony feature
-        }
+        if (!hasTelephony()) return;
 
         if (!TelephonyHelper.hasPhoneNumber(this.getContext())) {
             Log.e(TAG, "No SIM card with phone number is found in the device, "
                 + "some tests might not run properly");
         }
+    }
+
+    public void testEnsureWifiDisabled() throws Exception {
+        if (!hasTelephony()) return;
+
+        final WifiManager wifiManager = getContext().getSystemService(
+                android.net.wifi.WifiManager.class);
+
+        runWithShellPermissionIdentity(() -> assertTrue(wifiManager.setWifiEnabled(false)));
     }
 }

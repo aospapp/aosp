@@ -15,7 +15,7 @@
 //
 
 subdirs = [
-    "tests"
+    "tests",
 ]
 
 // A static library providing glue logic that simplifies creation of NVRAM HAL
@@ -54,4 +54,50 @@ cc_library_shared {
         "libbase",
     ],
 
+}
+
+cc_binary {
+    name: "fake-nvram",
+    srcs: [
+        "fake_nvram.cpp",
+        "fake_nvram_storage.cpp",
+    ],
+    clang: true,
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+    ],
+    static_libs: ["libnvram-core"],
+    shared_libs: [
+        "libnvram-messages",
+        "libcrypto",
+        "libminijail",
+        "liblog",
+        "libcutils",
+        "libbase",
+    ],
+
+    init_rc: ["fake-nvram.rc"],
+    required: ["fake-nvram-seccomp.policy"],
+}
+
+// seccomp policy for fake_nvram.
+prebuilt_usr_share {
+    name: "fake-nvram-seccomp.policy",
+    sub_dir: "policy",
+    arch: {
+        arm: {
+            src: "fake-nvram-seccomp-arm.policy",
+        },
+        arm64: {
+            src: "fake-nvram-seccomp-arm64.policy",
+        },
+        x86: {
+            src: "fake-nvram-seccomp-x86.policy",
+        },
+        x86_64: {
+            src: "fake-nvram-seccomp-x86_64.policy",
+        },
+    },
 }

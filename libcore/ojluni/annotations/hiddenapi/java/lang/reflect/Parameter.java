@@ -25,7 +25,7 @@
 
 package java.lang.reflect;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Parameter implements java.lang.reflect.AnnotatedElement {

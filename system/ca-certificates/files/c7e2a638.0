@@ -27,7 +27,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             15:ac:6e:94:19:b2:79:4b:41:f6:27:a9:c3:18:0f:1f
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, O=GeoTrust Inc., OU=(c) 2008 GeoTrust Inc. - For authorized use only, CN=GeoTrust Primary Certification Authority - G3
         Validity
             Not Before: Apr  2 00:00:00 2008 GMT
@@ -35,7 +35,7 @@ Certificate:
         Subject: C=US, O=GeoTrust Inc., OU=(c) 2008 GeoTrust Inc. - For authorized use only, CN=GeoTrust Primary Certification Authority - G3
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:dc:e2:5e:62:58:1d:33:57:39:32:33:fa:eb:cb:
                     87:8c:a7:d4:4a:dd:06:88:ea:64:8e:31:98:a5:38:

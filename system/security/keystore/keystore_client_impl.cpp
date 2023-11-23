@@ -17,6 +17,7 @@
 #include "keystore/keystore_client_impl.h"
 
 #include <future>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -165,16 +166,9 @@ bool KeystoreClientImpl::oneShotOperation(KeyPurpose purpose, const std::string&
         return false;
     }
     AuthorizationSet empty_params;
-    size_t num_input_bytes_consumed;
     AuthorizationSet ignored_params;
-    result = updateOperation(handle, empty_params, input_data, &num_input_bytes_consumed,
-                             &ignored_params, output_data);
-    if (!result.isOk()) {
-        ALOGE("UpdateOperation failed: %d", result.getErrorCode());
-        return false;
-    }
-    result =
-        finishOperation(handle, empty_params, signature_to_verify, &ignored_params, output_data);
+    result = finishOperation(handle, empty_params, input_data, signature_to_verify, &ignored_params,
+                             output_data);
     if (!result.isOk()) {
         ALOGE("FinishOperation failed: %d", result.getErrorCode());
         return false;
@@ -383,6 +377,7 @@ KeystoreClientImpl::updateOperation(uint64_t handle, const AuthorizationSet& inp
 
 KeyStoreNativeReturnCode
 KeystoreClientImpl::finishOperation(uint64_t handle, const AuthorizationSet& input_parameters,
+                                    const std::string& input_data,
                                     const std::string& signature_to_verify,
                                     AuthorizationSet* output_parameters, std::string* output_data) {
     if (active_operations_.count(handle) == 0) {
@@ -390,12 +385,14 @@ KeystoreClientImpl::finishOperation(uint64_t handle, const AuthorizationSet& inp
     }
     int32_t error_code;
     auto hidlSignature = blob2hidlVec(signature_to_verify);
+    auto hidlInput = blob2hidlVec(input_data);
     android::sp<OperationResultPromise> promise(new OperationResultPromise{});
     auto future = promise->get_future();
     auto binder_result = keystore_->finish(
         promise, active_operations_[handle],
         android::security::keymaster::KeymasterArguments(input_parameters.hidl_data()),
-        (std::vector<uint8_t>)hidlSignature, hidl_vec<uint8_t>(), &error_code);
+        (std::vector<uint8_t>)hidlInput, (std::vector<uint8_t>)hidlSignature, hidl_vec<uint8_t>(),
+        &error_code);
     if (!binder_result.isOk()) return ResponseCode::SYSTEM_ERROR;
     KeyStoreNativeReturnCode rc(error_code);
     if (!rc.isOk()) return rc;
@@ -441,9 +438,14 @@ bool KeystoreClientImpl::doesKeyExist(const std::string& key_name) {
 
 bool KeystoreClientImpl::listKeys(const std::string& prefix,
                                   std::vector<std::string>* key_name_list) {
+    return listKeysOfUid(prefix, kDefaultUID, key_name_list);
+}
+
+bool KeystoreClientImpl::listKeysOfUid(const std::string& prefix, int uid,
+                                       std::vector<std::string>* key_name_list) {
     String16 prefix16(prefix.data(), prefix.size());
     std::vector<::android::String16> matches;
-    auto binder_result = keystore_->list(prefix16, kDefaultUID, &matches);
+    auto binder_result = keystore_->list(prefix16, uid, &matches);
     if (!binder_result.isOk()) return false;
 
     for (const auto& match : matches) {
@@ -451,6 +453,14 @@ bool KeystoreClientImpl::listKeys(const std::string& prefix,
         key_name_list->push_back(prefix + std::string(key_name.string(), key_name.size()));
     }
     return true;
+}
+
+std::optional<std::vector<uint8_t>> KeystoreClientImpl::getKey(const std::string& alias, int uid) {
+    String16 alias16(alias.data(), alias.size());
+    std::vector<uint8_t> output;
+    auto binder_result = keystore_->get(alias16, uid, &output);
+    if (!binder_result.isOk()) return std::nullopt;
+    return output;
 }
 
 uint64_t KeystoreClientImpl::getNextVirtualHandle() {

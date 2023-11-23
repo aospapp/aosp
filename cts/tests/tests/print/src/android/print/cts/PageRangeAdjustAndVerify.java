@@ -361,7 +361,7 @@ public class PageRangeAdjustAndVerify extends BasePrintTest {
         selectPages((mSelectedPages[0] + 1) + ", " + (mSelectedPages[1] + 1) + ", "
                 + (mSelectedPages[2] + 1), mNumPages);
 
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
         waitForAdapterFinishCallbackCalled();
         waitForServiceOnPrintJobQueuedCallbackCalled(1);
     }

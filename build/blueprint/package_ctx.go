@@ -158,8 +158,9 @@ func callerName(skip int) (pkgPath, funcName string, ok bool) {
 	if n != 1 {
 		return "", "", false
 	}
-
-	f := runtime.FuncForPC(pc[0]).Name()
+	frames := runtime.CallersFrames(pc[:])
+	frame, _ := frames.Next()
+	f := frame.Function
 	s := pkgPathRe.FindStringSubmatch(f)
 	if len(s) < 3 {
 		panic(fmt.Errorf("failed to extract package path and function name from %q", f))
@@ -291,7 +292,7 @@ func (v *staticVariable) fullName(pkgNames map[*packageContext]string) string {
 	return packageNamespacePrefix(pkgNames[v.pctx]) + v.name_
 }
 
-func (v *staticVariable) value(interface{}) (*ninjaString, error) {
+func (v *staticVariable) value(interface{}) (ninjaString, error) {
 	ninjaStr, err := parseNinjaString(v.pctx.scope, v.value_)
 	if err != nil {
 		err = fmt.Errorf("error parsing variable %s value: %s", v, err)
@@ -391,7 +392,7 @@ func (v *variableFunc) fullName(pkgNames map[*packageContext]string) string {
 	return packageNamespacePrefix(pkgNames[v.pctx]) + v.name_
 }
 
-func (v *variableFunc) value(config interface{}) (*ninjaString, error) {
+func (v *variableFunc) value(config interface{}) (ninjaString, error) {
 	value, err := v.value_(config)
 	if err != nil {
 		return nil, err
@@ -451,7 +452,7 @@ func (v *argVariable) fullName(pkgNames map[*packageContext]string) string {
 	return v.name_
 }
 
-func (v *argVariable) value(config interface{}) (*ninjaString, error) {
+func (v *argVariable) value(config interface{}) (ninjaString, error) {
 	return nil, errVariableIsArg
 }
 

@@ -106,7 +106,7 @@ public final class ProviderList {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.security.Provider.Service getService(java.lang.String type, java.lang.String name) {
         throw new RuntimeException("Stub!");
     }

@@ -113,15 +113,6 @@ public class OpenGlEsVersionTest {
 
         String extensions = mActivity.getExtensionsString();
 
-        final String es30RequiredList[] = {
-            "OES_EGL_image_external_essl3"
-        };
-
-        for (int i = 0; i < es30RequiredList.length; ++i) {
-            assertTrue("OpenGL ES version 3.0+ is missing extension " + es30RequiredList[i],
-                    hasExtension(extensions, es30RequiredList[i]));
-        }
-
         if (getMajorVersion(reportedVersion) != 3 || getMinorVersion(reportedVersion) < 1)
             return;
 

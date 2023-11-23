@@ -14,13 +14,14 @@
      limitations under the License.
 -->
 <configuration description="VTS Main Test Plan">
-  <include name="vts-base-single-device" />
-
+  <!-- VtsDevicePreparer needs to run first to set root -->
   <target_preparer class="com.android.tradefed.targetprep.VtsDevicePreparer">
     <option name="enable-adb-root" value="true"/>
     <option name="start-framework" value="true"/>
     <option name="restore-framework" value="true"/>
   </target_preparer>
+
+  <include name="vts-base-single-device" />
 
   <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollector">
     <option name="apk" value="CtsDeviceInfo.apk"/>

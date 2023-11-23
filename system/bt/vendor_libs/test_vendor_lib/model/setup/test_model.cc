@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "test_model"
-
 #include "test_model.h"
 
 // TODO: Remove when registration works
@@ -25,18 +23,20 @@
 #include "model/devices/classic.h"
 #include "model/devices/keyboard.h"
 #include "model/devices/remote_loopback_device.h"
+#include "model/devices/scripted_beacon.h"
 #include "model/devices/sniffer.h"
 
 #include <memory>
 
 #include <stdlib.h>
+#include <iomanip>
+#include <iostream>
 
-#include <base/logging.h>
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/values.h"
 
-#include "osi/include/log.h"
+#include "os/log.h"
 #include "osi/include/osi.h"
 
 #include "device_boutique.h"
@@ -64,6 +64,7 @@ TestModel::TestModel(
   example_devices_.push_back(std::make_shared<CarKit>());
   example_devices_.push_back(std::make_shared<Classic>());
   example_devices_.push_back(std::make_shared<Sniffer>());
+  example_devices_.push_back(std::make_shared<ScriptedBeacon>());
   example_devices_.push_back(std::make_shared<RemoteLoopbackDevice>());
 }
 
@@ -78,73 +79,87 @@ void TestModel::SetTimerPeriod(std::chrono::milliseconds new_period) {
 }
 
 void TestModel::StartTimer() {
-  LOG_INFO(LOG_TAG, "StartTimer()");
+  LOG_INFO("StartTimer()");
   timer_tick_task_ =
       schedule_periodic_task_(std::chrono::milliseconds(0), timer_period_, [this]() { TestModel::TimerTick(); });
 }
 
 void TestModel::StopTimer() {
-  LOG_INFO(LOG_TAG, "StopTimer()");
+  LOG_INFO("StopTimer()");
   cancel_task_(timer_tick_task_);
   timer_tick_task_ = kInvalidTaskId;
 }
 
 size_t TestModel::Add(std::shared_ptr<Device> new_dev) {
-  devices_.push_back(new_dev);
-  return devices_.size() - 1;
+  devices_counter_++;
+  devices_[devices_counter_] = new_dev;
+  return devices_counter_;
 }
 
 void TestModel::Del(size_t dev_index) {
-  if (dev_index >= devices_.size()) {
-    LOG_WARN(LOG_TAG, "del: index out of range!");
+  auto device = devices_.find(dev_index);
+  if (device == devices_.end()) {
+    LOG_WARN("Del: can't find device!");
     return;
   }
-  devices_.erase(devices_.begin() + dev_index);
+  devices_.erase(dev_index);
 }
 
-size_t TestModel::AddPhy(std::shared_ptr<PhyLayerFactory> new_phy) {
-  phys_.push_back(new_phy);
-  return phys_.size() - 1;
+size_t TestModel::AddPhy(Phy::Type phy_type) {
+  phys_counter_++;
+  std::shared_ptr<PhyLayerFactory> new_phy = std::make_shared<PhyLayerFactory>(phy_type, phys_counter_);
+  phys_[phys_counter_] = new_phy;
+  return phys_counter_;
 }
 
 void TestModel::DelPhy(size_t phy_index) {
-  if (phy_index >= phys_.size()) {
-    LOG_WARN(LOG_TAG, "del_phy: index %d out of range: ", static_cast<int>(phy_index));
+  auto phy = phys_.find(phy_index);
+  if (phy == phys_.end()) {
+    LOG_WARN("DelPhy: can't find device!");
     return;
   }
+  phys_.erase(phy_index);
 }
 
 void TestModel::AddDeviceToPhy(size_t dev_index, size_t phy_index) {
-  if (dev_index >= devices_.size()) {
-    LOG_WARN(LOG_TAG, "add_device_to_phy: device out of range: ");
+  auto device = devices_.find(dev_index);
+  if (device == devices_.end()) {
+    LOG_WARN("%s: can't find device!", __func__);
     return;
   }
-  if (phy_index >= phys_.size()) {
-    LOG_WARN(LOG_TAG, "add_device_to_phy: phy out of range: ");
+  auto phy = phys_.find(phy_index);
+  if (phy == phys_.end()) {
+    LOG_WARN("%s: can't find phy!", __func__);
     return;
   }
-  std::shared_ptr<Device> dev = devices_[dev_index];
-  dev->RegisterPhyLayer(
-      phys_[phy_index]->GetPhyLayer([dev](packets::LinkLayerPacketView packet) { dev->IncomingPacket(packet); }));
+  auto dev = device->second;
+  dev->RegisterPhyLayer(phy->second->GetPhyLayer(
+      [dev](model::packets::LinkLayerPacketView packet) {
+        dev->IncomingPacket(packet);
+      },
+      device->first));
 }
 
 void TestModel::DelDeviceFromPhy(size_t dev_index, size_t phy_index) {
-  if (dev_index >= devices_.size()) {
-    LOG_WARN(LOG_TAG, "del_device_from_phy: device out of range: ");
+  auto device = devices_.find(dev_index);
+  if (device == devices_.end()) {
+    LOG_WARN("%s: can't find device!", __func__);
     return;
   }
-  if (phy_index >= phys_.size()) {
-    LOG_WARN(LOG_TAG, "del_device_from_phy: phy out of range: ");
+  auto phy = phys_.find(phy_index);
+  if (phy == phys_.end()) {
+    LOG_WARN("%s: can't find phy!", __func__);
     return;
   }
+  device->second->UnregisterPhyLayer(phy->second->GetType(), phy->second->GetFactoryId());
 }
 
 void TestModel::AddLinkLayerConnection(int socket_fd, Phy::Type phy_type) {
   std::shared_ptr<Device> dev = LinkLayerSocketDevice::Create(socket_fd, phy_type);
   int index = Add(dev);
-  for (size_t phy_index = 0; phy_index < phys_.size(); phy_index++) {
-    if (phy_type == phys_[phy_index]->GetType()) {
-      AddDeviceToPhy(index, phy_index);
+  for (auto& phy : phys_) {
+    if (phy_type == phy.second->GetType()) {
+      AddDeviceToPhy(index, phy.first);
     }
   }
 }
@@ -163,40 +178,64 @@ void TestModel::AddRemote(const std::string& server, int port, Phy::Type phy_typ
 }
 
 void TestModel::IncomingHciConnection(int socket_fd) {
-  std::shared_ptr<HciSocketDevice> dev = HciSocketDevice::Create(socket_fd);
-  // TODO: Auto-increment addresses?
-  static int hci_devs = 0;
-  int index = Add(std::static_pointer_cast<Device>(dev));
-  std::string addr = "da:4c:10:de:17:0";  // Da HCI dev
-  CHECK(hci_devs < 10) << "Why do you need more than 9?";
-  addr += '0' + hci_devs++;
+  auto dev = HciSocketDevice::Create(socket_fd);
+  size_t index = Add(std::static_pointer_cast<Device>(dev));
+  std::string addr = "da:4c:10:de:17:";  // Da HCI dev
+  std::stringstream stream;
+  stream << std::setfill('0') << std::setw(2) << std::hex << (index % 256);
+  addr += stream.str();
+
   dev->Initialize({"IgnoredTypeName", addr});
-  // TODO: Add device to all phys?  For now, just the first two.
-  for (size_t phy = 0; phy < 2 && phy < phys_.size(); phy++) {
-    AddDeviceToPhy(index, phy);
+  LOG_INFO("initialized %s", addr.c_str());
+  for (auto& phy : phys_) {
+    AddDeviceToPhy(index, phy.first);
   }
   dev->RegisterTaskScheduler(schedule_task_);
   dev->RegisterTaskCancel(cancel_task_);
+  dev->RegisterCloseCallback([this, socket_fd, index] { OnHciConnectionClosed(socket_fd, index); });
+}
+
+void TestModel::OnHciConnectionClosed(int socket_fd, size_t index) {
+  auto device = devices_.find(index);
+  if (device == devices_.end()) {
+    LOG_WARN("OnHciConnectionClosed: can't find device!");
+    return;
+  }
+  int close_result = close(socket_fd);
+  ASSERT_LOG(close_result == 0, "can't close: %s", strerror(errno));
+  device->second->UnregisterPhyLayers();
+  devices_.erase(index);
+}
+
+void TestModel::SetDeviceAddress(size_t index, Address address) {
+  auto device = devices_.find(index);
+  if (device == devices_.end()) {
+    LOG_WARN("SetDeviceAddress can't find device!");
+    return;
+  }
+  device->second->SetAddress(address);
 }
 
 const std::string& TestModel::List() {
   list_string_ = "";
   list_string_ += " Devices: \r\n";
-  for (size_t dev = 0; dev < devices_.size(); dev++) {
-    list_string_ += "  " + std::to_string(dev) + ":";
-    list_string_ += devices_[dev]->ToString() + " \r\n";
+  for (auto& dev : devices_) {
+    list_string_ += "  " + std::to_string(dev.first) + ":";
+    list_string_ += dev.second->ToString() + " \r\n";
   }
   list_string_ += " Phys: \r\n";
-  for (size_t phy = 0; phy < phys_.size(); phy++) {
-    list_string_ += "  " + std::to_string(phy) + ":";
-    list_string_ += phys_[phy]->ToString() + " \r\n";
+  for (auto& phy : phys_) {
+    list_string_ += "  " + std::to_string(phy.first) + ":";
+    list_string_ += phy.second->ToString() + " \r\n";
   }
   return list_string_;
 }
 
 void TestModel::TimerTick() {
-  for (size_t dev = 0; dev < devices_.size(); dev++) {
-    devices_[dev]->TimerTick();
+  for (auto dev = devices_.begin(); dev != devices_.end();) {
+    auto tmp = dev;
+    dev++;
+    tmp->second->TimerTick();
   }
 }
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 #
 # Copyright (C) 2012 The Android Open Source Project
@@ -183,7 +183,7 @@ def validate_error(msg):
   Args:
     msg: a string you want to be printed
   """
-  print >> sys.stderr, "ERROR: " + msg
+  print("ERROR: %s" % (msg), file=sys.stderr)
 
 
 def validate_clones(soup):
@@ -347,15 +347,15 @@ def validate_xml(xml):
 
 if __name__ == "__main__":
   if len(sys.argv) <= 1:
-    print >> sys.stderr, "Usage: %s <filename.xml>" % (sys.argv[0])
+    print("Usage: %s <filename.xml>" % (sys.argv[0]), file=sys.stderr)
     sys.exit(0)
 
   file_name = sys.argv[1]
-  succ = validate_xml(file(file_name).read()) is not None
+  succ = validate_xml(open(file_name).read()) is not None
 
   if succ:
-    print "%s: SUCCESS! Document validated" %(file_name)
+    print("%s: SUCCESS! Document validated" % (file_name))
     sys.exit(0)
   else:
-    print >> sys.stderr, "%s: ERRORS: Document failed to validate" %(file_name)
+    print("%s: ERRORS: Document failed to validate" % (file_name), file=sys.stderr)
     sys.exit(1)

@@ -148,7 +148,7 @@ public class SmartMonkeyLogParser implements IParser {
         }
         m = START_UPTIME.matcher(line);
         if (m.matches()) {
-            mSmartMonkeyLog.setStartUptimeDuration((Long.parseLong(m.group(2))));
+            mSmartMonkeyLog.setStartUptimeDuration(Long.parseLong(m.group(2)));
         }
         m = STOP_UPTIME.matcher(line);
         if (m.matches()) {

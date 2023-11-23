@@ -20,24 +20,24 @@ import static android.provider.Settings.ACTION_VOICE_CONTROL_DO_NOT_DISTURB_MODE
 import static android.provider.Settings.EXTRA_DO_NOT_DISTURB_MODE_ENABLED;
 import static android.provider.Settings.EXTRA_DO_NOT_DISTURB_MODE_MINUTES;
 
-import com.android.compatibility.common.util.BroadcastTestBase;
-import com.android.compatibility.common.util.BroadcastUtils;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.provider.Settings;
-import android.provider.Settings.Global;
 import android.util.Log;
+
+import com.android.compatibility.common.util.BroadcastUtils;
+
+import org.junit.Test;
 
 public class ZenModeTest extends BroadcastTestBase {
     static final String TAG = "ZenModeTest";
     private static final String VOICE_SETTINGS_PACKAGE = "android.voicesettings.service";
     private static final String VOICE_INTERACTION_CLASS =
-        "android.voicesettings.service.VoiceInteractionMain";
+            "android.voicesettings.service.VoiceInteractionMain";
     protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    protected void customSetup() throws Exception {
         mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
     }
 
@@ -47,10 +47,7 @@ public class ZenModeTest extends BroadcastTestBase {
     private static final int ZEN_MODE_IS_OFF = 0;
     private static final int ZEN_MODE_IS_ALARMS = 3;
 
-    public ZenModeTest() {
-        super();
-    }
-
+    @Test
     public void testAll() throws Exception {
         if (!mHasFeature) {
             Log.i(TAG, "The device doesn't support feature: " + FEATURE_VOICE_RECOGNIZERS);
@@ -92,22 +89,24 @@ public class ZenModeTest extends BroadcastTestBase {
     }
 
     private boolean runTest(BroadcastUtils.TestcaseType test, int expectedMode) throws Exception {
-        if (!startTestAndWaitForBroadcast(test, VOICE_SETTINGS_PACKAGE, VOICE_INTERACTION_CLASS)) {
+        if (!startTestAndWaitForChange(test,
+                Settings.Global.getUriFor(ZEN_MODE), VOICE_SETTINGS_PACKAGE,
+                VOICE_INTERACTION_CLASS)) {
             return false;
         }
 
         // verify the test results
         int mode = getMode();
         Log.i(TAG, "After testing, zen-mode is set to: " + mode);
-        assertEquals(expectedMode, mode);
+        assertThat(mode).isEqualTo(expectedMode);
         Log.i(TAG, "results_received: " + BroadcastUtils.toBundleString(mResultExtras));
-        assertNotNull(mResultExtras);
+        assertThat(mResultExtras).isNotNull();
         if (expectedMode == ZEN_MODE_IS_ALARMS) {
-            assertTrue(mResultExtras.getBoolean(EXTRA_DO_NOT_DISTURB_MODE_ENABLED));
-            assertEquals(BroadcastUtils.NUM_MINUTES_FOR_ZENMODE,
-                    mResultExtras.getInt(EXTRA_DO_NOT_DISTURB_MODE_MINUTES));
+            assertThat(mResultExtras.getBoolean(EXTRA_DO_NOT_DISTURB_MODE_ENABLED)).isTrue();
+            assertThat(mResultExtras.getInt(EXTRA_DO_NOT_DISTURB_MODE_MINUTES)).isEqualTo(
+                    BroadcastUtils.NUM_MINUTES_FOR_ZENMODE);
         } else {
-            assertFalse(mResultExtras.getBoolean(EXTRA_DO_NOT_DISTURB_MODE_ENABLED));
+            assertThat(mResultExtras.getBoolean(EXTRA_DO_NOT_DISTURB_MODE_ENABLED)).isFalse();
         }
         Log.i(TAG, "Successfully Tested: " + test);
         return true;

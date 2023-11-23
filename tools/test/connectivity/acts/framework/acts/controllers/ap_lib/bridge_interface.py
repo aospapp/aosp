@@ -29,7 +29,6 @@ class BridgeInterfaceConfigs(object):
     """Configs needed for creating bridge interface between LAN and WLAN.
 
     """
-
     def __init__(self, iface_wlan, iface_lan, bridge_ip):
         """Set bridge interface configs based on the channel info.
 
@@ -86,7 +85,7 @@ class BridgeInterface(object):
             try:
                 self.ssh.run(ADD_INTERFACE)
             except job.Error:
-                logging.warning('{} has alrady been added to {}'.format(
+                logging.warning('{} has already been added to {}'.format(
                     interface, BRIDGE_NAME))
         time.sleep(5)
 

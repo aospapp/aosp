@@ -224,7 +224,11 @@ void AndroidKeymaster::GenerateKey(const GenerateKeyRequest& request,
     if (!request.key_description.GetTagValue(TAG_ALGORITHM, &algorithm) ||
         !(factory = context_->GetKeyFactory(algorithm)))
         response->error = KM_ERROR_UNSUPPORTED_ALGORITHM;
-    else {
+    else if (context_->enforcement_policy() &&
+             request.key_description.GetTagValue(TAG_EARLY_BOOT_ONLY) &&
+             !context_->enforcement_policy()->in_early_boot()) {
+        response->error = KM_ERROR_EARLY_BOOT_ENDED;
+    } else {
         KeymasterKeyBlob key_blob;
         response->enforced.Clear();
         response->unenforced.Clear();
@@ -527,6 +531,20 @@ void AndroidKeymaster::ImportWrappedKey(const ImportWrappedKeyRequest& request,
             response->key_blob = key_blob;
         }
     }
+}
+
+EarlyBootEndedResponse AndroidKeymaster::EarlyBootEnded() {
+    if (context_->enforcement_policy()) {
+        context_->enforcement_policy()->early_boot_ended();
+    }
+    return EarlyBootEndedResponse(KM_ERROR_OK);
+}
+
+DeviceLockedResponse AndroidKeymaster::DeviceLocked(const DeviceLockedRequest& request) {
+    if (context_->enforcement_policy()) {
+        context_->enforcement_policy()->device_locked(request.passwordOnly);
+    }
+    return DeviceLockedResponse(KM_ERROR_OK);
 }
 
 }  // namespace keymaster

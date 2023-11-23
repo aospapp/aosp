@@ -23,8 +23,8 @@ from acts.test_utils.tel.tel_defines import MULTI_SIM_CONFIG
 
 
 class TelLiveMSIMVoiceTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.sim_config = {
                             "config":MULTI_SIM_CONFIG,
                             "number_of_sims":2

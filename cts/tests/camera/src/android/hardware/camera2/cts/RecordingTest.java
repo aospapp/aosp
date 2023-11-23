@@ -55,6 +55,8 @@ import com.android.ex.camera2.blocking.BlockingSessionCallback;
 
 import junit.framework.AssertionFailedError;
 
+import org.junit.runners.Parameterized;
+import org.junit.runner.RunWith;
 import org.junit.Test;
 
 import java.io.File;
@@ -69,6 +71,7 @@ import java.util.HashMap;
  * MediaCodec.
  */
 @LargeTest
+@RunWith(Parameterized.class)
 public class RecordingTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "RecordingTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -131,25 +134,25 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
     private void doBasicRecording(boolean useVideoStab, boolean useIntermediateSurface)
             throws Exception {
-        for (int i = 0; i < mCameraIds.length; i++) {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
             try {
-                Log.i(TAG, "Testing basic recording for camera " + mCameraIds[i]);
-                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIds[i]);
+                Log.i(TAG, "Testing basic recording for camera " + mCameraIdsUnderTest[i]);
+                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIdsUnderTest[i]);
                 if (!staticInfo.isColorOutputSupported()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
 
                 // External camera doesn't support CamcorderProfile recording
                 if (staticInfo.isExternalCamera()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support CamcorderProfile, skipping");
                     continue;
                 }
 
                 if (!staticInfo.isVideoStabilizationSupported() && useVideoStab) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support video stabilization, skipping the stabilization"
                             + " test");
                     continue;
@@ -157,8 +160,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
                 // Re-use the MediaRecorder object for the same camera device.
                 mMediaRecorder = new MediaRecorder();
-                openDevice(mCameraIds[i]);
-                initSupportedVideoSize(mCameraIds[i]);
+                openDevice(mCameraIdsUnderTest[i]);
+                initSupportedVideoSize(mCameraIdsUnderTest[i]);
 
                 basicRecordingTestByCamera(mCamcorderProfileList, useVideoStab,
                         useIntermediateSurface);
@@ -256,19 +259,19 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
      */
     @Test(timeout=60*60*1000) // timeout = 60 mins for long running tests
     public void testSupportedVideoSizes() throws Exception {
-        for (int i = 0; i < mCameraIds.length; i++) {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
             try {
-                Log.i(TAG, "Testing supported video size recording for camera " + mCameraIds[i]);
-                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                Log.i(TAG, "Testing supported video size recording for camera " + mCameraIdsUnderTest[i]);
+                if (!mAllStaticInfo.get(mCameraIdsUnderTest[i]).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
                 // Re-use the MediaRecorder object for the same camera device.
                 mMediaRecorder = new MediaRecorder();
-                openDevice(mCameraIds[i]);
+                openDevice(mCameraIdsUnderTest[i]);
 
-                initSupportedVideoSize(mCameraIds[i]);
+                initSupportedVideoSize(mCameraIdsUnderTest[i]);
 
                 recordingSizeTestByCamera();
             } finally {
@@ -357,7 +360,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
     @Test
     public void testAbandonedHighSpeedRequest() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 Log.i(TAG, "Testing bad suface for createHighSpeedRequestList for camera " + id);
                 StaticMetadata staticInfo = mAllStaticInfo.get(id);
@@ -479,25 +482,25 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
      */
     @Test
     public void testRecordingFramerateLowToHigh() throws Exception {
-        for (int i = 0; i < mCameraIds.length; i++) {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
             try {
-                Log.i(TAG, "Testing basic recording for camera " + mCameraIds[i]);
-                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIds[i]);
+                Log.i(TAG, "Testing recording framerate low to high for camera " + mCameraIdsUnderTest[i]);
+                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIdsUnderTest[i]);
                 if (!staticInfo.isColorOutputSupported()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
                 if (staticInfo.isExternalCamera()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support CamcorderProfile, skipping");
                     continue;
                 }
                 // Re-use the MediaRecorder object for the same camera device.
                 mMediaRecorder = new MediaRecorder();
-                openDevice(mCameraIds[i]);
+                openDevice(mCameraIdsUnderTest[i]);
 
-                initSupportedVideoSize(mCameraIds[i]);
+                initSupportedVideoSize(mCameraIdsUnderTest[i]);
 
                 int minFpsProfileId = -1, minFps = 1000;
                 int maxFpsProfileId = -1, maxFps = 0;
@@ -534,25 +537,147 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
      */
     @Test
     public void testVideoPreviewSurfaceSharing() throws Exception {
-        for (int i = 0; i < mCameraIds.length; i++) {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
             try {
-                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIds[i]);
+                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIdsUnderTest[i]);
                 if (staticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] + " is legacy, skipping");
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] + " is legacy, skipping");
                     continue;
                 }
                 if (!staticInfo.isColorOutputSupported()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
                 // Re-use the MediaRecorder object for the same camera device.
                 mMediaRecorder = new MediaRecorder();
-                openDevice(mCameraIds[i]);
+                openDevice(mCameraIdsUnderTest[i]);
 
-                initSupportedVideoSize(mCameraIds[i]);
+                initSupportedVideoSize(mCameraIdsUnderTest[i]);
 
                 videoPreviewSurfaceSharingTestByCamera();
+            } finally {
+                closeDevice();
+                releaseRecorder();
+            }
+        }
+    }
+
+    /**
+     * <p>
+     * Test recording with same recording surface and different preview surfaces.
+     * </p>
+     * <p>
+     * This test maintains persistent video surface while changing preview surface.
+     * This exercises format/dataspace override behavior of the camera device.
+     * </p>
+     */
+    @Test
+    public void testRecordingWithDifferentPreviewSizes() throws Exception {
+        if (!MediaUtils.checkCodecForDomain(true /* encoder */, "video")) {
+            return; // skipped
+        }
+        mPersistentSurface = MediaCodec.createPersistentInputSurface();
+        assertNotNull("Failed to create persistent input surface!", mPersistentSurface);
+
+        try {
+            doRecordingWithDifferentPreviewSizes();
+        } finally {
+            mPersistentSurface.release();
+            mPersistentSurface = null;
+        }
+    }
+
+    public void doRecordingWithDifferentPreviewSizes() throws Exception {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
+            try {
+                Log.i(TAG, "Testing recording with different preview sizes for camera " +
+                        mCameraIdsUnderTest[i]);
+                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIdsUnderTest[i]);
+                if (!staticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+                if (staticInfo.isExternalCamera()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
+                            " does not support CamcorderProfile, skipping");
+                    continue;
+                }
+                // Re-use the MediaRecorder object for the same camera device.
+                mMediaRecorder = new MediaRecorder();
+                openDevice(mCameraIdsUnderTest[i]);
+
+                initSupportedVideoSize(mCameraIdsUnderTest[i]);
+
+                Size maxPreviewSize = mOrderedPreviewSizes.get(0);
+                List<Range<Integer> > fpsRanges = Arrays.asList(
+                        mStaticInfo.getAeAvailableTargetFpsRangesChecked());
+                int cameraId = Integer.valueOf(mCamera.getId());
+                int maxVideoFrameRate = -1;
+                for (int profileId : mCamcorderProfileList) {
+                    if (!CamcorderProfile.hasProfile(cameraId, profileId)) {
+                        continue;
+                    }
+                    CamcorderProfile profile = CamcorderProfile.get(cameraId, profileId);
+
+                    Size videoSz = new Size(profile.videoFrameWidth, profile.videoFrameHeight);
+                    Range<Integer> fpsRange = new Range(
+                            profile.videoFrameRate, profile.videoFrameRate);
+                    if (maxVideoFrameRate < profile.videoFrameRate) {
+                        maxVideoFrameRate = profile.videoFrameRate;
+                    }
+
+                    if (allowedUnsupported(cameraId, profileId)) {
+                        continue;
+                    }
+
+                    if (mStaticInfo.isHardwareLevelLegacy() &&
+                            (videoSz.getWidth() > maxPreviewSize.getWidth() ||
+                             videoSz.getHeight() > maxPreviewSize.getHeight())) {
+                        // Skip. Legacy mode can only do recording up to max preview size
+                        continue;
+                    }
+                    assertTrue("Video size " + videoSz.toString() + " for profile ID " + profileId +
+                                    " must be one of the camera device supported video size!",
+                                    mSupportedVideoSizes.contains(videoSz));
+                    assertTrue("Frame rate range " + fpsRange + " (for profile ID " + profileId +
+                            ") must be one of the camera device available FPS range!",
+                            fpsRanges.contains(fpsRange));
+
+                    // Configure preview and recording surfaces.
+                    mOutMediaFileName = mDebugFileNameBase + "/test_video_surface_reconfig.mp4";
+
+                    // prepare preview surface by using video size.
+                    List<Size> previewSizes = getPreviewSizesForVideo(videoSz,
+                            profile.videoFrameRate);
+                    if (previewSizes.size() <= 1) {
+                        continue;
+                    }
+
+                    // 1. Do video recording using largest compatbile preview sizes
+                    prepareRecordingWithProfile(profile);
+                    updatePreviewSurface(previewSizes.get(0));
+                    SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+                    startRecording(
+                            /* useMediaRecorder */true, resultListener,
+                            /*useVideoStab*/false, fpsRange, false);
+                    SystemClock.sleep(RECORDING_DURATION_MS);
+                    stopRecording(/* useMediaRecorder */true, /* useIntermediateSurface */false,
+                            /* stopStreaming */false);
+
+                    // 2. Reconfigure with the same recording surface, but switch to a smaller
+                    // preview size.
+                    prepareRecordingWithProfile(profile);
+                    updatePreviewSurface(previewSizes.get(1));
+                    SimpleCaptureCallback resultListener2 = new SimpleCaptureCallback();
+                    startRecording(
+                            /* useMediaRecorder */true, resultListener2,
+                            /*useVideoStab*/false, fpsRange, false);
+                    SystemClock.sleep(RECORDING_DURATION_MS);
+                    stopRecording(/* useMediaRecorder */true);
+                    break;
+                }
             } finally {
                 closeDevice();
                 releaseRecorder();
@@ -652,7 +777,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
      * </p>
      */
     private void slowMotionRecording() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 Log.i(TAG, "Testing slow motion recording for camera " + id);
                 StaticMetadata staticInfo = mAllStaticInfo.get(id);
@@ -727,7 +852,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     }
 
     private void constrainedHighSpeedRecording() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 Log.i(TAG, "Testing constrained high speed recording for camera " + id);
 
@@ -1027,7 +1152,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             SystemClock.sleep(RECORDING_DURATION_MS);
 
             // Stop recording and preview
-            stopRecording(/* useMediaRecorder */true, useIntermediateSurface);
+            stopRecording(/* useMediaRecorder */true, useIntermediateSurface,
+                    /* stopCameraStreaming */false);
             // Convert number of frames camera produced into the duration in unit of ms.
             float frameDurationMs = 1000.0f / profile.videoFrameRate;
             float durationMs = 0.f;
@@ -1042,8 +1168,13 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                                 ", num of frames produced: " + resultListener.getTotalNumFrames());
             }
 
-            // Validation.
-            validateRecording(videoSz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
+            if (isPerfMeasure()) {
+                // Only measure the largest video recording size when measuring perf
+                break;
+            } else {
+                // Validation.
+                validateRecording(videoSz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
+            }
         }
         if (maxVideoFrameRate != -1) {
             // At least one CamcorderProfile is present, check FPS
@@ -1142,7 +1273,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
      * Simple wrapper to wrap normal/burst video snapshot tests
      */
     private void videoSnapshotHelper(boolean burstTest) throws Exception {
-            for (String id : mCameraIds) {
+            for (String id : mCameraIdsUnderTest) {
                 try {
                     Log.i(TAG, "Testing video snapshot for camera " + id);
 
@@ -1478,15 +1609,14 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     }
 
     /**
-     * Update preview size with video size.
+     * Find compatible preview sizes for video size and framerate.
      *
      * <p>Preview size will be capped with max preview size.</p>
      *
      * @param videoSize The video size used for preview.
      * @param videoFrameRate The video frame rate
-     *
      */
-    private void updatePreviewSurfaceWithVideo(Size videoSize, int videoFrameRate) {
+    private List<Size> getPreviewSizesForVideo(Size videoSize, int videoFrameRate) {
         if (mOrderedPreviewSizes == null) {
             throw new IllegalStateException("supported preview size list is not initialized yet");
         }
@@ -1496,7 +1626,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         HashMap<Size, Long> minFrameDurationMap = mStaticInfo.
                 getAvailableMinFrameDurationsForFormatChecked(ImageFormat.PRIVATE);
         Size maxPreviewSize = mOrderedPreviewSizes.get(0);
-        Size previewSize = null;
+        ArrayList<Size> previewSizes = new ArrayList<>();
         if (videoSize.getWidth() > maxPreviewSize.getWidth() ||
                 videoSize.getHeight() > maxPreviewSize.getHeight()) {
             for (Size s : mOrderedPreviewSizes) {
@@ -1510,18 +1640,32 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 if (frameDuration <= videoFrameDuration &&
                         s.getWidth() <= videoSize.getWidth() &&
                         s.getHeight() <= videoSize.getHeight()) {
-                    Log.w(TAG, "Overwrite preview size from " + videoSize.toString() +
-                            " to " + s.toString());
-                    previewSize = s;
-                    break;
-                    // If all preview size doesn't work then we fallback to video size
+                    Log.v(TAG, "Add preview size " + s.toString() + " for video size " +
+                            videoSize.toString());
+                    previewSizes.add(s);
                 }
             }
         }
-        if (previewSize == null) {
-            previewSize = videoSize;
+
+        if (previewSizes.isEmpty()) {
+            previewSizes.add(videoSize);
         }
-        updatePreviewSurface(previewSize);
+
+        return previewSizes;
+    }
+
+    /**
+     * Update preview size with video size.
+     *
+     * <p>Preview size will be capped with max preview size.</p>
+     *
+     * @param videoSize The video size used for preview.
+     * @param videoFrameRate The video frame rate
+     *
+     */
+    private void updatePreviewSurfaceWithVideo(Size videoSize, int videoFrameRate) {
+        List<Size> previewSizes = getPreviewSizesForVideo(videoSize, videoFrameRate);
+        updatePreviewSurface(previewSizes.get(0));
     }
 
     private void prepareRecordingWithProfile(CamcorderProfile profile) throws Exception {
@@ -1734,15 +1878,18 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     }
 
     private int stopRecording(boolean useMediaRecorder) throws Exception {
-        return stopRecording(useMediaRecorder, false);
+        return stopRecording(useMediaRecorder, /*useIntermediateSurface*/false,
+                /*stopStreaming*/true);
     }
 
     // Stop recording and return the estimated video duration in milliseconds.
-    private int stopRecording(boolean useMediaRecorder, boolean useIntermediateSurface)
-            throws Exception {
+    private int stopRecording(boolean useMediaRecorder, boolean useIntermediateSurface,
+            boolean stopStreaming) throws Exception {
         long stopRecordingTime = SystemClock.elapsedRealtime();
         if (useMediaRecorder) {
-            stopCameraStreaming();
+            if (stopStreaming) {
+                stopCameraStreaming();
+            }
             if (useIntermediateSurface) {
                 mIntermediateReader.setOnImageAvailableListener(null, null);
                 mQueuer.expectInvalidSurface();
@@ -1899,7 +2046,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     }
 
     /**
-     * Validate video snapshot capture image object sanity and test.
+     * Validate video snapshot capture image object validity and test.
      *
      * <p> Check for size, format and jpeg decoding</p>
      *

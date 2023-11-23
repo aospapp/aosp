@@ -33,6 +33,7 @@ import com.android.tradefed.device.DeviceSelectionOptions;
 import com.android.tradefed.device.DeviceSelectionOptions.DeviceRequestedType;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
 import com.android.tradefed.result.proto.ProtoResultReporter;
 import com.android.tradefed.util.FileUtil;
 
@@ -69,14 +70,17 @@ public class RemoteInvocationExecutionTest {
                     @Override
                     public IBuildInfo getBuild() throws BuildRetrievalError {
                         // The original provider is never called.
-                        throw new BuildRetrievalError("should not be called.");
+                        throw new BuildRetrievalError(
+                                "should not be called.",
+                                InfraErrorIdentifier.ARTIFACT_UNSUPPORTED_PATH);
                     }
                 };
         mConfiguration.setBuildProvider(originalProvider);
         OptionSetter setter = new OptionSetter(originalProvider);
         setter.setOptionValue("build-id", "5555");
-
-        boolean fetched = mRemoteInvocation.fetchBuild(mContext, mConfiguration, null, null);
+        TestInformation testInfo =
+                TestInformation.newBuilder().setInvocationContext(mContext).build();
+        boolean fetched = mRemoteInvocation.fetchBuild(testInfo, mConfiguration, null, null);
         assertTrue(fetched);
         IBuildInfo info = mContext.getBuildInfos().get(0);
         // The build id is carried to the remote invocation build
@@ -104,6 +108,9 @@ public class RemoteInvocationExecutionTest {
                     ((DeviceSelectionOptions)
                                     reparse.getDeviceConfig().get(0).getDeviceRequirements())
                             .getDeviceTypeRequested());
+            assertEquals(
+                    "",
+                    reparse.getDeviceConfig().get(0).getDeviceOptions().getRemoteTf().getPath());
         } finally {
             FileUtil.deleteFile(res);
         }

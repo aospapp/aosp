@@ -63,7 +63,7 @@ static const vixl::aarch64::Register kParameterCoreRegisters[] = {
   vixl::aarch64::x7
 };
 static constexpr size_t kParameterCoreRegistersLength = arraysize(kParameterCoreRegisters);
-static const vixl::aarch64::FPRegister kParameterFPRegisters[] = {
+static const vixl::aarch64::VRegister kParameterFPRegisters[] = {
   vixl::aarch64::d0,
   vixl::aarch64::d1,
   vixl::aarch64::d2,
@@ -111,7 +111,7 @@ const vixl::aarch64::CPURegList callee_saved_core_registers(
          ? vixl::aarch64::x21.GetCode()
          : vixl::aarch64::x20.GetCode()),
      vixl::aarch64::x30.GetCode());
-const vixl::aarch64::CPURegList callee_saved_fp_registers(vixl::aarch64::CPURegister::kFPRegister,
+const vixl::aarch64::CPURegList callee_saved_fp_registers(vixl::aarch64::CPURegister::kVRegister,
                                                           vixl::aarch64::kDRegSize,
                                                           vixl::aarch64::d8.GetCode(),
                                                           vixl::aarch64::d15.GetCode());
@@ -162,7 +162,7 @@ static const vixl::aarch64::Register kRuntimeParameterCoreRegisters[] =
       vixl::aarch64::x7 };
 static constexpr size_t kRuntimeParameterCoreRegistersLength =
     arraysize(kRuntimeParameterCoreRegisters);
-static const vixl::aarch64::FPRegister kRuntimeParameterFpuRegisters[] =
+static const vixl::aarch64::VRegister kRuntimeParameterFpuRegisters[] =
     { vixl::aarch64::d0,
       vixl::aarch64::d1,
       vixl::aarch64::d2,
@@ -175,7 +175,7 @@ static constexpr size_t kRuntimeParameterFpuRegistersLength =
     arraysize(kRuntimeParameterCoreRegisters);
 
 class InvokeRuntimeCallingConvention : public CallingConvention<vixl::aarch64::Register,
-                                                                vixl::aarch64::FPRegister> {
+                                                                vixl::aarch64::VRegister> {
  public:
   static constexpr size_t kParameterCoreRegistersLength = arraysize(kParameterCoreRegisters);
 
@@ -193,7 +193,7 @@ class InvokeRuntimeCallingConvention : public CallingConvention<vixl::aarch64::R
 };
 
 class InvokeDexCallingConvention : public CallingConvention<vixl::aarch64::Register,
-                                                            vixl::aarch64::FPRegister> {
+                                                            vixl::aarch64::VRegister> {
  public:
   InvokeDexCallingConvention()
       : CallingConvention(kParameterCoreRegisters,
@@ -435,10 +435,14 @@ class CodeGeneratorARM64 : public CodeGenerator {
     return kArm64WordSize;
   }
 
-  size_t GetFloatingPointSpillSlotSize() const override {
+  size_t GetSlowPathFPWidth() const override {
     return GetGraph()->HasSIMD()
-        ? 2 * kArm64WordSize   // 16 bytes == 2 arm64 words for each spill
-        : 1 * kArm64WordSize;  //  8 bytes == 1 arm64 words for each spill
+        ? vixl::aarch64::kQRegSizeInBytes
+        : vixl::aarch64::kDRegSizeInBytes;
+  }
+
+  size_t GetCalleePreservedFPWidth() const override {
+    return vixl::aarch64::kDRegSizeInBytes;
   }
 
   uintptr_t GetAddressOf(HBasicBlock* block) override {
@@ -476,7 +480,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // requirements, etc.). This also facilitates our task as all other registers
   // can easily be mapped via to or from their type and index or code.
   static const int kNumberOfAllocatableRegisters = vixl::aarch64::kNumberOfRegisters - 1;
-  static const int kNumberOfAllocatableFPRegisters = vixl::aarch64::kNumberOfFPRegisters;
+  static const int kNumberOfAllocatableFPRegisters = vixl::aarch64::kNumberOfVRegisters;
   static constexpr int kNumberOfAllocatableRegisterPairs = 0;
 
   void DumpCoreRegister(std::ostream& stream, int reg) const override;
@@ -629,6 +633,9 @@ class CodeGeneratorARM64 : public CodeGenerator {
                                                dex::StringIndex string_index,
                                                vixl::aarch64::Label* adrp_label = nullptr);
 
+  // Emit the BL instruction for entrypoint thunk call and record the associated patch for AOT.
+  void EmitEntrypointThunkCall(ThreadOffset64 entrypoint_offset);
+
   // Emit the CBNZ instruction for baker read barrier and record
   // the associated patch for AOT or slow path for JIT.
   void EmitBakerReadBarrierCbnz(uint32_t custom_data);
@@ -770,6 +777,18 @@ class CodeGeneratorARM64 : public CodeGenerator {
   void GenerateImplicitNullCheck(HNullCheck* instruction) override;
   void GenerateExplicitNullCheck(HNullCheck* instruction) override;
 
+  void MaybeRecordImplicitNullCheck(HInstruction* instr) final {
+    // The function must be only called within special scopes
+    // (EmissionCheckScope, ExactAssemblyScope) which prevent generation of
+    // veneer/literal pools by VIXL assembler.
+    CHECK_EQ(GetVIXLAssembler()->ArePoolsBlocked(), true)
+        << "The function must only be called within EmissionCheckScope or ExactAssemblyScope";
+    CodeGenerator::MaybeRecordImplicitNullCheck(instr);
+  }
+
+  void MaybeGenerateInlineCacheCheck(HInstruction* instruction, vixl::aarch64::Register klass);
+  void MaybeIncrementHotness(bool is_frame_entry);
+
  private:
   // Encoding of thunk type and data for link-time generated thunks for Baker read barriers.
 
@@ -887,12 +906,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
   ParallelMoveResolverARM64 move_resolver_;
   Arm64Assembler assembler_;
 
-  // Deduplication map for 32-bit literals, used for non-patchable boot image addresses.
-  Uint32ToLiteralMap uint32_literals_;
-  // Deduplication map for 64-bit literals, used for non-patchable method address or method code.
-  Uint64ToLiteralMap uint64_literals_;
-  // PC-relative method patch info for kBootImageLinkTimePcRelative/BootImageRelRo.
-  // Also used for type/string patches for kBootImageRelRo (same linker patch as for methods).
+  // PC-relative method patch info for kBootImageLinkTimePcRelative.
   ArenaDeque<PcRelativePatchInfo> boot_image_method_patches_;
   // PC-relative method patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> method_bss_entry_patches_;
@@ -904,11 +918,18 @@ class CodeGeneratorARM64 : public CodeGenerator {
   ArenaDeque<PcRelativePatchInfo> boot_image_string_patches_;
   // PC-relative String patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> string_bss_entry_patches_;
-  // PC-relative patch info for IntrinsicObjects.
-  ArenaDeque<PcRelativePatchInfo> boot_image_intrinsic_patches_;
+  // PC-relative patch info for IntrinsicObjects for the boot image,
+  // and for method/type/string patches for kBootImageRelRo otherwise.
+  ArenaDeque<PcRelativePatchInfo> boot_image_other_patches_;
+  // Patch info for calls to entrypoint dispatch thunks. Used for slow paths.
+  ArenaDeque<PatchInfo<vixl::aarch64::Label>> call_entrypoint_patches_;
   // Baker read barrier patch info.
   ArenaDeque<BakerReadBarrierPatchInfo> baker_read_barrier_patches_;
 
+  // Deduplication map for 32-bit literals, used for JIT for boot image addresses.
+  Uint32ToLiteralMap uint32_literals_;
+  // Deduplication map for 64-bit literals, used for JIT for method address or method code.
+  Uint64ToLiteralMap uint64_literals_;
   // Patches for string literals in JIT compiled code.
   StringToLiteralMap jit_string_patches_;
   // Patches for class literals in JIT compiled code.

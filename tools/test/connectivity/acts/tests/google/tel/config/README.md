@@ -8,9 +8,6 @@ Telephony config files have some differences from other ACTS configs that requir
   - **telephony_auto_rerun** - Because testing with live infrastructure sometimes yields flaky results, when no other options are available to mitigate this uncertainty, this key specifies a maximum number of re-runs that will be performed in the event of a test failure. The test will be reported as a 'pass' after the first successful run.
   - **wifi_network_pass** - The password to the network specified by *wifi_network_ssid*.
   - **wifi_network_ssid** - The SSID of a wifi network for test use. This network must have internet access.
-#### Power Test specific keys (TelPowerTest):
-  - **pass_criteria_call_(3g/volte/2g/wfc)** - The maximum amount of power in mW that can be used in steady state during calling power tests in order to pass the test.
-  - **pass_criteria_idle_(3g/volte/2g/wfc)** - The maximum amount of power in mW that can be used in steady state during idle power tests in order to pass the test.
 #### Call-Server test specific keys (TelLiveStressCallTest):
   - **phone_call_iteration** - The number of calls to be placed in TelLiveStressCallTest
   - **call_server_number** - the POTS telephone number of a call server used in TelLiveStressCallTest

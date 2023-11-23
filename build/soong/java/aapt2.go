@@ -55,13 +55,15 @@ func pathsToAapt2Paths(ctx android.ModuleContext, resPaths android.Paths) androi
 
 var aapt2CompileRule = pctx.AndroidStaticRule("aapt2Compile",
 	blueprint.RuleParams{
-		Command:     `${config.Aapt2Cmd} compile -o $outDir $cFlags --legacy $in`,
+		Command:     `${config.Aapt2Cmd} compile -o $outDir $cFlags $in`,
 		CommandDeps: []string{"${config.Aapt2Cmd}"},
 	},
 	"outDir", "cFlags")
 
-func aapt2Compile(ctx android.ModuleContext, dir android.Path, paths android.Paths) android.WritablePaths {
-	shards := shardPaths(paths, AAPT2_SHARD_SIZE)
+func aapt2Compile(ctx android.ModuleContext, dir android.Path, paths android.Paths,
+	flags []string) android.WritablePaths {
+
+	shards := android.ShardPaths(paths, AAPT2_SHARD_SIZE)
 
 	ret := make(android.WritablePaths, 0, len(paths))
 
@@ -81,9 +83,7 @@ func aapt2Compile(ctx android.ModuleContext, dir android.Path, paths android.Pat
 			Outputs:     outPaths,
 			Args: map[string]string{
 				"outDir": android.PathForModuleOut(ctx, "aapt2", dir.String()).String(),
-				// Always set --pseudo-localize, it will be stripped out later for release
-				// builds that don't want it.
-				"cFlags": "--pseudo-localize",
+				"cFlags": strings.Join(flags, " "),
 			},
 		})
 	}
@@ -94,42 +94,31 @@ func aapt2Compile(ctx android.ModuleContext, dir android.Path, paths android.Pat
 	return ret
 }
 
-func aapt2CompileDirs(ctx android.ModuleContext, flata android.WritablePath, dirs android.Paths, deps android.Paths) {
-	ctx.Build(pctx, android.BuildParams{
-		Rule:        aapt2CompileRule,
-		Description: "aapt2 compile dirs",
-		Implicits:   deps,
-		Output:      flata,
-		Args: map[string]string{
-			"outDir": flata.String(),
-			// Always set --pseudo-localize, it will be stripped out later for release
-			// builds that don't want it.
-			"cFlags": "--pseudo-localize " + android.JoinWithPrefix(dirs.Strings(), "--dir "),
-		},
-	})
-}
-
 var aapt2CompileZipRule = pctx.AndroidStaticRule("aapt2CompileZip",
 	blueprint.RuleParams{
-		Command: `${config.ZipSyncCmd} -d $resZipDir $in && ` +
-			`${config.Aapt2Cmd} compile -o $out $cFlags --legacy --dir $resZipDir`,
+		Command: `${config.ZipSyncCmd} -d $resZipDir $zipSyncFlags $in && ` +
+			`${config.Aapt2Cmd} compile -o $out $cFlags --dir $resZipDir`,
 		CommandDeps: []string{
 			"${config.Aapt2Cmd}",
 			"${config.ZipSyncCmd}",
 		},
-	}, "cFlags", "resZipDir")
+	}, "cFlags", "resZipDir", "zipSyncFlags")
 
-func aapt2CompileZip(ctx android.ModuleContext, flata android.WritablePath, zip android.Path) {
+func aapt2CompileZip(ctx android.ModuleContext, flata android.WritablePath, zip android.Path, zipPrefix string,
+	flags []string) {
+
+	if zipPrefix != "" {
+		zipPrefix = "--zip-prefix " + zipPrefix
+	}
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        aapt2CompileZipRule,
 		Description: "aapt2 compile zip",
 		Input:       zip,
 		Output:      flata,
 		Args: map[string]string{
-			// Always set --pseudo-localize, it will be stripped out later for release
-			// builds that don't want it.
-			"cFlags":    "--pseudo-localize",
-			"resZipDir": android.PathForModuleOut(ctx, "aapt2", "reszip", flata.Base()).String(),
+			"cFlags":       strings.Join(flags, " "),
+			"resZipDir":    android.PathForModuleOut(ctx, "aapt2", "reszip", flata.Base()).String(),
+			"zipSyncFlags": zipPrefix,
 		},
 	})
 }
@@ -158,10 +147,16 @@ var fileListToFileRule = pctx.AndroidStaticRule("fileListToFile",
 		RspfileContent: "$in",
 	})
 
+var mergeAssetsRule = pctx.AndroidStaticRule("mergeAssets",
+	blueprint.RuleParams{
+		Command:     `${config.MergeZipsCmd} ${out} ${in}`,
+		CommandDeps: []string{"${config.MergeZipsCmd}"},
+	})
+
 func aapt2Link(ctx android.ModuleContext,
 	packageRes, genJar, proguardOptions, rTxt, extraPackages android.WritablePath,
 	flags []string, deps android.Paths,
-	compiledRes, compiledOverlay android.Paths, splitPackages android.WritablePaths) {
+	compiledRes, compiledOverlay, assetPackages android.Paths, splitPackages android.WritablePaths) {
 
 	genDir := android.PathForModuleGen(ctx, "aapt2", "R")
 
@@ -197,12 +192,25 @@ func aapt2Link(ctx android.ModuleContext,
 	}
 
 	implicitOutputs := append(splitPackages, proguardOptions, genJar, rTxt, extraPackages)
+	linkOutput := packageRes
+
+	// AAPT2 ignores assets in overlays. Merge them after linking.
+	if len(assetPackages) > 0 {
+		linkOutput = android.PathForModuleOut(ctx, "aapt2", "package-res.apk")
+		inputZips := append(android.Paths{linkOutput}, assetPackages...)
+		ctx.Build(pctx, android.BuildParams{
+			Rule:        mergeAssetsRule,
+			Inputs:      inputZips,
+			Output:      packageRes,
+			Description: "merge assets from dependencies",
+		})
+	}
 
 	ctx.Build(pctx, android.BuildParams{
 		Rule:            aapt2LinkRule,
 		Description:     "aapt2 link",
 		Implicits:       deps,
-		Output:          packageRes,
+		Output:          linkOutput,
 		ImplicitOutputs: implicitOutputs,
 		Args: map[string]string{
 			"flags":           strings.Join(flags, " "),

@@ -30,7 +30,7 @@ public class MyDrawable extends Drawable {
 
     private static final String TAG = "MyDrawable";
 
-    private static final CountDownLatch sLatch = new CountDownLatch(1);
+    private static CountDownLatch sLatch;
     private static MyDrawable sInstance;
 
     private static Rect sAutofilledBounds;
@@ -44,18 +44,47 @@ public class MyDrawable extends Drawable {
 
     @Override
     public void draw(Canvas canvas) {
-        if (sAutofilledBounds == null) {
-            sAutofilledBounds = getBounds();
+        if (sInstance != null && sAutofilledBounds == null) {
+            sAutofilledBounds = new Rect(getBounds());
             Log.d(TAG, "Autofilled at " + sAutofilledBounds);
             sLatch.countDown();
         }
     }
 
     public static Rect getAutofilledBounds() throws InterruptedException {
+        if (sLatch == null) {
+            throw new AssertionError("sLatch should be not null");
+        }
+
         if (!sLatch.await(Timeouts.FILL_TIMEOUT.ms(), TimeUnit.MILLISECONDS)) {
             throw new RetryableException(Timeouts.FILL_TIMEOUT, "custom drawable not drawn");
         }
         return sAutofilledBounds;
+    }
+
+    /**
+     * Asserts the custom drawable is not drawn.
+     */
+    public static void assertDrawableNotDrawn() throws Exception {
+        if (sLatch == null) {
+            throw new AssertionError("sLatch should be not null");
+        }
+
+        if (sLatch.await(Timeouts.DRAWABLE_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            throw new AssertionError("custom drawable is drawn");
+        }
+    }
+
+    public static void initStatus() {
+        sLatch = new CountDownLatch(1);
+        sInstance = null;
+        sAutofilledBounds = null;
+    }
+
+    public static void clearStatus() {
+        sLatch = null;
+        sInstance = null;
+        sAutofilledBounds = null;
     }
 
     @Override

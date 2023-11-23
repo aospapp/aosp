@@ -16,15 +16,22 @@
 
 package android.content.cts;
 
+import static android.content.ContentResolver.NOTIFY_INSERT;
+import static android.content.ContentResolver.NOTIFY_UPDATE;
+
 import android.accounts.Account;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentResolver.MimeTypeInfo;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.database.ContentObserver;
 import android.database.Cursor;
+import android.icu.text.Collator;
+import android.icu.util.ULocale;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -40,16 +47,26 @@ import androidx.test.InstrumentationRegistry;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.internal.util.ArrayUtils;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class ContentResolverTest extends AndroidTestCase {
+    private static final String TAG = "ContentResolverTest";
+
     private final static String COLUMN_ID_NAME = "_id";
     private final static String COLUMN_KEY_NAME = "key";
     private final static String COLUMN_VALUE_NAME = "value";
@@ -425,6 +442,47 @@ public class ContentResolverTest extends AndroidTestCase {
         assertEquals("abc", mCursor.getString(col));
 
         mCursor.close();
+    }
+
+    public void testQuery_SqlSortingFromBundleArgs_Locale() {
+        mContentResolver.delete(TABLE1_URI, null, null);
+
+        final List<String> data = Arrays.asList(
+                "ABC", "abc", "pinyin", "가나다", "바사", "테스트", "马",
+                "嘛", "妈", "骂", "吗", "码", "玛", "麻", "中", "梵", "苹果", "久了", "伺候");
+
+        for (String s : data) {
+            final ContentValues values = new ContentValues();
+            values.put(COLUMN_KEY_NAME, s.hashCode());
+            values.put(COLUMN_VALUE_NAME, s);
+            mContentResolver.insert(TABLE1_URI, values);
+        }
+
+        String[] sortCols = new String[] { COLUMN_VALUE_NAME };
+        Bundle queryArgs = new Bundle();
+        queryArgs.putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, sortCols);
+
+        for (String locale : new String[] {
+                "zh",
+                "zh@collation=pinyin",
+                "zh@collation=stroke",
+                "zh@collation=zhuyin",
+        }) {
+            // Assert that sorting is identical between SQLite and ICU4J
+            queryArgs.putString(ContentResolver.QUERY_ARG_SORT_LOCALE, locale);
+            try (Cursor c = mContentResolver.query(TABLE1_URI, sortCols, queryArgs, null)) {
+                data.sort(Collator.getInstance(new ULocale(locale)));
+                assertEquals(data, collect(c));
+            }
+        }
+    }
+
+    private static List<String> collect(Cursor c) {
+        List<String> res = new ArrayList<>();
+        while (c.moveToNext()) {
+            res.add(c.getString(0));
+        }
+        return res;
     }
 
     /**
@@ -1070,6 +1128,13 @@ public class ContentResolverTest extends AndroidTestCase {
         }
     }
 
+    public void testCheckUriPermission() {
+        assertEquals(PackageManager.PERMISSION_GRANTED, mContentResolver.checkUriPermission(
+                TABLE1_URI, android.os.Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        assertEquals(PackageManager.PERMISSION_DENIED, mContentResolver.checkUriPermission(
+                TABLE1_URI, android.os.Process.myUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION));
+    }
+
     public void testRegisterContentObserver() {
         final MockContentObserver mco = new MockContentObserver();
 
@@ -1197,6 +1262,77 @@ public class ContentResolverTest extends AndroidTestCase {
         }.run();
 
         mContentResolver.unregisterContentObserver(mco);
+    }
+
+    /**
+     * Verify that callers using the {@link Iterable} version of
+     * {@link ContentResolver#notifyChange} are correctly split and delivered to
+     * disjoint listeners.
+     */
+    public void testNotifyChange_MultipleSplit() {
+        final MockContentObserver observer1 = new MockContentObserver();
+        final MockContentObserver observer2 = new MockContentObserver();
+
+        mContentResolver.registerContentObserver(TABLE1_URI, true, observer1);
+        mContentResolver.registerContentObserver(TABLE2_URI, true, observer2);
+
+        assertFalse(observer1.hadOnChanged());
+        assertFalse(observer2.hadOnChanged());
+
+        final ArrayList<Uri> list = new ArrayList<>();
+        list.add(TABLE1_URI);
+        list.add(TABLE2_URI);
+        mContentResolver.notifyChange(list, null, 0);
+
+        new PollingCheck() {
+            @Override
+            protected boolean check() {
+                return observer1.hadOnChanged() && observer2.hadOnChanged();
+            }
+        }.run();
+
+        mContentResolver.unregisterContentObserver(observer1);
+        mContentResolver.unregisterContentObserver(observer2);
+    }
+
+    /**
+     * Verify that callers using the {@link Iterable} version of
+     * {@link ContentResolver#notifyChange} are correctly grouped and delivered
+     * to overlapping listeners, including untouched flags.
+     */
+    public void testNotifyChange_MultipleFlags() {
+        final MockContentObserver observer1 = new MockContentObserver();
+        final MockContentObserver observer2 = new MockContentObserver();
+
+        mContentResolver.registerContentObserver(LEVEL1_URI, false, observer1);
+        mContentResolver.registerContentObserver(LEVEL2_URI, false, observer2);
+
+        mContentResolver.notifyChange(
+                Arrays.asList(LEVEL1_URI), null, 0);
+        mContentResolver.notifyChange(
+                Arrays.asList(LEVEL1_URI, LEVEL2_URI), null, NOTIFY_INSERT);
+        mContentResolver.notifyChange(
+                Arrays.asList(LEVEL2_URI), null, NOTIFY_UPDATE);
+
+        final List<Change> expected1 = Arrays.asList(
+                new Change(false, Arrays.asList(LEVEL1_URI), 0),
+                new Change(false, Arrays.asList(LEVEL1_URI), NOTIFY_INSERT));
+
+        final List<Change> expected2 = Arrays.asList(
+                new Change(false, Arrays.asList(LEVEL1_URI), 0),
+                new Change(false, Arrays.asList(LEVEL1_URI, LEVEL2_URI), NOTIFY_INSERT),
+                new Change(false, Arrays.asList(LEVEL2_URI), NOTIFY_UPDATE));
+
+        new PollingCheck() {
+            @Override
+            protected boolean check() {
+                return observer1.hadChanges(expected1)
+                        && observer2.hadChanges(expected2);
+            }
+        }.run();
+
+        mContentResolver.unregisterContentObserver(observer1);
+        mContentResolver.unregisterContentObserver(observer2);
     }
 
     public void testStartCancelSync() {
@@ -1339,8 +1475,55 @@ public class ContentResolverTest extends AndroidTestCase {
         assertNull(response);
     }
 
-    private class MockContentObserver extends ContentObserver {
+    public void testEncodeDecode() {
+        final Uri expected = Uri.parse("content://com.example/item/23");
+        final File file = ContentResolver.encodeToFile(expected);
+        assertNotNull(file);
+
+        final Uri actual = ContentResolver.decodeFromFile(file);
+        assertNotNull(actual);
+        assertEquals(expected, actual);
+    }
+
+    public static class Change {
+        public final boolean selfChange;
+        public final Iterable<Uri> uris;
+        public final int flags;
+
+        public Change(boolean selfChange, Iterable<Uri> uris, int flags) {
+            this.selfChange = selfChange;
+            this.uris = uris;
+            this.flags = flags;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("onChange(%b, %s, %d)",
+                    selfChange, asSet(uris).toString(), flags);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (other instanceof Change) {
+                final Change change = (Change) other;
+                return change.selfChange == selfChange &&
+                        Objects.equals(asSet(change.uris), asSet(uris)) &&
+                        change.flags == flags;
+            } else {
+                return false;
+            }
+        }
+
+        private static Set<Uri> asSet(Iterable<Uri> uris) {
+            final Set<Uri> asSet = new HashSet<>();
+            uris.forEach(asSet::add);
+            return asSet;
+        }
+    }
+
+    private static class MockContentObserver extends ContentObserver {
         private boolean mHadOnChanged = false;
+        private List<Change> mChanges = new ArrayList<>();
 
         public MockContentObserver() {
             super(null);
@@ -1352,9 +1535,12 @@ public class ContentResolverTest extends AndroidTestCase {
         }
 
         @Override
-        public synchronized void onChange(boolean selfChange) {
-            super.onChange(selfChange);
+        public synchronized void onChange(boolean selfChange, Collection<Uri> uris, int flags) {
+            final Change change = new Change(selfChange, uris, flags);
+            Log.v(TAG, change.toString());
+
             mHadOnChanged = true;
+            mChanges.add(change);
         }
 
         public synchronized boolean hadOnChanged() {
@@ -1363,6 +1549,10 @@ public class ContentResolverTest extends AndroidTestCase {
 
         public synchronized void reset() {
             mHadOnChanged = false;
+        }
+
+        public synchronized boolean hadChanges(Collection<Change> changes) {
+            return mChanges.containsAll(changes);
         }
     }
 }

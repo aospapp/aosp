@@ -134,7 +134,6 @@ public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
             mActivityControl.finishActivity();
         }
     }
-
     private final class SessionControl {
         private @Nullable RemoteCallback mControl;
 

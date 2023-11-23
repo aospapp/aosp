@@ -86,5 +86,6 @@ allowed_log_source: "com.android.vending"
 allowed_log_source: "AID_SYSTEM"
 allowed_log_source: "AID_ROOT"
 allowed_log_source: "AID_BLUETOOTH"
+default_pull_packages: "AID_SYSTEM"
 
 hash_strings_in_metric_report: false

@@ -14,8 +14,7 @@
 
 package android.accessibilityservice.cts;
 
-import static android.accessibilityservice.cts.utils.ActivityLaunchUtils
-        .launchActivityAndWaitForItToBeOnscreen;
+import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityAndWaitForItToBeOnscreen;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -23,15 +22,12 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibilityservice.AccessibilityServiceInfo;
-import android.accessibilityservice.cts.R;
 import android.accessibilityservice.cts.activities.AccessibilityViewTreeReportingActivity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.Context;
-import androidx.test.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
-import androidx.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,11 +36,16 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 /**
@@ -61,9 +62,16 @@ public class AccessibilityViewTreeReportingTest {
 
     private AccessibilityViewTreeReportingActivity mActivity;
 
-    @Rule
-    public ActivityTestRule<AccessibilityViewTreeReportingActivity> mActivityRule =
+    private ActivityTestRule<AccessibilityViewTreeReportingActivity> mActivityRule =
             new ActivityTestRule<>(AccessibilityViewTreeReportingActivity.class, false, false);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mActivityRule)
+            .around(mDumpOnFailureRule);
 
     @BeforeClass
     public static void oneTimeSetup() throws Exception {
@@ -308,6 +316,44 @@ public class AccessibilityViewTreeReportingTest {
         // new button.
         assertTrue(awaitedEvent.getSource().isImportantForAccessibility());
     }
+
+
+    @Test
+    public void testHideView_receiveSubtreeEvent() throws Throwable {
+        final View view = mActivity.findViewById(R.id.secondButton);
+        AccessibilityEvent awaitedEvent =
+                sUiAutomation.executeAndWaitForEvent(
+                        () -> mActivity.runOnUiThread(() -> view.setVisibility(View.GONE)),
+                        (event) -> {
+                            boolean isContentChanged = event.getEventType()
+                                    == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
+                            int isSubTree = (event.getContentChangeTypes()
+                                    & AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE);
+                            boolean isFromThisPackage = TextUtils.equals(event.getPackageName(),
+                                    mActivity.getPackageName());
+                            return isContentChanged && (isSubTree != 0) && isFromThisPackage;
+                        }, TIMEOUT_ASYNC_PROCESSING);
+        awaitedEvent.recycle();
+    }
+
+    @Test
+    public void testUnhideView_receiveSubtreeEvent() throws Throwable {
+        final View view = mActivity.findViewById(R.id.hiddenButton);
+        AccessibilityEvent awaitedEvent =
+                sUiAutomation.executeAndWaitForEvent(
+                        () -> mActivity.runOnUiThread(() -> view.setVisibility(View.VISIBLE)),
+                        (event) -> {
+                            boolean isContentChanged = event.getEventType()
+                                    == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
+                            int isSubTree = (event.getContentChangeTypes()
+                                    & AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE);
+                            boolean isFromThisPackage = TextUtils.equals(event.getPackageName(),
+                                    mActivity.getPackageName());
+                            return isContentChanged && (isSubTree != 0) && isFromThisPackage;
+                        }, TIMEOUT_ASYNC_PROCESSING);
+        awaitedEvent.recycle();
+    }
+
 
     private void setGetNonImportantViews(boolean getNonImportantViews) {
         AccessibilityServiceInfo serviceInfo = sUiAutomation.getServiceInfo();

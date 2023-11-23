@@ -41,3 +41,15 @@ enum Foo : Bar {
 enum FooToo : Foo {
     D
 };
+
+struct A {
+    struct B {
+        string b;
+    };
+
+    // empty struct to test nested-type compilation
+};
+
+struct C {
+    vec<A.B> b;
+};

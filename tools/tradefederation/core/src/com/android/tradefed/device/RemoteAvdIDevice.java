@@ -27,4 +27,8 @@ public class RemoteAvdIDevice extends TcpDevice {
     public RemoteAvdIDevice(String serial) {
         super(serial);
     }
+
+    public RemoteAvdIDevice(String serial, String knowDeviceIp) {
+        super(serial, knowDeviceIp);
+    }
 }

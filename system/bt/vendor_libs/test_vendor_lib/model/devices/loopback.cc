@@ -14,47 +14,33 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "loopback"
-
 #include "loopback.h"
 
 #include "le_advertisement.h"
 #include "model/setup/device_boutique.h"
-#include "osi/include/log.h"
+#include "os/log.h"
 
 using std::vector;
 
 namespace test_vendor_lib {
 
-bool Loopback::registered_ = DeviceBoutique::Register(LOG_TAG, &Loopback::Create);
+bool Loopback::registered_ = DeviceBoutique::Register("loopback", &Loopback::Create);
 
 Loopback::Loopback() {
   advertising_interval_ms_ = std::chrono::milliseconds(1280);
-  properties_.SetLeAdvertisementType(BTM_BLE_NON_CONNECT_EVT);
-  properties_.SetLeAdvertisement({0x11,  // Length
-                                  BTM_BLE_AD_TYPE_NAME_CMPL,
-                                  'g',
-                                  'D',
-                                  'e',
-                                  'v',
-                                  'i',
-                                  'c',
-                                  'e',
-                                  '-',
-                                  'l',
-                                  'o',
-                                  'o',
-                                  'p',
-                                  'b',
-                                  'a',
-                                  'c',
-                                  'k',
-                                  0x02,  // Length
-                                  BTM_BLE_AD_TYPE_FLAG,
-                                  BTM_BLE_BREDR_NOT_SPT | BTM_BLE_GEN_DISC_FLAG});
+  properties_.SetLeAdvertisementType(0x03);  // NON_CONNECT
+  properties_.SetLeAdvertisement({
+      0x11,  // Length
+      0x09,  // NAME_CMPL
+      'g',         'D', 'e', 'v', 'i', 'c', 'e', '-', 'l', 'o', 'o', 'p', 'b', 'a', 'c', 'k',
+      0x02,         // Length
+      0x01,         // TYPE_FLAG
+      0x04 | 0x02,  // BREDR_NOT_SPT | GEN_DISC
+  });
 
   properties_.SetLeScanResponse({0x05,  // Length
-                                 BTM_BLE_AD_TYPE_NAME_SHORT, 'l', 'o', 'o', 'p'});
+                                 0x08,  // NAME_SHORT
+                                 'l', 'o', 'o', 'p'});
 }
 
 std::string Loopback::GetTypeString() const {
@@ -80,18 +66,22 @@ void Loopback::Initialize(const vector<std::string>& args) {
 
 void Loopback::TimerTick() {}
 
-void Loopback::IncomingPacket(packets::LinkLayerPacketView packet) {
-  LOG_INFO(LOG_TAG, "Got a packet of type %d", static_cast<int>(packet.GetType()));
-  if (packet.GetDestinationAddress() == properties_.GetLeAddress() && packet.GetType() == Link::PacketType::LE_SCAN) {
-    LOG_INFO(LOG_TAG, "Got a scan");
-    std::unique_ptr<packets::LeAdvertisementBuilder> scan_response = packets::LeAdvertisementBuilder::Create(
-        LeAdvertisement::AddressType::PUBLIC, LeAdvertisement::AdvertisementType::SCAN_RESPONSE,
+void Loopback::IncomingPacket(model::packets::LinkLayerPacketView packet) {
+  LOG_INFO("Got a packet of type %d", static_cast<int>(packet.GetType()));
+  if (packet.GetDestinationAddress() == properties_.GetLeAddress() &&
+      packet.GetType() == model::packets::PacketType::LE_SCAN) {
+    LOG_INFO("Got a scan");
+
+    auto scan_response = model::packets::LeScanResponseBuilder::Create(
+        properties_.GetLeAddress(), packet.GetSourceAddress(),
+        model::packets::AddressType::PUBLIC,
+        model::packets::AdvertisementType::SCAN_RESPONSE,
         properties_.GetLeScanResponse());
-    std::shared_ptr<packets::LinkLayerPacketBuilder> to_send = packets::LinkLayerPacketBuilder::WrapLeScanResponse(
-        std::move(scan_response), properties_.GetLeAddress(), packet.GetSourceAddress());
-    std::vector<std::shared_ptr<PhyLayer>> le_phys = phy_layers_[Phy::Type::LOW_ENERGY];
-    for (auto phy : le_phys) {
-      LOG_INFO(LOG_TAG, "Sending a Scan Response on a Phy");
+    std::shared_ptr<model::packets::LinkLayerPacketBuilder> to_send =
+        std::move(scan_response);
+
+    for (auto phy : phy_layers_[Phy::Type::LOW_ENERGY]) {
+      LOG_INFO("Sending a Scan Response on a Phy");
       phy->Send(to_send);
     }
   }

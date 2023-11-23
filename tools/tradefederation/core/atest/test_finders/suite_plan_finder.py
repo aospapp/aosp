@@ -105,7 +105,8 @@ class SuitePlanFinder(test_finder_base.TestFinderBase):
             suite_path: A string of the path to the test's file or dir.
 
         Returns:
-            A populated TestInfo namedtuple if test found, else None.
+            A list of populated TestInfo namedtuple if test found, else None.
+            This is a list with at most 1 element.
         """
         path, _ = test_finder_utils.split_methods(suite_path)
         # Make sure we're looking for a config.
@@ -116,7 +117,7 @@ class SuitePlanFinder(test_finder_base.TestFinderBase):
             path, self.suite_plan_dirs)
         if suite_plan_dir:
             rel_config = os.path.relpath(path, self.root_dir)
-            return self._get_test_info_from_path(rel_config)
+            return [self._get_test_info_from_path(rel_config)]
         return None
 
     def find_test_by_suite_name(self, suite_name):
@@ -133,19 +134,25 @@ class SuitePlanFinder(test_finder_base.TestFinderBase):
             suite_name: A string of suite name.
 
         Returns:
-            A populated TestInfo namedtuple if suite_name matches
+            A list of populated TestInfo namedtuple if suite_name matches
             a suite in constants.SUITE_PLAN, else check if the file
             existing in the suite plan dirs, else return None.
         """
         logging.debug('Finding test by suite: %s', suite_name)
+        test_infos = []
         if suite_name in constants.SUITE_PLANS:
-            return test_info.TestInfo(
+            test_infos.append(test_info.TestInfo(
                 test_name=suite_name,
                 test_runner=self._SUITE_PLAN_TEST_RUNNER,
                 build_targets=set([suite_name]),
-                suite=suite_name)
-        test_file = test_finder_utils.search_integration_dirs(
-            suite_name, self.suite_plan_dirs)
-        if test_file is None:
-            return None
-        return self._get_test_info_from_path(test_file, suite_name)
+                suite=suite_name))
+        else:
+            test_files = test_finder_utils.search_integration_dirs(
+                suite_name, self.suite_plan_dirs)
+            if not test_files:
+                return None
+            for test_file in test_files:
+                _test_info = self._get_test_info_from_path(test_file, suite_name)
+                if _test_info:
+                    test_infos.append(_test_info)
+        return test_infos

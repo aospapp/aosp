@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef NATIVEHELPER_ALOGPRIV_H_
-#define NATIVEHELPER_ALOGPRIV_H_
+#ifndef LIBNATIVEHELPER_ALOG_PRIV_H_
+#define LIBNATIVEHELPER_ALOG_PRIV_H_
 
 #include <android/log.h>
 
@@ -73,4 +73,4 @@
     if (cond) __android_log_assert(#cond, LOG_TAG, __VA_ARGS__)
 #endif
 
-#endif  // NATIVEHELPER_ALOGPRIV_H_
+#endif  // LIBNATIVEHELPER_ALOG_PRIV_H_

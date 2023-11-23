@@ -21,32 +21,19 @@
 
 #include <android/hardware/dumpstate/1.0/IDumpstateDevice.h>
 #include <cutils/native_handle.h>
+#include <gtest/gtest.h>
+#include <hidl/GtestPrinter.h>
+#include <hidl/ServiceManagement.h>
 #include <log/log.h>
-
-#include <VtsHalHidlTargetTestBase.h>
-#include <VtsHalHidlTargetTestEnvBase.h>
 
 using ::android::hardware::dumpstate::V1_0::IDumpstateDevice;
 using ::android::hardware::Return;
 using ::android::sp;
 
-// Test environment for Dumpstate HIDL HAL.
-class DumpstateHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
-   public:
-    // get the test environment singleton
-    static DumpstateHidlEnvironment* Instance() {
-        static DumpstateHidlEnvironment* instance = new DumpstateHidlEnvironment;
-        return instance;
-    }
-
-    virtual void registerTestServices() override { registerTestService<IDumpstateDevice>(); }
-};
-
-class DumpstateHidlTest : public ::testing::VtsHalHidlTargetTestBase {
-   public:
+class DumpstateHidlTest : public ::testing::TestWithParam<std::string> {
+  public:
     virtual void SetUp() override {
-        dumpstate = ::testing::VtsHalHidlTargetTestBase::getService<IDumpstateDevice>(
-            DumpstateHidlEnvironment::Instance()->getServiceName<IDumpstateDevice>());
+        dumpstate = IDumpstateDevice::getService(GetParam());
         ASSERT_NE(dumpstate, nullptr) << "Could not get HIDL instance";
     }
 
@@ -54,14 +41,14 @@ class DumpstateHidlTest : public ::testing::VtsHalHidlTargetTestBase {
 };
 
 // Negative test: make sure dumpstateBoard() doesn't crash when passed a null pointer.
-TEST_F(DumpstateHidlTest, TestNullHandle) {
+TEST_P(DumpstateHidlTest, TestNullHandle) {
     Return<void> status = dumpstate->dumpstateBoard(nullptr);
 
     ASSERT_TRUE(status.isOk()) << "Status should be ok: " << status.description();
 }
 
 // Negative test: make sure dumpstateBoard() ignores a handle with no FD.
-TEST_F(DumpstateHidlTest, TestHandleWithNoFd) {
+TEST_P(DumpstateHidlTest, TestHandleWithNoFd) {
     native_handle_t* handle = native_handle_create(0, 0);
     ASSERT_NE(handle, nullptr) << "Could not create native_handle";
 
@@ -74,7 +61,7 @@ TEST_F(DumpstateHidlTest, TestHandleWithNoFd) {
 }
 
 // Positive test: make sure dumpstateBoard() writes something to the FD.
-TEST_F(DumpstateHidlTest, TestOk) {
+TEST_P(DumpstateHidlTest, TestOk) {
     // Index 0 corresponds to the read end of the pipe; 1 to the write end.
     int fds[2];
     ASSERT_EQ(0, pipe2(fds, O_NONBLOCK)) << errno;
@@ -91,10 +78,11 @@ TEST_F(DumpstateHidlTest, TestOk) {
     ASSERT_EQ(1, read(fds[0], &buff, 1)) << "dumped nothing";
 
     native_handle_close(handle);
+    native_handle_delete(handle);
 }
 
 // Positive test: make sure dumpstateBoard() doesn't crash with two FDs.
-TEST_F(DumpstateHidlTest, TestHandleWithTwoFds) {
+TEST_P(DumpstateHidlTest, TestHandleWithTwoFds) {
     int fds1[2];
     int fds2[2];
     ASSERT_EQ(0, pipe2(fds1, O_NONBLOCK)) << errno;
@@ -109,13 +97,10 @@ TEST_F(DumpstateHidlTest, TestHandleWithTwoFds) {
     ASSERT_TRUE(status.isOk()) << "Status should be ok: " << status.description();
 
     native_handle_close(handle);
+    native_handle_delete(handle);
 }
 
-int main(int argc, char** argv) {
-    ::testing::AddGlobalTestEnvironment(DumpstateHidlEnvironment::Instance());
-    ::testing::InitGoogleTest(&argc, argv);
-    DumpstateHidlEnvironment::Instance()->init(&argc, argv);
-    int status = RUN_ALL_TESTS();
-    ALOGI("Test result = %d", status);
-    return status;
-}
+INSTANTIATE_TEST_SUITE_P(
+        PerInstance, DumpstateHidlTest,
+        testing::ValuesIn(android::hardware::getAllHalInstanceNames(IDumpstateDevice::descriptor)),
+        android::hardware::PrintInstanceNameToString);

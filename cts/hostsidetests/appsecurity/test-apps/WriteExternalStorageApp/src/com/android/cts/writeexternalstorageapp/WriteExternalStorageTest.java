@@ -16,12 +16,8 @@
 
 package com.android.cts.writeexternalstorageapp;
 
-import static android.test.MoreAsserts.assertNotEqual;
-
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_NONE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.TAG;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirNoWriteAccess;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirReadOnlyAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirReadWriteAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.buildCommonChildDirs;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.buildProbeFile;
@@ -34,11 +30,10 @@ import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readI
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.writeInt;
 
 import android.os.Environment;
-import android.os.SystemClock;
+import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.system.Os;
 import android.test.AndroidTestCase;
-import android.text.format.DateUtils;
 import android.util.Log;
 
 import com.android.cts.externalstorageapp.CommonExternalStorageTest;
@@ -90,15 +85,25 @@ public class WriteExternalStorageTest extends AndroidTestCase {
     }
 
     public void testWriteExternalStorage() throws Exception {
-        final long testValue = 12345000;
+        final long newTimeMillis = 12345000;
         assertExternalStorageMounted();
 
         // Write a value and make sure we can read it back
         writeInt(TEST_FILE, 32);
         assertEquals(readInt(TEST_FILE), 32);
 
-        assertTrue("Must be able to set last modified", TEST_FILE.setLastModified(testValue));
-        assertEquals(testValue, TEST_FILE.lastModified());
+        assertTrue("Must be able to set last modified", TEST_FILE.setLastModified(newTimeMillis));
+
+        // This uses the same fd, so info is cached by VFS.
+        assertEquals(newTimeMillis, TEST_FILE.lastModified());
+
+        // Obtain a new fd, using the low FS and check timestamp on it.
+        ParcelFileDescriptor fd =
+                getContext().getContentResolver().openFileDescriptor(
+                        MediaStore.scanFile(getContext().getContentResolver(), TEST_FILE), "rw");
+
+        long newTimeSeconds = newTimeMillis / 1000;
+        assertEquals(newTimeSeconds, Os.fstat(fd.getFileDescriptor()).st_mtime);
     }
 
     public void testWriteExternalStorageDirs() throws Exception {
@@ -109,7 +114,13 @@ public class WriteExternalStorageTest extends AndroidTestCase {
         assertFalse(probe.exists());
         assertTrue(probe.mkdirs());
 
-        assertDirReadWriteAccess(probe);
+        try {
+            assertDirReadWriteAccess(probe);
+        }
+        finally {
+            probe.delete();
+            assertFalse(probe.exists());
+        }
     }
 
     /**
@@ -154,27 +165,12 @@ public class WriteExternalStorageTest extends AndroidTestCase {
 
             assertTrue(path.getAbsolutePath().contains(packageName));
 
-            // Walk until we leave device, writing the whole way
-            while (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(path))) {
+            // Walk until we reach package specific directory.
+            while (path.getAbsolutePath().contains(packageName)) {
                 assertDirReadWriteAccess(path);
                 path = path.getParentFile();
             }
         }
-    }
-
-    /**
-     * Verify that we have write access in other packages on primary external
-     * storage.
-     */
-    public void testPrimaryOtherPackageWriteAccess() throws Exception {
-        final File ourCache = getContext().getExternalCacheDir();
-        final File otherCache = new File(ourCache.getAbsolutePath()
-                .replace(getContext().getPackageName(), PACKAGE_NONE));
-        deleteContents(otherCache);
-        otherCache.delete();
-
-        assertTrue(otherCache.mkdirs());
-        assertDirReadWriteAccess(otherCache);
     }
 
     /**
@@ -183,16 +179,20 @@ public class WriteExternalStorageTest extends AndroidTestCase {
     public void testMountStatusWalkingUpTree() {
         final File top = Environment.getExternalStorageDirectory();
         File path = getContext().getExternalCacheDir();
+        final String packageName = getContext().getPackageName();
 
         int depth = 0;
         while (depth++ < 32) {
-            assertDirReadWriteAccess(path);
-            assertEquals(Environment.MEDIA_MOUNTED, Environment.getExternalStorageState(path));
-
+            // Check read&write access for only package specific directories. We might not have
+            // read/write access for directories like /storage/emulated/0/Android and
+            // /storage/emulated/0/Android/<data|media|obb>.
+            if (path.getAbsolutePath().contains(packageName)) {
+                assertDirReadWriteAccess(path);
+                assertEquals(Environment.MEDIA_MOUNTED, Environment.getExternalStorageState(path));
+            }
             if (path.getAbsolutePath().equals(top.getAbsolutePath())) {
                 break;
             }
-
             path = path.getParentFile();
         }
 
@@ -219,9 +219,10 @@ public class WriteExternalStorageTest extends AndroidTestCase {
 
     /**
      * Verify that we have write access in our package-specific directories on
-     * secondary storage devices, but it becomes read-only access above them.
+     * secondary storage devices, and it still has read-write access above them (except
+     * /Android/[data|obb] dirs).
      */
-    public void testSecondaryWalkingUpTreeReadOnly() throws Exception {
+    public void testSecondaryWalkingUpTreeReadWrite() throws Exception {
         final List<File> paths = getSecondaryPackageSpecificPaths(getContext());
         final String packageName = getContext().getPackageName();
 
@@ -241,11 +242,18 @@ public class WriteExternalStorageTest extends AndroidTestCase {
             // Walk all the way up to root
             while (path != null) {
                 if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(path))) {
-                    assertDirReadOnlyAccess(path);
+                    // /Android/data and /Android/obb is not write accessible on any volume
+                    // (/storage/emulated/<user_id>/ or /storage/1234-ABCD/)
+                    if (path.getAbsolutePath().endsWith("/Android/data")
+                            || path.getAbsolutePath().endsWith("/Android/obb")) {
+                        assertDirNoWriteAccess(path);
+                    } else {
+                        assertDirReadWriteAccess(path);
+                    }
                 } else {
                     assertDirNoWriteAccess(path);
+                    assertDirNoWriteAccess(buildCommonChildDirs(path));
                 }
-                assertDirNoWriteAccess(buildCommonChildDirs(path));
                 path = path.getParentFile();
             }
         }
@@ -261,7 +269,7 @@ public class WriteExternalStorageTest extends AndroidTestCase {
         final List<File> paths = getAllPackageSpecificPathsExceptMedia(getContext());
 
         for (File path : paths) {
-            MediaStore.scanFile(getContext(), path);
+            MediaStore.scanFile(getContext().getContentResolver(), path);
         }
 
         // Require that .nomedia was created somewhere above each dir
@@ -290,11 +298,11 @@ public class WriteExternalStorageTest extends AndroidTestCase {
     }
 
     /**
-     * Secondary external storage mount points must always be read-only, per
+     * Secondary external storage mount points must always be read-only (unless mounted), per
      * CDD, <em>except</em> for the package specific directories tested by
      * {@link CommonExternalStorageTest#testAllPackageDirsWritable()}.
      */
-    public void testSecondaryMountPointsNotWritable() throws Exception {
+    public void testSecondaryMountPoints() throws Exception {
         // Probe path could be /storage/emulated/0 or /storage/1234-5678
         final File probe = buildProbeFile(Environment.getExternalStorageDirectory());
         assertTrue(probe.createNewFile());
@@ -312,40 +320,22 @@ public class WriteExternalStorageTest extends AndroidTestCase {
             if (testProbe.exists() || testUserProbe.exists()) {
                 Log.d(TAG, "Primary external mountpoint " + path);
             } else {
-                // This mountpoint is not primary external storage; we must
-                // not be able to write.
                 Log.d(TAG, "Other mountpoint " + path);
-                assertDirNoWriteAccess(path);
-                assertDirNoWriteAccess(userPath);
+                if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(path))) {
+                    if (path.getAbsolutePath().endsWith("/Android/data")
+                            || path.getAbsolutePath().endsWith("/Android/obb")) {
+                        assertDirNoWriteAccess(path);
+                    } else {
+                        assertDirReadWriteAccess(path);
+                        assertDirReadWriteAccess(buildCommonChildDirs(path));
+                    }
+                }
+                else {
+                    assertDirNoWriteAccess(path);
+                    assertDirNoWriteAccess(userPath);
+                }
             }
         }
-    }
-
-    /**
-     * Verify that moving around package-specific directories causes permissions
-     * to be updated.
-     */
-    public void testMovePackageSpecificPaths() throws Exception {
-        final File before = getContext().getExternalCacheDir();
-        final File beforeFile = new File(before, "test.probe");
-        assertTrue(beforeFile.createNewFile());
-        assertEquals(Os.getuid(), Os.stat(before.getAbsolutePath()).st_uid);
-        assertEquals(Os.getuid(), Os.stat(beforeFile.getAbsolutePath()).st_uid);
-
-        final File after = new File(before.getAbsolutePath()
-                .replace(getContext().getPackageName(), "com.example.does.not.exist"));
-        final File afterParent = after.getParentFile();
-        afterParent.mkdirs();
-        deleteContents(afterParent);
-
-        Os.rename(before.getAbsolutePath(), after.getAbsolutePath());
-
-        // Sit around long enough for VFS cache to expire
-        SystemClock.sleep(15 * DateUtils.SECOND_IN_MILLIS);
-
-        final File afterFile = new File(after, "test.probe");
-        assertNotEqual(Os.getuid(), Os.stat(after.getAbsolutePath()).st_uid);
-        assertNotEqual(Os.getuid(), Os.stat(afterFile.getAbsolutePath()).st_uid);
     }
 
     public void testExternalStorageRename() throws Exception {
@@ -370,7 +360,9 @@ public class WriteExternalStorageTest extends AndroidTestCase {
             final File after = new File(next, name);
 
             Log.v(TAG, "Moving " + before + " to " + after);
-            Os.rename(before.getAbsolutePath(), after.getAbsolutePath());
+            // Os.rename will fail with EXDEV here, use renameTo which does copy delete behind the
+            // scenes
+            before.renameTo(after);
 
             cur = next;
         }

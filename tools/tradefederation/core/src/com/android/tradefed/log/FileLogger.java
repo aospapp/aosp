@@ -15,9 +15,7 @@
  */
 package com.android.tradefed.log;
 
-import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.config.Option;
-import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
@@ -26,46 +24,20 @@ import com.android.tradefed.result.SnapshotInputStreamSource;
 import com.android.tradefed.util.SizeLimitedOutputStream;
 import com.android.tradefed.util.StreamUtil;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
 
 /** A {@link ILeveledLogOutput} that directs log messages to a file and to stdout. */
 @OptionClass(alias = "file")
-public class FileLogger extends BaseLeveledLogOutput {
+public class FileLogger extends BaseStreamLogger<SizeLimitedOutputStream> {
     private static final String TEMP_FILE_PREFIX = "tradefed_log_";
     private static final String TEMP_FILE_SUFFIX = ".txt";
-
-    /**
-     * Map of log tag to a level they are forced at for writing to log file purpose. This ensure
-     * that some logs we have less control over can still be regulated.
-     */
-    private static final Map<String, LogLevel> FORCED_LOG_LEVEL = new HashMap<>();
-
-    static {
-        FORCED_LOG_LEVEL.put("ddms", LogLevel.WARN);
-    }
-
-    @Option(name = "log-level", description = "the minimum log level to log.")
-    private LogLevel mLogLevel = LogLevel.DEBUG;
-
-    @Option(name = "log-level-display", shortName = 'l',
-            description = "the minimum log level to display on stdout.",
-            importance = Importance.ALWAYS)
-    private LogLevel mLogLevelDisplay = LogLevel.ERROR;
 
     @Option(name = "max-log-size", description = "maximum allowable size of tmp log data in mB.")
     private long mMaxLogSizeMbytes = 20;
 
-    private SizeLimitedOutputStream mLogStream;
-
-    public FileLogger() {
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void init() throws IOException {
         init(TEMP_FILE_PREFIX, TEMP_FILE_SUFFIX);
@@ -78,7 +50,7 @@ public class FileLogger extends BaseLeveledLogOutput {
      * @param fileSuffix the extension of the file where to log.
      */
     protected void init(String logPrefix, String fileSuffix) {
-        mLogStream =
+        mOutputStream =
                 new SizeLimitedOutputStream(mMaxLogSizeMbytes * 1024 * 1024, logPrefix, fileSuffix);
     }
 
@@ -95,104 +67,18 @@ public class FileLogger extends BaseLeveledLogOutput {
         return logger;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void printAndPromptLog(LogLevel logLevel, String tag, String message) {
-        internalPrintLog(logLevel, tag, message, true /* force print to stdout */);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void printLog(LogLevel logLevel, String tag, String message) {
-        internalPrintLog(logLevel, tag, message, false /* don't force stdout */);
-    }
-
-    /**
-     * A version of printLog(...) which can be forced to print to stdout, even if the log level
-     * isn't above the urgency threshold.
-     */
-    private void internalPrintLog(LogLevel logLevel, String tag, String message,
-            boolean forceStdout) {
-        String outMessage = LogUtil.getLogFormatString(logLevel, tag, message);
-        if (shouldDisplay(forceStdout, mLogLevelDisplay, logLevel, tag)) {
-            System.out.print(outMessage);
-        }
-        try {
-            if (shouldWrite(tag, logLevel, mLogLevel)) {
-                writeToLog(outMessage);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Writes given message to log.
-     * <p/>
-     * Exposed for unit testing.
-     *
-     * @param outMessage the entry to write to log
-     * @throws IOException
-     */
-    void writeToLog(String outMessage) throws IOException {
-        if (mLogStream != null) {
-            mLogStream.write(outMessage.getBytes());
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public LogLevel getLogLevel() {
-        return mLogLevel;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setLogLevel(LogLevel logLevel) {
-        mLogLevel = logLevel;
-    }
-
-    /**
-     * Sets the log level filtering for stdout.
-     *
-     * @param logLevel the minimum {@link LogLevel} to display
-     */
-    public void setLogLevelDisplay(LogLevel logLevel) {
-        mLogLevelDisplay = logLevel;
-    }
-
-    /**
-     * Gets the log level filtering for stdout.
-     *
-     * @return the current {@link LogLevel}
-     */
-    LogLevel getLogLevelDisplay() {
-        return mLogLevelDisplay;
-    }
-
     /** Returns the max log size of the log in MBytes. */
     public long getMaxLogSizeMbytes() {
         return mMaxLogSizeMbytes;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public InputStreamSource getLog() {
-        if (mLogStream != null) {
+        if (mOutputStream != null) {
             try {
                 // create a InputStream from log file
-                mLogStream.flush();
-                return new SnapshotInputStreamSource("FileLogger", mLogStream.getData());
+                mOutputStream.flush();
+                return new SnapshotInputStreamSource("FileLogger", mOutputStream.getData());
             } catch (IOException e) {
                 System.err.println("Failed to get log");
                 e.printStackTrace();
@@ -201,22 +87,16 @@ public class FileLogger extends BaseLeveledLogOutput {
         return new ByteArrayInputStreamSource(new byte[0]);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void closeLog() {
         doCloseLog();
     }
 
-    /**
-     * Flushes stream and closes log file.
-     * <p/>
-     * Exposed for unit testing.
-     */
+    /** Flushes stream and closes log file. */
+    @VisibleForTesting
     void doCloseLog() {
-        SizeLimitedOutputStream stream = mLogStream;
-        mLogStream = null;
+        SizeLimitedOutputStream stream = mOutputStream;
+        mOutputStream = null;
         StreamUtil.flushAndCloseStream(stream);
         if (stream != null) {
             stream.delete();
@@ -226,26 +106,12 @@ public class FileLogger extends BaseLeveledLogOutput {
     /**
      * Dump the contents of the input stream to this log
      *
-     * @param inputStream
-     * @throws IOException
+     * @param inputStream input stream to dump
+     * @throws IOException if an I/O error occurs
      */
     void dumpToLog(InputStream inputStream) throws IOException {
-        if (mLogStream != null) {
-            StreamUtil.copyStreams(inputStream, mLogStream);
+        if (mOutputStream != null) {
+            StreamUtil.copyStreams(inputStream, mOutputStream);
         }
-    }
-
-    private boolean shouldWrite(String tag, LogLevel messageLogLevel, LogLevel invocationLogLevel) {
-        LogLevel forcedLevel = FORCED_LOG_LEVEL.get(tag);
-        if (forcedLevel == null) {
-            return true;
-        }
-        // Use the highest level of our forced and invocation to decide if we should log the
-        // particular tag.
-        int minWriteLevel = Math.max(forcedLevel.getPriority(), invocationLogLevel.getPriority());
-        if (messageLogLevel.getPriority() >= minWriteLevel) {
-            return true;
-        }
-        return false;
     }
 }

@@ -15,7 +15,7 @@
  */
 package android.car.cts;
 
-import static org.junit.Assert.assertNotNull;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.car.Car;
 import android.car.CarInfoManager;
@@ -26,15 +26,14 @@ import android.car.VehicleAreaSeat;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import static com.google.common.truth.Truth.assertThat;
 import androidx.test.runner.AndroidJUnit4;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Arrays;
+import java.util.List;
 
 @SmallTest
 @RequiresDevice
@@ -55,22 +54,24 @@ public class CarInfoManagerTest extends CarApiTestBase {
 
     @Test
     public void testVehicleId() throws Exception {
-        assertNotNull(mCarInfoManager.getVehicleId());
+        // Not support to get vehicle Id.
+        assertThat(mCarInfoManager.getVehicleId()).isEmpty();
     }
 
     @Test
     public void testGetManufacturer() throws Exception {
-        assertNotNull(mCarInfoManager.getManufacturer());
+        assertThat(mCarInfoManager.getManufacturer()).isNotNull();;
     }
 
     @Test
     public void testGetModel() throws Exception {
-        assertNotNull(mCarInfoManager.getModel());
+        assertThat(mCarInfoManager.getModel()).isNotNull();
     }
 
     @Test
     public void testGetModelYear() throws Exception {
-        assertNotNull(mCarInfoManager.getModelYear());
+        assertThat(mCarInfoManager.getModelYear()).isNotNull();
+        assertThat(mCarInfoManager.getModelYearInInteger()).isAtLeast(0);
     }
 
     @Test
@@ -84,15 +85,10 @@ public class CarInfoManagerTest extends CarApiTestBase {
      */
     @Test
     public void testGetFuelTypes() throws Exception {
-        assertNotNull(mCarInfoManager.getFuelTypes());
-
+        assertThat(mCarInfoManager.getFuelTypes()).isNotNull();
         int[] actualResults = mCarInfoManager.getFuelTypes();
-        List<Integer> expectedResults =
-            Arrays.asList(FuelType.UNKNOWN, FuelType.UNLEADED, FuelType.LEADED, FuelType.DIESEL_1,
-                FuelType.DIESEL_2, FuelType.BIODIESEL, FuelType.E85, FuelType.LPG, FuelType.CNG,
-                FuelType.LNG, FuelType.ELECTRIC, FuelType.HYDROGEN, FuelType.OTHER);
         for (int result : actualResults) {
-            assertThat(expectedResults).contains(result);
+            assertThat(result).isIn(EXPECTED_FUEL_TYPES);
         }
 
     }
@@ -109,7 +105,7 @@ public class CarInfoManagerTest extends CarApiTestBase {
      */
     @Test
     public void testGetEvConnectorTypes() throws Exception {
-        assertNotNull(mCarInfoManager.getEvConnectorTypes());
+        assertThat(mCarInfoManager.getEvConnectorTypes()).isNotNull();
 
         int[] actualResults = mCarInfoManager.getEvConnectorTypes();
         List<Integer> expectedResults =
@@ -120,7 +116,7 @@ public class CarInfoManagerTest extends CarApiTestBase {
                 SCAME, GBT_DC);
 
         for (int result : actualResults) {
-            assertThat(expectedResults).contains(result);
+            assertThat(result).isIn(expectedResults);
         }
     }
 
@@ -136,7 +132,7 @@ public class CarInfoManagerTest extends CarApiTestBase {
                 VehicleAreaSeat.SEAT_ROW_2_LEFT, VehicleAreaSeat.SEAT_ROW_2_CENTER,
                 VehicleAreaSeat.SEAT_ROW_2_RIGHT, VehicleAreaSeat.SEAT_ROW_3_LEFT,
                 VehicleAreaSeat.SEAT_ROW_3_CENTER, VehicleAreaSeat.SEAT_ROW_1_RIGHT);
-        assertThat(expectedResult).contains(mCarInfoManager.getDriverSeat());
+        assertThat(mCarInfoManager.getDriverSeat()).isIn(expectedResult);
     }
 
     /**
@@ -145,11 +141,7 @@ public class CarInfoManagerTest extends CarApiTestBase {
      */
     @Test
     public void testGetEvPortLocation() throws Exception {
-        List<Integer> expectedResult =
-            Arrays.asList(PortLocationType.UNKNOWN, PortLocationType.FRONT_LEFT,
-                PortLocationType.FRONT_RIGHT, PortLocationType.REAR_RIGHT,
-                PortLocationType.REAR_LEFT, PortLocationType.FRONT, PortLocationType.REAR);
-        assertThat(expectedResult).contains(mCarInfoManager.getEvPortLocation());
+        assertThat(mCarInfoManager.getEvPortLocation()).isIn(EXPECTED_PORT_LOCATIONS);
     }
 
     /**
@@ -158,10 +150,6 @@ public class CarInfoManagerTest extends CarApiTestBase {
      */
     @Test
     public void testGetFuelDoorLocation() throws Exception {
-        List<Integer> expectedResult =
-            Arrays.asList(PortLocationType.UNKNOWN, PortLocationType.FRONT_LEFT,
-                        PortLocationType.FRONT_RIGHT, PortLocationType.REAR_RIGHT,
-                        PortLocationType.REAR_LEFT, PortLocationType.FRONT, PortLocationType.REAR);
-        assertThat(expectedResult).contains(mCarInfoManager.getFuelDoorLocation());
+        assertThat(mCarInfoManager.getFuelDoorLocation()).isIn(EXPECTED_PORT_LOCATIONS);
     }
 }

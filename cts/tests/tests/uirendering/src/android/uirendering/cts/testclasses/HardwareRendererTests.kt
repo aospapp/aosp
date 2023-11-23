@@ -223,7 +223,7 @@ class HardwareRendererTests : ActivityTestBase() {
             assertNotNull(buffer)
             Log.d("HardwareRenderer", "buffer usage bits: " +
                     java.lang.Long.toHexString(buffer.usage))
-            val bitmap = Bitmap.wrapHardwareBuffer(buffer, null)
+            val bitmap = Bitmap.wrapHardwareBuffer(buffer, null)!!
                 .copy(Bitmap.Config.ARGB_8888, false)
 
             assertEquals(TEST_WIDTH, bitmap.width)

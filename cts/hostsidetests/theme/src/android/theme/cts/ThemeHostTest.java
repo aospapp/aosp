@@ -295,7 +295,7 @@ public class ThemeHostTest extends DeviceTestCase {
 
     private static int getDensityForDevice(ITestDevice device) throws DeviceNotAvailableException {
         final String densityProp;
-        if (device.getSerialNumber().startsWith("emulator-")) {
+        if (isEmulator(device)) {
             densityProp = DENSITY_PROP_EMULATOR;
         } else {
             densityProp = DENSITY_PROP_DEVICE;
@@ -307,5 +307,10 @@ public class ThemeHostTest extends DeviceTestCase {
         return hardwareTypeString.contains("android.hardware.type.watch")
                 || hardwareTypeString.contains("android.hardware.type.television")
                 || hardwareTypeString.contains("android.hardware.type.automotive");
+    }
+
+    private static boolean isEmulator(ITestDevice device) {
+        // Expecting something like "emulator-XXXX" or "EMULATORXXXX".
+        return device.getSerialNumber().toLowerCase().startsWith("emulator");
     }
 }

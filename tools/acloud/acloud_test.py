@@ -21,6 +21,7 @@ import os
 import sys
 import unittest
 
+
 # Needed to silence oauth2client.
 # This is a workaround to get rid of below warning message:
 # 'No handlers could be found for logger "oauth2client.contrib.multistore_file'

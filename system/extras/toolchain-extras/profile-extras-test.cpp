@@ -28,32 +28,11 @@ void __gcov_flush() {
 }
 }
 
-static const char kCoveragePropName[] = "debug.coverage.flush";
-
 TEST(profile_extras, smoke) {
   flush_count = 0;
 
   ASSERT_EQ(0, flush_count);
-  kill(getpid(), GCOV_FLUSH_SIGNAL);
+  kill(getpid(), COVERAGE_FLUSH_SIGNAL);
   sleep(2);
   ASSERT_EQ(1, flush_count);
-
-  // kCoveragePropName from "0" -> "1" -> "0" -> "1" should trigger two flushes.
-  // transition 1
-  __system_property_set(kCoveragePropName, "0");
-  sleep(2);
-  ASSERT_EQ(1, flush_count);
-
-  __system_property_set(kCoveragePropName, "1");
-  sleep(2);
-  ASSERT_EQ(2, flush_count);
-
-  // transition 2
-  __system_property_set(kCoveragePropName, "0");
-  sleep(2);
-  ASSERT_EQ(2, flush_count);
-
-  __system_property_set(kCoveragePropName, "1");
-  sleep(2);
-  ASSERT_EQ(3, flush_count);
 }

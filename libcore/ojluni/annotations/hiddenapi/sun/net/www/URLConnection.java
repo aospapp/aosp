@@ -25,12 +25,10 @@
 
 package sun.net.www;
 
-import java.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class URLConnection extends java.net.URLConnection {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public URLConnection(java.net.URL u) {
         super(null);
         throw new RuntimeException("Stub!");
@@ -40,7 +38,7 @@ public abstract class URLConnection extends java.net.URLConnection {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void setProperties(sun.net.www.MessageHeader properties) {
         throw new RuntimeException("Stub!");
     }

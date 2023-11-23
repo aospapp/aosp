@@ -32,8 +32,11 @@ import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -167,12 +170,10 @@ public class TestMappingTest {
             assertEquals(0, tests.size());
 
             tests = TestMapping.getTests(mockBuildInfo, "presubmit", true, null);
-            assertEquals(1, tests.size());
+            assertEquals(2, tests.size());
             Set<String> names = new HashSet<String>();
             for (TestInfo test : tests) {
                 names.add(test.getName());
-                // Make sure the tests for `test1` are merged and no option is kept.
-                assertTrue(test.getOptions().isEmpty());
                 if (test.getName().equals("test1")) {
                     assertTrue(test.getHostOnly());
                 } else {
@@ -223,6 +224,93 @@ public class TestMappingTest {
             assertEquals(1, tests.size());
             assertEquals("suite/stub2", tests.iterator().next().getName());
         } finally {
+            FileUtil.recursiveDelete(tempDir);
+        }
+    }
+
+    /**
+     * Test for {@link TestMapping#getAllTestMappingPaths(Path)} to get TEST_MAPPING files from
+     * child directory.
+     */
+    @Test
+    public void testGetAllTestMappingPaths_FromChildDirectory() throws Exception {
+        File tempDir = null;
+        try {
+            tempDir = FileUtil.createTempDir("test_mapping");
+            Path testMappingsRootPath = Paths.get(tempDir.getAbsolutePath());
+            File srcDir = FileUtil.createTempDir("src", tempDir);
+            String srcFile = File.separator + TEST_DATA_DIR + File.separator + "test_mapping_1";
+            InputStream resourceStream = this.getClass().getResourceAsStream(srcFile);
+            FileUtil.saveResourceFile(resourceStream, srcDir, TEST_MAPPING);
+            File subDir = FileUtil.createTempDir("sub_dir", srcDir);
+            srcFile = File.separator + TEST_DATA_DIR + File.separator + "test_mapping_2";
+            resourceStream = this.getClass().getResourceAsStream(srcFile);
+            FileUtil.saveResourceFile(resourceStream, subDir, TEST_MAPPING);
+
+            List<String> testMappingRelativePaths = new ArrayList<>();
+            Path relPath = testMappingsRootPath.relativize(Paths.get(subDir.getAbsolutePath()));
+            testMappingRelativePaths.add(relPath.toString());
+            TestMapping.setTestMappingPaths(testMappingRelativePaths);
+            Set<Path> paths = TestMapping.getAllTestMappingPaths(testMappingsRootPath);
+            assertEquals(2, paths.size());
+        } finally {
+            TestMapping.setTestMappingPaths(new ArrayList<>());
+            FileUtil.recursiveDelete(tempDir);
+        }
+    }
+
+    /**
+     * Test for {@link TestMapping#getAllTestMappingPaths(Path)} to get TEST_MAPPING files from
+     * parent directory.
+     */
+    @Test
+    public void testGetAllTestMappingPaths_FromParentDirectory() throws Exception {
+        File tempDir = null;
+        try {
+            tempDir = FileUtil.createTempDir("test_mapping");
+            Path testMappingsRootPath = Paths.get(tempDir.getAbsolutePath());
+            File srcDir = FileUtil.createTempDir("src", tempDir);
+            String srcFile = File.separator + TEST_DATA_DIR + File.separator + "test_mapping_1";
+            InputStream resourceStream = this.getClass().getResourceAsStream(srcFile);
+            FileUtil.saveResourceFile(resourceStream, srcDir, TEST_MAPPING);
+            File subDir = FileUtil.createTempDir("sub_dir", srcDir);
+            srcFile = File.separator + TEST_DATA_DIR + File.separator + "test_mapping_2";
+            resourceStream = this.getClass().getResourceAsStream(srcFile);
+            FileUtil.saveResourceFile(resourceStream, subDir, TEST_MAPPING);
+
+            List<String> testMappingRelativePaths = new ArrayList<>();
+            Path relPath = testMappingsRootPath.relativize(Paths.get(srcDir.getAbsolutePath()));
+            testMappingRelativePaths.add(relPath.toString());
+            TestMapping.setTestMappingPaths(testMappingRelativePaths);
+            Set<Path> paths = TestMapping.getAllTestMappingPaths(testMappingsRootPath);
+            assertEquals(1, paths.size());
+        } finally {
+            TestMapping.setTestMappingPaths(new ArrayList<>());
+            FileUtil.recursiveDelete(tempDir);
+        }
+    }
+
+    /**
+     * Test for {@link TestMapping#getAllTestMappingPaths(Path)} to fail when no TEST_MAPPING files
+     * found.
+     */
+    @Test(expected = RuntimeException.class)
+    public void testGetAllTestMappingPaths_NoFilesFound() throws Exception {
+        File tempDir = null;
+        try {
+            tempDir = FileUtil.createTempDir("test_mapping");
+            Path testMappingsRootPath = Paths.get(tempDir.getAbsolutePath());
+            File srcDir = FileUtil.createTempDir("src", tempDir);
+
+            List<String> testMappingRelativePaths = new ArrayList<>();
+            Path relPath = testMappingsRootPath.relativize(Paths.get(srcDir.getAbsolutePath()));
+            testMappingRelativePaths.add(relPath.toString());
+            TestMapping.setTestMappingPaths(testMappingRelativePaths);
+            // No TEST_MAPPING files should be found according to the srcDir, getAllTestMappingPaths
+            // method shall raise RuntimeException.
+            TestMapping.getAllTestMappingPaths(testMappingsRootPath);
+        } finally {
+            TestMapping.setTestMappingPaths(new ArrayList<>());
             FileUtil.recursiveDelete(tempDir);
         }
     }
@@ -500,6 +588,37 @@ public class TestMappingTest {
             disabledTests = TestMapping.getDisabledTests(tempDirPath, "othertype");
             assertEquals(0, disabledTests.size());
 
+        } finally {
+            FileUtil.recursiveDelete(tempDir);
+        }
+    }
+
+    /** Test for {@link TestMapping#removeComments()} for removing comments in TEST_MAPPING file. */
+    @Test
+    public void testRemoveComments() throws Exception {
+        String jsonString = getJsonStringByName("test_mapping_with_comments1");
+        String goldenString = getJsonStringByName("test_mapping_golden1");
+        assertEquals(TestMapping.removeComments(jsonString), goldenString);
+    }
+
+    /** Test for {@link TestMapping#removeComments()} for removing comments in TEST_MAPPING file. */
+    @Test
+    public void testRemoveComments2() throws Exception {
+        String jsonString = getJsonStringByName("test_mapping_with_comments2");
+        String goldenString = getJsonStringByName("test_mapping_golden2");
+        assertEquals(TestMapping.removeComments(jsonString), goldenString);
+    }
+
+    private String getJsonStringByName(String fileName) throws Exception  {
+        File tempDir = null;
+        try {
+            tempDir = FileUtil.createTempDir("test_mapping");
+            File srcDir = FileUtil.createTempDir("src", tempDir);
+            String srcFile = File.separator + TEST_DATA_DIR + File.separator + fileName;
+            InputStream resourceStream = this.getClass().getResourceAsStream(srcFile);
+            FileUtil.saveResourceFile(resourceStream, srcDir, TEST_MAPPING);
+            Path file = Paths.get(srcDir.getAbsolutePath(), TEST_MAPPING);
+            return String.join("\n", Files.readAllLines(file, StandardCharsets.UTF_8));
         } finally {
             FileUtil.recursiveDelete(tempDir);
         }

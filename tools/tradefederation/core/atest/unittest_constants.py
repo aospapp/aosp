@@ -54,12 +54,21 @@ MODULE_INFO_TARGET = '/out/%s' % JSON_FILE
 MODULE_BUILD_TARGETS = {'tradefed-core', MODULE_INFO_TARGET,
                         'MODULES-IN-%s' % MODULE_DIR.replace('/', '-'),
                         'module-specific-target'}
+MODULE_BUILD_TARGETS2 = {'build-target2'}
 MODULE_DATA = {constants.TI_REL_CONFIG: CONFIG_FILE,
                constants.TI_FILTER: frozenset()}
+MODULE_DATA2 = {constants.TI_REL_CONFIG: CONFIG_FILE,
+                constants.TI_FILTER: frozenset()}
 MODULE_INFO = test_info.TestInfo(MODULE_NAME,
                                  atf_tr.AtestTradefedTestRunner.NAME,
                                  MODULE_BUILD_TARGETS,
                                  MODULE_DATA)
+MODULE_INFO2 = test_info.TestInfo(MODULE2_NAME,
+                                  atf_tr.AtestTradefedTestRunner.NAME,
+                                  MODULE_BUILD_TARGETS2,
+                                  MODULE_DATA2)
+MODULE_INFOS = [MODULE_INFO]
+MODULE_INFOS2 = [MODULE_INFO, MODULE_INFO2]
 CLASS_FILTER = test_info.TestFilter(FULL_CLASS_NAME, frozenset())
 CLASS_DATA = {constants.TI_REL_CONFIG: CONFIG_FILE,
               constants.TI_FILTER: frozenset([CLASS_FILTER])}
@@ -80,6 +89,17 @@ CLASS_INFO = test_info.TestInfo(MODULE_NAME,
                                 atf_tr.AtestTradefedTestRunner.NAME,
                                 CLASS_BUILD_TARGETS,
                                 CLASS_DATA)
+CLASS_INFOS = [CLASS_INFO]
+
+CLASS_BUILD_TARGETS2 = {'class-specific-target2'}
+CLASS_DATA2 = {constants.TI_REL_CONFIG: CONFIG_FILE,
+               constants.TI_FILTER: frozenset([CLASS_FILTER])}
+CLASS_INFO2 = test_info.TestInfo(MODULE2_NAME,
+                                 atf_tr.AtestTradefedTestRunner.NAME,
+                                 CLASS_BUILD_TARGETS2,
+                                 CLASS_DATA2)
+CLASS_INFOS = [CLASS_INFO]
+CLASS_INFOS2 = [CLASS_INFO, CLASS_INFO2]
 PACKAGE_INFO = test_info.TestInfo(MODULE_NAME,
                                   atf_tr.AtestTradefedTestRunner.NAME,
                                   CLASS_BUILD_TARGETS,
@@ -160,10 +180,10 @@ CC_MODULE_CLASS_INFO = test_info.TestInfo(CC_MODULE_NAME,
 CC_MODULE2_DIR = 'foo/bar/hello'
 CC_MODULE2_NAME = 'hello_world_test'
 CC_PATH = 'pf_test.cc'
-CC_FIND_ONE = ROOT + 'system/bt/hci/test/pf_test.cc:TEST_F(PFTest, test1) {\n' +\
-    ROOT + 'system/bt/hci/test/pf_test.cc:TEST_F(PFTest, test2) {\n'
-CC_FIND_TWO = ROOT + 'other/dir/test.cpp:TEST(PFTest, test_f) {\n' +\
-                        ROOT + 'other/dir/test.cpp:TEST(PFTest, test_p) {\n'
+CC_FIND_ONE = ROOT + 'system/bt/hci/test/pf_test.cc:TEST_F(PFTest, test1) {\n' + \
+              ROOT + 'system/bt/hci/test/pf_test.cc:TEST_F(PFTest, test2) {\n'
+CC_FIND_TWO = ROOT + 'other/dir/test.cpp:TEST(PFTest, test_f) {\n' + \
+              ROOT + 'other/dir/test.cpp:TEST(PFTest, test_p) {\n'
 CC_CONFIG2_FILE = os.path.join(CC_MODULE2_DIR, constants.MODULE_CONFIG)
 CC_CLASS_FILTER = test_info.TestFilter(CC_CLASS_NAME+".*", frozenset())
 CC_CLASS_DATA = {constants.TI_REL_CONFIG: CC_CONFIG_FILE,
@@ -175,7 +195,7 @@ CC_METHOD_NAME = 'test1'
 CC_METHOD2_NAME = 'test2'
 CC_METHOD_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME,
                                         frozenset())
-CC_METHOD2_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME+\
+CC_METHOD2_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME+ \
                                          ":"+CC_CLASS_NAME+"."+CC_METHOD2_NAME,
                                          frozenset())
 CC_METHOD_INFO = test_info.TestInfo(
@@ -218,3 +238,10 @@ MOD3 = 'mod3'
 FUZZY_MOD1 = 'Mod1'
 FUZZY_MOD2 = 'nod2'
 FUZZY_MOD3 = 'mod3mod3'
+
+LOCATE_CACHE = '/tmp/mcloate.db'
+CLASS_INDEX = '/tmp/classes.idx'
+QCLASS_INDEX = '/tmp/fqcn.idx'
+CC_CLASS_INDEX = '/tmp/cc_classes.idx'
+PACKAGE_INDEX = '/tmp/packages.idx'
+MODULE_INDEX = '/tmp/modules.idx'

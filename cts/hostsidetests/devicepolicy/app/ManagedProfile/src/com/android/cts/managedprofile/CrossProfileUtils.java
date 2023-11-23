@@ -25,11 +25,16 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.UserManager;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The methods in this class are not really tests.
@@ -52,6 +57,8 @@ public class CrossProfileUtils extends AndroidTestCase {
     private static String ACTION_NOTIFY_URI_CHANGE = "com.android.cts.action.NOTIFY_URI_CHANGE";
 
     private static String ACTION_OBSERVE_URI_CHANGE = "com.android.cts.action.OBSERVE_URI_CHANGE";
+
+    private static final String PARAM_CROSS_PROFILE_PACKAGE = "crossProfilePackage";
 
     public void testAddParentCanAccessManagedFilters() {
         testRemoveAllFilters();
@@ -114,5 +121,25 @@ public class CrossProfileUtils extends AndroidTestCase {
             Log.d(TAG, "Hiding " + ri.activityInfo.packageName);
             dpm.setApplicationHidden(ADMIN_RECEIVER_COMPONENT, ri.activityInfo.packageName, true);
         }
+    }
+
+    public void testSetCrossProfilePackages(){
+        final DevicePolicyManager dpm = (DevicePolicyManager) getContext().getSystemService(
+                Context.DEVICE_POLICY_SERVICE);
+        final Set<String> packages = Collections.singleton(getCrossProfilePackage());
+        dpm.setCrossProfilePackages(ADMIN_RECEIVER_COMPONENT, packages);
+
+    }
+
+    private String getCrossProfilePackage() {
+        final Bundle testArguments = InstrumentationRegistry.getArguments();
+        if (testArguments.containsKey(PARAM_CROSS_PROFILE_PACKAGE)) {
+            try {
+                return testArguments.getString(PARAM_CROSS_PROFILE_PACKAGE);
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        fail("cross profile package param not found.");
+        return null;
     }
 }

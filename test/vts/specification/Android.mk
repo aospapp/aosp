@@ -25,15 +25,12 @@ vtslib_interfacespec_includes := \
   $(LOCAL_PATH) \
   test/vts/drivers/hal \
   test/vts/drivers/hal/common \
-  test/vts/drivers/hal/framework \
   test/vts/drivers/hal/libdatatype \
   test/vts/drivers/hal/libmeasurement \
   bionic \
-  device/google/gce/include \
   system/extras \
   system/media/camera/include \
   external/protobuf/src \
-  external/libedit/src \
   $(TARGET_OUT_HEADERS) \
 
 vtslib_interfacespec_shared_libraries := \

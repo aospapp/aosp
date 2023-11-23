@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-java_binary_host {
+java_binary {
     name: "metalava",
+    host_supported: true,
     srcs: [
         "src/main/java/**/*.java",
         "src/main/java/**/*.kt",
@@ -25,8 +26,12 @@ java_binary_host {
         "metalava-gradle-plugin-deps",
     ],
     manifest: "manifest.txt",
-    dist: {
-        targets: ["sdk"],
+    target: {
+        host: {
+            dist: {
+                targets: ["sdk"],
+            },
+        },
     },
 }
 
@@ -36,7 +41,8 @@ java_library {
     srcs: [
         "stub-annotations/src/main/java/**/*.java",
     ],
-    sdk_version: "core_current",
+    // Allow core_current to use stub-annotations.
+    sdk_version: "28",
     target: {
         host: {
             dist: {

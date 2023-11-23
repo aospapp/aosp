@@ -692,12 +692,12 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
                 ? AuthenticationActivity.createSender(mContext, 1,
                         dataset)
                 : AuthenticationActivity.createSender(mContext, 1,
-                        dataset, newClientState("CSI", "FromIntent"));
+                        dataset, Helper.newClientState("CSI", "FromIntent"));
 
         // Configure the service behavior
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
-                .setExtras(newClientState("CSI", "FromResponse"))
+                .setExtras(Helper.newClientState("CSI", "FromResponse"))
                 .addDataset(new CannedDataset.Builder()
                         .setField(ID_USERNAME, UNUSED_AUTOFILL_VALUE)
                         .setField(ID_PASSWORD, UNUSED_AUTOFILL_VALUE)
@@ -728,13 +728,14 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
         mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
         // Assert client state on authentication activity.
-        assertClientState("auth activity", AuthenticationActivity.getData(), "CSI", "FromResponse");
+        Helper.assertAuthenticationClientState("auth activity", AuthenticationActivity.getData(),
+                "CSI", "FromResponse");
 
         // Assert client state on save request.
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
         final String expectedValue = where == ClientStateLocation.FILL_RESPONSE_ONLY
                 ? "FromResponse" : "FromIntent";
-        assertClientState("on save", saveRequest.data, "CSI", expectedValue);
+        Helper.assertAuthenticationClientState("on save", saveRequest.data, "CSI", expectedValue);
     }
 
     @Test
@@ -1066,21 +1067,23 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
                         .build());
 
         if (where == ClientStateLocation.FILL_RESPONSE_ONLY || where == ClientStateLocation.BOTH) {
-            authenticatedResponseBuilder.setExtras(newClientState("CSI", "FromAuthResponse"));
+            authenticatedResponseBuilder.setExtras(
+                    Helper.newClientState("CSI", "FromAuthResponse"));
         }
 
         final IntentSender authentication = where == ClientStateLocation.FILL_RESPONSE_ONLY
                 ? AuthenticationActivity.createSender(mContext, 1,
-                        authenticatedResponseBuilder.build())
+                authenticatedResponseBuilder.build())
                 : AuthenticationActivity.createSender(mContext, 1,
-                        authenticatedResponseBuilder.build(), newClientState("CSI", "FromIntent"));
+                        authenticatedResponseBuilder.build(),
+                        Helper.newClientState("CSI", "FromIntent"));
 
         // Configure the service behavior
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setAuthentication(authentication, ID_USERNAME)
                 .setIgnoreFields(ID_PASSWORD)
                 .setPresentation(createPresentation("Tap to auth response"))
-                .setExtras(newClientState("CSI", "FromResponse"))
+                .setExtras(Helper.newClientState("CSI", "FromResponse"))
                 .build());
 
         // Set expectation for the activity
@@ -1108,29 +1111,14 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
         mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
         // Assert client state on authentication activity.
-        assertClientState("auth activity", AuthenticationActivity.getData(), "CSI", "FromResponse");
+        Helper.assertAuthenticationClientState("auth activity", AuthenticationActivity.getData(),
+                "CSI", "FromResponse");
 
         // Assert client state on save request.
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
         final String expectedValue = where == ClientStateLocation.FILL_RESPONSE_ONLY
                 ? "FromAuthResponse" : "FromIntent";
-        assertClientState("on save", saveRequest.data, "CSI", expectedValue);
-    }
-
-    // TODO(on master): move to helper / reuse in other places
-    private void assertClientState(String where, Bundle data, String expectedKey,
-            String expectedValue) {
-        assertWithMessage("no client state on %s", where).that(data).isNotNull();
-        final String extraValue = data.getString(expectedKey);
-        assertWithMessage("invalid value for %s on %s", expectedKey, where)
-            .that(extraValue).isEqualTo(expectedValue);
-    }
-
-    // TODO(on master): move to helper / reuse in other places
-    private Bundle newClientState(String key, String value) {
-        final Bundle clientState = new Bundle();
-        clientState.putString(key, value);
-        return clientState;
+        Helper.assertAuthenticationClientState("on save", saveRequest.data, "CSI", expectedValue);
     }
 
     @Test

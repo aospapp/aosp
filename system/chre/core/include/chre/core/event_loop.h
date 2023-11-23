@@ -24,10 +24,12 @@
 #include "chre/platform/mutex.h"
 #include "chre/platform/platform_nanoapp.h"
 #include "chre/platform/power_control_manager.h"
+#include "chre/platform/system_time.h"
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/fixed_size_blocking_queue.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/synchronized_memory_pool.h"
+#include "chre/util/system/debug_dump.h"
 #include "chre/util/unique_ptr.h"
 #include "chre_api/chre/event.h"
 
@@ -49,12 +51,14 @@ namespace chre {
  */
 class EventLoop : public NonCopyable {
  public:
-  EventLoop() : mRunning(true) {}
+  EventLoop()
+      : mTimeLastWakeupBucketCycled(SystemTime::getMonotonicTime()),
+        mRunning(true) {}
 
   /**
    * Synchronous callback used with forEachNanoapp
    */
-  typedef void (NanoappCallbackFunction)(const Nanoapp *nanoapp, void *data);
+  typedef void(NanoappCallbackFunction)(const Nanoapp *nanoapp, void *data);
 
   /**
    * Searches the set of nanoapps managed by this EventLoop for one with the
@@ -70,6 +74,13 @@ class EventLoop : public NonCopyable {
    * @return true if the given app ID was found and instanceId was populated
    */
   bool findNanoappInstanceIdByAppId(uint64_t appId, uint32_t *instanceId) const;
+
+  /*
+   * Checks if the new wakeup buckets need to be pushed to nanoapps because the
+   * wakeup bucket interval has been surpassed since we pushed and pushes to the
+   * apps.
+   */
+  void handleNanoappWakeupBuckets();
 
   /**
    * Iterates over the list of Nanoapps managed by this EventLoop, and invokes
@@ -92,9 +103,9 @@ class EventLoop : public NonCopyable {
    * @param message Pointer to the message data
    * @param messageSize Size of the message
    */
-  void invokeMessageFreeFunction(
-      uint64_t appId, chreMessageFreeFunction *freeFunction, void *message,
-      size_t messageSize);
+  void invokeMessageFreeFunction(uint64_t appId,
+                                 chreMessageFreeFunction *freeFunction,
+                                 void *message, size_t messageSize);
 
   /**
    * Invokes the Nanoapp's start callback, and if successful, adds it to the
@@ -108,7 +119,7 @@ class EventLoop : public NonCopyable {
    *        will have been transferred to be managed by this EventLoop.
    * @return true if the app was started successfully
    */
-  bool startNanoapp(UniquePtr<Nanoapp>& nanoapp);
+  bool startNanoapp(UniquePtr<Nanoapp> &nanoapp);
 
   /**
    * Stops and unloads a nanoapp identified by its instance ID. The end entry
@@ -139,9 +150,21 @@ class EventLoop : public NonCopyable {
 
   /**
    * Posts an event to a nanoapp that is currently running (or all nanoapps if
-   * the target instance ID is kBroadcastInstanceId). If the senderInstanceId is
-   * kSystemInstanceId and the event fails to post, this is considered a fatal
+   * the target instance ID is kBroadcastInstanceId). A senderInstanceId cannot
+   * be provided to this method because it should only be used to post events
+   * sent by the system. If the event fails to post, this is considered a fatal
    * error.
+   *
+   * @see postLowPriorityEventOrFree
+   */
+  bool postEventOrDie(uint16_t eventType, void *eventData,
+                      chreEventCompleteFunction *freeCallback,
+                      uint32_t targetInstanceId = kBroadcastInstanceId);
+
+  /**
+   * Posts an event to a nanoapp that is currently running (or all nanoapps if
+   * the target instance ID is kBroadcastInstanceId). If the event fails to
+   * post, it is freed with freeCallback.
    *
    * This function is safe to call from any thread.
    *
@@ -152,26 +175,15 @@ class EventLoop : public NonCopyable {
    * @param senderInstanceId The instance ID of the sender of this event.
    * @param targetInstanceId The instance ID of the destination of this event.
    *
-   * @return true if the event was successfully added to the queue. Note that
-   *         unlike chreSendEvent, this does *not* invoke the free callback if
-   *         it failed to post the event.
+   * @return true if the event was successfully added to the queue.
    *
    * @see chreSendEvent
    */
-  bool postEvent(uint16_t eventType, void *eventData,
-                 chreEventCompleteFunction *freeCallback,
-                 uint32_t senderInstanceId = kSystemInstanceId,
-                 uint32_t targetInstanceId = kBroadcastInstanceId);
-
-  /**
-   * Post an event to a nanoapp. If it fails, free the event with freeCallback.
-   *
-   * @see postEvent
-   */
-  bool postEventOrFree(uint16_t eventType, void *eventData,
-                       chreEventCompleteFunction *freeCallback,
-                       uint32_t senderInstanceId = kSystemInstanceId,
-                       uint32_t targetInstanceId = kBroadcastInstanceId);
+  bool postLowPriorityEventOrFree(
+      uint16_t eventType, void *eventData,
+      chreEventCompleteFunction *freeCallback,
+      uint32_t senderInstanceId = kSystemInstanceId,
+      uint32_t targetInstanceId = kBroadcastInstanceId);
 
   /**
    * Returns a pointer to the currently executing Nanoapp, or nullptr if none is
@@ -199,7 +211,7 @@ class EventLoop : public NonCopyable {
    *
    * @return The timer pool owned by this event loop.
    */
-  TimerPool& getTimerPool() {
+  TimerPool &getTimerPool() {
     return mTimerPool;
   }
 
@@ -242,19 +254,16 @@ class EventLoop : public NonCopyable {
    * Prints state in a string buffer. Must only be called from the context of
    * the main CHRE thread.
    *
-   * @param buffer Pointer to the start of the buffer.
-   * @param bufferPos Pointer to buffer position to start the print (in-out).
-   * @param size Size of the buffer in bytes.
+   * @param debugDump The debug dump wrapper where a string can be printed
+   *     into one of the buffers.
    */
-  void logStateToBuffer(char *buffer, size_t *bufferPos,
-                        size_t bufferSize) const;
-
+  void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
   /**
    * Returns a reference to the power control manager. This allows power
    * controls from subsystems outside the event loops.
    */
-  PowerControlManager& getPowerControlManager() {
+  PowerControlManager &getPowerControlManager() {
     return mPowerControlManager;
   }
 
@@ -262,14 +271,22 @@ class EventLoop : public NonCopyable {
   //! The maximum number of events that can be active in the system.
   static constexpr size_t kMaxEventCount = CHRE_MAX_EVENT_COUNT;
 
-  //! The minimum number of events to reserve in the event pool for system
-  //! events.
-  static constexpr size_t kMinReservedSystemEventCount = 16;
+  //! The minimum number of events to reserve in the event pool for high
+  //! priority events.
+  static constexpr size_t kMinReservedHighPriorityEventCount = 16;
 
   //! The maximum number of events that are awaiting to be scheduled. These
   //! events are in a queue to be distributed to apps.
   static constexpr size_t kMaxUnscheduledEventCount =
       CHRE_MAX_UNSCHEDULED_EVENT_COUNT;
+
+  //! The time interval of nanoapp wakeup buckets, adjust in conjuction with
+  //! Nanoapp::kMaxSizeWakeupBuckets.
+  static constexpr Nanoseconds kIntervalWakeupBucket =
+      Nanoseconds(180 * kOneMinuteInNanoseconds);
+
+  //! The last time wakeup buckets were pushed onto the nanoapps.
+  Nanoseconds mTimeLastWakeupBucketCycled;
 
   //! The memory pool to allocate incoming events from.
   SynchronizedMemoryPool<Event, kMaxEventCount> mEventPool;
@@ -320,11 +337,12 @@ class EventLoop : public NonCopyable {
    *
    * @return true if the event has been successfully allocated and posted.
    *
-   * @see postEvent and postEventOrFree
+   * @see postEventOrDie and postLowPriorityEventOrFree
    */
   bool allocateAndPostEvent(uint16_t eventType, void *eventData,
-    chreEventCompleteFunction *freeCallback, uint32_t senderInstanceId,
-    uint32_t targetInstanceId);
+                            chreEventCompleteFunction *freeCallback,
+                            uint32_t senderInstanceId,
+                            uint32_t targetInstanceId);
 
   /**
    * Do one round of Nanoapp event delivery, only considering events in
@@ -341,7 +359,7 @@ class EventLoop : public NonCopyable {
    *
    * @return true if the nanoapp has another event pending in its queue
    */
-  bool deliverNextEvent(const UniquePtr<Nanoapp>& app);
+  bool deliverNextEvent(const UniquePtr<Nanoapp> &app);
 
   /**
    * Given an event pulled from the main incoming event queue (mEvents), deliver
@@ -404,7 +422,7 @@ class EventLoop : public NonCopyable {
    * @param eventType Should be one of CHRE_EVENT_NANOAPP_{STARTED, STOPPED}
    * @param nanoapp The nanoapp instance whose status has changed
    */
-  void notifyAppStatusChange(uint16_t eventType, const Nanoapp& nanoapp);
+  void notifyAppStatusChange(uint16_t eventType, const Nanoapp &nanoapp);
 
   /**
    * Stops and unloads the Nanoapp at the given index in mNanoapps.

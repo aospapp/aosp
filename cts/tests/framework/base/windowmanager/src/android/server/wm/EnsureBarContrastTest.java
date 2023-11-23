@@ -16,12 +16,18 @@
 
 package android.server.wm;
 
+import static android.content.pm.PackageManager.FEATURE_AUTOMOTIVE;
 import static android.server.wm.EnsureBarContrastTest.TestActivity.EXTRA_ENSURE_CONTRAST;
 import static android.server.wm.EnsureBarContrastTest.TestActivity.EXTRA_LIGHT_BARS;
 import static android.server.wm.EnsureBarContrastTest.TestActivity.backgroundForBar;
+import static android.server.wm.BarTestUtils.assumeHasColoredBars;
+import static android.server.wm.BarTestUtils.assumeHasColoredNavigationBar;
+import static android.server.wm.BarTestUtils.assumeHasColoredStatusBar;
+import static android.server.wm.BarTestUtils.isAssumptionViolated;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+import static org.junit.Assume.assumeFalse;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -37,7 +43,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 
-import androidx.test.filters.FlakyTest;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
@@ -45,6 +50,7 @@ import com.android.compatibility.common.util.PollingCheck;
 import org.hamcrest.CustomTypeSafeMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.junit.AssumptionViolatedException;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -84,8 +90,13 @@ public class EnsureBarContrastTest {
     }
 
     public void runTestEnsureContrast(boolean lightBars) {
+        assumeHasColoredBars();
         TestActivity activity = launchAndWait(mTestActivity, lightBars, true /* ensureContrast */);
         for (Bar bar : Bar.BARS) {
+            if (isAssumptionViolated(() -> bar.checkAssumptions(mTestActivity))) {
+                continue;
+            }
+
             Bitmap bitmap = getOnMainSync(() -> activity.screenshotBar(bar, mDumper));
 
             if (getOnMainSync(() -> activity.barIsTapThrough(bar))) {
@@ -112,8 +123,13 @@ public class EnsureBarContrastTest {
     }
 
     public void runTestDontEnsureContrast(boolean lightBars) {
+        assumeHasColoredBars();
         TestActivity activity = launchAndWait(mTestActivity, lightBars, false /* ensureContrast */);
         for (Bar bar : Bar.BARS) {
+            if (isAssumptionViolated(() -> bar.checkAssumptions(mTestActivity))) {
+                continue;
+            }
+
             Bitmap bitmap = getOnMainSync(() -> activity.screenshotBar(bar, mDumper));
 
             assertThat(bar.name + "Bar: contrast NOT requested, therefore must NOT be scrimmed.",
@@ -307,6 +323,11 @@ public class EnsureBarContrastTest {
                 r.bottom = r.top + getInset(insets);
                 return r;
             }
+
+            @Override
+            void checkAssumptions(ActivityTestRule<?> rule) throws AssumptionViolatedException {
+                assumeHasColoredStatusBar(rule);
+            }
         };
 
         static final Bar NAVIGATION = new Bar("Navigation") {
@@ -321,6 +342,11 @@ public class EnsureBarContrastTest {
                 r.top = r.bottom - getInset(insets);
                 return r;
             }
+
+            @Override
+            void checkAssumptions(ActivityTestRule<?> rule) throws AssumptionViolatedException {
+                assumeHasColoredNavigationBar(rule);
+            }
         };
 
         static final Bar[] BARS = {STATUS, NAVIGATION};
@@ -334,5 +360,7 @@ public class EnsureBarContrastTest {
         abstract int getInset(Insets insets);
 
         abstract Rect getLocation(Insets insets, Rect screen);
+
+        abstract void checkAssumptions(ActivityTestRule<?> rule) throws AssumptionViolatedException;
     }
 }

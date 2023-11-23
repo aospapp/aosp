@@ -18,6 +18,7 @@ android_test {
 
     static_libs: [
         "androidx.annotation_annotation",
+        "androidx.test.ext.junit",
         "androidx.test.rules",
         "mockito-target-minus-junit4",
         "android-common",
@@ -40,9 +41,8 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
-        "cts_instant",
     ],
 
 }

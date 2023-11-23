@@ -16,32 +16,25 @@
 
 package android.appsecurity.cts;
 
+import android.compat.cts.CompatChangeGatingTestCase;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
-import com.android.tradefed.testtype.IBuildReceiver;
 
 /**
  * Base class for {@link android.provider.DocumentsContract} and related test cases.
  */
-abstract class DocumentsTestCase extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
+abstract class DocumentsTestCase extends CompatChangeGatingTestCase implements IAbiReceiver {
     protected static final String CLIENT_PKG = "com.android.cts.documentclient";
     protected static final String CLIENT_APK = "CtsDocumentClient.apk";
 
     protected IAbi mAbi;
-    protected IBuildInfo mCtsBuild;
 
     @Override
     public void setAbi(IAbi abi) {
         mAbi = abi;
-    }
-
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = buildInfo;
     }
 
     @Override
@@ -50,7 +43,6 @@ abstract class DocumentsTestCase extends DeviceTestCase implements IAbiReceiver,
 
         Utils.prepareSingleUser(getDevice());
         assertNotNull(mAbi);
-        assertNotNull(mCtsBuild);
 
         reinstallClientPackage();
     }

@@ -141,6 +141,7 @@ class VtsKernelProcFileApiTest(base_test.BaseTestClass):
         """
         asserts.skipIf(test_object in TEST_OBJECTS_64 and not self.dut.is64Bit,
                        "Skip test for 64-bit kernel.")
+        test_object.set_api_level(self.dut)
         filepath = test_object.get_path()
         asserts.skipIf(not target_file_utils.Exists(filepath, self.shell) and
                        test_object.file_optional(shell=self.shell, dut=self.dut),
@@ -251,8 +252,8 @@ class VtsKernelProcFileApiTest(base_test.BaseTestClass):
             # This should increase the number of write syscalls.
             self.dut.adb.shell("echo foo")
             asserts.assertLess(
-                old_wchar,
-                UidIOStats(root_uid)[wchar_index],
+                int(old_wchar),
+                int(UidIOStats(root_uid)[wchar_index]),
                 "Number of write syscalls has not increased.")
 
         CheckStatsInState(False)

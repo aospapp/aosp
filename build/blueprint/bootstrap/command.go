@@ -47,6 +47,8 @@ var (
 	BuildDir      string
 	NinjaBuildDir string
 	SrcDir        string
+
+	absSrcDir string
 )
 
 func init() {
@@ -76,8 +78,10 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 		debug.SetGCPercent(-1)
 	}
 
+	absSrcDir = ctx.SrcDir()
+
 	if cpuprofile != "" {
-		f, err := os.Create(cpuprofile)
+		f, err := os.Create(absolutePath(cpuprofile))
 		if err != nil {
 			fatalf("error opening cpuprofile: %s", err)
 		}
@@ -87,7 +91,7 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 	}
 
 	if traceFile != "" {
-		f, err := os.Create(traceFile)
+		f, err := os.Create(absolutePath(traceFile))
 		if err != nil {
 			fatalf("error opening trace: %s", err)
 		}
@@ -140,7 +144,7 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 
 	ctx.RegisterSingletonType("glob", globSingletonFactory(ctx))
 
-	deps, errs := ctx.ParseFileList(filepath.Dir(bootstrapConfig.topLevelBlueprintsFile), filesToParse)
+	deps, errs := ctx.ParseFileList(filepath.Dir(bootstrapConfig.topLevelBlueprintsFile), filesToParse, config)
 	if len(errs) > 0 {
 		fatalErrors(errs)
 	}
@@ -155,7 +159,7 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 	deps = append(deps, extraDeps...)
 
 	if docFile != "" {
-		err := writeDocs(ctx, docFile)
+		err := writeDocs(ctx, absolutePath(docFile))
 		if err != nil {
 			fatalErrors([]error{err})
 		}
@@ -179,8 +183,14 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 	var f *os.File
 	var buf *bufio.Writer
 
+	if emptyNinjaFile {
+		if err := ioutil.WriteFile(absolutePath(outFile), []byte(nil), outFilePermissions); err != nil {
+			fatalf("error writing empty Ninja file: %s", err)
+		}
+	}
+
 	if stage != StageMain || !emptyNinjaFile {
-		f, err = os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, outFilePermissions)
+		f, err = os.OpenFile(absolutePath(outFile), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, outFilePermissions)
 		if err != nil {
 			fatalf("error opening Ninja file: %s", err)
 		}
@@ -188,6 +198,25 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 		out = buf
 	} else {
 		out = ioutil.Discard
+	}
+
+	if globFile != "" {
+		buffer, errs := generateGlobNinjaFile(ctx.Globs)
+		if len(errs) > 0 {
+			fatalErrors(errs)
+		}
+
+		err = ioutil.WriteFile(absolutePath(globFile), buffer, outFilePermissions)
+		if err != nil {
+			fatalf("error writing %s: %s", globFile, err)
+		}
+	}
+
+	if depFile != "" {
+		err := deptools.WriteDepFile(absolutePath(depFile), outFile, deps)
+		if err != nil {
+			fatalf("error writing depfile: %s", err)
+		}
 	}
 
 	err = ctx.WriteBuildFile(out)
@@ -209,25 +238,6 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 		}
 	}
 
-	if globFile != "" {
-		buffer, errs := generateGlobNinjaFile(ctx.Globs)
-		if len(errs) > 0 {
-			fatalErrors(errs)
-		}
-
-		err = ioutil.WriteFile(globFile, buffer, outFilePermissions)
-		if err != nil {
-			fatalf("error writing %s: %s", outFile, err)
-		}
-	}
-
-	if depFile != "" {
-		err := deptools.WriteDepFile(depFile, outFile, deps)
-		if err != nil {
-			fatalf("error writing depfile: %s", err)
-		}
-	}
-
 	if c, ok := config.(ConfigRemoveAbandonedFilesUnder); ok {
 		under, except := c.RemoveAbandonedFilesUnder()
 		err := removeAbandonedFilesUnder(ctx, bootstrapConfig, SrcDir, under, except)
@@ -237,7 +247,7 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 	}
 
 	if memprofile != "" {
-		f, err := os.Create(memprofile)
+		f, err := os.Create(absolutePath(memprofile))
 		if err != nil {
 			fatalf("error opening memprofile: %s", err)
 		}
@@ -267,4 +277,11 @@ func fatalErrors(errs []error) {
 		}
 	}
 	os.Exit(1)
+}
+
+func absolutePath(path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(absSrcDir, path)
 }

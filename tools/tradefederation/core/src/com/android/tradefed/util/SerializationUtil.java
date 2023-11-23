@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.util;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -22,6 +24,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.Base64;
 
 /** Utility to serialize/deserialize an object that implements {@link Serializable}. */
 public class SerializationUtil {
@@ -50,6 +53,49 @@ public class SerializationUtil {
             StreamUtil.close(fileOut);
         }
         return tmpSerialized;
+    }
+
+    /**
+     * Serialize and object into a base64 encoded string.
+     *
+     * @param o the object to serialize.
+     * @return the {@link String} where the object was serialized.
+     * @throws IOException if serialization fails.
+     */
+    public static String serializeToString(Serializable o) throws IOException {
+        ByteArrayOutputStream byteOut = null;
+        ObjectOutputStream out = null;
+        try {
+            byteOut = new ByteArrayOutputStream();
+            out = new ObjectOutputStream(byteOut);
+            out.writeObject(o);
+            return Base64.getEncoder().encodeToString(byteOut.toByteArray());
+        } finally {
+            StreamUtil.close(out);
+            StreamUtil.close(byteOut);
+        }
+    }
+
+    /**
+     * Deserialize an object that was serialized using {@link #serializeToString(Serializable)}.
+     *
+     * @param serialized the base64 string where the object was serialized.
+     * @return the Object deserialized.
+     * @throws IOException if the deserialization fails.
+     */
+    public static Object deserialize(String serialized) throws IOException {
+        ByteArrayInputStream bais = null;
+        ObjectInputStream in = null;
+        try {
+            bais = new ByteArrayInputStream(Base64.getDecoder().decode(serialized));
+            in = new ObjectInputStream(bais);
+            return in.readObject();
+        } catch (ClassNotFoundException cnfe) {
+            throw new RuntimeException(cnfe);
+        } finally {
+            StreamUtil.close(in);
+            StreamUtil.close(bais);
+        }
     }
 
     /**

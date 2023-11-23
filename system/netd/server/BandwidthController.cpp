@@ -48,7 +48,6 @@
 #define LOG_TAG "BandwidthController"
 #include <cutils/properties.h>
 #include <log/log.h>
-#include <logwrap/logwrap.h>
 
 #include <netdutils/Syscalls.h>
 #include "BandwidthController.h"
@@ -91,7 +90,7 @@ const char NICE_CHAIN[] = "bw_happy_box";
  * Some comments about the rules:
  *  * Ordering
  *    - when an interface is marked as costly it should be INSERTED into the INPUT/OUTPUT chains.
- *      E.g. "-I bw_INPUT -i rmnet0 --jump costly"
+ *      E.g. "-I bw_INPUT -i rmnet0 -j costly"
  *    - quota'd rules in the costly chain should be before bw_penalty_box lookups.
  *    - the qtaguid counting is done at the end of the bw_INPUT/bw_OUTPUT user chains.
  *
@@ -99,26 +98,26 @@ const char NICE_CHAIN[] = "bw_happy_box";
  *   - global quota for all costly interfaces uses a single costly chain:
  *    . initial rules
  *      iptables -N bw_costly_shared
- *      iptables -I bw_INPUT -i iface0 --jump bw_costly_shared
- *      iptables -I bw_OUTPUT -o iface0 --jump bw_costly_shared
+ *      iptables -I bw_INPUT -i iface0 -j bw_costly_shared
+ *      iptables -I bw_OUTPUT -o iface0 -j bw_costly_shared
  *      iptables -I bw_costly_shared -m quota \! --quota 500000 \
- *          --jump REJECT --reject-with icmp-net-prohibited
- *      iptables -A bw_costly_shared --jump bw_penalty_box
- *      iptables -A bw_penalty_box --jump bw_happy_box
- *      iptables -A bw_happy_box --jump bw_data_saver
+ *          -j REJECT --reject-with icmp-net-prohibited
+ *      iptables -A bw_costly_shared -j bw_penalty_box
+ *      iptables -A bw_penalty_box -j bw_happy_box
+ *      iptables -A bw_happy_box -j bw_data_saver
  *
  *    . adding a new iface to this, E.g.:
- *      iptables -I bw_INPUT -i iface1 --jump bw_costly_shared
- *      iptables -I bw_OUTPUT -o iface1 --jump bw_costly_shared
+ *      iptables -I bw_INPUT -i iface1 -j bw_costly_shared
+ *      iptables -I bw_OUTPUT -o iface1 -j bw_costly_shared
  *
  *   - quota per interface. This is achieve by having "costly" chains per quota.
  *     E.g. adding a new costly interface iface0 with its own quota:
  *      iptables -N bw_costly_iface0
- *      iptables -I bw_INPUT -i iface0 --jump bw_costly_iface0
- *      iptables -I bw_OUTPUT -o iface0 --jump bw_costly_iface0
+ *      iptables -I bw_INPUT -i iface0 -j bw_costly_iface0
+ *      iptables -I bw_OUTPUT -o iface0 -j bw_costly_iface0
  *      iptables -A bw_costly_iface0 -m quota \! --quota 500000 \
- *          --jump REJECT --reject-with icmp-port-unreachable
- *      iptables -A bw_costly_iface0 --jump bw_penalty_box
+ *          -j REJECT --reject-with icmp-port-unreachable
+ *      iptables -A bw_costly_iface0 -j bw_penalty_box
  *
  * * Penalty box, happy box and data saver.
  *   - bw_penalty box is a blacklist of apps that are rejected.
@@ -133,25 +132,25 @@ const char NICE_CHAIN[] = "bw_happy_box";
  *  - only one bw_penalty_box for all interfaces
  *   E.g  Adding an app:
  *    iptables -I bw_penalty_box -m owner --uid-owner app_3 \
- *        --jump REJECT --reject-with icmp-port-unreachable
+ *        -j REJECT --reject-with icmp-port-unreachable
  *
  * * bw_happy_box handling:
  *  - The bw_happy_box comes after the penalty box.
  *   E.g  Adding a happy app,
  *    iptables -I bw_happy_box -m owner --uid-owner app_3 \
- *        --jump RETURN
+ *        -j RETURN
  *
  * * bw_data_saver handling:
  *  - The bw_data_saver comes after the happy box.
  *    Enable data saver:
- *      iptables -R 1 bw_data_saver --jump REJECT --reject-with icmp-port-unreachable
+ *      iptables -R 1 bw_data_saver -j REJECT --reject-with icmp-port-unreachable
  *    Disable data saver:
- *      iptables -R 1 bw_data_saver --jump RETURN
+ *      iptables -R 1 bw_data_saver -j RETURN
  */
 
 const std::string COMMIT_AND_CLOSE = "COMMIT\n";
 const std::string HAPPY_BOX_MATCH_WHITELIST_COMMAND =
-        StringPrintf("-I bw_happy_box -m owner --uid-owner %d-%d --jump RETURN", 0, MAX_SYSTEM_UID);
+        StringPrintf("-I bw_happy_box -m owner --uid-owner %d-%d -j RETURN", 0, MAX_SYSTEM_UID);
 const std::string BPF_HAPPY_BOX_MATCH_WHITELIST_COMMAND = StringPrintf(
         "-I bw_happy_box -m bpf --object-pinned %s -j RETURN", XT_BPF_WHITELIST_PROG_PATH);
 const std::string BPF_PENALTY_BOX_MATCH_BLACKLIST_COMMAND = StringPrintf(
@@ -213,8 +212,8 @@ static const uint32_t uidBillingMask = Fwmark::getUidBillingMask();
  * See go/ipsec-data-accounting for more information.
  */
 
-const std::vector<std::string> getBasicAccountingCommands(const bool useBpf) {
-    const std::vector<std::string> ipt_basic_accounting_commands = {
+std::vector<std::string> getBasicAccountingCommands(const bool useBpf) {
+    std::vector<std::string> ipt_basic_accounting_commands = {
             "*filter",
 
             "-A bw_INPUT -j bw_global_alert",
@@ -222,19 +221,27 @@ const std::vector<std::string> getBasicAccountingCommands(const bool useBpf) {
             "-A bw_INPUT -p esp -j RETURN",
             StringPrintf("-A bw_INPUT -m mark --mark 0x%x/0x%x -j RETURN", uidBillingMask,
                          uidBillingMask),
+            // This is ingress application UID xt_qtaguid (pre-ebpf) accounting,
+            // for bpf this is handled out of cgroup hooks instead.
             useBpf ? "" : "-A bw_INPUT -m owner --socket-exists",
             StringPrintf("-A bw_INPUT -j MARK --or-mark 0x%x", uidBillingMask),
 
             "-A bw_OUTPUT -j bw_global_alert",
             // Prevents IPSec double counting (Tunnel mode and Transport mode,
             // respectively)
-            "-A bw_OUTPUT -o " IPSEC_IFACE_PREFIX "+ -j RETURN",
-            "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN",
+            useBpf ? "" : "-A bw_OUTPUT -o " IPSEC_IFACE_PREFIX "+ -j RETURN",
+            useBpf ? "" : "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN",
+            // Don't count clat traffic, as it has already been counted (and subject to
+            // costly / happy_box / data_saver / penalty_box etc. based on the real UID)
+            // on the stacked interface.
+            useBpf ? "" : "-A bw_OUTPUT -m owner --uid-owner clat -j RETURN",
+            // This is egress application UID xt_qtaguid (pre-ebpf) accounting,
+            // for bpf this is handled out of cgroup hooks instead.
             useBpf ? "" : "-A bw_OUTPUT -m owner --socket-exists",
 
-            "-A bw_costly_shared --jump bw_penalty_box",
+            "-A bw_costly_shared -j bw_penalty_box",
             useBpf ? BPF_PENALTY_BOX_MATCH_BLACKLIST_COMMAND : "",
-            "-A bw_penalty_box --jump bw_happy_box", "-A bw_happy_box --jump bw_data_saver",
+            "-A bw_penalty_box -j bw_happy_box", "-A bw_happy_box -j bw_data_saver",
             "-A bw_data_saver -j RETURN",
             useBpf ? BPF_HAPPY_BOX_MATCH_WHITELIST_COMMAND : HAPPY_BOX_MATCH_WHITELIST_COMMAND,
             "COMMIT",
@@ -242,28 +249,41 @@ const std::vector<std::string> getBasicAccountingCommands(const bool useBpf) {
             "*raw",
             // Prevents IPSec double counting (Tunnel mode and Transport mode,
             // respectively)
-            "-A bw_raw_PREROUTING -i " IPSEC_IFACE_PREFIX "+ -j RETURN",
+            ("-A bw_raw_PREROUTING -i " IPSEC_IFACE_PREFIX "+ -j RETURN"),
             "-A bw_raw_PREROUTING -m policy --pol ipsec --dir in -j RETURN",
-            useBpf ? StringPrintf("-A bw_raw_PREROUTING -m bpf --object-pinned %s",
-                                  XT_BPF_INGRESS_PROG_PATH)
+            // This is ingress interface accounting. There is no need to do anything specific
+            // for 464xlat here, because we only ever account 464xlat traffic on the clat
+            // interface and later correct for overhead (+20 bytes/packet).
+            //
+            // Note: eBPF offloaded packets never hit base interface's ip6tables, and non
+            // offloaded packets (which when using xt_qtaguid means all packets, because
+            // clat eBPF offload does not work on xt_qtaguid devices) are dropped in
+            // clat_raw_PREROUTING.
+            //
+            // Hence we will never double count and additional corrections are not needed.
+            // We can simply take the sum of base and stacked (+20B/pkt) interface counts.
+            useBpf ? "-A bw_raw_PREROUTING -m bpf --object-pinned " XT_BPF_INGRESS_PROG_PATH
                    : "-A bw_raw_PREROUTING -m owner --socket-exists",
             "COMMIT",
 
             "*mangle",
             // Prevents IPSec double counting (Tunnel mode and Transport mode,
             // respectively)
-            "-A bw_mangle_POSTROUTING -o " IPSEC_IFACE_PREFIX "+ -j RETURN",
+            ("-A bw_mangle_POSTROUTING -o " IPSEC_IFACE_PREFIX "+ -j RETURN"),
             "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN",
-            useBpf ? "" : "-A bw_mangle_POSTROUTING -m owner --socket-exists",
-            StringPrintf("-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x%x",
-                         uidBillingMask),  // Clear the mark before sending this packet
-            useBpf ? StringPrintf("-A bw_mangle_POSTROUTING -m bpf --object-pinned %s",
-                                  XT_BPF_EGRESS_PROG_PATH)
-                   : "",
+            // Clear the uid billing done (egress) mark before sending this packet
+            StringPrintf("-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x%x", uidBillingMask),
+            // Packets from the clat daemon have already been counted on egress through the
+            // stacked v4-* interface.
+            "-A bw_mangle_POSTROUTING -m owner --uid-owner clat -j RETURN",
+            // This is egress interface accounting: we account 464xlat traffic only on
+            // the clat interface (as offloaded packets never hit base interface's ip6tables)
+            // and later sum base and stacked with overhead (+20B/pkt) in higher layers
+            useBpf ? "-A bw_mangle_POSTROUTING -m bpf --object-pinned " XT_BPF_EGRESS_PROG_PATH
+                   : "-A bw_mangle_POSTROUTING -m owner --socket-exists",
             COMMIT_AND_CLOSE};
     return ipt_basic_accounting_commands;
 }
-
 
 std::vector<std::string> toStrVec(int num, const char* const strs[]) {
     return std::vector<std::string>(strs, strs + num);
@@ -414,15 +434,14 @@ int BandwidthController::setInterfaceSharedQuota(const std::string& iface, int64
     if (it == mSharedQuotaIfaces.end()) {
         const int ruleInsertPos = (mGlobalAlertBytes) ? 2 : 1;
         std::vector<std::string> cmds = {
-            "*filter",
-            StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleInsertPos, iface.c_str(), chain),
-            StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleInsertPos, iface.c_str(), chain),
-            StringPrintf("-A bw_FORWARD -i %s --jump %s", iface.c_str(), chain),
-            StringPrintf("-A bw_FORWARD -o %s --jump %s", iface.c_str(), chain),
+                "*filter",
+                StringPrintf("-I bw_INPUT %d -i %s -j %s", ruleInsertPos, iface.c_str(), chain),
+                StringPrintf("-I bw_OUTPUT %d -o %s -j %s", ruleInsertPos, iface.c_str(), chain),
+                StringPrintf("-A bw_FORWARD -i %s -j %s", iface.c_str(), chain),
+                StringPrintf("-A bw_FORWARD -o %s -j %s", iface.c_str(), chain),
         };
         if (mSharedQuotaIfaces.empty()) {
-            cmds.push_back(StringPrintf("-I %s -m quota2 ! --quota %" PRId64
-                                        " --name %s --jump REJECT",
+            cmds.push_back(StringPrintf("-I %s -m quota2 ! --quota %" PRId64 " --name %s -j REJECT",
                                         chain, maxBytes, cost));
         }
         cmds.push_back("COMMIT\n");
@@ -465,15 +484,14 @@ int BandwidthController::removeInterfaceSharedQuota(const std::string& iface) {
     }
 
     std::vector<std::string> cmds = {
-        "*filter",
-        StringPrintf("-D bw_INPUT -i %s --jump %s", iface.c_str(), chain),
-        StringPrintf("-D bw_OUTPUT -o %s --jump %s", iface.c_str(), chain),
-        StringPrintf("-D bw_FORWARD -i %s --jump %s", iface.c_str(), chain),
-        StringPrintf("-D bw_FORWARD -o %s --jump %s", iface.c_str(), chain),
+            "*filter",
+            StringPrintf("-D bw_INPUT -i %s -j %s", iface.c_str(), chain),
+            StringPrintf("-D bw_OUTPUT -o %s -j %s", iface.c_str(), chain),
+            StringPrintf("-D bw_FORWARD -i %s -j %s", iface.c_str(), chain),
+            StringPrintf("-D bw_FORWARD -o %s -j %s", iface.c_str(), chain),
     };
     if (mSharedQuotaIfaces.size() == 1) {
-        cmds.push_back(StringPrintf("-D %s -m quota2 ! --quota %" PRIu64
-                                    " --name %s --jump REJECT",
+        cmds.push_back(StringPrintf("-D %s -m quota2 ! --quota %" PRIu64 " --name %s -j REJECT",
                                     chain, mSharedQuotaBytes, cost));
     }
     cmds.push_back("COMMIT\n");
@@ -528,18 +546,17 @@ int BandwidthController::setInterfaceQuota(const std::string& iface, int64_t max
     const std::string chain = "bw_costly_" + iface;
     const int ruleInsertPos = (mGlobalAlertBytes) ? 2 : 1;
     std::vector<std::string> cmds = {
-        "*filter",
-        StringPrintf(":%s -", chain.c_str()),
-        StringPrintf("-A %s -j bw_penalty_box", chain.c_str()),
-        StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleInsertPos, iface.c_str(),
-                     chain.c_str()),
-        StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleInsertPos, iface.c_str(),
-                     chain.c_str()),
-        StringPrintf("-A bw_FORWARD -i %s --jump %s", iface.c_str(), chain.c_str()),
-        StringPrintf("-A bw_FORWARD -o %s --jump %s", iface.c_str(), chain.c_str()),
-        StringPrintf("-A %s -m quota2 ! --quota %" PRId64 " --name %s --jump REJECT",
-                     chain.c_str(), maxBytes, cost.c_str()),
-        "COMMIT\n",
+            "*filter",
+            StringPrintf(":%s -", chain.c_str()),
+            StringPrintf("-A %s -j bw_penalty_box", chain.c_str()),
+            StringPrintf("-I bw_INPUT %d -i %s -j %s", ruleInsertPos, iface.c_str(), chain.c_str()),
+            StringPrintf("-I bw_OUTPUT %d -o %s -j %s", ruleInsertPos, iface.c_str(),
+                         chain.c_str()),
+            StringPrintf("-A bw_FORWARD -i %s -j %s", iface.c_str(), chain.c_str()),
+            StringPrintf("-A bw_FORWARD -o %s -j %s", iface.c_str(), chain.c_str()),
+            StringPrintf("-A %s -m quota2 ! --quota %" PRId64 " --name %s -j REJECT", chain.c_str(),
+                         maxBytes, cost.c_str()),
+            "COMMIT\n",
     };
     if (iptablesRestoreFunction(V4V6, Join(cmds, "\n"), nullptr) != 0) {
         ALOGE("Failed set quota rule");
@@ -587,14 +604,14 @@ int BandwidthController::removeInterfaceQuota(const std::string& iface) {
 
     const std::string chain = "bw_costly_" + iface;
     std::vector<std::string> cmds = {
-        "*filter",
-        StringPrintf("-D bw_INPUT -i %s --jump %s", iface.c_str(), chain.c_str()),
-        StringPrintf("-D bw_OUTPUT -o %s --jump %s", iface.c_str(), chain.c_str()),
-        StringPrintf("-D bw_FORWARD -i %s --jump %s", iface.c_str(), chain.c_str()),
-        StringPrintf("-D bw_FORWARD -o %s --jump %s", iface.c_str(), chain.c_str()),
-        StringPrintf("-F %s", chain.c_str()),
-        StringPrintf("-X %s", chain.c_str()),
-        "COMMIT\n",
+            "*filter",
+            StringPrintf("-D bw_INPUT -i %s -j %s", iface.c_str(), chain.c_str()),
+            StringPrintf("-D bw_OUTPUT -o %s -j %s", iface.c_str(), chain.c_str()),
+            StringPrintf("-D bw_FORWARD -i %s -j %s", iface.c_str(), chain.c_str()),
+            StringPrintf("-D bw_FORWARD -o %s -j %s", iface.c_str(), chain.c_str()),
+            StringPrintf("-F %s", chain.c_str()),
+            StringPrintf("-X %s", chain.c_str()),
+            "COMMIT\n",
     };
 
     const int res = iptablesRestoreFunction(V4V6, Join(cmds, "\n"), nullptr);
@@ -860,8 +877,8 @@ inline const char *BandwidthController::jumpToString(IptJumpOp jumpHandling) {
     case IptJumpNoAdd:
         return "";
     case IptJumpReject:
-        return " --jump REJECT";
+        return " -j REJECT";
     case IptJumpReturn:
-        return " --jump RETURN";
+        return " -j RETURN";
     }
 }

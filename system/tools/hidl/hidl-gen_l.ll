@@ -45,17 +45,16 @@ FQNAME              ({COMPONENT}|{VERSION})(({DOT}|":"+){COMPONENT}|{VERSION})*
 #include "Scope.h"
 #include "StringType.h"
 #include "VectorType.h"
-#include "RefType.h"
 #include "FmqType.h"
 
-#include "hidl-gen_y.h"
+#include "hidl-gen_y-helpers.h"
 
 #include <assert.h>
+#include <algorithm>
+#include <hidl-util/StringHelper.h>
 
 using namespace android;
 using token = yy::parser::token;
-
-static std::string gCurrentComment;
 
 #define SCALAR_TYPE(kind)                                        \
     {                                                            \
@@ -64,7 +63,7 @@ static std::string gCurrentComment;
     }
 
 #define YY_DECL int yylex(YYSTYPE* yylval_param, YYLTYPE* yylloc_param,  \
-    yyscan_t yyscanner, android::Scope** const scope)
+    yyscan_t yyscanner, android::AST* const ast, android::Scope** const scope)
 
 #define YY_USER_ACTION yylloc->step(); yylloc->columns(yyleng);
 
@@ -78,27 +77,30 @@ static std::string gCurrentComment;
 %option bison-bridge
 %option bison-locations
 
-%x COMMENT_STATE
-%x DOC_COMMENT_STATE
-
 %%
 
-"/**"                       { gCurrentComment.clear(); BEGIN(DOC_COMMENT_STATE); }
-<DOC_COMMENT_STATE>"*/"     {
-                                BEGIN(INITIAL);
-                                yylval->docComment = new DocComment(gCurrentComment);
-                                return token::DOC_COMMENT;
+\/\*([^*]|\*+[^*\/])*\*+\/  {
+                                std::string str(yytext);
+
+                                // Add the lines to location (to keep it updated)
+                                yylloc->lines(std::count(str.begin(), str.end(), '\n'));
+
+                                str = StringHelper::LTrim(str, "/");
+                                bool isDoc = StringHelper::StartsWith(str, "**");
+                                str = StringHelper::LTrimAll(str, "*");
+                                str = StringHelper::RTrim(str, "/");
+                                str = StringHelper::RTrimAll(str, "*");
+
+                                yylval->str = strdup(str.c_str());
+                                return isDoc ? token::DOC_COMMENT : token::MULTILINE_COMMENT;
                             }
-<DOC_COMMENT_STATE>[^*\n]*                          { gCurrentComment += yytext; }
-<DOC_COMMENT_STATE>[\n]                             { gCurrentComment += yytext; yylloc->lines(); }
-<DOC_COMMENT_STATE>[*]                              { gCurrentComment += yytext; }
 
-"/*"                        { BEGIN(COMMENT_STATE); }
-<COMMENT_STATE>"*/"         { BEGIN(INITIAL); }
-<COMMENT_STATE>[\n]         { yylloc->lines(); }
-<COMMENT_STATE>.            { }
-
-"//"[^\r\n]*        { /* skip C++ style comment */ }
+"//"[^\r\n]*        {
+                        ast->addUnhandledComment(
+                                new DocComment(yytext,
+                                               convertYYLoc(*yylloc, ast),
+                                               CommentType::SINGLELINE));
+                    }
 
 "enum"              { return token::ENUM; }
 "extends"           { return token::EXTENDS; }
@@ -112,7 +114,6 @@ static std::string gCurrentComment;
 "union"             { return token::UNION; }
 "bitfield"          { yylval->templatedType = new BitFieldType(*scope); return token::TEMPLATED; }
 "vec"               { yylval->templatedType = new VectorType(*scope); return token::TEMPLATED; }
-"ref"               { yylval->templatedType = new RefType(*scope); return token::TEMPLATED; }
 "oneway"            { return token::ONEWAY; }
 
 "bool"              { SCALAR_TYPE(KIND_BOOL); }
@@ -133,8 +134,8 @@ static std::string gCurrentComment;
 "pointer"           { yylval->type = new PointerType(*scope); return token::TYPE; }
 "string"            { yylval->type = new StringType(*scope); return token::TYPE; }
 
-"fmq_sync"          { yylval->type = new FmqType("::android::hardware", "MQDescriptorSync", *scope); return token::TEMPLATED; }
-"fmq_unsync"        { yylval->type = new FmqType("::android::hardware", "MQDescriptorUnsync", *scope); return token::TEMPLATED; }
+"fmq_sync"          { yylval->type = new FmqType("::android::hardware", "MQDescriptorSync", *scope, "fmq_sync"); return token::TEMPLATED; }
+"fmq_unsync"        { yylval->type = new FmqType("::android::hardware", "MQDescriptorUnsync", *scope, "fmq_unsync"); return token::TEMPLATED; }
 
 "("                 { return('('); }
 ")"                 { return(')'); }
@@ -198,7 +199,7 @@ status_t parseFile(AST* ast, std::unique_ptr<FILE, std::function<void(FILE *)>> 
 
     yyset_in(file.get(), scanner);
 
-    Scope* scopeStack = ast->getRootScope();
+    Scope* scopeStack = ast->getMutableRootScope();
     int res = yy::parser(scanner, ast, &scopeStack).parse();
 
     yylex_destroy(scanner);

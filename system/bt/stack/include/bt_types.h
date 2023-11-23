@@ -80,6 +80,9 @@
 /* HCI command from upper layer     */
 #define BT_EVT_TO_BTU_HCI_CMD 0x1600
 
+/* ISO Data from HCI                */
+#define BT_EVT_TO_BTU_HCI_ISO 0x1700
+
 /* L2CAP segment(s) transmitted     */
 #define BT_EVT_TO_BTU_L2C_SEG_XMIT 0x1900
 
@@ -119,6 +122,8 @@
 #define BT_EVT_TO_LM_HCI_ACL_ACK 0x2b00
 /* LM Diagnostics commands          */
 #define BT_EVT_TO_LM_DIAG 0x2c00
+/* HCI ISO Data                     */
+#define BT_EVT_TO_LM_HCI_ISO 0x2d00
 
 #define BT_EVT_TO_BTM_CMDS 0x2f00
 #define BT_EVT_TO_BTM_PM_MDCHG_EVT (0x0001 | BT_EVT_TO_BTM_CMDS)
@@ -580,9 +585,7 @@ typedef Octet16 LinkKey; /* Link Key */
  * 0x4C68384139F574D836BCF34E9DFB01BF */
 constexpr Octet16 SAMPLE_LTK = {0xbf, 0x01, 0xfb, 0x9d, 0x4e, 0xf3, 0xbc, 0x36,
                                 0xd8, 0x74, 0xf5, 0x39, 0x41, 0x38, 0x68, 0x4c};
-inline bool is_sample_ltk(const Octet16& ltk) {
-  return ltk == SAMPLE_LTK;
-}
+inline bool is_sample_ltk(const Octet16& ltk) { return ltk == SAMPLE_LTK; }
 
 #endif
 
@@ -636,9 +639,9 @@ typedef struct {
 } FLOW_SPEC;
 
 /* Values for service_type */
-#define NO_TRAFFIC 0
-#define BEST_EFFORT 1
-#define GUARANTEED 2
+#define SVC_TYPE_NO_TRAFFIC 0
+#define SVC_TYPE_BEST_EFFORT 1
+#define SVC_TYPE_GUARANTEED 2
 
 /* Service class of the CoD */
 #define SERV_CLASS_NETWORKING (1 << 1)

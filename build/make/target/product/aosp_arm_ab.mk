@@ -24,12 +24,32 @@
 # - 32 bits binder interface
 # - system-as-root
 
-$(call inherit-product, $(SRC_TARGET_DIR)/product/legacy_gsi_common.mk)
+#
+# All components inherited here go to system image
+# (The system image of Legacy GSI is not CSI)
+#
+$(call inherit-product, $(SRC_TARGET_DIR)/product/mainline_system.mk)
 
 # Enable mainline checking for excat this product name
 ifeq (aosp_arm_ab,$(TARGET_PRODUCT))
 PRODUCT_ENFORCE_ARTIFACT_PATH_REQUIREMENTS := relaxed
 endif
+
+#
+# All components inherited here go to system_ext image
+#
+$(call inherit-product, $(SRC_TARGET_DIR)/product/handheld_system_ext.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/telephony_system_ext.mk)
+
+#
+# All components inherited here go to product image
+#
+$(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_product.mk)
+
+#
+# Special settings for GSI releasing
+#
+$(call inherit-product, $(SRC_TARGET_DIR)/product/legacy_gsi_release.mk)
 
 PRODUCT_NAME := aosp_arm_ab
 PRODUCT_DEVICE := generic_arm_ab

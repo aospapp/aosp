@@ -25,7 +25,7 @@
 
 package java.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class LinkedHashMap<K, V> extends java.util.HashMap<K, V> implements java.util.Map<K, V> {

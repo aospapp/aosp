@@ -17,8 +17,7 @@
 package android.appwidget.cts;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.appwidget.AppWidgetHost;
 import android.appwidget.AppWidgetManager;
@@ -35,9 +34,11 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 @AppModeFull(reason = "Instant apps cannot provide or host app widgets")
 public class UpdateProviderInfoTest extends AppWidgetTestCase {
@@ -55,6 +56,10 @@ public class UpdateProviderInfoTest extends AppWidgetTestCase {
     private static final int HOST_ID = 42;
 
     private static final int RETRY_COUNT = 3;
+    private static final int WAIT_FOR_STATE_CHANGE_TIMEOUT_MS = 1000;
+
+    private static final Predicate<ComponentName> NULL_CN_PREDICATE = (cn) -> cn == null;
+    private static final Predicate<ComponentName> NOT_NULL_CN_PREDICATE = (cn) -> cn != null;
 
     private CountDownLatch mProviderChangeNotifier;
     AppWidgetHost mHost;
@@ -78,48 +83,48 @@ public class UpdateProviderInfoTest extends AppWidgetTestCase {
     public void testInfoOverrides() throws Throwable {
         // On first install the provider does not have any config activity.
         installApk(APK_V1);
-        assertNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NULL_CN_PREDICATE);
 
         // The provider info is updated
         updateInfo(EXTRA_CUSTOM_INFO);
-        assertNotNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NOT_NULL_CN_PREDICATE);
 
         // The provider info is updated
         updateInfo(null);
-        assertNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NULL_CN_PREDICATE);
     }
 
     @Test
     public void testOverridesPersistedOnUpdate() throws Exception {
         installApk(APK_V1);
-        assertNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NULL_CN_PREDICATE);
 
         updateInfo(EXTRA_CUSTOM_INFO);
-        assertNotNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NOT_NULL_CN_PREDICATE);
         assertEquals((AppWidgetProviderInfo.RESIZE_BOTH & getProviderInfo().resizeMode),
                 AppWidgetProviderInfo.RESIZE_BOTH);
 
         // Apk updated, the info is also updated
         installApk(APK_V2);
-        assertNotNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NOT_NULL_CN_PREDICATE);
         assertEquals((AppWidgetProviderInfo.RESIZE_BOTH & getProviderInfo().resizeMode), 0);
 
         // The provider info is reverted
         updateInfo(null);
-        assertNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NULL_CN_PREDICATE);
     }
 
     @Test
     public void testOverrideClearedWhenMissingInfo() throws Exception {
         installApk(APK_V1);
-        assertNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NULL_CN_PREDICATE);
 
         updateInfo(EXTRA_CUSTOM_INFO);
-        assertNotNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NOT_NULL_CN_PREDICATE);
 
         // V3 does not have the custom info definition
         installApk(APK_V3);
-        assertNull(getProviderInfo().configure);
+        waitAndConfirmComponentName(NULL_CN_PREDICATE);
     }
 
     private void createHost() throws Exception {
@@ -141,6 +146,18 @@ public class UpdateProviderInfoTest extends AppWidgetTestCase {
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
+    }
+
+    private void waitAndConfirmComponentName(Predicate<ComponentName> condition) throws Exception {
+        long deadline = Instant.now().plusMillis(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS).toEpochMilli();
+        boolean passesTest = condition.test(getProviderInfo().configure);
+        while (!passesTest && Instant.now().toEpochMilli() < deadline) {
+            long timeout = deadline - Instant.now().toEpochMilli();
+            mProviderChangeNotifier = new CountDownLatch(1);
+            mProviderChangeNotifier.await(timeout, TimeUnit.MILLISECONDS);
+            passesTest = condition.test(getProviderInfo().configure);
+        }
+        assertTrue(passesTest);
     }
 
     private void updateInfo(String key) throws Exception {
@@ -170,8 +187,8 @@ public class UpdateProviderInfoTest extends AppWidgetTestCase {
     private AppWidgetProviderInfo getProviderInfo() throws Exception {
         for (int i = 0; i < RETRY_COUNT; i++) {
             mProviderChangeNotifier = new CountDownLatch(1);
-            List<AppWidgetProviderInfo> providers = AppWidgetManager.getInstance(getInstrumentation()
-                    .getTargetContext()).getInstalledProvidersForPackage(
+            List<AppWidgetProviderInfo> providers = AppWidgetManager.getInstance(
+                    getInstrumentation().getTargetContext()).getInstalledProvidersForPackage(
                     PROVIDER_PACKAGE, Process.myUserHandle());
 
             if (providers != null && !providers.isEmpty()) {

@@ -21,8 +21,6 @@
 #define LOG_TAG "CHRE"
 #endif
 
-#include "chre/util/log_common.h"
-
 #include <log/log.h>
 
 /**
@@ -30,23 +28,27 @@
  * of LOGE, LOGW, etc. to populate the level.
  *
  * @param level log level to pass to ALOG (LOG_ERROR, LOG_WARN, etc.)
+ * @param stream output stream to print to (e.g. stdout)
  * @param format printf-style format string
  */
-#define CHRE_LOG(level, format, ...)                 \
-    do {                                             \
-        ALOG(level, LOG_TAG, format, ##__VA_ARGS__); \
-        printf("%s:%d : " format "\n", __func__, __LINE__, ##__VA_ARGS__); \
-    } while (0)
+#define CHRE_LOG(level, stream, format, ...)                                   \
+  do {                                                                         \
+    ALOG(level, LOG_TAG, format, ##__VA_ARGS__);                               \
+    fprintf(stream, "%s:%d: " format "\n", __func__, __LINE__, ##__VA_ARGS__); \
+  } while (0)
 
-#define LOGE(format, ...) CHRE_LOG(LOG_ERROR,   format, ##__VA_ARGS__)
-#define LOGW(format, ...) CHRE_LOG(LOG_WARN,    format, ##__VA_ARGS__)
-#define LOGI(format, ...) CHRE_LOG(LOG_INFO,    format, ##__VA_ARGS__)
-#define LOGD(format, ...) CHRE_LOG(LOG_DEBUG,   format, ##__VA_ARGS__)
+#define LOGE(format, ...) CHRE_LOG(LOG_ERROR, stderr, format, ##__VA_ARGS__)
+#define LOGW(format, ...) CHRE_LOG(LOG_WARN, stdout, format, ##__VA_ARGS__)
+#define LOGI(format, ...) CHRE_LOG(LOG_INFO, stdout, format, ##__VA_ARGS__)
+#define LOGD(format, ...) CHRE_LOG(LOG_DEBUG, stdout, format, ##__VA_ARGS__)
 
 #if LOG_NDEBUG
+__attribute__((format(printf, 1, 2))) inline void chreLogNull(
+    const char * /*fmt*/, ...) {}
+
 #define LOGV(format, ...) chreLogNull(format, ##__VA_ARGS__)
 #else
-#define LOGV(format, ...) CHRE_LOG(LOG_VERBOSE, format, ##__VA_ARGS__)
+#define LOGV(format, ...) CHRE_LOG(LOG_VERBOSE, stdout, format, ##__VA_ARGS__)
 #endif
 
 /**
@@ -56,11 +58,11 @@
  * @param message Error message string to log
  * @param error_code Standard error code number (EINVAL, etc)
  */
-#define LOG_ERROR(message, error_code)                              \
-    do {                                                            \
-        char error_string[64];                                      \
-        strerror_r(error_code, error_string, sizeof(error_string)); \
-        LOGE("%s: %s (%d)\n", message, error_string, error_code);   \
-    } while (0)
+#define LOG_ERROR(message, error_code)                          \
+  do {                                                          \
+    char error_string[64];                                      \
+    strerror_r(error_code, error_string, sizeof(error_string)); \
+    LOGE("%s: %s (%d)\n", message, error_string, error_code);   \
+  } while (0)
 
 #endif  // CHRE_HOST_LOG_H_

@@ -37,9 +37,12 @@ class CheepsComputeClientTest(driver_test_lib.BaseDriverTest):
     METADATA = {"metadata_key": "metadata_value"}
     BOOT_DISK_SIZE_GB = 10
     ANDROID_BUILD_ID = 123
+    ANDROID_BUILD_TARGET = 'cheese-userdebug'
     DPI = 320
     X_RES = 720
     Y_RES = 1280
+    USER = "test_user"
+    PASSWORD = "test_password"
 
     def _GetFakeConfig(self):
         """Create a fake configuration object.
@@ -75,12 +78,12 @@ class CheepsComputeClientTest(driver_test_lib.BaseDriverTest):
             return_value={"diskSizeGb": self.BOOT_DISK_SIZE_GB})
         self.Patch(gcompute_client.ComputeClient, "CreateInstance")
 
-    @mock.patch("getpass.getuser", return_value="fake_user")
-    def testCreateInstance(self, _mock_user):
+    def testCreateInstance(self):
         """Test CreateInstance."""
 
         expected_metadata = {
             'android_build_id': self.ANDROID_BUILD_ID,
+            'android_build_target': self.ANDROID_BUILD_TARGET,
             'avd_type': "cheeps",
             'cvd_01_dpi': str(self.DPI),
             'cvd_01_x_res': str(self.X_RES),
@@ -88,20 +91,27 @@ class CheepsComputeClientTest(driver_test_lib.BaseDriverTest):
             'display': "%sx%s (%s)"%(
                 str(self.X_RES),
                 str(self.Y_RES),
-                str(self.DPI))}
+                str(self.DPI)),
+            'user': self.USER,
+            'password': self.PASSWORD,
+        }
         expected_metadata.update(self.METADATA)
-        expected_labels = {'created_by': "fake_user"}
 
         avd_spec = mock.MagicMock()
         avd_spec.hw_property = {constants.HW_X_RES: str(self.X_RES),
                                 constants.HW_Y_RES: str(self.Y_RES),
                                 constants.HW_ALIAS_DPI: str(self.DPI)}
+        avd_spec.username = self.USER
+        avd_spec.password = self.PASSWORD
+        avd_spec.remote_image = {
+            constants.BUILD_ID: self.ANDROID_BUILD_ID,
+            constants.BUILD_TARGET: self.ANDROID_BUILD_TARGET,
+        }
 
         self.cheeps_compute_client.CreateInstance(
             self.INSTANCE,
             self.IMAGE,
             self.IMAGE_PROJECT,
-            self.ANDROID_BUILD_ID,
             avd_spec)
         # pylint: disable=no-member
         gcompute_client.ComputeClient.CreateInstance.assert_called_with(
@@ -113,8 +123,7 @@ class CheepsComputeClientTest(driver_test_lib.BaseDriverTest):
             metadata=expected_metadata,
             machine_type=self.MACHINE_TYPE,
             network=self.NETWORK,
-            zone=self.ZONE,
-            labels=expected_labels)
+            zone=self.ZONE)
 
 if __name__ == "__main__":
     unittest.main()

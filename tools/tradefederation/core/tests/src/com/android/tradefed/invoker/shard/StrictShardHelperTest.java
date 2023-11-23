@@ -22,11 +22,14 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.build.BuildInfo;
-import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.StubBuildProvider;
 import com.android.tradefed.command.CommandOptions;
 import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
+import com.android.tradefed.config.DeviceConfigurationHolder;
+import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -34,14 +37,15 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
-import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.StubTest;
 import com.android.tradefed.testtype.suite.ITestSuite;
+import com.android.tradefed.util.FileUtil;
 
 import org.easymock.EasyMock;
 import org.junit.Assert;
@@ -52,19 +56,26 @@ import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Unit tests for {@link StrictShardHelper}. */
 @RunWith(JUnit4.class)
 public class StrictShardHelperTest {
 
+    private static final String TEST_CONFIG =
+            "<configuration description=\"shard config test\">\n"
+                    + "    <%s class=\"%s\" />\n"
+                    + "</configuration>";
+
     private StrictShardHelper mHelper;
     private IConfiguration mConfig;
     private ILogSaver mMockLogSaver;
+    private TestInformation mTestInfo;
     private IInvocationContext mContext;
     private IRescheduler mRescheduler;
 
@@ -73,7 +84,10 @@ public class StrictShardHelperTest {
         mHelper = new StrictShardHelper();
         mConfig = new Configuration("fake_sharding_config", "desc");
         mContext = new InvocationContext();
-        mContext.addDeviceBuildInfo("default", new BuildInfo());
+        mContext.addAllocatedDevice(
+                ConfigurationDef.DEFAULT_DEVICE_NAME, Mockito.mock(ITestDevice.class));
+        mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, new BuildInfo());
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(mContext).build();
         mRescheduler = Mockito.mock(IRescheduler.class);
         mMockLogSaver = Mockito.mock(ILogSaver.class);
         mConfig.setLogSaver(mMockLogSaver);
@@ -82,28 +96,43 @@ public class StrictShardHelperTest {
     /** Test sharding using Tradefed internal algorithm. */
     @Test
     public void testShardConfig_internal() throws Exception {
-        CommandOptions options = new CommandOptions();
-        OptionSetter setter = new OptionSetter(options);
-        setter.setOptionValue("shard-count", "5");
-        mConfig.setCommandOptions(options);
-        mConfig.setCommandLine(new String[] {"empty"});
-        StubTest test = new StubTest();
-        setter = new OptionSetter(test);
-        setter.setOptionValue("num-shards", "5");
-        mConfig.setTest(test);
-        assertEquals(1, mConfig.getTests().size());
-        assertTrue(mHelper.shardConfig(mConfig, mContext, mRescheduler));
-        // Ensure that we did split 1 tests per shard rescheduled.
-        Mockito.verify(mRescheduler, Mockito.times(5))
-                .scheduleConfig(
-                        Mockito.argThat(
-                                new ArgumentMatcher<IConfiguration>() {
-                                    @Override
-                                    public boolean matches(IConfiguration argument) {
-                                        assertEquals(1, argument.getTests().size());
-                                        return true;
-                                    }
-                                }));
+        try {
+            GlobalConfiguration.createGlobalConfiguration(new String[] {"empty"});
+        } catch (IllegalStateException ignore) {
+            // Ignore
+        }
+        File configFile =
+                createTmpConfig(Configuration.BUILD_PROVIDER_TYPE_NAME, new StubBuildProvider());
+        try {
+            DeviceConfigurationHolder holder =
+                    new DeviceConfigurationHolder(ConfigurationDef.DEFAULT_DEVICE_NAME);
+            holder.addSpecificConfig(new StubBuildProvider());
+            mConfig.setDeviceConfig(holder);
+            CommandOptions options = new CommandOptions();
+            OptionSetter setter = new OptionSetter(options);
+            setter.setOptionValue("shard-count", "5");
+            mConfig.setCommandOptions(options);
+            mConfig.setCommandLine(new String[] {configFile.getAbsolutePath()});
+            StubTest test = new StubTest();
+            setter = new OptionSetter(test);
+            setter.setOptionValue("num-shards", "5");
+            mConfig.setTest(test);
+            assertEquals(1, mConfig.getTests().size());
+            assertTrue(mHelper.shardConfig(mConfig, mTestInfo, mRescheduler, null));
+            // Ensure that we did split 1 tests per shard rescheduled.
+            Mockito.verify(mRescheduler, Mockito.times(5))
+                    .scheduleConfig(
+                            Mockito.argThat(
+                                    new ArgumentMatcher<IConfiguration>() {
+                                        @Override
+                                        public boolean matches(IConfiguration argument) {
+                                            assertEquals(1, argument.getTests().size());
+                                            return true;
+                                        }
+                                    }));
+        } finally {
+            FileUtil.deleteFile(configFile);
+        }
     }
 
     /** Test sharding using Tradefed internal algorithm. */
@@ -121,7 +150,7 @@ public class StrictShardHelperTest {
         mConfig.setTest(test);
         assertEquals(1, mConfig.getTests().size());
         // We do not shard, we are relying on the current invocation to run.
-        assertFalse(mHelper.shardConfig(mConfig, mContext, mRescheduler));
+        assertFalse(mHelper.shardConfig(mConfig, mTestInfo, mRescheduler, null));
         // Rescheduled is NOT called because we use the current invocation to run the index.
         Mockito.verify(mRescheduler, Mockito.times(0)).scheduleConfig(Mockito.any());
         assertEquals(1, mConfig.getTests().size());
@@ -144,7 +173,7 @@ public class StrictShardHelperTest {
         IRemoteTest test =
                 new IRemoteTest() {
                     @Override
-                    public void run(ITestInvocationListener listener)
+                    public void run(TestInformation testInfo, ITestInvocationListener listener)
                             throws DeviceNotAvailableException {
                         // do nothing.
                     }
@@ -152,7 +181,7 @@ public class StrictShardHelperTest {
         mConfig.setTest(test);
         assertEquals(1, mConfig.getTests().size());
         // We do not shard, we are relying on the current invocation to run.
-        assertFalse(mHelper.shardConfig(mConfig, mContext, mRescheduler));
+        assertFalse(mHelper.shardConfig(mConfig, mTestInfo, mRescheduler, null));
         // Rescheduled is NOT called because we use the current invocation to run the index.
         Mockito.verify(mRescheduler, Mockito.times(0)).scheduleConfig(Mockito.any());
         assertEquals(1, mConfig.getTests().size());
@@ -175,7 +204,7 @@ public class StrictShardHelperTest {
         IRemoteTest test =
                 new IRemoteTest() {
                     @Override
-                    public void run(ITestInvocationListener listener)
+                    public void run(TestInformation testInfo, ITestInvocationListener listener)
                             throws DeviceNotAvailableException {
                         // do nothing.
                     }
@@ -183,7 +212,7 @@ public class StrictShardHelperTest {
         mConfig.setTest(test);
         assertEquals(1, mConfig.getTests().size());
         // We do not shard, we are relying on the current invocation to run.
-        assertFalse(mHelper.shardConfig(mConfig, mContext, mRescheduler));
+        assertFalse(mHelper.shardConfig(mConfig, mTestInfo, mRescheduler, null));
         // Rescheduled is NOT called because we use the current invocation to run the index.
         Mockito.verify(mRescheduler, Mockito.times(0)).scheduleConfig(Mockito.any());
         // We have no tests to put in shard-index 1 so it's empty.
@@ -249,7 +278,7 @@ public class StrictShardHelperTest {
         mConfig.setCommandOptions(options);
         mConfig.setCommandLine(new String[] {"empty"});
         mConfig.setTests(test);
-        mHelper.shardConfig(mConfig, mContext, mRescheduler);
+        mHelper.shardConfig(mConfig, mTestInfo, mRescheduler, null);
         return mConfig.getTests();
     }
 
@@ -313,16 +342,15 @@ public class StrictShardHelperTest {
 
     @Test
     public void testShardSuite() throws Exception {
-        //mConfig
-        mHelper.shardConfig(mConfig, mContext, mRescheduler);
+        // mConfig
+        mHelper.shardConfig(mConfig, mTestInfo, mRescheduler, null);
     }
 
     /**
      * Test class to ensure that when sharding interfaces are properly called and forwarded so the
      * tests have all their information for sharding.
      */
-    public static class TestInterfaceClass
-            implements IShardableTest, IMultiDeviceTest, IInvocationContextReceiver {
+    public static class TestInterfaceClass implements IShardableTest, IInvocationContextReceiver {
 
         @Override
         public void setInvocationContext(IInvocationContext invocationContext) {
@@ -330,12 +358,8 @@ public class StrictShardHelperTest {
         }
 
         @Override
-        public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
-            Assert.assertNotNull(deviceInfos);
-        }
-
-        @Override
-        public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+        public void run(TestInformation testInfo, ITestInvocationListener listener)
+                throws DeviceNotAvailableException {
             // ignore
         }
 
@@ -365,7 +389,7 @@ public class StrictShardHelperTest {
         setter.setOptionValue("shard-index", Integer.toString(0));
         mConfig.setCommandOptions(options);
         mConfig.setTest(test);
-        mHelper.shardConfig(mConfig, mContext, mRescheduler);
+        mHelper.shardConfig(mConfig, mTestInfo, mRescheduler, null);
 
         List<IRemoteTest> res = mConfig.getTests();
         assertEquals(1, res.size());
@@ -445,5 +469,12 @@ public class StrictShardHelperTest {
         assertEquals(2, res.get(3).size());
         assertEquals(2, res.get(4).size());
         assertEquals(2, res.get(5).size());
+    }
+
+    private File createTmpConfig(String objType, Object obj) throws IOException {
+        File configFile = FileUtil.createTempFile("shard-helper-test", ".xml");
+        String content = String.format(TEST_CONFIG, objType, obj.getClass().getCanonicalName());
+        FileUtil.writeToFile(content, configFile);
+        return configFile;
     }
 }

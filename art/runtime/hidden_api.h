@@ -19,12 +19,15 @@
 
 #include "art_field.h"
 #include "art_method.h"
+#include "base/hiddenapi_domain.h"
 #include "base/hiddenapi_flags.h"
 #include "base/locks.h"
 #include "intrinsics_enum.h"
+#include "jni/jni_internal.h"
 #include "mirror/class-inl.h"
 #include "reflection.h"
 #include "runtime.h"
+#include "well_known_classes.h"
 
 namespace art {
 namespace hiddenapi {
@@ -155,6 +158,8 @@ class ScopedHiddenApiEnforcementPolicySetting {
   DISALLOW_COPY_AND_ASSIGN(ScopedHiddenApiEnforcementPolicySetting);
 };
 
+void InitializeCorePlatformApiPrivateFields() REQUIRES(!Locks::mutator_lock_);
+
 // Implementation details. DO NOT ACCESS DIRECTLY.
 namespace detail {
 
@@ -191,7 +196,7 @@ class MemberSignature {
   // building the entire thing in memory and performing a simple prefix match)
   bool DoesPrefixMatch(const std::string& prefix) const;
 
-  bool IsExempted(const std::vector<std::string>& exemptions);
+  bool DoesPrefixMatchAny(const std::vector<std::string>& exemptions);
 
   void WarnAboutAccess(AccessMethod access_method, ApiList list, bool access_denied);
 
@@ -281,31 +286,6 @@ ALWAYS_INLINE inline uint32_t GetRuntimeFlags(ArtMethod* method)
       case Intrinsics::kReferenceGetReferent:
       case Intrinsics::kMemoryPeekByte:
       case Intrinsics::kMemoryPokeByte:
-      case Intrinsics::kUnsafeCASInt:
-      case Intrinsics::kUnsafeCASLong:
-      case Intrinsics::kUnsafeCASObject:
-      case Intrinsics::kUnsafeGet:
-      case Intrinsics::kUnsafeGetAndAddInt:
-      case Intrinsics::kUnsafeGetAndAddLong:
-      case Intrinsics::kUnsafeGetAndSetInt:
-      case Intrinsics::kUnsafeGetAndSetLong:
-      case Intrinsics::kUnsafeGetAndSetObject:
-      case Intrinsics::kUnsafeGetLongVolatile:
-      case Intrinsics::kUnsafeGetObject:
-      case Intrinsics::kUnsafeGetObjectVolatile:
-      case Intrinsics::kUnsafeGetVolatile:
-      case Intrinsics::kUnsafePut:
-      case Intrinsics::kUnsafePutLong:
-      case Intrinsics::kUnsafePutLongOrdered:
-      case Intrinsics::kUnsafePutLongVolatile:
-      case Intrinsics::kUnsafePutObject:
-      case Intrinsics::kUnsafePutObjectOrdered:
-      case Intrinsics::kUnsafePutObjectVolatile:
-      case Intrinsics::kUnsafePutOrdered:
-      case Intrinsics::kUnsafePutVolatile:
-      case Intrinsics::kUnsafeLoadFence:
-      case Intrinsics::kUnsafeStoreFence:
-      case Intrinsics::kUnsafeFullFence:
       case Intrinsics::kCRC32Update:
       case Intrinsics::kCRC32UpdateBytes:
       case Intrinsics::kCRC32UpdateByteBuffer:
@@ -318,6 +298,26 @@ ALWAYS_INLINE inline uint32_t GetRuntimeFlags(ArtMethod* method)
       case Intrinsics::kMemoryPokeIntNative:
       case Intrinsics::kMemoryPokeLongNative:
       case Intrinsics::kMemoryPokeShortNative:
+      case Intrinsics::kUnsafeCASInt:
+      case Intrinsics::kUnsafeCASLong:
+      case Intrinsics::kUnsafeCASObject:
+      case Intrinsics::kUnsafeGetAndAddInt:
+      case Intrinsics::kUnsafeGetAndAddLong:
+      case Intrinsics::kUnsafeGetAndSetInt:
+      case Intrinsics::kUnsafeGetAndSetLong:
+      case Intrinsics::kUnsafeGetAndSetObject:
+      case Intrinsics::kUnsafeGetLongVolatile:
+      case Intrinsics::kUnsafeGetObjectVolatile:
+      case Intrinsics::kUnsafeGetVolatile:
+      case Intrinsics::kUnsafePutLongOrdered:
+      case Intrinsics::kUnsafePutLongVolatile:
+      case Intrinsics::kUnsafePutObjectOrdered:
+      case Intrinsics::kUnsafePutObjectVolatile:
+      case Intrinsics::kUnsafePutOrdered:
+      case Intrinsics::kUnsafePutVolatile:
+      case Intrinsics::kUnsafeLoadFence:
+      case Intrinsics::kUnsafeStoreFence:
+      case Intrinsics::kUnsafeFullFence:
       case Intrinsics::kVarHandleFullFence:
       case Intrinsics::kVarHandleAcquireFence:
       case Intrinsics::kVarHandleReleaseFence:
@@ -355,7 +355,21 @@ ALWAYS_INLINE inline uint32_t GetRuntimeFlags(ArtMethod* method)
       case Intrinsics::kVarHandleWeakCompareAndSetPlain:
       case Intrinsics::kVarHandleWeakCompareAndSetRelease:
         return 0u;
+      case Intrinsics::kFP16Ceil:
+      case Intrinsics::kFP16Floor:
+      case Intrinsics::kFP16Greater:
+      case Intrinsics::kFP16GreaterEquals:
+      case Intrinsics::kFP16Less:
+      case Intrinsics::kFP16LessEquals:
+      case Intrinsics::kFP16ToFloat:
+      case Intrinsics::kFP16ToHalf:
+      case Intrinsics::kFP16Rint:
+      case Intrinsics::kUnsafeGet:
       case Intrinsics::kUnsafeGetLong:
+      case Intrinsics::kUnsafeGetObject:
+      case Intrinsics::kUnsafePutLong:
+      case Intrinsics::kUnsafePut:
+      case Intrinsics::kUnsafePutObject:
         return kAccCorePlatformApi;
       default:
         // Remaining intrinsics are public API. We DCHECK that in SetIntrinsic().

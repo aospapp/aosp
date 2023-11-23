@@ -21,6 +21,8 @@
 #include <limits>
 #include <ostream>
 
+#include <android-base/result.h>
+
 namespace android {
 namespace netdutils {
 
@@ -38,6 +40,10 @@ class [[nodiscard]] Status {
 
     // Constructs an error Status, |code| must be non-zero.
     Status(int code, std::string msg) : mCode(code), mMsg(std::move(msg)) { assert(!ok()); }
+
+    Status(android::base::Result<void> result)
+        : mCode(result.ok() ? 0 : result.error().code()),
+          mMsg(result.ok() ? "" : result.error().message()) {}
 
     int code() const { return mCode; }
 
@@ -73,8 +79,9 @@ inline bool isOk(const Status& status) {
     return status.ok();
 }
 
-// For use only in tests.
-#define EXPECT_OK(status) EXPECT_TRUE((status).ok())
+// For use only in tests. Used for both Status and Status-like objects. See also isOk().
+#define EXPECT_OK(status) EXPECT_TRUE(isOk(status))
+#define ASSERT_OK(status) ASSERT_TRUE(isOk(status))
 
 // Documents that status is expected to be ok. This function may log
 // (or assert when running in debug mode) if status has an unexpected value.

@@ -17,6 +17,10 @@
 #ifndef CHRE_UTIL_MACROS_H_
 #define CHRE_UTIL_MACROS_H_
 
+#ifndef UNUSED_VAR
+#define UNUSED_VAR(var) ((void)(var))
+#endif
+
 /**
  * Obtains the number of elements in a C-style array.
  */

@@ -39,6 +39,7 @@ public class CallScreeningServiceControl extends Service {
                     "android.telecom.cts.screeningtestapp/.CallScreeningServiceControl");
 
     private static CallScreeningServiceControl sCallScreeningServiceControl = null;
+    private CountDownLatch mBindingLatch = new CountDownLatch(1);
 
     private final IBinder mControlInterface =
             new android.telecom.cts.screeningtestapp.ICallScreeningControl.Stub() {
@@ -50,6 +51,8 @@ public class CallScreeningServiceControl extends Service {
                             .setSkipCallLog(false)
                             .setSkipNotification(false)
                             .build();
+                    mBindingLatch = new CountDownLatch(1);
+                    CtsPostCallActivity.resetPostCallActivity();
                 }
 
                 @Override
@@ -66,6 +69,30 @@ public class CallScreeningServiceControl extends Service {
                             .setRejectCall(shouldRejectCall)
                             .setSilenceCall(shouldSilenceCall)
                             .build();
+                }
+
+                @Override
+                public boolean waitForBind() {
+                    try {
+                        return mBindingLatch.await(ASYNC_TIMEOUT, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException e) {
+                        return false;
+                    }
+                }
+
+                @Override
+                public boolean waitForActivity() {
+                    return CtsPostCallActivity.waitForActivity();
+                }
+
+                @Override
+                public String getCachedHandle() {
+                    return CtsPostCallActivity.getCachedHandle().getSchemeSpecificPart();
+                }
+
+                @Override
+                public int getCachedDisconnectCause() {
+                    return CtsPostCallActivity.getCachedDisconnectCause();
                 }
             };
 
@@ -97,6 +124,10 @@ public class CallScreeningServiceControl extends Service {
     public boolean onUnbind(Intent intent) {
         sCallScreeningServiceControl = null;
         return false;
+    }
+
+    public void onScreeningServiceBound() {
+        mBindingLatch.countDown();
     }
 
     public CallScreeningService.CallResponse getCallResponse() {

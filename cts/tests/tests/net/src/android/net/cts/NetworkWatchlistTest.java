@@ -19,6 +19,7 @@ package android.net.cts;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
@@ -72,6 +73,7 @@ public class NetworkWatchlistTest {
         setWatchlistConfig(TEST_EMPTY_WATCHLIST_XML);
         // Verify test watchlist config is not set before testing
         byte[] result = mConnectivityManager.getNetworkWatchlistConfigHash();
+        assertNotNull("Watchlist config does not exist", result);
         assertNotEquals(TEST_WATCHLIST_CONFIG_HASH, byteArrayToHexString(result));
     }
 

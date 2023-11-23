@@ -54,6 +54,11 @@ message CameraDeviceInfo {
         repeated StreamConfig availableStreamConfigurations = 1;
     }
 
+    message RangeFloat {
+        optional int32 lower = 1;
+        optional int32 upper = 2;
+    }
+
     message RangeInt {
         optional int32 lower = 1;
         optional int32 upper = 2;
@@ -93,6 +98,8 @@ message CameraDeviceInfo {
     optional bool android_control_awbLockAvailable = 131086;
     repeated int32 android_control_availableModes = 131087;
     optional RangeInt android_control_postRawSensitivityBoostRange = 131088;
+    repeated Capability android_control_availableExtendedSceneModeCapabilities = 131089;
+    optional RangeFloat android_control_zoomRatioRange = 131090;
     repeated int32 android_edge_availableEdgeModes = 262144;
     optional bool android_flash_info_available = 393216;
     repeated int32 android_hotPixel_availableHotPixelModes = 458752;
@@ -118,6 +125,7 @@ message CameraDeviceInfo {
     optional StreamConfigurations android_scaler_streamConfigurationMap = 917505;
     optional int32 android_scaler_croppingType = 917506;
     repeated MandatoryStreamCombination android_scaler_mandatoryStreamCombinations = 917507;
+    repeated MandatoryStreamCombination android_scaler_mandatoryConcurrentStreamCombinations = 917508;
     optional int32 android_sensor_referenceIlluminant1 = 983040;
     optional int32 android_sensor_referenceIlluminant2 = 983041;
     optional ColorSpaceTransform android_sensor_calibrationTransform1 = 983042;

@@ -33,30 +33,30 @@ public class VtsCompatibilityInvocationHelper {
      */
     public File getTestsDir() throws FileNotFoundException {
         if (mTestCasesDir == null) {
+            String suiteName = TestSuiteInfo.getInstance().getName();
             String testCasesRootDirPath;
-            testCasesRootDirPath = System.getenv(
-                    String.format("%s_TESTCASES", TestSuiteInfo.getInstance().getName()));
+            testCasesRootDirPath =
+                    System.getenv(String.format("%s_TESTCASES", suiteName.replace('-', '_')));
             File testCaseDir;
             if (testCasesRootDirPath != null && !testCasesRootDirPath.trim().equals("")) {
                 testCaseDir = new File(testCasesRootDirPath);
             } else {
                 String rootDirPath;
-                rootDirPath = System.getProperty(
-                        String.format("%s_ROOT", TestSuiteInfo.getInstance().getName()));
+                rootDirPath =
+                        System.getProperty(String.format("%s_ROOT", suiteName.replace('-', '_')));
                 if (rootDirPath == null || rootDirPath.trim().equals("")) {
-                    throw new IllegalArgumentException(
-                            String.format("Missing install path property %s_ROOT",
-                                    TestSuiteInfo.getInstance().getName()));
+                    throw new IllegalArgumentException(String.format(
+                            "Missing install path property %s_ROOT", suiteName.replace('-', '_')));
                 }
-                testCaseDir = new File(rootDirPath, "android-vts/testcases");
+                testCaseDir = new File(rootDirPath,
+                        String.format("android-%s/testcases", suiteName.toLowerCase()));
             }
             if (!testCaseDir.exists()) {
                 throw new FileNotFoundException(String.format(
                         "Root directory doesn't exist %s", testCaseDir.getAbsolutePath()));
             }
             mTestCasesDir = testCaseDir.getAbsoluteFile();
-            CLog.d(String.format(
-                    "%s TEST CASES DIR: %s", TestSuiteInfo.getInstance().getName(), mTestCasesDir));
+            CLog.d(String.format("%s TEST CASES DIR: %s", suiteName, mTestCasesDir));
         }
 
         return mTestCasesDir;

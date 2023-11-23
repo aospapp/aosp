@@ -22,6 +22,7 @@ from acts.test_decorators import test_tracker_info
 from acts.test_utils.wifi.aware import aware_const as aconsts
 from acts.test_utils.wifi.aware import aware_test_utils as autils
 from acts.test_utils.wifi.aware.AwareBaseTest import AwareBaseTest
+from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 
 class DiscoveryTest(AwareBaseTest):
@@ -39,9 +40,6 @@ class DiscoveryTest(AwareBaseTest):
     # message re-transmit counter (increases reliability in open-environment)
     # Note: reliability of message transmission is tested elsewhere
     msg_retx_count = 5  # hard-coded max value, internal API
-
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
 
     def create_base_config(self, caps, is_publish, ptype, stype, payload_size,
                            ttl, term_ind_on, null_match):
@@ -564,6 +562,7 @@ class DiscoveryTest(AwareBaseTest):
     #######################################
 
     @test_tracker_info(uuid="954ebbde-ed2b-4f04-9e68-88239187d69d")
+    @WifiBaseTest.wifi_test_wrap
     def test_positive_unsolicited_passive_typical(self):
         """Functional test case / Discovery test cases / positive test case:
     - Solicited publish + passive subscribe
@@ -1071,3 +1070,194 @@ class DiscoveryTest(AwareBaseTest):
             s_config=autils.create_discovery_config(
                 sub_service_name, aconsts.SUBSCRIBE_TYPE_PASSIVE),
             device_startup_offset=self.device_startup_offset)
+
+    ##########################################################
+
+    def exchange_messages(self, p_dut, p_disc_id, s_dut, s_disc_id, peer_id_on_sub, session_name):
+        """
+        Exchange message between Publisher and Subscriber on target discovery session
+
+    Args:
+      p_dut: Publisher device
+      p_disc_id: Publish discovery session id
+      s_dut: Subscriber device
+      s_disc_id: Subscribe discovery session id
+      peer_id_on_sub: Peer ID of the Publisher as seen on the Subscriber
+      session_name: dictionary of discovery session name base on role("pub" or "sub")
+                    {role: {disc_id: name}}
+    """
+        msg_template = "Hello {} from {} !"
+
+        # Message send from Subscriber to Publisher
+        s_to_p_msg = msg_template.format(session_name["pub"][p_disc_id],
+                                         session_name["sub"][s_disc_id])
+        s_dut.droid.wifiAwareSendMessage(s_disc_id,
+                                         peer_id_on_sub,
+                                         self.get_next_msg_id(),
+                                         s_to_p_msg,
+                                         self.msg_retx_count)
+        autils.wait_for_event(s_dut,
+                              autils.decorate_event(aconsts.SESSION_CB_ON_MESSAGE_SENT, s_disc_id))
+        event = autils.wait_for_event(p_dut,
+                                      autils.decorate_event(aconsts.SESSION_CB_ON_MESSAGE_RECEIVED,
+                                                            p_disc_id))
+        asserts.assert_equal(
+            event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING], s_to_p_msg,
+            "Message on service %s from Subscriber to Publisher "
+            "not received correctly" % session_name["pub"][p_disc_id])
+        peer_id_on_pub = event["data"][aconsts.SESSION_CB_KEY_PEER_ID]
+
+        # Message send from Publisher to Subscriber
+        p_to_s_msg = msg_template.format(session_name["sub"][s_disc_id],
+                                         session_name["pub"][p_disc_id])
+        p_dut.droid.wifiAwareSendMessage(p_disc_id,
+                                         peer_id_on_pub,
+                                         self.get_next_msg_id(), p_to_s_msg,
+                                         self.msg_retx_count)
+        autils.wait_for_event(
+            p_dut, autils.decorate_event(aconsts.SESSION_CB_ON_MESSAGE_SENT, p_disc_id))
+        event = autils.wait_for_event(s_dut,
+                                      autils.decorate_event(aconsts.SESSION_CB_ON_MESSAGE_RECEIVED,
+                                                            s_disc_id))
+        asserts.assert_equal(
+            event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING], p_to_s_msg,
+            "Message on service %s from Publisher to Subscriber"
+            "not received correctly" % session_name["sub"][s_disc_id])
+
+    def run_multiple_concurrent_services_same_name_diff_ssi(self, type_x, type_y):
+        """Validate same service name with multiple service specific info on publisher
+        and subscriber can see all service
+
+    - p_dut running Publish X and Y
+    - s_dut running subscribe A and B
+    - subscribe A find X and Y
+    - subscribe B find X and Y
+
+    Message exchanges:
+    - A to X and X to A
+    - B to X and X to B
+    - A to Y and Y to A
+    - B to Y and Y to B
+
+    Note: test requires that publisher device support 2 publish sessions concurrently,
+    and subscriber device support 2 subscribe sessions concurrently.
+    The test will be skipped if the devices are not capable.
+
+    Args:
+      type_x, type_y: A list of [ptype, stype] of the publish and subscribe
+                      types for services X and Y respectively.
+    """
+        p_dut = self.android_devices[0]
+        s_dut = self.android_devices[1]
+
+        asserts.skip_if(
+            p_dut.aware_capabilities[aconsts.CAP_MAX_PUBLISHES] < 2
+            or s_dut.aware_capabilities[aconsts.CAP_MAX_SUBSCRIBES] < 2,
+            "Devices do not support 2 publish sessions or 2 subscribe sessions")
+
+        SERVICE_NAME = "ServiceName"
+        X_SERVICE_SSI = "ServiceSpecificInfoXXX"
+        Y_SERVICE_SSI = "ServiceSpecificInfoYYY"
+        use_id = True
+
+        # attach and wait for confirmation
+        p_id = p_dut.droid.wifiAwareAttach(False, None, use_id)
+        autils.wait_for_event(p_dut, autils.decorate_event(aconsts.EVENT_CB_ON_ATTACHED, p_id))
+        time.sleep(self.device_startup_offset)
+        s_id = s_dut.droid.wifiAwareAttach(False, None, use_id)
+        autils.wait_for_event(s_dut, autils.decorate_event(aconsts.EVENT_CB_ON_ATTACHED, s_id))
+
+        # Publisher: start publishing both X & Y services and wait for confirmations
+        p_disc_id_x = p_dut.droid.wifiAwarePublish(
+            p_id, autils.create_discovery_config(SERVICE_NAME, type_x[0], X_SERVICE_SSI), use_id)
+        event = autils.wait_for_event(p_dut,
+                                      autils.decorate_event(
+                                          aconsts.SESSION_CB_ON_PUBLISH_STARTED, p_disc_id_x))
+
+        p_disc_id_y = p_dut.droid.wifiAwarePublish(
+            p_id, autils.create_discovery_config(SERVICE_NAME, type_x[0], Y_SERVICE_SSI), use_id)
+        event = autils.wait_for_event(p_dut,
+                                      autils.decorate_event(
+                                          aconsts.SESSION_CB_ON_PUBLISH_STARTED, p_disc_id_y))
+
+        # Subscriber: start subscribe session A
+        s_disc_id_a = s_dut.droid.wifiAwareSubscribe(
+            s_id, autils.create_discovery_config(SERVICE_NAME, type_x[1]), use_id)
+        autils.wait_for_event(s_dut, autils.decorate_event(
+            aconsts.SESSION_CB_ON_SUBSCRIBE_STARTED, s_disc_id_a))
+
+        # Subscriber: start subscribe session B
+        s_disc_id_b = s_dut.droid.wifiAwareSubscribe(
+            p_id, autils.create_discovery_config(SERVICE_NAME, type_y[1]), use_id)
+        autils.wait_for_event(s_dut, autils.decorate_event(
+            aconsts.SESSION_CB_ON_SUBSCRIBE_STARTED, s_disc_id_b))
+
+        session_name = {"pub": {p_disc_id_x: "X", p_disc_id_y: "Y"},
+                        "sub": {s_disc_id_a: "A", s_disc_id_b: "B"}}
+
+        # Subscriber: subscribe session A & B wait for service discovery
+        # Number of results on each session should be exactly 2
+        results_a = {}
+        for i in range(2):
+            event = autils.wait_for_event(s_dut, autils.decorate_event(
+                aconsts.SESSION_CB_ON_SERVICE_DISCOVERED, s_disc_id_a))
+            results_a[
+                bytes(event["data"][
+                          aconsts.SESSION_CB_KEY_SERVICE_SPECIFIC_INFO]).decode('utf-8')] = event
+        autils.fail_on_event(s_dut, autils.decorate_event(
+            aconsts.SESSION_CB_ON_SERVICE_DISCOVERED, s_disc_id_a))
+
+        results_b = {}
+        for i in range(2):
+            event = autils.wait_for_event(s_dut, autils.decorate_event(
+                aconsts.SESSION_CB_ON_SERVICE_DISCOVERED, s_disc_id_b))
+            results_b[
+                bytes(event["data"][
+                          aconsts.SESSION_CB_KEY_SERVICE_SPECIFIC_INFO]).decode('utf-8')] = event
+        autils.fail_on_event(s_dut, autils.decorate_event(
+            aconsts.SESSION_CB_ON_SERVICE_DISCOVERED, s_disc_id_b))
+
+        s_a_peer_id_for_p_x = results_a[X_SERVICE_SSI]["data"][aconsts.SESSION_CB_KEY_PEER_ID]
+        s_a_peer_id_for_p_y = results_a[Y_SERVICE_SSI]["data"][aconsts.SESSION_CB_KEY_PEER_ID]
+        s_b_peer_id_for_p_x = results_b[X_SERVICE_SSI]["data"][aconsts.SESSION_CB_KEY_PEER_ID]
+        s_b_peer_id_for_p_y = results_b[Y_SERVICE_SSI]["data"][aconsts.SESSION_CB_KEY_PEER_ID]
+
+        # Message exchange between Publisher and Subscribe
+        self.exchange_messages(p_dut, p_disc_id_x,
+                               s_dut, s_disc_id_a, s_a_peer_id_for_p_x, session_name)
+
+        self.exchange_messages(p_dut, p_disc_id_x,
+                               s_dut, s_disc_id_b, s_b_peer_id_for_p_x, session_name)
+
+        self.exchange_messages(p_dut, p_disc_id_y,
+                               s_dut, s_disc_id_a, s_a_peer_id_for_p_y, session_name)
+
+        self.exchange_messages(p_dut, p_disc_id_y,
+                               s_dut, s_disc_id_b, s_b_peer_id_for_p_y, session_name)
+
+        # Check no more messages
+        time.sleep(autils.EVENT_TIMEOUT)
+        autils.verify_no_more_events(p_dut, timeout=0)
+        autils.verify_no_more_events(s_dut, timeout=0)
+
+        ##########################################################
+
+    @test_tracker_info(uuid="78d89d63-1cbc-47f6-a8fc-74057fea655e")
+    def test_multiple_concurrent_services_diff_ssi_unsolicited_passive(self):
+        """Multi service test on same service name but different Service Specific Info
+    - Unsolicited publish
+    - Passive subscribe
+    """
+        self.run_multiple_concurrent_services_same_name_diff_ssi(
+            type_x=[aconsts.PUBLISH_TYPE_UNSOLICITED, aconsts.SUBSCRIBE_TYPE_PASSIVE],
+            type_y=[aconsts.PUBLISH_TYPE_UNSOLICITED, aconsts.SUBSCRIBE_TYPE_PASSIVE])
+
+    @test_tracker_info(uuid="5d349491-48e4-4ca1-a8af-7afb44e7bcbc")
+    def test_multiple_concurrent_services_diff_ssi_solicited_active(self):
+        """Multi service test on same service name but different Service Specific Info
+    - Solicited publish
+    - Active subscribe
+    """
+        self.run_multiple_concurrent_services_same_name_diff_ssi(
+            type_x=[aconsts.PUBLISH_TYPE_SOLICITED, aconsts.SUBSCRIBE_TYPE_ACTIVE],
+            type_y=[aconsts.PUBLISH_TYPE_SOLICITED, aconsts.SUBSCRIBE_TYPE_ACTIVE])

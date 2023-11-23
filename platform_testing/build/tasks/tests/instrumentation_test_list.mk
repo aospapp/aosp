@@ -32,7 +32,7 @@ instrumentation_tests := \
     JobTestApp \
     SuspendTestApp \
     FrameworksUtilTests \
-    MtpDocumentsProviderTests \
+    MtpServiceTests \
     MtpTests \
     DocumentsUITests \
     ShellTests \
@@ -60,6 +60,7 @@ instrumentation_tests := \
     RSTest \
     PrintSpoolerOutOfProcessTests \
     CellBroadcastReceiverUnitTests \
+    CellBroadcastServiceTests \
     TelephonyProviderTests \
     CarrierConfigTests \
     TeleServiceTests \
@@ -68,24 +69,10 @@ instrumentation_tests := \
     FrameworksLocationTests \
     FrameworksPrivacyLibraryTests \
     SettingsUITests \
+    SettingsPerfTests \
     ExtServicesUnitTests\
-    NexusLauncherOutOfProcTests\
-    NexusLauncherDebug\
-    NexusLauncherTests\
     FrameworksNetSmokeTests\
 
-
-# Android Things specific tests
-ifeq ($(PRODUCT_IOT),true)
-
-instrumentation_tests += \
-    AndroidThingsTests \
-    BluetoothControlServiceTests \
-    NetworkingServicesUnitTests \
-    ThingsIntegrationTests \
-    WifiSetupUnitTests
-
-endif  # PRODUCT_IOT == true
 
 # Storage Manager may not exist on device
 ifneq ($(filter StorageManager, $(PRODUCT_PACKAGES)),)

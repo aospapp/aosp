@@ -61,7 +61,7 @@ public boolean isSynthetic() { throw new RuntimeException("Stub!"); }
 
 public abstract java.lang.annotation.@libcore.util.NonNull Annotation @libcore.util.NonNull [] @libcore.util.NonNull [] getParameterAnnotations();
 
-@libcore.util.Nullable public <T extends java.lang.annotation.Annotation> T getAnnotation(@libcore.util.NonNull getjava.lang.Class<T> annotationClass) { throw new RuntimeException("Stub!"); }
+@libcore.util.Nullable public <T extends java.lang.annotation.Annotation> T getAnnotation(@libcore.util.NonNull java.lang.Class<T> annotationClass) { throw new RuntimeException("Stub!"); }
 
 public <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@libcore.util.NonNull java.lang.Class<T> annotationClass) { throw new RuntimeException("Stub!"); }
 

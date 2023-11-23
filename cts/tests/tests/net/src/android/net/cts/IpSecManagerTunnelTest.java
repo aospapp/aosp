@@ -18,20 +18,17 @@ package android.net.cts;
 
 import static android.app.AppOpsManager.OP_MANAGE_IPSEC_TUNNELS;
 import static android.net.IpSecManager.UdpEncapsulationSocket;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
-import static android.net.NetworkCapabilities.TRANSPORT_TEST;
 import static android.net.cts.PacketUtils.AES_CBC_BLK_SIZE;
 import static android.net.cts.PacketUtils.AES_CBC_IV_LEN;
 import static android.net.cts.PacketUtils.BytePayload;
 import static android.net.cts.PacketUtils.EspHeader;
 import static android.net.cts.PacketUtils.IP4_HDRLEN;
 import static android.net.cts.PacketUtils.IP6_HDRLEN;
-import static android.net.cts.PacketUtils.Ip4Header;
-import static android.net.cts.PacketUtils.Ip6Header;
 import static android.net.cts.PacketUtils.IpHeader;
 import static android.net.cts.PacketUtils.UDP_HDRLEN;
 import static android.net.cts.PacketUtils.UdpHeader;
+import static android.net.cts.PacketUtils.getIpHeader;
+import static android.net.cts.util.CtsNetUtils.TestNetworkCallback;
 import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.AF_INET6;
 
@@ -40,38 +37,28 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
-import android.app.AppOpsManager;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.IpSecAlgorithm;
 import android.net.IpSecManager;
 import android.net.IpSecTransform;
 import android.net.LinkAddress;
 import android.net.Network;
-import android.net.NetworkRequest;
 import android.net.TestNetworkInterface;
 import android.net.TestNetworkManager;
 import android.net.cts.PacketUtils.Payload;
-import android.os.Binder;
-import android.os.Build;
-import android.os.IBinder;
+import android.net.cts.util.CtsNetUtils;
 import android.os.ParcelFileDescriptor;
-import android.os.SystemProperties;
 import android.platform.test.annotations.AppModeFull;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.SystemUtil;
-
-import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -114,7 +101,7 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
     private static TunUtils sTunUtils;
 
     private static Context sContext = InstrumentationRegistry.getContext();
-    private static IBinder sBinder = new Binder();
+    private static final CtsNetUtils mCtsNetUtils = new CtsNetUtils(sContext);
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
@@ -127,7 +114,7 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
         // Under normal circumstances, the MANAGE_IPSEC_TUNNELS appop would be auto-granted, and
         // a standard permission is insufficient. So we shell out the appop, to give us the
         // right appop permissions.
-        setAppop(OP_MANAGE_IPSEC_TUNNELS, true);
+        mCtsNetUtils.setAppopPrivileged(OP_MANAGE_IPSEC_TUNNELS, true);
 
         TestNetworkInterface testIface =
                 sTNM.createTunInterface(
@@ -137,8 +124,9 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
                         });
 
         sTunFd = testIface.getFileDescriptor();
-        sTunNetworkCallback = setupAndGetTestNetwork(testIface.getInterfaceName());
-        sTunNetwork = sTunNetworkCallback.getNetworkBlocking();
+        sTunNetworkCallback = mCtsNetUtils.setupAndGetTestNetwork(testIface.getInterfaceName());
+        sTunNetworkCallback.waitForAvailable();
+        sTunNetwork = sTunNetworkCallback.currentNetwork;
 
         sTunUtils = new TunUtils(sTunFd);
     }
@@ -149,7 +137,7 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
         super.setUp();
 
         // Set to true before every run; some tests flip this.
-        setAppop(OP_MANAGE_IPSEC_TUNNELS, true);
+        mCtsNetUtils.setAppopPrivileged(OP_MANAGE_IPSEC_TUNNELS, true);
 
         // Clear sTunUtils state
         sTunUtils.reset();
@@ -157,7 +145,7 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
 
     @AfterClass
     public static void tearDownAfterClass() throws Exception {
-        setAppop(OP_MANAGE_IPSEC_TUNNELS, false);
+        mCtsNetUtils.setAppopPrivileged(OP_MANAGE_IPSEC_TUNNELS, false);
 
         sCM.unregisterNetworkCallback(sTunNetworkCallback);
 
@@ -169,51 +157,12 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
                 .dropShellPermissionIdentity();
     }
 
-    private static boolean hasTunnelsFeature() {
-        return sContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_IPSEC_TUNNELS)
-                || SystemProperties.getInt("ro.product.first_api_level", 0)
-                        >= Build.VERSION_CODES.Q;
-    }
-
-    private static void setAppop(int appop, boolean allow) {
-        String opName = AppOpsManager.opToName(appop);
-        for (String pkg : new String[] {"com.android.shell", sContext.getPackageName()}) {
-            String cmd =
-                    String.format(
-                            "appops set %s %s %s",
-                            pkg, // Package name
-                            opName, // Appop
-                            (allow ? "allow" : "deny")); // Action
-            SystemUtil.runShellCommand(cmd);
-        }
-    }
-
-    private static TestNetworkCallback setupAndGetTestNetwork(String ifname) throws Exception {
-        // Build a network request
-        NetworkRequest nr =
-                new NetworkRequest.Builder()
-                        .addTransportType(TRANSPORT_TEST)
-                        .removeCapability(NET_CAPABILITY_TRUSTED)
-                        .removeCapability(NET_CAPABILITY_NOT_VPN)
-                        .setNetworkSpecifier(ifname)
-                        .build();
-
-        TestNetworkCallback cb = new TestNetworkCallback();
-        sCM.requestNetwork(nr, cb);
-
-        // Setup the test network after network request is filed to prevent Network from being
-        // reaped due to no requests matching it.
-        sTNM.setupTestNetwork(ifname, sBinder);
-
-        return cb;
-    }
-
     @Test
     public void testSecurityExceptionCreateTunnelInterfaceWithoutAppop() throws Exception {
-        if (!hasTunnelsFeature()) return;
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
 
         // Ensure we don't have the appop. Permission is not requested in the Manifest
-        setAppop(OP_MANAGE_IPSEC_TUNNELS, false);
+        mCtsNetUtils.setAppopPrivileged(OP_MANAGE_IPSEC_TUNNELS, false);
 
         // Security exceptions are thrown regardless of IPv4/IPv6. Just test one
         try {
@@ -225,10 +174,10 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
 
     @Test
     public void testSecurityExceptionBuildTunnelTransformWithoutAppop() throws Exception {
-        if (!hasTunnelsFeature()) return;
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
 
         // Ensure we don't have the appop. Permission is not requested in the Manifest
-        setAppop(OP_MANAGE_IPSEC_TUNNELS, false);
+        mCtsNetUtils.setAppopPrivileged(OP_MANAGE_IPSEC_TUNNELS, false);
 
         // Security exceptions are thrown regardless of IPv4/IPv6. Just test one
         try (IpSecManager.SecurityParameterIndex spi =
@@ -252,19 +201,6 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
          * @throws Exception if any part of the test failed.
          */
         public abstract int run(Network ipsecNetwork) throws Exception;
-    }
-
-    private static class TestNetworkCallback extends ConnectivityManager.NetworkCallback {
-        private final CompletableFuture<Network> futureNetwork = new CompletableFuture<>();
-
-        @Override
-        public void onAvailable(Network network) {
-            futureNetwork.complete(network);
-        }
-
-        public Network getNetworkBlocking() throws Exception {
-            return futureNetwork.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        }
     }
 
     private int getPacketSize(
@@ -500,8 +436,6 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
     public void checkTunnelReflected(
             int innerFamily, int outerFamily, boolean useEncap, boolean transportInTunnelMode)
             throws Exception {
-        if (!hasTunnelsFeature()) return;
-
         InetAddress localInner = innerFamily == AF_INET ? LOCAL_INNER_4 : LOCAL_INNER_6;
         InetAddress remoteInner = innerFamily == AF_INET ? REMOTE_INNER_4 : REMOTE_INNER_6;
 
@@ -581,7 +515,6 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
             boolean transportInTunnelMode,
             IpSecTunnelTestRunnableFactory factory)
             throws Exception {
-        if (!hasTunnelsFeature()) return;
 
         InetAddress localInner = innerFamily == AF_INET ? LOCAL_INNER_4 : LOCAL_INNER_6;
         InetAddress remoteInner = innerFamily == AF_INET ? REMOTE_INNER_4 : REMOTE_INNER_6;
@@ -649,8 +582,9 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
                         mISM.createIpSecTunnelInterface(localOuter, remoteOuter, sTunNetwork)) {
             // Build the test network
             tunnelIface.addAddress(localInner, innerPrefixLen);
-            testNetworkCb = setupAndGetTestNetwork(tunnelIface.getInterfaceName());
-            Network testNetwork = testNetworkCb.getNetworkBlocking();
+            testNetworkCb = mCtsNetUtils.setupAndGetTestNetwork(tunnelIface.getInterfaceName());
+            testNetworkCb.waitForAvailable();
+            Network testNetwork = testNetworkCb.currentNetwork;
 
             // Check interface was created
             assertNotNull(NetworkInterface.getByName(tunnelIface.getInterfaceName()));
@@ -716,18 +650,6 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
                 IpSecManager.SecurityParameterIndex outSpi =
                         mISM.allocateSecurityParameterIndex(remoteOuter, inSpi.getSpi()); ) {
             return inSpi.getSpi();
-        }
-    }
-
-    private IpHeader getIpHeader(int protocol, InetAddress src, InetAddress dst, Payload payload) {
-        if ((src instanceof Inet6Address) != (dst instanceof Inet6Address)) {
-            throw new IllegalArgumentException("Invalid src/dst address combination");
-        }
-
-        if (src instanceof Inet6Address) {
-            return new Ip6Header(protocol, (Inet6Address) src, (Inet6Address) dst, payload);
-        } else {
-            return new Ip4Header(protocol, (Inet4Address) src, (Inet4Address) dst, payload);
         }
     }
 
@@ -820,134 +742,158 @@ public class IpSecManagerTunnelTest extends IpSecBaseTest {
     // Transport-in-Tunnel mode tests
     @Test
     public void testTransportInTunnelModeV4InV4() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET, AF_INET, false, true);
         checkTunnelInput(AF_INET, AF_INET, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV4InV4Reflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV4InV4UdpEncap() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET, AF_INET, true, true);
         checkTunnelInput(AF_INET, AF_INET, true, true);
     }
 
     @Test
     public void testTransportInTunnelModeV4InV4UdpEncapReflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV4InV6() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET, AF_INET6, false, true);
         checkTunnelInput(AF_INET, AF_INET6, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV4InV6Reflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV6InV4() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET6, AF_INET, false, true);
         checkTunnelInput(AF_INET6, AF_INET, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV6InV4Reflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV6InV4UdpEncap() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET6, AF_INET, true, true);
         checkTunnelInput(AF_INET6, AF_INET, true, true);
     }
 
     @Test
     public void testTransportInTunnelModeV6InV4UdpEncapReflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV6InV6() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET, AF_INET6, false, true);
         checkTunnelInput(AF_INET, AF_INET6, false, true);
     }
 
     @Test
     public void testTransportInTunnelModeV6InV6Reflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET, false, true);
     }
 
     // Tunnel mode tests
     @Test
     public void testTunnelV4InV4() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET, AF_INET, false, false);
         checkTunnelInput(AF_INET, AF_INET, false, false);
     }
 
     @Test
     public void testTunnelV4InV4Reflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET, false, false);
     }
 
     @Test
     public void testTunnelV4InV4UdpEncap() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET, AF_INET, true, false);
         checkTunnelInput(AF_INET, AF_INET, true, false);
     }
 
     @Test
     public void testTunnelV4InV4UdpEncapReflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET, true, false);
     }
 
     @Test
     public void testTunnelV4InV6() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET, AF_INET6, false, false);
         checkTunnelInput(AF_INET, AF_INET6, false, false);
     }
 
     @Test
     public void testTunnelV4InV6Reflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET, AF_INET6, false, false);
     }
 
     @Test
     public void testTunnelV6InV4() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET6, AF_INET, false, false);
         checkTunnelInput(AF_INET6, AF_INET, false, false);
     }
 
     @Test
     public void testTunnelV6InV4Reflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET6, AF_INET, false, false);
     }
 
     @Test
     public void testTunnelV6InV4UdpEncap() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET6, AF_INET, true, false);
         checkTunnelInput(AF_INET6, AF_INET, true, false);
     }
 
     @Test
     public void testTunnelV6InV4UdpEncapReflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET6, AF_INET, true, false);
     }
 
     @Test
     public void testTunnelV6InV6() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelOutput(AF_INET6, AF_INET6, false, false);
         checkTunnelInput(AF_INET6, AF_INET6, false, false);
     }
 
     @Test
     public void testTunnelV6InV6Reflected() throws Exception {
+        assumeTrue(mCtsNetUtils.hasIpsecTunnelsFeature());
         checkTunnelReflected(AF_INET6, AF_INET6, false, false);
     }
 }

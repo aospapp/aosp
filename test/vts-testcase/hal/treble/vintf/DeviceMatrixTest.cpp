@@ -36,6 +36,11 @@ void DeviceMatrixTest::SetUp() {
 }
 
 TEST_F(DeviceMatrixTest, VndkVersion) {
+  if (GetShippingApiLevel() < 28) {
+    GTEST_SKIP()
+        << "VNDK version doesn't need to be set on devices before Android P";
+  }
+
   std::string syspropVndkVersion = GetProperty(kVndkVersionProp, "");
   ASSERT_NE("", syspropVndkVersion)
       << kVndkVersionProp << " must not be empty.";

@@ -24,7 +24,7 @@ import android.app.job.JobParameters;
  * appropriate.
  */
 @TargetApi(21)
-public class TimingConstraintsTest extends ConstraintTest {
+public class TimingConstraintsTest extends BaseJobSchedulerTest {
     private static final int TIMING_JOB_ID = TimingConstraintsTest.class.hashCode() + 0;
     private static final int CANCEL_JOB_ID = TimingConstraintsTest.class.hashCode() + 1;
     private static final int EXPIRED_JOB_ID = TimingConstraintsTest.class.hashCode() + 2;
@@ -40,6 +40,37 @@ public class TimingConstraintsTest extends ConstraintTest {
         mJobScheduler.schedule(oneTimeJob);
         final boolean executed = kTestEnvironment.awaitExecution();
         assertTrue("Timed out waiting for override deadline.", executed);
+    }
+
+    public void testSchedulePeriodic() throws Exception {
+        JobInfo periodicJob = new JobInfo.Builder(TIMING_JOB_ID, kJobServiceComponent)
+                .setPeriodic(JobInfo.getMinPeriodMillis())
+                .build();
+
+        kTestEnvironment.setExpectedExecutions(1);
+        mJobScheduler.schedule(periodicJob);
+        runSatisfiedJob(TIMING_JOB_ID);
+        assertTrue("Timed out waiting for periodic jobs to execute",
+                kTestEnvironment.awaitExecution());
+
+        // Make sure the job is rescheduled after it's run
+        assertJobWaiting(TIMING_JOB_ID);
+        assertJobNotReady(TIMING_JOB_ID);
+    }
+
+    /** Test that a periodic job isn't run outside of its flex window. */
+    public void testSchedulePeriodic_lowFlex() throws Exception {
+        JobInfo periodicJob = new JobInfo.Builder(TIMING_JOB_ID, kJobServiceComponent)
+                .setPeriodic(JobInfo.getMinPeriodMillis(), JobInfo.getMinFlexMillis())
+                .build();
+
+        kTestEnvironment.setExpectedExecutions(0);
+        mJobScheduler.schedule(periodicJob);
+        runSatisfiedJob(TIMING_JOB_ID);
+        assertFalse("Timed out waiting for periodic jobs to execute",
+                kTestEnvironment.awaitExecution());
+        assertJobWaiting(TIMING_JOB_ID);
+        assertJobNotReady(TIMING_JOB_ID);
     }
 
     public void testCancel() throws Exception {

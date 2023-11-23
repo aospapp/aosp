@@ -37,8 +37,8 @@ constexpr size_t kBssidStrLen = 18;
  * @param ssidLen the length of the SSID data.
  * @return true if the SSID is printable and was copied into the output buffer.
  */
-bool parseSsidToStr(char *buffer, size_t bufferLen,
-                    const uint8_t *ssid, uint8_t ssidLen);
+bool parseSsidToStr(char *buffer, size_t bufferLen, const uint8_t *ssid,
+                    uint8_t ssidLen);
 
 /**
  * Parses a BSSID into a XX:XX:XX:XX:XX:XX formatted string.
@@ -48,8 +48,8 @@ bool parseSsidToStr(char *buffer, size_t bufferLen,
  * @param bufferLen the length of the buffer to format into.
  * @return true if the buffer is large enough and the string is formatted.
  */
-bool parseBssidToStr(const uint8_t bssid[CHRE_WIFI_BSSID_LEN],
-                     char *buffer, size_t bufferLen);
+bool parseBssidToStr(const uint8_t bssid[CHRE_WIFI_BSSID_LEN], char *buffer,
+                     size_t bufferLen);
 
 /**
  * Parses a WiFi band into a string.

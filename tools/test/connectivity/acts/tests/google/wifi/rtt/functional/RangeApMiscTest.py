@@ -32,9 +32,6 @@ class RangeApMiscTest(RttBaseTest):
     # Time gap (in seconds) between iterations
     TIME_BETWEEN_ITERATIONS = 0
 
-    def __init__(self, controllers):
-        RttBaseTest.__init__(self, controllers)
-
     #############################################################################
 
     def test_rtt_mixed_80211mc_supporting_aps_wo_privilege(self):

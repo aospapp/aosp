@@ -155,10 +155,10 @@ public class ModuleListenerTest {
         int finalRunFailureAtAttempt =
                 Math.max(clearRun1FailureAtAttempt, clearRun2FailureAtAttempt);
         for (int attempt = 0; attempt < finalRunFailureAtAttempt; attempt++) {
-            assertTrue(mListener.hasRunCrashedAtAttempt(attempt));
+            assertTrue(hasRunCrashed(mListener.getTestRunForAttempts(attempt)));
         }
         for (int attempt = finalRunFailureAtAttempt; attempt < maxRunLimit; attempt++) {
-            assertFalse(mListener.hasRunCrashedAtAttempt(attempt));
+            assertFalse(hasRunCrashed(mListener.getTestRunForAttempts(attempt)));
         }
     }
 
@@ -187,8 +187,18 @@ public class ModuleListenerTest {
         assertEquals("apex.test", results.get(1).getName());
         assertTrue(results.get(1).isRunFailure());
         assertEquals(
-                "Run attempt 0 of apex.test did not exists, but got attempt 1. This is a placeholder for the missing attempt.\n\n"
-                        + "test.apex did not report any run.",
+                "There were 2 failures:\n  Run attempt 0 of apex.test did not exists, but got "
+                        + "attempt 1. This is a placeholder for the missing attempt.\n"
+                        + "  test.apex did not report any run.",
                 results.get(1).getRunFailureMessage());
+    }
+
+    private boolean hasRunCrashed(List<TestRunResult> results) {
+        for (TestRunResult run : results) {
+            if (run != null && run.isRunFailure()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

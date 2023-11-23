@@ -15,6 +15,10 @@
  */
 package com.android.cts.devicepolicy;
 
+import android.platform.test.annotations.FlakyTest;
+
+import org.junit.Test;
+
 /**
  * This class tests the provisioning flow with an APK that declares a single receiver with
  * BIND_DEVICE_ADMIN permissions, which was a requirement for the app sending the
@@ -28,7 +32,7 @@ public class ManagedProfileProvisioningSingleAdminTest extends BaseDevicePolicyT
     private int mProfileUserId;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         // We need multi user to be supported in order to create a profile of the user owner.
@@ -42,7 +46,7 @@ public class ManagedProfileProvisioningSingleAdminTest extends BaseDevicePolicyT
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasFeature) {
             if (mProfileUserId != 0) {
                 removeUser(mProfileUserId);
@@ -52,6 +56,8 @@ public class ManagedProfileProvisioningSingleAdminTest extends BaseDevicePolicyT
         super.tearDown();
     }
 
+    @FlakyTest
+    @Test
     public void testEXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME() throws Exception {
         if (!mHasFeature) {
             return;

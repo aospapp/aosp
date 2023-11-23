@@ -16,10 +16,14 @@
 
 package android.assist.cts;
 
+import static org.junit.Assert.fail;
+
 import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.os.Bundle;
 import android.util.Log;
+
+import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -41,8 +45,7 @@ public class LifecycleTest extends AssistTestBase {
     private boolean mLostFocusIsLifecycle;
 
     @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         mActionLatchReceiver = new LifecycleTestReceiver();
         mLostFocusIsLifecycle = false;
         startTestActivity(TEST_CASE_TYPE);
@@ -75,6 +78,7 @@ public class LifecycleTest extends AssistTestBase {
         }
     }
 
+    @Test
     public void testLayerDoesNotTriggerLifecycleMethods() throws Exception {
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");
@@ -100,6 +104,7 @@ public class LifecycleTest extends AssistTestBase {
         waitForDestroy();
     }
 
+    @Test
     public void testNoUiLayerDoesNotTriggerLifecycleMethods() throws Exception {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");

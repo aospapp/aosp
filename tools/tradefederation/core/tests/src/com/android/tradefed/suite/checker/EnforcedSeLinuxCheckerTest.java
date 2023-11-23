@@ -74,6 +74,6 @@ public class EnforcedSeLinuxCheckerTest {
         StatusCheckerResult result = mChecker.postExecutionCheck(mMockDevice);
         assertEquals(CheckStatus.FAILED, result.getStatus());
 
-        verify(mMockDevice).executeShellCommand("setenforce 1");
+        verify(mMockDevice).executeShellCommand("su root setenforce 1");
     }
 }

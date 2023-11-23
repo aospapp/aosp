@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package android.platform.helpers;
+
+import android.support.test.uiautomator.Direction;
 
 public interface IContactsHelper extends IAppHelper {
     /**
@@ -38,6 +40,19 @@ public interface IContactsHelper extends IAppHelper {
     }
 
     /**
+     * Setup expectation: Contacts is open
+     *
+     * <p>Clicks search field and inputs contact to search. Provide alternative ways to input
+     * contact.
+     *
+     * @param contact The contact to search.
+     * @param useKeyboard Use KeyEvent to input contact if true, use UiObject2 setText otherwise.
+     */
+    public default void searchForContact(String contact, boolean useKeyboard) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
      * Setup expectations: The search results of contact showed.
      * <p>
      * Selects the contact by the specific index.
@@ -45,6 +60,17 @@ public interface IContactsHelper extends IAppHelper {
      * @param index The index of contact to select.
      */
     public default void chooseContactByIndex(int index) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Contacts is open.
+     *
+     * <p>Fling contacts page.
+     *
+     * @param direction The direction to fling the page.
+     */
+    public default void flingPage(Direction direction) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 }

@@ -349,7 +349,7 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
 
     private void assertResult(String testName, Boolean expectSuccess) throws InterruptedException {
         assertTrue("Cert installer did not respond in time.",
-                mAvailableResultSemaphore.tryAcquire(10, TimeUnit.SECONDS));
+                mAvailableResultSemaphore.tryAcquire(60, TimeUnit.SECONDS));
         synchronized (this) {
             if (expectSuccess) {
                 assertTrue(testName + " failed unexpectedly.", mReceivedResult);

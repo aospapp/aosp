@@ -16,6 +16,13 @@
 
 package com.android.cts.devicepolicy;
 
+import android.platform.test.annotations.FlakyTest;
+import android.platform.test.annotations.LargeTest;
+
+import com.android.cts.devicepolicy.annotations.PermissionsTest;
+
+import org.junit.Test;
+
 /**
  * Set of tests for managed profile owner use cases that also apply to device owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTestApi25.
@@ -25,7 +32,7 @@ public class MixedManagedProfileOwnerTestApi25 extends DeviceAndProfileOwnerTest
     private int mParentUserId = -1;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         // We need managed users to be supported in order to create a profile of the user owner.
@@ -41,57 +48,25 @@ public class MixedManagedProfileOwnerTestApi25 extends DeviceAndProfileOwnerTest
     private void createManagedProfile() throws Exception {
         mUserId = createManagedProfile(mParentUserId);
         switchUser(mParentUserId);
-        startUser(mUserId);
+        startUserAndWait(mUserId);
 
         installAppAsUser(DEVICE_ADMIN_APK, mUserId);
         setProfileOwnerOrFail(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
-        startUser(mUserId);
+        startUserAndWait(mUserId);
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasFeature) {
             removeUser(mUserId);
         }
         super.tearDown();
     }
 
-    /**
-     * Verify the Profile Owner of a managed profile can create and change the password,
-     * but cannot remove it.
-     */
     @Override
-    public void testResetPassword() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
-
-        executeDeviceTestMethod(RESET_PASSWORD_TEST_CLASS, "testResetPasswordManagedProfile");
-    }
-
-    /**
-     *  Verify the Profile Owner of a managed profile can only change the password when FBE is
-     *  unlocked, and cannot remove the password even when FBE is unlocked.
-     */
-    @Override
-    public void testResetPasswordFbe() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
-
-        // Make sure user initialization is complete before proceeding.
-        waitForBroadcastIdle();
-
-        // Lock FBE and verify resetPassword is disabled
-        executeDeviceTestMethod(FBE_HELPER_CLASS, "testSetPassword");
-        rebootAndWaitUntilReady();
-        executeDeviceTestMethod(RESET_PASSWORD_TEST_CLASS, "testResetPasswordDisabled");
-
-        // Start an activity in managed profile to trigger work challenge
-        startSimpleActivityAsUser(mUserId);
-
-        // Unlock FBE and verify resetPassword is enabled again
-        executeDeviceTestMethod(FBE_HELPER_CLASS, "testUnlockFbe");
-        executeDeviceTestMethod(RESET_PASSWORD_TEST_CLASS, "testResetPasswordManagedProfile");
+    @PermissionsTest
+    @Test
+    public void testPermissionGrantPreMApp() throws Exception {
+        super.testPermissionGrantPreMApp();
     }
 }

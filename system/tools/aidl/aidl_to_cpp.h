@@ -36,6 +36,33 @@ struct CodeGeneratorContext {
 };
 
 std::string GetTransactionIdFor(const AidlMethod& method);
+
+std::string CppNameOf(const AidlTypeSpecifier& type, const AidlTypenames& typenames);
+
+bool IsNonCopyableType(const AidlTypeSpecifier& type, const AidlTypenames& typenames);
+
+// Returns the name of the Parcel method suitable for reading data of the
+// given type.
+std::string ParcelReadMethodOf(const AidlTypeSpecifier& type, const AidlTypenames& typenames);
+
+// Returns the potentially-cast representation of the provided variable name,
+// suitable for being passed to a method from ParcelReadMethodOf.
+std::string ParcelReadCastOf(const AidlTypeSpecifier& type, const AidlTypenames& typenames,
+                             const std::string& variable_name);
+
+// Returns the name of the Parcel method suitable for writing data of the
+// given type.
+std::string ParcelWriteMethodOf(const AidlTypeSpecifier& type, const AidlTypenames& typenames);
+
+// Returns the potentially-cast representation of the provided variable name,
+// suitable for being passed to a method from ParcelWriteMethodOf.
+std::string ParcelWriteCastOf(const AidlTypeSpecifier& type, const AidlTypenames& typenames,
+                              const std::string& variable_name);
+
+void AddHeaders(const AidlTypeSpecifier& type, const AidlTypenames& typenames,
+                std::set<std::string>& headers);
+
+void AddHeaders(const AidlDefinedType& parcelable, std::set<std::string>& headers);
 }  // namespace cpp
 }  // namespace aidl
 }  // namespace android

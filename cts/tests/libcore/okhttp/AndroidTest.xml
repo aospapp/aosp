@@ -17,6 +17,9 @@
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="libcore" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <!-- Test is eligible to run on Android Multiuser users other than SYSTEM.
+         See source.android.com/devices/tech/admin/multi-user#user_types -->
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/ctslibcore/java.io.tmpdir" />

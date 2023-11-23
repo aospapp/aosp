@@ -29,6 +29,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Consumer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -299,6 +300,18 @@ public class MethodHandlesTest extends TestCase {
         public static final Lookup lookup = MethodHandles.lookup();
     }
 
+    public interface F {
+        public default void callInner(Consumer<Class<?>> c) {
+            c.accept(F.class);
+        }
+    }
+
+    public class G implements F {
+        public void callInner(Consumer<Class<?>> c) {
+            c.accept(G.class);
+        }
+    }
+
     public void testfindSpecial_invokeSuperBehaviour() throws Throwable {
         // This is equivalent to an invoke-super instruction where the referrer
         // is B.class.
@@ -362,6 +375,41 @@ public class MethodHandlesTest extends TestCase {
                     MethodType.methodType(void.class), B.class /* specialCaller */);
             fail();
         } catch (NoSuchMethodException e) {}
+    }
+
+    public void testfindSpecial_invokeSuperInterfaceBehaviour() throws Throwable {
+        // Check interface invoke super on unrelated lookup (with some private access).
+        Class<?>[] res = new Class<?>[2];
+        MethodHandle mh = MethodHandles.lookup().findSpecial(F.class /* refC */, "callInner",
+                  MethodType.methodType(void.class, Consumer.class), G.class /* specialCaller */);
+        G g = new G();
+        Consumer<Class<?>> oc = (Class<?> c) -> { res[0] = c; };
+        mh.invokeExact(g, oc);
+        g.callInner((Class<?> c) -> { res[1] = c; });
+        // Make sure the method-handle calls the default implementatoin
+        assertTrue(res[0] == F.class);
+        // Make sure the normal one works as we expect.
+        assertTrue(res[1] == G.class);
+
+        // Check findSpecial always fails if the lookup has only public access
+        try {
+          MethodHandles.publicLookup().findSpecial(F.class /* refC */, "callInner",
+                  MethodType.methodType(void.class, Consumer.class), G.class /* specialCaller */);
+          fail();
+        } catch (IllegalAccessException e) {}
+
+        // Check doing invokeSpecial on abstract interface methods gets appropriate errors. We
+        // expect it to throw an IllegalAccessError.
+        MethodHandle mh2 =
+            MethodHandles.lookup().findSpecial(
+                    Foo.class /* refC */,
+                    "foo",
+                    MethodType.methodType(String.class),
+                    Bar.class /* specialCaller */);
+        try {
+          mh2.invoke(new BarImpl());
+          fail();
+        } catch (IllegalAccessException e) {}
     }
 
     public void testfindSpecial_invokeDirectBehaviour() throws Throwable {

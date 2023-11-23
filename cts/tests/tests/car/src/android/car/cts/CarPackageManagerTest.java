@@ -19,9 +19,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.app.PendingIntent;
 import android.car.Car;
-import android.car.CarNotConnectedException;
 import android.car.content.pm.CarPackageManager;
+import android.content.Intent;
+import android.os.Build;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -32,7 +34,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @SmallTest
-@RequiresDevice
 @RunWith(AndroidJUnit4.class)
 public class CarPackageManagerTest extends CarApiTestBase {
 
@@ -75,16 +76,54 @@ public class CarPackageManagerTest extends CarApiTestBase {
     }
 
     @Test
-    public void testDistractionOptimizedActivityIsAllowed() throws CarNotConnectedException {
+    public void testDistractionOptimizedActivityIsAllowed() {
         // This test relies on test activity in installed apk, and AndroidManifest declaration.
+        if (Build.TYPE.equalsIgnoreCase("user")) {
+            // Skip this test on user build, which checks the install source for DO activity list.
+            return;
+        }
         assertTrue(mCarPm.isActivityDistractionOptimized("android.car.cts",
                 "android.car.cts.drivingstate.DistractionOptimizedActivity"));
     }
 
     @Test
-    public void testNonDistractionOptimizedActivityNotAllowed() throws CarNotConnectedException {
+    public void testNonDistractionOptimizedActivityNotAllowed() {
         // This test relies on test activity in installed apk, and AndroidManifest declaration.
+        if (Build.TYPE.equalsIgnoreCase("user")) {
+            // Skip this test on user build, which checks the install source for DO activity list.
+            return;
+        }
         assertFalse(mCarPm.isActivityDistractionOptimized("android.car.cts",
                 "android.car.cts.drivingstate.NonDistractionOptimizedActivity"));
     }
+
+    private PendingIntent createIntent(String packageName, String relativeClassName) {
+        Intent intent = new Intent();
+        intent.setClassName(packageName, packageName + relativeClassName);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return PendingIntent.getActivity(sContext, 0, intent, 0);
+    }
+
+    @Test
+    public void testPendingIntentToDistractionOptimizedActivityIsAllowed() {
+        // This test relies on test activity in installed apk, and AndroidManifest declaration.
+        if (Build.TYPE.equalsIgnoreCase("user")) {
+            // Skip this test on user build, which checks the install source for DO activity list.
+            return;
+        }
+        assertTrue(mCarPm.isPendingIntentDistractionOptimized(
+                createIntent("android.car.cts", ".drivingstate.DistractionOptimizedActivity")));
+    }
+
+    @Test
+    public void testPendingIntentToNonDistractionOptimizedActivityNotAllowed() {
+        // This test relies on test activity in installed apk, and AndroidManifest declaration.
+        if (Build.TYPE.equalsIgnoreCase("user")) {
+            // Skip this test on user build, which checks the install source for DO activity list.
+            return;
+        }
+        assertFalse(mCarPm.isPendingIntentDistractionOptimized(
+                createIntent("android.car.cts", ".drivingstate.NonDistractionOptimizedActivity")));
+    }
+
 }

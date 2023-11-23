@@ -16,6 +16,7 @@ service iorapd /system/bin/iorapd
     class main
     user iorapd
     group iorapd
+    capabilities DAC_READ_SEARCH
     writepid /dev/cpuset/system-background/tasks
 # TODO: should this be something else like performance/tasks?
 # the main 'activity hint' thread needs to be fairly high priority to kick off
@@ -26,4 +27,4 @@ on property:ro.iorapd.enable=false
 
 on post-fs-data
     # Create directory for iorapd (see iorapd_data_file in selinux file_contexts).
-    mkdir /data/misc/iorapd/ 0770 iorapd iorapd
+    mkdir /data/misc/iorapd/ 0750 iorapd system

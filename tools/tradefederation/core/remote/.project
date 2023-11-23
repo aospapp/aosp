@@ -14,26 +14,4 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>guava</name>
-			<type>2</type>
-			<locationURI>TRADEFED_ROOT/external/guava/guava/src</locationURI>
-		</link>
-		<link>
-			<name>guava-annot</name>
-			<type>2</type>
-			<locationURI>TRADEFED_ROOT/external/guava/android-annotation-stubs/src</locationURI>
-		</link>
-		<link>
-			<name>guava-failureaccess</name>
-			<type>2</type>
-			<location>/usr/local/google/home/jdesprez/aosp/external/guava/futures/failureaccess/src</location>
-		</link>
-		<link>
-			<name>jsr305</name>
-			<type>2</type>
-			<locationURI>TRADEFED_ROOT/external/jsr305/ri/src/main/java</locationURI>
-		</link>
-	</linkedResources>
 </projectDescription>

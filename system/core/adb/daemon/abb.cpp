@@ -17,22 +17,24 @@
 #include <sys/wait.h>
 
 #include <android-base/cmsg.h>
+#include <android-base/strings.h>
 #include <cmd.h>
 
 #include "adb.h"
 #include "adb_io.h"
 #include "adb_utils.h"
 #include "shell_service.h"
+#include "sysdeps.h"
 
 namespace {
 
 class AdbFdTextOutput : public android::TextOutput {
   public:
-    explicit AdbFdTextOutput(int fd) : mFD(fd) {}
+    explicit AdbFdTextOutput(borrowed_fd fd) : fd_(fd) {}
 
   private:
     android::status_t print(const char* txt, size_t len) override {
-        return WriteFdExactly(mFD, txt, len) ? android::OK : -errno;
+        return WriteFdExactly(fd_, txt, len) ? android::OK : -errno;
     }
     void moveIndent(int delta) override { /*not implemented*/
     }
@@ -43,7 +45,7 @@ class AdbFdTextOutput : public android::TextOutput {
     }
 
   private:
-    int mFD;
+    borrowed_fd fd_;
 };
 
 std::vector<std::string_view> parseCmdArgs(std::string_view args) {
@@ -67,10 +69,16 @@ std::vector<std::string_view> parseCmdArgs(std::string_view args) {
 
 }  // namespace
 
-static int execCmd(std::string_view args, int in, int out, int err) {
+static int execCmd(std::string_view args, borrowed_fd in, borrowed_fd out, borrowed_fd err) {
+    int max_buf = LINUX_MAX_SOCKET_SIZE;
+    adb_setsockopt(in, SOL_SOCKET, SO_SNDBUF, &max_buf, sizeof(max_buf));
+    adb_setsockopt(out, SOL_SOCKET, SO_SNDBUF, &max_buf, sizeof(max_buf));
+    adb_setsockopt(err, SOL_SOCKET, SO_SNDBUF, &max_buf, sizeof(max_buf));
+
     AdbFdTextOutput oin(out);
     AdbFdTextOutput oerr(err);
-    return cmdMain(parseCmdArgs(args), oin, oerr, in, out, err, RunMode::kLibrary);
+    return cmdMain(parseCmdArgs(args), oin, oerr, in.get(), out.get(), err.get(),
+                   RunMode::kLibrary);
 }
 
 int main(int argc, char* const argv[]) {
@@ -87,15 +95,17 @@ int main(int argc, char* const argv[]) {
 
         std::string_view name = data;
         auto protocol = SubprocessProtocol::kShell;
-        if (ConsumePrefix(&name, "abb:")) {
+        if (android::base::ConsumePrefix(&name, "abb:")) {
             protocol = SubprocessProtocol::kShell;
-        } else if (ConsumePrefix(&name, "abb_exec:")) {
+        } else if (android::base::ConsumePrefix(&name, "abb_exec:")) {
             protocol = SubprocessProtocol::kNone;
         } else {
             LOG(FATAL) << "Unknown command prefix for abb: " << data;
         }
 
         unique_fd result = StartCommandInProcess(std::string(name), &execCmd, protocol);
+        int max_buf = LINUX_MAX_SOCKET_SIZE;
+        adb_setsockopt(result, SOL_SOCKET, SO_SNDBUF, &max_buf, sizeof(max_buf));
         if (android::base::SendFileDescriptors(fd, "", 1, result.get()) != 1) {
             PLOG(ERROR) << "Failed to send an inprocess fd for command: " << data;
             break;

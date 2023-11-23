@@ -32,14 +32,6 @@
 #include "code_generator_x86_64.h"
 #endif
 
-#ifdef ART_ENABLE_CODEGEN_mips
-#include "code_generator_mips.h"
-#endif
-
-#ifdef ART_ENABLE_CODEGEN_mips64
-#include "code_generator_mips64.h"
-#endif
-
 #include "base/bit_utils.h"
 #include "base/bit_utils_iterator.h"
 #include "base/casts.h"
@@ -64,6 +56,7 @@
 #include "ssa_liveness_analysis.h"
 #include "stack_map.h"
 #include "stack_map_stream.h"
+#include "string_builder_append.h"
 #include "thread-current-inl.h"
 #include "utils/assembler.h"
 
@@ -394,7 +387,8 @@ void CodeGenerator::Compile(CodeAllocator* allocator) {
   GetStackMapStream()->BeginMethod(HasEmptyFrame() ? 0 : frame_size_,
                                    core_spill_mask_,
                                    fpu_spill_mask_,
-                                   GetGraph()->GetNumberOfVRegs());
+                                   GetGraph()->GetNumberOfVRegs(),
+                                   GetGraph()->IsCompilingBaseline());
 
   size_t frame_start = GetAssembler()->CodeSize();
   GenerateFrameEntry();
@@ -597,6 +591,57 @@ void CodeGenerator::GenerateInvokeCustomCall(HInvokeCustom* invoke) {
   MoveConstant(invoke->GetLocations()->GetTemp(0), invoke->GetCallSiteIndex());
   QuickEntrypointEnum entrypoint = kQuickInvokeCustom;
   InvokeRuntime(entrypoint, invoke, invoke->GetDexPc(), nullptr);
+}
+
+void CodeGenerator::CreateStringBuilderAppendLocations(HStringBuilderAppend* instruction,
+                                                       Location out) {
+  ArenaAllocator* allocator = GetGraph()->GetAllocator();
+  LocationSummary* locations =
+      new (allocator) LocationSummary(instruction, LocationSummary::kCallOnMainOnly);
+  locations->SetOut(out);
+  instruction->GetLocations()->SetInAt(instruction->FormatIndex(),
+                                       Location::ConstantLocation(instruction->GetFormat()));
+
+  uint32_t format = static_cast<uint32_t>(instruction->GetFormat()->GetValue());
+  uint32_t f = format;
+  PointerSize pointer_size = InstructionSetPointerSize(GetInstructionSet());
+  size_t stack_offset = static_cast<size_t>(pointer_size);  // Start after the ArtMethod*.
+  for (size_t i = 0, num_args = instruction->GetNumberOfArguments(); i != num_args; ++i) {
+    StringBuilderAppend::Argument arg_type =
+        static_cast<StringBuilderAppend::Argument>(f & StringBuilderAppend::kArgMask);
+    switch (arg_type) {
+      case StringBuilderAppend::Argument::kStringBuilder:
+      case StringBuilderAppend::Argument::kString:
+      case StringBuilderAppend::Argument::kCharArray:
+        static_assert(sizeof(StackReference<mirror::Object>) == sizeof(uint32_t), "Size check.");
+        FALLTHROUGH_INTENDED;
+      case StringBuilderAppend::Argument::kBoolean:
+      case StringBuilderAppend::Argument::kChar:
+      case StringBuilderAppend::Argument::kInt:
+      case StringBuilderAppend::Argument::kFloat:
+        locations->SetInAt(i, Location::StackSlot(stack_offset));
+        break;
+      case StringBuilderAppend::Argument::kLong:
+      case StringBuilderAppend::Argument::kDouble:
+        stack_offset = RoundUp(stack_offset, sizeof(uint64_t));
+        locations->SetInAt(i, Location::DoubleStackSlot(stack_offset));
+        // Skip the low word, let the common code skip the high word.
+        stack_offset += sizeof(uint32_t);
+        break;
+      default:
+        LOG(FATAL) << "Unexpected arg format: 0x" << std::hex
+            << (f & StringBuilderAppend::kArgMask) << " full format: 0x" << format;
+        UNREACHABLE();
+    }
+    f >>= StringBuilderAppend::kBitsPerArg;
+    stack_offset += sizeof(uint32_t);
+  }
+  DCHECK_EQ(f, 0u);
+
+  size_t param_size = stack_offset - static_cast<size_t>(pointer_size);
+  DCHECK_ALIGNED(param_size, kVRegSize);
+  size_t num_vregs = param_size / kVRegSize;
+  graph_->UpdateMaximumNumberOfOutVRegs(num_vregs);
 }
 
 void CodeGenerator::CreateUnresolvedFieldLocationSummary(
@@ -897,18 +942,6 @@ std::unique_ptr<CodeGenerator> CodeGenerator::Create(HGraph* graph,
           new (allocator) arm64::CodeGeneratorARM64(graph, compiler_options, stats));
     }
 #endif
-#ifdef ART_ENABLE_CODEGEN_mips
-    case InstructionSet::kMips: {
-      return std::unique_ptr<CodeGenerator>(
-          new (allocator) mips::CodeGeneratorMIPS(graph, compiler_options, stats));
-    }
-#endif
-#ifdef ART_ENABLE_CODEGEN_mips64
-    case InstructionSet::kMips64: {
-      return std::unique_ptr<CodeGenerator>(
-          new (allocator) mips64::CodeGeneratorMIPS64(graph, compiler_options, stats));
-    }
-#endif
 #ifdef ART_ENABLE_CODEGEN_x86
     case InstructionSet::kX86: {
       return std::unique_ptr<CodeGenerator>(
@@ -958,6 +991,20 @@ CodeGenerator::CodeGenerator(HGraph* graph,
       is_leaf_(true),
       requires_current_method_(false),
       code_generation_data_() {
+  if (GetGraph()->IsCompilingOsr()) {
+    // Make OSR methods have all registers spilled, this simplifies the logic of
+    // jumping to the compiled code directly.
+    for (size_t i = 0; i < number_of_core_registers_; ++i) {
+      if (IsCoreCalleeSaveRegister(i)) {
+        AddAllocatedRegister(Location::RegisterLocation(i));
+      }
+    }
+    for (size_t i = 0; i < number_of_fpu_registers_; ++i) {
+      if (IsFloatingPointCalleeSaveRegister(i)) {
+        AddAllocatedRegister(Location::FpuRegisterLocation(i));
+      }
+    }
+  }
 }
 
 CodeGenerator::~CodeGenerator() {}
@@ -1036,8 +1083,40 @@ ScopedArenaVector<uint8_t> CodeGenerator::BuildStackMaps(const dex::CodeItem* co
   return stack_map;
 }
 
+// Returns whether stackmap dex register info is needed for the instruction.
+//
+// The following cases mandate having a dex register map:
+//  * Deoptimization
+//    when we need to obtain the values to restore actual vregisters for interpreter.
+//  * Debuggability
+//    when we want to observe the values / asynchronously deoptimize.
+//  * Monitor operations
+//    to allow dumping in a stack trace locked dex registers for non-debuggable code.
+//  * On-stack-replacement (OSR)
+//    when entering compiled for OSR code from the interpreter we need to initialize the compiled
+//    code values with the values from the vregisters.
+//  * Method local catch blocks
+//    a catch block must see the environment of the instruction from the same method that can
+//    throw to this block.
+static bool NeedsVregInfo(HInstruction* instruction, bool osr) {
+  HGraph* graph = instruction->GetBlock()->GetGraph();
+  return instruction->IsDeoptimize() ||
+         graph->IsDebuggable() ||
+         graph->HasMonitorOperations() ||
+         osr ||
+         instruction->CanThrowIntoCatchBlock();
+}
+
 void CodeGenerator::RecordPcInfo(HInstruction* instruction,
                                  uint32_t dex_pc,
+                                 SlowPathCode* slow_path,
+                                 bool native_debug_info) {
+  RecordPcInfo(instruction, dex_pc, GetAssembler()->CodePosition(), slow_path, native_debug_info);
+}
+
+void CodeGenerator::RecordPcInfo(HInstruction* instruction,
+                                 uint32_t dex_pc,
+                                 uint32_t native_pc,
                                  SlowPathCode* slow_path,
                                  bool native_debug_info) {
   if (instruction != nullptr) {
@@ -1062,9 +1141,6 @@ void CodeGenerator::RecordPcInfo(HInstruction* instruction,
       }
     }
   }
-
-  // Collect PC infos for the mapping table.
-  uint32_t native_pc = GetAssembler()->CodePosition();
 
   StackMapStream* stack_map_stream = GetStackMapStream();
   if (instruction == nullptr) {
@@ -1114,12 +1190,15 @@ void CodeGenerator::RecordPcInfo(HInstruction* instruction,
   StackMap::Kind kind = native_debug_info
       ? StackMap::Kind::Debug
       : (osr ? StackMap::Kind::OSR : StackMap::Kind::Default);
+  bool needs_vreg_info = NeedsVregInfo(instruction, osr);
   stack_map_stream->BeginStackMapEntry(outer_dex_pc,
                                        native_pc,
                                        register_mask,
                                        locations->GetStackMask(),
-                                       kind);
-  EmitEnvironment(environment, slow_path);
+                                       kind,
+                                       needs_vreg_info);
+
+  EmitEnvironment(environment, slow_path, needs_vreg_info);
   stack_map_stream->EndStackMapEntry();
 
   if (osr) {
@@ -1232,19 +1311,8 @@ void CodeGenerator::AddSlowPath(SlowPathCode* slow_path) {
   code_generation_data_->AddSlowPath(slow_path);
 }
 
-void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slow_path) {
-  if (environment == nullptr) return;
-
+void CodeGenerator::EmitVRegInfo(HEnvironment* environment, SlowPathCode* slow_path) {
   StackMapStream* stack_map_stream = GetStackMapStream();
-  if (environment->GetParent() != nullptr) {
-    // We emit the parent environment first.
-    EmitEnvironment(environment->GetParent(), slow_path);
-    stack_map_stream->BeginInlineInfoEntry(environment->GetMethod(),
-                                           environment->GetDexPc(),
-                                           environment->Size(),
-                                           &graph_->GetDexFile());
-  }
-
   // Walk over the environment, and record the location of dex registers.
   for (size_t i = 0, environment_size = environment->Size(); i < environment_size; ++i) {
     HInstruction* current = environment->GetInstructionAt(i);
@@ -1389,8 +1457,31 @@ void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slo
         LOG(FATAL) << "Unexpected kind " << location.GetKind();
     }
   }
+}
 
-  if (environment->GetParent() != nullptr) {
+void CodeGenerator::EmitEnvironment(HEnvironment* environment,
+                                    SlowPathCode* slow_path,
+                                    bool needs_vreg_info) {
+  if (environment == nullptr) return;
+
+  StackMapStream* stack_map_stream = GetStackMapStream();
+  bool emit_inline_info = environment->GetParent() != nullptr;
+
+  if (emit_inline_info) {
+    // We emit the parent environment first.
+    EmitEnvironment(environment->GetParent(), slow_path, needs_vreg_info);
+    stack_map_stream->BeginInlineInfoEntry(environment->GetMethod(),
+                                           environment->GetDexPc(),
+                                           needs_vreg_info ? environment->Size() : 0,
+                                           &graph_->GetDexFile());
+  }
+
+  if (needs_vreg_info) {
+    // If a dex register map is not required we just won't emit it.
+    EmitVRegInfo(environment, slow_path);
+  }
+
+  if (emit_inline_info) {
     stack_map_stream->EndInlineInfoEntry();
   }
 }
@@ -1402,7 +1493,7 @@ bool CodeGenerator::CanMoveNullCheckToUser(HNullCheck* null_check) {
 void CodeGenerator::MaybeRecordImplicitNullCheck(HInstruction* instr) {
   HNullCheck* null_check = instr->GetImplicitNullCheck();
   if (null_check != nullptr) {
-    RecordPcInfo(null_check, null_check->GetDexPc());
+    RecordPcInfo(null_check, null_check->GetDexPc(), GetAssembler()->CodePosition());
   }
 }
 

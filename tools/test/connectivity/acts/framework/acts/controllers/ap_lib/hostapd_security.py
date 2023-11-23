@@ -22,7 +22,6 @@ class Security(object):
     """The Security class for hostapd representing some of the security
        settings that are allowed in hostapd.  If needed more can be added.
     """
-
     def __init__(self,
                  security_mode=None,
                  password=None,
@@ -39,7 +38,7 @@ class Security(object):
 
         Args:
             security_mode: Type of security modes.
-                           Options: wep, wpa, wpa2, wpa/wpa2
+                           Options: wep, wpa, wpa2, wpa/wpa2, wpa3
             password: The PSK or passphrase for the security mode.
             wpa_cipher: The cipher to be used for wpa.
                         Options: TKIP, CCMP, TKIP CCMP
@@ -62,6 +61,7 @@ class Security(object):
         """
         self.wpa_cipher = wpa_cipher
         self.wpa2_cipher = wpa2_cipher
+        self.wpa3 = security_mode == hostapd_constants.WPA3_STRING
         self.wpa_group_rekey = wpa_group_rekey
         self.wpa_strict_rekey = wpa_strict_rekey
         self.wep_default_key = wep_default_key
@@ -70,7 +70,10 @@ class Security(object):
         self.radius_server_secret = radius_server_secret
         if security_mode == hostapd_constants.WPA_STRING:
             security_mode = hostapd_constants.WPA1
-        elif security_mode == hostapd_constants.WPA2_STRING:
+        # Both wpa2 and wpa3 use hostapd security mode 2, and are distinguished
+        # by their key management field (WPA-PSK and SAE, respectively)
+        elif (security_mode == hostapd_constants.WPA2_STRING
+              or security_mode == hostapd_constants.WPA3_STRING):
             security_mode = hostapd_constants.WPA2
         elif security_mode == hostapd_constants.WPA_MIXED_STRING:
             security_mode = hostapd_constants.MIXED
@@ -83,13 +86,15 @@ class Security(object):
         self.security_mode = security_mode
         if password:
             if security_mode == hostapd_constants.WEP:
-                if len(password) in hostapd_constants.WEP_HEX_LENGTH and all(
+                if len(password) in hostapd_constants.WEP_STR_LENGTH:
+                    self.password = '"%s"' % password
+                elif len(password) in hostapd_constants.WEP_HEX_LENGTH and all(
                         c in string.hexdigits for c in password):
                     self.password = password
                 else:
                     raise ValueError(
-                        'WEP key must be a hex string of %s characters'
-                        % hostapd_constants.WEP_HEX_LENGTH)
+                        'WEP key must be a hex string of %s characters' %
+                        hostapd_constants.WEP_HEX_LENGTH)
             else:
                 if len(password) < hostapd_constants.MIN_WPA_PSK_LENGTH or len(
                         password) > hostapd_constants.MAX_WPA_PSK_LENGTH:
@@ -103,14 +108,15 @@ class Security(object):
     def generate_dict(self):
         """Returns: an ordered dictionary of settings"""
         settings = collections.OrderedDict()
-        if self.security_mode != None:
+        if self.security_mode is not None:
             if self.security_mode == hostapd_constants.WEP:
                 settings['wep_default_key'] = self.wep_default_key
                 settings['wep_key' + str(self.wep_default_key)] = self.password
-            elif self.security_mode  == hostapd_constants.ENT:
+            elif self.security_mode == hostapd_constants.ENT:
                 settings['auth_server_addr'] = self.radius_server_ip
                 settings['auth_server_port'] = self.radius_server_port
-                settings['auth_server_shared_secret'] = self.radius_server_secret
+                settings[
+                    'auth_server_shared_secret'] = self.radius_server_secret
                 settings['wpa_key_mgmt'] = hostapd_constants.ENT_KEY_MGMT
                 settings['ieee8021x'] = hostapd_constants.IEEE8021X
                 settings['wpa'] = hostapd_constants.WPA2
@@ -120,7 +126,6 @@ class Security(object):
                     settings['wpa_psk'] = self.password
                 else:
                     settings['wpa_passphrase'] = self.password
-
                 if self.security_mode == hostapd_constants.MIXED:
                     settings['wpa_pairwise'] = self.wpa_cipher
                     settings['rsn_pairwise'] = self.wpa2_cipher
@@ -128,7 +133,8 @@ class Security(object):
                     settings['wpa_pairwise'] = self.wpa_cipher
                 elif self.security_mode == hostapd_constants.WPA2:
                     settings['rsn_pairwise'] = self.wpa2_cipher
-
+                if self.wpa3:
+                    settings['wpa_key_mgmt'] = 'SAE'
                 if self.wpa_group_rekey:
                     settings['wpa_group_rekey'] = self.wpa_group_rekey
                 if self.wpa_strict_rekey:

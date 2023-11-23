@@ -22,6 +22,7 @@ import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_UNAWARE;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.accessibilityservice.AccessibilityService;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -30,7 +31,10 @@ import android.content.IntentFilter;
 import android.content.pm.ComponentInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Environment;
+import android.os.PowerManager;
 import android.os.StrictMode;
 import android.os.StrictMode.ViolationInfo;
 import android.os.SystemClock;
@@ -41,20 +45,21 @@ import android.os.strictmode.Violation;
 import android.provider.Settings;
 import android.support.test.uiautomator.UiDevice;
 import android.test.InstrumentationTestCase;
-import android.text.format.DateUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import com.android.compatibility.common.util.TestUtils;
+
 import java.io.File;
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 public class EncryptionAppTest extends InstrumentationTestCase {
     private static final String TAG = "EncryptionAppTest";
-
-    private static final long TIMEOUT = 10 * DateUtils.SECOND_IN_MILLIS;
 
     private static final String KEY_BOOT = "boot";
 
@@ -62,6 +67,10 @@ public class EncryptionAppTest extends InstrumentationTestCase {
     private static final String TEST_ACTION = "com.android.cts.encryptionapp.TEST";
 
     private static final String OTHER_PKG = "com.android.cts.splitapp";
+
+    private static final int BOOT_TIMEOUT_SECONDS = 150;
+
+    private static final Uri FILE_INFO_URI = Uri.parse("content://" + OTHER_PKG + "/files");
 
     private Context mCe;
     private Context mDe;
@@ -120,6 +129,14 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         mDevice.executeShellCommand("locksettings clear --old 12345");
         mDevice.executeShellCommand("locksettings set-disabled true");
         mDevice.executeShellCommand("settings delete global require_password_to_decrypt");
+    }
+
+    public void testLockScreen() throws Exception {
+        summonKeyguard();
+    }
+
+    public void testUnlockScreen() throws Exception {
+        dismissKeyguard();
     }
 
     public void doBootCountBefore() throws Exception {
@@ -188,6 +205,28 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         mDevice.waitForIdle();
     }
 
+    private void waitFor(String msg, BooleanSupplier waitFor) {
+        int retry = 1;
+        do {
+            if (waitFor.getAsBoolean()) {
+                return;
+            }
+            Log.d(TAG, msg + " retry=" + retry);
+            SystemClock.sleep(50);
+        } while (retry++ < 5);
+        if (!waitFor.getAsBoolean()) {
+            fail(msg + " FAILED");
+        }
+    }
+
+    private void summonKeyguard() throws Exception {
+        final PowerManager pm = mDe.getSystemService(PowerManager.class);
+        mDevice.pressKeyCode(KeyEvent.KEYCODE_SLEEP);
+        getInstrumentation().getUiAutomation().performGlobalAction(
+                AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
+        waitFor("display to turn off", () -> pm != null && !pm.isInteractive());
+    }
+
     public void assertLocked() throws Exception {
         awaitBroadcast(Intent.ACTION_LOCKED_BOOT_COMPLETED);
 
@@ -221,7 +260,8 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         assertQuery(2, MATCH_DIRECT_BOOT_AWARE | MATCH_DIRECT_BOOT_UNAWARE);
 
         if (Environment.isExternalStorageEmulated()) {
-            assertEquals(Environment.MEDIA_UNMOUNTED, Environment.getExternalStorageState());
+            assertThat(Environment.getExternalStorageState())
+                    .isIn(Arrays.asList(Environment.MEDIA_UNMOUNTED, Environment.MEDIA_REMOVED));
 
             final File expected = null;
             assertEquals(expected, mCe.getExternalCacheDir());
@@ -377,19 +417,30 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         return Settings.Global.getInt(mDe.getContentResolver(), Settings.Global.BOOT_COUNT);
     }
 
-    private void awaitBroadcast(String action) throws Exception {
-        final Context otherContext = mDe.createPackageContext(OTHER_PKG, 0)
-                .createDeviceProtectedStorageContext();
-        final File probe = new File(otherContext.getFilesDir(),
-                getBootCount() + "." + action);
-        for (int i = 0; i < 150; i++) {
-            Log.d(TAG, "Waiting for " + probe + "...");
-            if (probe.exists()) {
-                return;
-            }
-            SystemClock.sleep(1000);
+    private boolean queryFileExists(Uri fileUri) {
+        Cursor c = mDe.getContentResolver().query(fileUri, null, null, null, null);
+        if (c == null) {
+            Log.w(TAG, "Couldn't query for file " + fileUri + "; returning false");
+            return false;
         }
-        throw new AssertionError("Failed to find " + probe);
+
+        c.moveToFirst();
+
+        int colIndex = c.getColumnIndex("exists");
+        if (colIndex < 0) {
+            Log.e(TAG, "Column 'exists' does not exist; returning false");
+            return false;
+        }
+
+        return c.getInt(colIndex) == 1;
+    }
+
+    private void awaitBroadcast(String action) throws Exception {
+        String fileName = getBootCount() + "." + action;
+        Uri fileUri = FILE_INFO_URI.buildUpon().appendPath(fileName).build();
+
+        TestUtils.waitUntil("Didn't receive broadcast " + action + " for boot " + getBootCount(),
+                BOOT_TIMEOUT_SECONDS, () -> queryFileExists(fileUri));
     }
 
     public interface ThrowingRunnable {

@@ -23,9 +23,6 @@ from acts.test_utils.wifi.rtt.RttBaseTest import RttBaseTest
 class StressRangeApTest(RttBaseTest):
     """Test class for stress testing of RTT ranging to Access Points"""
 
-    def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
-
     #############################################################################
 
     def test_rtt_supporting_ap_only(self):

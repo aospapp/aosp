@@ -32,7 +32,7 @@ public class ResourcesMgr {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.lang.String getString(java.lang.String s) {
         throw new RuntimeException("Stub!");
     }

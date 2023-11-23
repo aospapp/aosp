@@ -42,7 +42,7 @@ public class SerialNumber {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public SerialNumber(sun.security.util.DerValue val) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

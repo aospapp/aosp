@@ -59,3 +59,10 @@ python_binary_host {
         },
     },
 }
+
+//##################################################
+// TODO(b/153848038): Remove once we can use python binary as data for java_test_host
+filegroup {
+    name: "mkdtboimg",
+    srcs: ["mkdtboimg.py"],
+}

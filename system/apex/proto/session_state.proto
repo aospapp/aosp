@@ -27,9 +27,9 @@ message SessionState {
     ACTIVATED = 3;
     ACTIVATION_FAILED = 4;
     SUCCESS = 5;
-    ROLLBACK_IN_PROGRESS = 6;
-    ROLLED_BACK = 7;
-    ROLLBACK_FAILED = 8;
+    REVERT_IN_PROGRESS = 6;
+    REVERTED = 7;
+    REVERT_FAILED = 8;
   }
 
   int32 id = 1;
@@ -39,4 +39,23 @@ message SessionState {
 
   // Child session ids
   repeated int32 child_session_ids = 3;
+
+  // Build fingerprint before reboot
+  string expected_build_fingerprint = 4;
+
+  // True if rollback is enabled for this session
+  bool rollback_enabled = 5;
+
+  // True if this session is a rollback of a previous install
+  bool is_rollback = 6;
+
+  // The associated rollback id
+  int32 rollback_id = 7;
+
+  // The crashing native process that has caused this session to be reverted
+  string crashing_native_process = 8;
+
+  // The names of the apexes within this session. Only populated for sessions
+  // that have been activated.
+  repeated string apex_names = 9;
 }

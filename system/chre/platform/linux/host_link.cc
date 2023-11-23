@@ -27,4 +27,8 @@ bool HostLink::sendMessage(const MessageToHost *message) {
   return false;
 }
 
+void HostLink::sendLogMessage(const char *logMessage, size_t logMessageSize) {
+  // TODO: implement
+}
+
 }  // namespace chre

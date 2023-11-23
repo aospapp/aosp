@@ -16,16 +16,65 @@
 
 package android.graphics.fonts;
 
+import android.os.LocaleList;
 import android.util.Pair;
 
 import java.io.File;
-import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 public class NativeSystemFontHelper {
     static {
         System.loadLibrary("ctsgraphics_jni");
+    }
+
+    /**
+     *  Helper class for representing the system font obtained in native code.
+     */
+    public static class FontDescriptor {
+        String mFilePath;
+        int mWeight;
+        int mSlant;
+        int mIndex;
+        FontVariationAxis[] mAxes;
+        LocaleList mLocale;
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == this) {
+                return true;
+            }
+            if (o == null || !(o instanceof FontDescriptor)) {
+                return false;
+            }
+            FontDescriptor f = (FontDescriptor) o;
+            return f.mFilePath.equals(mFilePath)
+                && f.mWeight == mWeight
+                && f.mSlant == mSlant
+                && f.mIndex == mIndex
+                && Arrays.equals(f.mAxes, mAxes)
+                && Objects.equals(f.mLocale, mLocale);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(mFilePath, mWeight, mSlant, mIndex, Arrays.hashCode(mAxes),
+                mLocale);
+        }
+
+        @Override
+        public String toString() {
+            return "Font {"
+                + " path = " + mFilePath
+                + " weight = " + mWeight
+                + " slant = " + mSlant
+                + " index = " + mIndex
+                + " axes = " + FontVariationAxis.toFontVariationSettings(mAxes)
+                + " locale = " + mLocale
+                + "}";
+        }
     }
 
     private static String tagToStr(int tag) {
@@ -37,26 +86,25 @@ public class NativeSystemFontHelper {
         return String.valueOf(buf);
     }
 
-    public static Set<Font> getAvailableFonts() {
+    public static Set<FontDescriptor> getAvailableFonts() {
         long iterPtr = nOpenIterator();
-        HashSet<Font> nativeFonts = new HashSet<>();
+        HashSet<FontDescriptor> nativeFonts = new HashSet<>();
         try {
             for (long fontPtr = nNext(iterPtr); fontPtr != 0; fontPtr = nNext(iterPtr)) {
                 try {
-                    FontVariationAxis[] axes = new FontVariationAxis[nGetAxisCount(fontPtr)];
-                    for (int i = 0; i < axes.length; ++i) {
-                        axes[i] = new FontVariationAxis(
-                                tagToStr(nGetAxisTag(fontPtr, i)), nGetAxisValue(fontPtr, i));
+                    FontDescriptor font = new FontDescriptor();
+                    font.mFilePath = nGetFilePath(fontPtr);
+                    font.mWeight = nGetWeight(fontPtr);
+                    font.mSlant = nIsItalic(fontPtr)
+                        ? FontStyle.FONT_SLANT_ITALIC : FontStyle.FONT_SLANT_UPRIGHT;
+                    font.mIndex = nGetCollectionIndex(fontPtr);
+                    font.mAxes = new FontVariationAxis[nGetAxisCount(fontPtr)];
+                    for (int i = 0; i < font.mAxes.length; ++i) {
+                        font.mAxes[i] = new FontVariationAxis(
+                            tagToStr(nGetAxisTag(fontPtr, i)), nGetAxisValue(fontPtr, i));
                     }
-                    nativeFonts.add(new Font.Builder(new File(nGetFilePath(fontPtr)))
-                            .setWeight(nGetWeight(fontPtr))
-                            .setSlant(nIsItalic(fontPtr)
-                                    ?  FontStyle.FONT_SLANT_ITALIC : FontStyle.FONT_SLANT_UPRIGHT)
-                            .setTtcIndex(nGetCollectionIndex(fontPtr))
-                            .setFontVariationSettings(axes)
-                            .build());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    font.mLocale = LocaleList.forLanguageTags(nGetLocale(fontPtr));
+                    nativeFonts.add(font);
                 } finally {
                     nCloseFont(fontPtr);
                 }

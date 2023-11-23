@@ -22,7 +22,11 @@ import java.text.Collator;
 import java.text.ParseException;
 import java.text.RuleBasedCollator;
 import java.text.StringCharacterIterator;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 public class CollatorTest extends junit.framework.TestCase {
     public void test_setStrengthI() throws Exception {
@@ -163,5 +167,16 @@ public class CollatorTest extends junit.framework.TestCase {
 
     public void testGetCollationElementIteratorCharacterIterator_de_DE() throws Exception {
         assertGetCollationElementIteratorCharacterIterator(new Locale("de", "DE", ""), "\u00e6b", 0, 1, 1, 2);
+    }
+
+    public void testGetAvailableLocales_icuConsistency() {
+        Locale[] javaLocales = Collator.getAvailableLocales();
+        Locale[] icuLocales = android.icu.text.Collator.getAvailableLocales();
+        Set<Locale> javaSet = new HashSet<>(Arrays.asList(javaLocales));
+        Set<Locale> icuSet = new HashSet<>(Arrays.asList(icuLocales));
+        assertEquals(javaSet, icuSet);
+        // Assert no duplicated entries
+        assertEquals(javaLocales.length, javaSet.size());
+        assertEquals(icuLocales.length, icuSet.size());
     }
 }

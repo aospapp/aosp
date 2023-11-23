@@ -104,7 +104,10 @@ typedef struct {
 }__attribute__((packed)) dbglog_slot;
 
 typedef enum eAniNlModuleTypes {
-    ANI_NL_MSG_PUMAC = ANI_NL_MSG_BASE + 0x01,
+    ANI_NL_MSG_PUMAC = ANI_NL_MSG_BASE + 0x01,// PTT Socket App
+    ANI_NL_MSG_PTT = ANI_NL_MSG_BASE + 0x07,// Quarky GUI
+    WLAN_NL_MSG_BTC,
+    WLAN_NL_MSG_OEM,
     ANI_NL_MSG_CNSS_DIAG = ANI_NL_MSG_BASE + 0x0B,
     ANI_NL_MSG_LOG,
     ANI_NL_MSG_MAX

@@ -16,7 +16,7 @@
 
 package dalvik.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -24,8 +24,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import sun.misc.CompoundEnumeration;
 
 /**
@@ -125,38 +128,46 @@ public class BaseDexClassLoader extends ClassLoader {
                 : Arrays.copyOf(sharedLibraryLoaders, sharedLibraryLoaders.length);
         this.pathList = new DexPathList(this, dexPath, librarySearchPath, null, isTrusted);
 
-        if (reporter != null) {
-            reportClassLoaderChain();
-        }
+        reportClassLoaderChain();
     }
 
     /**
      * Reports the current class loader chain to the registered {@code reporter}.
+     *
+     * @hide
      */
-    private void reportClassLoaderChain() {
-        ArrayList<ClassLoader> classLoadersChain = new ArrayList<>();
-        ArrayList<String> classPaths = new ArrayList<>();
-
-        classLoadersChain.add(this);
-        classPaths.add(String.join(File.pathSeparator, pathList.getDexPaths()));
-
-        ClassLoader bootClassLoader = ClassLoader.getSystemClassLoader().getParent();
-        ClassLoader current = getParent();
-
-        while (current != null && current != bootClassLoader) {
-            classLoadersChain.add(current);
-            if (current instanceof BaseDexClassLoader) {
-                BaseDexClassLoader bdcCurrent = (BaseDexClassLoader) current;
-                classPaths.add(String.join(File.pathSeparator, bdcCurrent.pathList.getDexPaths()));
-            } else {
-                // We can't determine the classpath for arbitrary class loaders.
-                classPaths.add(null);
-            }
-            current = current.getParent();
+    @libcore.api.CorePlatformApi
+    public void reportClassLoaderChain() {
+        if (reporter == null) {
+            return;
         }
 
-        reporter.report(classLoadersChain, classPaths);
+        String[] classPathAndClassLoaderContexts = computeClassLoaderContextsNative();
+        if (classPathAndClassLoaderContexts.length == 0) {
+            return;
+        }
+        Map<String, String> dexFileMapping =
+                new HashMap<>(classPathAndClassLoaderContexts.length / 2);
+        for (int i = 0; i < classPathAndClassLoaderContexts.length; i += 2) {
+            dexFileMapping.put(classPathAndClassLoaderContexts[i],
+                    classPathAndClassLoaderContexts[i + 1]);
+        }
+        reporter.report(Collections.unmodifiableMap(dexFileMapping));
     }
+
+    /**
+     * Computes the classloader contexts for each classpath entry in {@code pathList.getDexPaths()}.
+     *
+     * Note that this method is not thread safe, i.e. it is the responsibility of the caller to
+     * ensure that {@code pathList.getDexPaths()} is not modified concurrently with this method
+     * being called.
+     *
+     * @return A non-null array of non-null strings of length
+     *   {@code 2 * pathList.getDexPaths().size()}. Every even index (0 is even here) is a dex file
+     *   path and every odd entry is the class loader context used to load the previously listed dex
+     *   file. E.g. a result might be {@code { "foo.dex", "PCL[]", "bar.dex", "PCL[foo.dex]" } }.
+     */
+    private native String[] computeClassLoaderContextsNative();
 
     /**
      * Constructs an instance.
@@ -359,19 +370,16 @@ public class BaseDexClassLoader extends ClassLoader {
     @libcore.api.CorePlatformApi
     public interface Reporter {
         /**
-         * Reports the construction of a BaseDexClassLoader and provides information about the
-         * class loader chain.
+         * Reports the construction of a BaseDexClassLoader and provides opaque information about
+         * the class loader chain. For example, if the childmost ClassLoader in the chain:
+         * {@quote BaseDexClassLoader { foo.dex } -> BaseDexClassLoader { base.apk }
+         *    -> BootClassLoader } was just initialized then the load of {@code "foo.dex"} would be
+         * reported with a classLoaderContext of {@code "PCL[];PCL[base.apk]"}.
          *
-         * @param classLoadersChain the chain of class loaders used during the construction of the
-         *     class loader. The first element is the BaseDexClassLoader being constructed,
-         *     the second element is its parent, and so on.
-         * @param classPaths the class paths of the class loaders present in
-         *     {@param classLoadersChain}. The first element corresponds to the first class
-         *     loader and so on. A classpath is represented as a list of dex files separated by
-         *     {@code File.pathSeparator}. If the class loader is not a BaseDexClassLoader the
-         *     classpath will be null.
+         * @param contextsMap A map from dex file paths to the class loader context used to load
+         *     each dex file.
          */
         @libcore.api.CorePlatformApi
-        void report(List<ClassLoader> classLoadersChain, List<String> classPaths);
+        void report(Map<String, String> contextsMap);
     }
 }

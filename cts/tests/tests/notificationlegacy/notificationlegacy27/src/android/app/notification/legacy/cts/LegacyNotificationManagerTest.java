@@ -65,7 +65,6 @@ public class LegacyNotificationManagerTest {
 
     final String NOTIFICATION_CHANNEL_ID = "LegacyNotificationManagerTest";
     private NotificationManager mNotificationManager;
-    private ActivityManager mActivityManager;
     private Context mContext;
 
     private SecondaryNotificationListener mSecondaryListener;
@@ -82,7 +81,6 @@ public class LegacyNotificationManagerTest {
                 Context.NOTIFICATION_SERVICE);
         mNotificationManager.createNotificationChannel(new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT));
-        mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
     }
 
     @After
@@ -98,9 +96,6 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testPrePCannotToggleAlarmsAndMediaTest() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -141,9 +136,6 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testSetNotificationPolicy_preP_setOldFields() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -164,9 +156,6 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testSetNotificationPolicy_preP_setNewFields() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -187,9 +176,6 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testSuspendPackage() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -222,9 +208,6 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testSuspendedPackageSendNotification() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -255,9 +238,6 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testResetListenerHints_singleListener() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -277,9 +257,6 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testResetListenerHints_multiListener() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         toggleListenerAccess(SecondaryNotificationListener.getId(),
@@ -307,9 +284,6 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testSetNotificationPolicy_preP_setOldNewFields() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -356,7 +330,10 @@ public class LegacyNotificationManagerTest {
     private void toggleNotificationPolicyAccess(String packageName,
             Instrumentation instrumentation, boolean on) throws IOException {
 
-        String command = " cmd notification " + (on ? "allow_dnd " : "disallow_dnd ") + packageName;
+        String command = " cmd notification"
+                       + " " + (on ? "allow_dnd" : "disallow_dnd")
+                       + " " + packageName
+                       + " " + mContext.getUserId();
 
         runCommand(command, instrumentation);
 
@@ -368,8 +345,10 @@ public class LegacyNotificationManagerTest {
 
     private void suspendPackage(String packageName,
             Instrumentation instrumentation, boolean suspend) throws IOException {
-        String command = " cmd package " + (suspend ? "suspend "
-                : "unsuspend ") + packageName;
+        String command = " cmd package"
+                       + " " + (suspend ? "suspend" : "unsuspend")
+                       + " --user " + mContext.getUserId()
+                       + " " + packageName;
 
         runCommand(command, instrumentation);
     }
@@ -377,8 +356,10 @@ public class LegacyNotificationManagerTest {
     private void toggleListenerAccess(String componentName, Instrumentation instrumentation,
             boolean on) throws IOException {
 
-        String command = " cmd notification " + (on ? "allow_listener " : "disallow_listener ")
-                + componentName;
+        String command = " cmd notification"
+                       + " " + (on ? "allow_listener" : "disallow_listener")
+                       + " " + componentName
+                       + " " + mContext.getUserId();
 
         runCommand(command, instrumentation);
 

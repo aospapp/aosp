@@ -16,6 +16,7 @@
 
 package libcore.io;
 
+import android.compat.annotation.UnsupportedAppUsage;
 import android.system.ErrnoException;
 import android.system.GaiException;
 import android.system.Int64Ref;
@@ -25,9 +26,7 @@ import android.system.StructLinger;
 import android.system.StructPollfd;
 import android.system.StructStat;
 import android.system.StructStatVfs;
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.system.BlockGuard;
-import dalvik.system.SocketTagger;
+
 import java.io.FileDescriptor;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
@@ -35,6 +34,9 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+
+import dalvik.system.BlockGuard;
+import dalvik.system.SocketTagger;
 
 import static android.system.OsConstants.*;
 

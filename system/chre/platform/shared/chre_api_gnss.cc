@@ -26,7 +26,8 @@ using chre::Milliseconds;
 
 DLL_EXPORT uint32_t chreGnssGetCapabilities() {
 #ifdef CHRE_GNSS_SUPPORT_ENABLED
-  return chre::EventLoopManagerSingleton::get()->getGnssManager()
+  return chre::EventLoopManagerSingleton::get()
+      ->getGnssManager()
       .getCapabilities();
 #else
   return CHRE_GNSS_CAPABILITIES_NONE;
@@ -38,10 +39,11 @@ DLL_EXPORT bool chreGnssLocationSessionStartAsync(uint32_t minIntervalMs,
                                                   const void *cookie) {
 #ifdef CHRE_GNSS_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
-  return chre::EventLoopManagerSingleton::get()->getGnssManager()
-      .getLocationSession().addRequest(
-          nanoapp, Milliseconds(minIntervalMs),
-          Milliseconds(minTimeToNextFixMs), cookie);
+  return chre::EventLoopManagerSingleton::get()
+      ->getGnssManager()
+      .getLocationSession()
+      .addRequest(nanoapp, Milliseconds(minIntervalMs),
+                  Milliseconds(minTimeToNextFixMs), cookie);
 #else
   return false;
 #endif  // CHRE_GNSS_SUPPORT_ENABLED
@@ -50,8 +52,10 @@ DLL_EXPORT bool chreGnssLocationSessionStartAsync(uint32_t minIntervalMs,
 DLL_EXPORT bool chreGnssLocationSessionStopAsync(const void *cookie) {
 #ifdef CHRE_GNSS_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
-  return chre::EventLoopManagerSingleton::get()->getGnssManager()
-      .getLocationSession().removeRequest(nanoapp, cookie);
+  return chre::EventLoopManagerSingleton::get()
+      ->getGnssManager()
+      .getLocationSession()
+      .removeRequest(nanoapp, cookie);
 #else
   return false;
 #endif  // CHRE_GNSS_SUPPORT_ENABLED
@@ -61,10 +65,11 @@ DLL_EXPORT bool chreGnssMeasurementSessionStartAsync(uint32_t minIntervalMs,
                                                      const void *cookie) {
 #ifdef CHRE_GNSS_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
-  return chre::EventLoopManagerSingleton::get()->getGnssManager()
-      .getMeasurementSession().addRequest(
-          nanoapp, Milliseconds(minIntervalMs),
-          Milliseconds(0) /* minTimeToNext */, cookie);
+  return chre::EventLoopManagerSingleton::get()
+      ->getGnssManager()
+      .getMeasurementSession()
+      .addRequest(nanoapp, Milliseconds(minIntervalMs),
+                  Milliseconds(0) /* minTimeToNext */, cookie);
 #else
   return false;
 #endif  // CHRE_GNSS_SUPPORT_ENABLED
@@ -73,9 +78,11 @@ DLL_EXPORT bool chreGnssMeasurementSessionStartAsync(uint32_t minIntervalMs,
 DLL_EXPORT bool chreGnssMeasurementSessionStopAsync(const void *cookie) {
 #ifdef CHRE_GNSS_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
-  return chre::EventLoopManagerSingleton::get()->getGnssManager()
-      .getMeasurementSession().removeRequest(nanoapp, cookie);
+  return chre::EventLoopManagerSingleton::get()
+      ->getGnssManager()
+      .getMeasurementSession()
+      .removeRequest(nanoapp, cookie);
 #else
   return false;
-#endif   // CHRE_GNSS_SUPPORT_ENABLED
+#endif  // CHRE_GNSS_SUPPORT_ENABLED
 }

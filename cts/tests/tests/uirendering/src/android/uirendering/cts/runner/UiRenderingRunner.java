@@ -16,16 +16,29 @@
 
 package android.uirendering.cts.runner;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.server.wm.settings.SettingsSession;
 import android.support.test.uiautomator.UiDevice;
+import android.uirendering.cts.util.BitmapDumper;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnitRunner;
 
 /**
  * TODO: Do some cool stuff we also want like sharing DrawActivity cross-class.
  */
 public class UiRenderingRunner extends AndroidJUnitRunner {
+
+    private static class ImmersiveConfirmationSetting extends SettingsSession<String> {
+        ImmersiveConfirmationSetting() {
+            super(Settings.Secure.getUriFor(
+                    Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS),
+                    Settings.Secure::getString, Settings.Secure::putString);
+        }
+    }
+
+    private ImmersiveConfirmationSetting mSettingsSession;
 
     @Override
     protected void waitForActivitiesToComplete() {
@@ -36,18 +49,27 @@ public class UiRenderingRunner extends AndroidJUnitRunner {
     public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
 
-        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        // Disable immersive clings
+        mSettingsSession = new ImmersiveConfirmationSetting();
+        mSettingsSession.set("confirmed");
+
+        final UiDevice device = UiDevice.getInstance(this);
         try {
             device.wakeUp();
             device.executeShellCommand("wm dismiss-keyguard");
+            getContext().sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
         } catch (Exception e) {
         }
+
+        BitmapDumper.initialize(this);
     }
 
     @Override
     public void onDestroy() {
         // Ok now wait if necessary
         super.waitForActivitiesToComplete();
+
+        mSettingsSession.close();
 
         super.onDestroy();
     }

@@ -22,9 +22,9 @@
 #include <android-base/strings.h>
 #include <android/frameworks/stats/1.0/IStats.h>
 #include <cutils/uevent.h>
-#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
 #include <log/log.h>
 #include <pixelstats/UeventListener.h>
+#include <pixelstats/WlcReporter.h>
 #include <unistd.h>
 #include <utils/StrongPointer.h>
 
@@ -32,10 +32,12 @@
 
 using android::sp;
 using android::base::ReadFileToString;
+using android::base::WriteStringToFile;
 using android::frameworks::stats::V1_0::HardwareFailed;
 using android::frameworks::stats::V1_0::IStats;
 using android::frameworks::stats::V1_0::UsbPortOverheatEvent;
 using android::frameworks::stats::V1_0::VendorAtom;
+using android::hardware::google::pixel::WlcReporter;
 using android::hardware::google::pixel::PixelAtoms::ChargeStats;
 using android::hardware::google::pixel::PixelAtoms::VoltageTierStats;
 
@@ -75,8 +77,9 @@ void UeventListener::ReportMicBrokenOrDegraded(const int mic, const bool isbroke
         Return<void> ret = stats_client->reportHardwareFailed(failure);
         if (!ret.isOk())
             ALOGE("Unable to report physical drop to Stats service");
-    } else
+    } else {
         ALOGE("Unable to connect to Stats service");
+    }
 }
 
 void UeventListener::ReportMicStatusUevents(const char *devpath, const char *mic_status) {
@@ -94,9 +97,9 @@ void UeventListener::ReportMicStatusUevents(const char *devpath, const char *mic
             else
                 return;
 
-            if (!value[1].compare("true"))
+            if (!value[1].compare("true")) {
                 ReportMicBrokenOrDegraded(0, isbroken);
-            else {
+            } else {
                 int mic_status = atoi(value[1].c_str());
 
                 if (mic_status > 0 && mic_status <= 7) {
@@ -137,7 +140,7 @@ void UeventListener::ReportUsbPortOverheatEvent(const char *driver) {
     }
 }
 
-void UeventListener::ReportChargeStats(sp<IStats> &stats_client, const char *line) {
+void UeventListener::ReportChargeStats(const sp<IStats> &stats_client, const char *line) {
     std::vector<int> charge_stats_fields = {
             ChargeStats::kAdapterTypeFieldNumber,     ChargeStats::kAdapterVoltageFieldNumber,
             ChargeStats::kAdapterAmperageFieldNumber, ChargeStats::kSsocInFieldNumber,
@@ -166,7 +169,7 @@ void UeventListener::ReportChargeStats(sp<IStats> &stats_client, const char *lin
         ALOGE("Unable to report ChargeStats to Stats service");
 }
 
-void UeventListener::ReportVoltageTierStats(sp<IStats> &stats_client, const char *line) {
+void UeventListener::ReportVoltageTierStats(const sp<IStats> &stats_client, const char *line) {
     std::vector<int> voltage_tier_stats_fields = {VoltageTierStats::kVoltageTierFieldNumber,
                                                   VoltageTierStats::kSocInFieldNumber,
                                                   VoltageTierStats::kCcInFieldNumber,
@@ -231,6 +234,10 @@ void UeventListener::ReportChargeMetricsEvent(const char *driver) {
         return;
     }
 
+    if (!WriteStringToFile(kChargeMetricsPath.c_str(), std::to_string(0))) {
+        ALOGE("Couldn't clear %s", kChargeMetricsPath.c_str());
+    }
+
     sp<IStats> stats_client = IStats::tryGetService();
     if (!stats_client) {
         ALOGE("Couldn't connect to IStats service");
@@ -244,12 +251,59 @@ void UeventListener::ReportChargeMetricsEvent(const char *driver) {
     }
 }
 
+/* ReportWlc
+ * Report wireless relate  metrics when wireless charging start
+ */
+void UeventListener::ReportWlc(const char *driver) {
+    if (!driver || strncmp(driver, "POWER_SUPPLY_PRESENT=", strlen("POWER_SUPPLY_PRESENT="))) {
+        return;
+    }
+    if (wireless_charging_supported_) {
+        sp<WlcReporter> wlc_reporter = new WlcReporter();
+        if (wlc_reporter != nullptr) {
+            wireless_charging_state_ =
+                    wlc_reporter->checkAndReport(wireless_charging_state_);
+        }
+    }
+}
+
+/**
+ * Report raw battery capacity, system battery capacity and associated
+ * battery capacity curves. This data is collected to verify the filter
+ * applied on the battery capacity. This will allow debugging of issues
+ * ranging from incorrect fuel gauge hardware calculations to issues
+ * with the software reported battery capacity.
+ *
+ * The data is retrieved by parsing the battery power supply's ssoc_details.
+ *
+ * This atom logs data in 5 potential events:
+ *      1. When a device is connected
+ *      2. When a device is disconnected
+ *      3. When a device has reached a full charge (from the UI's perspective)
+ *      4. When there is a >= 2 percent skip in the UI reported SOC
+ *      5. When there is a difference of >= 4 percent between the raw hardware
+ *          battery capacity and the system reported battery capacity.
+ */
+void UeventListener::ReportBatteryCapacityFGEvent(const char *subsystem) {
+    if (!subsystem || strcmp(subsystem, "SUBSYSTEM=power_supply")) {
+        return;
+    }
+
+    // Indicates an implicit disable of the battery capacity reporting
+    if (kBatterySSOCPath.empty()) {
+        return;
+    }
+
+    battery_capacity_reporter_.checkAndReport(kBatterySSOCPath);
+}
+
 bool UeventListener::ProcessUevent() {
     char msg[UEVENT_MSG_LEN + 2];
     char *cp;
-    const char *action, *power_supply_typec_mode, *driver, *product;
+    const char *driver, *product, *subsystem;
     const char *mic_break_status, *mic_degrade_status;
     const char *devpath;
+    const char *powpresent;
     int n;
 
     if (uevent_fd_ < 0) {
@@ -268,8 +322,8 @@ bool UeventListener::ProcessUevent() {
     msg[n] = '\0';
     msg[n + 1] = '\0';
 
-    action = power_supply_typec_mode = driver = product = NULL;
-    mic_break_status = mic_degrade_status = devpath = NULL;
+    driver = product = subsystem = NULL;
+    mic_break_status = mic_degrade_status = devpath = powpresent = NULL;
 
     /**
      * msg is a sequence of null-terminated strings.
@@ -278,11 +332,7 @@ bool UeventListener::ProcessUevent() {
      */
     cp = msg;
     while (*cp) {
-        if (!strncmp(cp, "ACTION=", strlen("ACTION="))) {
-            action = cp;
-        } else if (!strncmp(cp, "POWER_SUPPLY_TYPEC_MODE=", strlen("POWER_SUPPLY_TYPEC_MODE="))) {
-            power_supply_typec_mode = cp;
-        } else if (!strncmp(cp, "DRIVER=", strlen("DRIVER="))) {
+        if (!strncmp(cp, "DRIVER=", strlen("DRIVER="))) {
             driver = cp;
         } else if (!strncmp(cp, "PRODUCT=", strlen("PRODUCT="))) {
             product = cp;
@@ -292,6 +342,11 @@ bool UeventListener::ProcessUevent() {
             mic_degrade_status = cp;
         } else if (!strncmp(cp, "DEVPATH=", strlen("DEVPATH="))) {
             devpath = cp;
+        } else if (!strncmp(cp, "POWER_SUPPLY_PRESENT=",
+                            strlen("POWER_SUPPLY_PRESENT="))) {
+            powpresent = cp;
+        } else if (!strncmp(cp, "SUBSYSTEM=", strlen("SUBSYSTEM="))) {
+            subsystem = cp;
         }
 
         /* advance to after the next \0 */
@@ -304,22 +359,35 @@ bool UeventListener::ProcessUevent() {
     ReportMicStatusUevents(devpath, mic_degrade_status);
     ReportUsbPortOverheatEvent(driver);
     ReportChargeMetricsEvent(driver);
+    ReportWlc(powpresent);
+    ReportBatteryCapacityFGEvent(subsystem);
 
     return true;
 }
 
-UeventListener::UeventListener(const std::string audio_uevent, const std::string overheat_path,
+UeventListener::UeventListener(const std::string audio_uevent, const std::string ssoc_details_path,
+                               const std::string overheat_path,
                                const std::string charge_metrics_path)
     : kAudioUevent(audio_uevent),
+      kBatterySSOCPath(ssoc_details_path),
       kUsbPortOverheatPath(overheat_path),
       kChargeMetricsPath(charge_metrics_path),
-      uevent_fd_(-1) {}
+      uevent_fd_(-1),
+      wireless_charging_state_(false) {}
 
 /* Thread function to continuously monitor uevents.
  * Exit after kMaxConsecutiveErrors to prevent spinning. */
 void UeventListener::ListenForever() {
     constexpr int kMaxConsecutiveErrors = 10;
     int consecutive_errors = 0;
+    sp<WlcReporter> wlc_reporter = new WlcReporter();
+    if (wlc_reporter != nullptr) {
+        wireless_charging_supported_ = wlc_reporter->isWlcSupported();
+    } else {
+        ALOGE("Fail to create WlcReporter.");
+        wireless_charging_supported_ = false;
+    }
+
     while (1) {
         if (ProcessUevent()) {
             consecutive_errors = 0;

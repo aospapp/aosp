@@ -22,14 +22,17 @@ import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.util.AbiUtils;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Scanner;
@@ -38,11 +41,18 @@ import java.util.regex.Pattern;
 
 public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiReceiver {
     private static final String TEST_APP_PACKAGE = "android.os.app";
-    private static final String TEST_NON_EXPORTED_ACTIVITY_CLASS = "TestNonExported";
 
+    private static final String TEST_NON_EXPORTED_ACTIVITY_CLASS = "TestNonExported";
     private static final String START_NON_EXPORTED_ACTIVITY_COMMAND = String.format(
             "am start -n %s/%s.%s",
             TEST_APP_PACKAGE, TEST_APP_PACKAGE, TEST_NON_EXPORTED_ACTIVITY_CLASS);
+
+    private static final String TEST_FG_SERVICE_CLASS = "TestFgService";
+    private static final String START_FG_SERVICE_COMMAND = String.format(
+            "am start-foreground-service -n %s/%s.%s",
+            TEST_APP_PACKAGE, TEST_APP_PACKAGE, TEST_FG_SERVICE_CLASS);
+    private static final String FILTER_FG_SERVICE_REGEXP =
+            "TestFgService starting foreground: pid=([0-9]*)";
 
     // Testing the intent filter verification mechanism
     private static final String HOST_VERIFICATION_APK = "CtsHostLinkVerificationApp.apk";
@@ -102,6 +112,40 @@ public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiR
                 mDevice.enableAdbRoot();
             }
         }
+    }
+
+    /**
+     * Test behavior of malformed Notifications w.r.t. foreground services
+     * @throws Exception
+     */
+    @AppModeFull(reason = "Instant apps may not start foreground services")
+    public void testForegroundServiceBadNotification() throws Exception {
+        final Pattern pattern = Pattern.compile(FILTER_FG_SERVICE_REGEXP);
+
+        mDevice.clearLogcat();
+        mDevice.executeShellCommand(START_FG_SERVICE_COMMAND);
+        Thread.sleep(2500);
+
+        String pid = null;
+        try (InputStreamSource logSource = mDevice.getLogcat()) {
+            InputStreamReader streamReader = new InputStreamReader(logSource.createInputStream());
+            BufferedReader logReader = new BufferedReader(streamReader);
+
+            String line;
+            while ((line = logReader.readLine()) != null) {
+                Matcher matcher = pattern.matcher(line);
+                if (matcher.find()) {
+                    pid = matcher.group(1);
+                    break;
+                }
+            }
+        }
+        assertTrue("Didn't find test service statement in logcat", pid != null);
+
+        final String procStr = "/proc/" + pid;
+        final String lsOut = mDevice.executeShellCommand("ls -d " + procStr).trim();
+        assertTrue("Looking for nonexistence of service process " + pid,
+                lsOut.contains("No such file"));
     }
 
     public void testIntentFilterHostValidation() throws Exception {

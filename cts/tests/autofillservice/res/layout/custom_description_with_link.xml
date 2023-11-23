@@ -31,4 +31,10 @@
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:text="DON'T TAP ME!"/>
+
+    <TextView android:id="@+id/custom_text"
+              android:paddingEnd="16dp"
+              android:layout_width="wrap_content"
+              android:layout_height="match_parent"
+              android:text=""/>
 </LinearLayout>

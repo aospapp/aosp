@@ -19,6 +19,7 @@
 
 #include <atomic>
 
+#include "android-base/thread_annotations.h"
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/mutex.h"
@@ -27,12 +28,14 @@
 #include "dex/dex_file_structs.h"
 #include "gc_root-inl.h"
 #include "handle_scope-inl.h"
+#include "jni/jni_internal.h"
 #include "mirror/class_loader.h"
 #include "mirror/dex_cache-inl.h"
 #include "mirror/iftable.h"
 #include "mirror/object_array-inl.h"
 #include "obj_ptr-inl.h"
 #include "scoped_thread_state_change-inl.h"
+#include "well_known_classes.h"
 
 namespace art {
 
@@ -365,10 +368,26 @@ inline ArtMethod* ClassLinker::ResolveMethod(Thread* self,
                                                   type);
   } else if (kResolveMode == ResolveMode::kCheckICCEAndIAE) {
     referrer = referrer->GetInterfaceMethodIfProxy(image_pointer_size_);
+    const dex::MethodId& method_id = referrer->GetDexFile()->GetMethodId(method_idx);
+    ObjPtr<mirror::Class> cls =
+        LookupResolvedType(method_id.class_idx_,
+                           referrer->GetDexCache(),
+                           referrer->GetClassLoader());
+    if (cls == nullptr) {
+      // The verifier breaks the invariant that a resolved method must have its
+      // class in the class table, so resolve the type in case we haven't found it.
+      // b/73760543
+      StackHandleScope<2> hs(Thread::Current());
+      Handle<mirror::DexCache> h_dex_cache(hs.NewHandle(referrer->GetDexCache()));
+      Handle<mirror::ClassLoader> h_class_loader(hs.NewHandle(referrer->GetClassLoader()));
+      cls = ResolveType(method_id.class_idx_, h_dex_cache, h_class_loader);
+      if (hs.Self()->IsExceptionPending()) {
+        return nullptr;
+      }
+    }
     // Check if the invoke type matches the class type.
-    ObjPtr<mirror::DexCache> dex_cache = referrer->GetDexCache();
-    ObjPtr<mirror::ClassLoader> class_loader = referrer->GetClassLoader();
-    if (CheckInvokeClassMismatch</* kThrow= */ true>(dex_cache, type, method_idx, class_loader)) {
+    if (CheckInvokeClassMismatch</* kThrow= */ true>(
+            referrer->GetDexCache(), type, [cls]() { return cls; })) {
       DCHECK(Thread::Current()->IsExceptionPending());
       return nullptr;
     }
@@ -376,7 +395,7 @@ inline ArtMethod* ClassLinker::ResolveMethod(Thread* self,
     ObjPtr<mirror::Class> referring_class = referrer->GetDeclaringClass();
     if (!referring_class->CheckResolvedMethodAccess(resolved_method->GetDeclaringClass(),
                                                     resolved_method,
-                                                    dex_cache,
+                                                    referrer->GetDexCache(),
                                                     method_idx,
                                                     type)) {
       DCHECK(Thread::Current()->IsExceptionPending());
@@ -447,6 +466,18 @@ inline ObjPtr<mirror::ObjectArray<mirror::Class>> ClassLinker::GetClassRoots() {
       class_roots_.Read<kReadBarrierOption>();
   DCHECK(class_roots != nullptr);
   return class_roots;
+}
+
+template <typename Visitor>
+void ClassLinker::VisitKnownDexFiles(Thread* self, Visitor visitor) {
+  ReaderMutexLock rmu(self, *Locks::dex_lock_);
+  std::for_each(dex_caches_.begin(),
+                dex_caches_.end(),
+                [&](DexCacheData& dcd) REQUIRES(Locks::mutator_lock_) {
+                  if (dcd.IsValid()) {
+                    visitor(dcd.dex_file);
+                  }
+                });
 }
 
 }  // namespace art

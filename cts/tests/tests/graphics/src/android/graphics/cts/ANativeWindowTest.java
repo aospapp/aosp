@@ -245,7 +245,21 @@ public class ANativeWindowTest {
         System.arraycopy(tmp, 0, result, 0, 16);
     }
 
+    @Test
+    public void testTryAllocateBuffersDoesNotCrash() {
+        int[] texId = new int[1];
+        GLES20.glGenTextures(1, texId, 0);
+
+        SurfaceTexture consumer = new SurfaceTexture(texId[0]);
+        consumer.setDefaultBufferSize(16, 16);
+        Surface surface = new Surface(consumer);
+
+        nTryAllocateBuffers(surface);
+        nTryAllocateBuffers(null);
+    }
+
     private static native void nPushBufferWithTransform(Surface surface, int transform);
     private static native int nSetBuffersDataSpace(Surface surface, int dataSpace);
     private static native int nGetBuffersDataSpace(Surface surface);
+    private static native void nTryAllocateBuffers(Surface surface);
 }

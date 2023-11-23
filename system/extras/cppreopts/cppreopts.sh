@@ -53,7 +53,7 @@ if [ $# -eq 1 ]; then
   # NOTE: this implementation will break in any path with spaces to favor
   # background copy tasks
   for file in $(find ${mountpoint} -type f -name "*.odex" -o -type f -name "*.vdex" -o -type f -name "*.art"); do
-    real_name=${file/${mountpoint}/\/system}
+    real_name=${file/${mountpoint}/}
     dest_name=$(preopt2cachename ${real_name})
     if ! test $? -eq 0 ; then
       log -p i -t cppreopts "Unable to figure out destination for ${file}"

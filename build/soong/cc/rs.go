@@ -29,7 +29,7 @@ func init() {
 			// Use RenderScript prebuilts for unbundled builds but not PDK builds
 			return filepath.Join("prebuilts/sdk/tools", runtime.GOOS, "bin/llvm-rs-cc")
 		} else {
-			return pctx.HostBinToolPath(ctx, "llvm-rs-cc").String()
+			return ctx.Config().HostToolPath(ctx, "llvm-rs-cc").String()
 		}
 	})
 }
@@ -51,7 +51,7 @@ var (
 		"depFiles", "outDir", "rsFlags", "stampFile")
 )
 
-// Takes a path to a .rs or .fs file, and returns a path to a generated ScriptC_*.cpp file
+// Takes a path to a .rscript or .fs file, and returns a path to a generated ScriptC_*.cpp file
 // This has to match the logic in llvm-rs-cc in DetermineOutputFile.
 func rsGeneratedCppFile(ctx android.ModuleContext, rsFile android.Path) android.WritablePath {
 	fileName := strings.TrimSuffix(rsFile.Base(), rsFile.Ext())
@@ -72,11 +72,12 @@ func rsGenerateCpp(ctx android.ModuleContext, rsFiles android.Paths, rsFlags str
 	stampFile := android.PathForModuleGen(ctx, "rs", "rs.stamp")
 	depFiles := make(android.WritablePaths, 0, len(rsFiles))
 	genFiles := make(android.WritablePaths, 0, 2*len(rsFiles))
+	headers := make(android.Paths, 0, len(rsFiles))
 	for _, rsFile := range rsFiles {
 		depFiles = append(depFiles, rsGeneratedDepFile(ctx, rsFile))
-		genFiles = append(genFiles,
-			rsGeneratedCppFile(ctx, rsFile),
-			rsGeneratedHFile(ctx, rsFile))
+		headerFile := rsGeneratedHFile(ctx, rsFile)
+		genFiles = append(genFiles, rsGeneratedCppFile(ctx, rsFile), headerFile)
+		headers = append(headers, headerFile)
 	}
 
 	ctx.Build(pctx, android.BuildParams{
@@ -92,7 +93,7 @@ func rsGenerateCpp(ctx android.ModuleContext, rsFiles android.Paths, rsFlags str
 		},
 	})
 
-	return android.Paths{stampFile}
+	return headers
 }
 
 func rsFlags(ctx ModuleContext, flags Flags, properties *BaseCompilerProperties) Flags {
@@ -122,7 +123,7 @@ func rsFlags(ctx ModuleContext, flags Flags, properties *BaseCompilerProperties)
 	rootRsIncludeDirs := android.PathsForSource(ctx, properties.Renderscript.Include_dirs)
 	flags.rsFlags = append(flags.rsFlags, includeDirsToFlags(rootRsIncludeDirs))
 
-	flags.GlobalFlags = append(flags.GlobalFlags,
+	flags.Local.CommonFlags = append(flags.Local.CommonFlags,
 		"-I"+android.PathForModuleGen(ctx, "rs").String(),
 		"-Iframeworks/rs",
 		"-Iframeworks/rs/cpp",

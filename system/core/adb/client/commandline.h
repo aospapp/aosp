@@ -17,7 +17,11 @@
 #ifndef COMMANDLINE_H
 #define COMMANDLINE_H
 
+#include <android-base/strings.h>
+
 #include "adb.h"
+#include "adb_client.h"
+#include "adb_unique_fd.h"
 
 // Callback used to handle the standard streams (stdout and stderr) sent by the
 // device's upon receiving a command.
@@ -96,7 +100,7 @@ extern DefaultStandardStreamsCallback DEFAULT_STANDARD_STREAMS_CALLBACK;
 
 int adb_commandline(int argc, const char** argv);
 
-void copy_to_file(int inFd, int outFd);
+bool copy_to_file(int inFd, int outFd);
 
 // Connects to the device "shell" service with |command| and prints the
 // resulting output.
@@ -104,5 +108,26 @@ void copy_to_file(int inFd, int outFd);
 int send_shell_command(
         const std::string& command, bool disable_shell_protocol = false,
         StandardStreamsCallbackInterface* callback = &DEFAULT_STANDARD_STREAMS_CALLBACK);
+
+// Reads from |fd| and prints received data. If |use_shell_protocol| is true
+// this expects that incoming data will use the shell protocol, in which case
+// stdout/stderr are routed independently and the remote exit code will be
+// returned.
+// if |callback| is non-null, stdout/stderr output will be handled by it.
+int read_and_dump(borrowed_fd fd, bool use_shell_protocol = false,
+                  StandardStreamsCallbackInterface* callback = &DEFAULT_STANDARD_STREAMS_CALLBACK);
+
+// Connects to the device "abb" service with |command| and returns the fd.
+template <typename ContainerT>
+unique_fd send_abb_exec_command(const ContainerT& command_args, std::string* error) {
+    std::string service_string = "abb_exec:" + android::base::Join(command_args, ABB_ARG_DELIMETER);
+
+    unique_fd fd(adb_connect(service_string, error));
+    if (fd < 0) {
+        fprintf(stderr, "adb: failed to run abb_exec. Error: %s\n", error->c_str());
+        return unique_fd{};
+    }
+    return fd;
+}
 
 #endif  // COMMANDLINE_H

@@ -29,6 +29,9 @@ FN_BEGIN(::com::google::android::startup::iorap::,IIorap)                       
 FN(setTaskListener, (const ::android::sp<::com::google::android::startop::iorap::,ITaskListener,>&,listener)) /*NOLINT*/ \
 FN(onAppLaunchEvent,(const ::com::google::android::startop::iorap::,RequestId,&,request),          \
                     (const ::com::google::android::startop::iorap::,AppLaunchEvent,&,event))       \
+FN(onJobScheduledEvent,                                                                            \
+                    (const ::com::google::android::startop::iorap::,RequestId,&,request),          \
+                    (const ::com::google::android::startop::iorap::,JobScheduledEvent,&,event))    \
 FN(onPackageEvent,  (const ::com::google::android::startop::iorap::,RequestId,&,request),          \
                     (const ::com::google::android::startop::iorap::,PackageEvent,&,event))         \
 FN(onAppIntentEvent,(const ::com::google::android::startop::iorap::,RequestId,&,request),          \
@@ -39,6 +42,8 @@ FN(onSystemServiceEvent,                                                        
 FN(onSystemServiceUserEvent,                                                                       \
                     (const ::com::google::android::startop::iorap::,RequestId,&,request),          \
                     (const ::com::google::android::startop::iorap::,SystemServiceUserEvent,&,event))\
+FN(onDexOptEvent,   (const ::com::google::android::startop::iorap::,RequestId,&,request),          \
+                    (const ::com::google::android::startop::iorap::,DexOptEvent,&,event))          \
 FN_END()                                                                                           \
 
 // Convenience macros to unpack the 2nd parameter from IIORAP_IFACE_DEF#FN calls.

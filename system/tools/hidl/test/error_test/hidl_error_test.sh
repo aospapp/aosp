@@ -26,11 +26,11 @@ for dir in $(ls -d $HIDL_ERROR_TEST_DIR/*/); do
   fi
 
   if [ $command_fails -ne 1 ]; then
-    echo "error: $package test did not fail"
+    echo "error: $package test finished with code $command_fails, but expected 1"
     exit 1
   fi
 
-  if [[ $output != *$error* ]]; then
+  if [[ $output != *"$error"* ]]; then
     echo "error: error output for $package does not contain '$error':"
     echo "$output" | while read line; do echo "test output: $line"; done
     exit 1

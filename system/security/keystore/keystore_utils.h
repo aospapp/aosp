@@ -18,6 +18,7 @@
 #define KEYSTORE_KEYSTORE_UTILS_H_
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include <openssl/evp.h>
@@ -29,6 +30,8 @@
 
 size_t readFully(int fd, uint8_t* data, size_t size);
 size_t writeFully(int fd, uint8_t* data, size_t size);
+std::string getContainingDirectory(const std::string& filename);
+void fsyncDirectory(const std::string& path);
 
 void add_legacy_key_authorizations(int keyType, keystore::AuthorizationSet* params);
 
@@ -43,16 +46,6 @@ uid_t get_app_id(uid_t uid);
  * UNIX UID.
  */
 uid_t get_user_id(uid_t uid);
-
-struct EVP_PKEY_Delete {
-    void operator()(EVP_PKEY* p) const { EVP_PKEY_free(p); }
-};
-typedef std::unique_ptr<EVP_PKEY, EVP_PKEY_Delete> Unique_EVP_PKEY;
-
-struct PKCS8_PRIV_KEY_INFO_Delete {
-    void operator()(PKCS8_PRIV_KEY_INFO* p) const { PKCS8_PRIV_KEY_INFO_free(p); }
-};
-typedef std::unique_ptr<PKCS8_PRIV_KEY_INFO, PKCS8_PRIV_KEY_INFO_Delete> Unique_PKCS8_PRIV_KEY_INFO;
 
 class Blob;
 

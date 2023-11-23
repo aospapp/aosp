@@ -26,20 +26,19 @@ import com.android.ddmlib.IDevice;
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Configuration;
-import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.device.metric.target.DeviceSideCollectorSpecification;
 import com.android.tradefed.guice.InvocationScope;
-import com.android.tradefed.guice.InvocationScopeModule;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ITestLifeCycleReceiver;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.util.FileUtil;
-
-import com.google.inject.Guice;
-import com.google.inject.Injector;
 
 import org.easymock.EasyMock;
 import org.junit.After;
@@ -73,6 +72,7 @@ public class AndroidJUnitTestTest {
     private ITestDevice mMockTestDevice;
     private IRemoteAndroidTestRunner mMockRemoteRunner;
     private ITestInvocationListener mMockListener;
+    private TestInformation mTestInfo;
 
     // Guice scope
     private InvocationScope mScope;
@@ -99,6 +99,7 @@ public class AndroidJUnitTestTest {
         };
         mAndroidJUnitTest.setRunnerName(AJUR);
         mAndroidJUnitTest.setPackageName(TEST_PACKAGE_VALUE);
+        mAndroidJUnitTest.setConfiguration(new Configuration("", ""));
         mAndroidJUnitTest.setDevice(mMockTestDevice);
         // default to no rerun, for simplicity
         mAndroidJUnitTest.setRerunMode(false);
@@ -111,6 +112,8 @@ public class AndroidJUnitTestTest {
                 Long.toString(SHELL_TIMEOUT));
         mMockRemoteRunner.addInstrumentationArg(
                 AndroidJUnitTest.NEW_RUN_LISTENER_ORDER_KEY, "true");
+        IInvocationContext context = new InvocationContext();
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     @After
@@ -127,7 +130,7 @@ public class AndroidJUnitTestTest {
         setRunTestExpectations();
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
         mAndroidJUnitTest.addIncludeFilter(TEST1.toString());
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -139,7 +142,7 @@ public class AndroidJUnitTestTest {
         setRunTestExpectations();
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
         mAndroidJUnitTest.addExcludeFilter(TEST1.toString());
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -153,7 +156,7 @@ public class AndroidJUnitTestTest {
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
         mAndroidJUnitTest.addIncludeFilter(TEST1.getClassName());
         mAndroidJUnitTest.addExcludeFilter(TEST2.toString());
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -165,7 +168,7 @@ public class AndroidJUnitTestTest {
         setRunTestExpectations();
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
         mAndroidJUnitTest.addIncludeFilter("com.android.test");
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -177,7 +180,7 @@ public class AndroidJUnitTestTest {
         setRunTestExpectations();
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
         mAndroidJUnitTest.addExcludeFilter("com.android.not");
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -191,7 +194,7 @@ public class AndroidJUnitTestTest {
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
         mAndroidJUnitTest.addIncludeFilter("com.android.test");
         mAndroidJUnitTest.addExcludeFilter("com.android.not");
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -203,7 +206,7 @@ public class AndroidJUnitTestTest {
         setRunTestExpectations();
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
         mAndroidJUnitTest.addIncludeFilter(".*testName$");
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -216,7 +219,7 @@ public class AndroidJUnitTestTest {
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
         mAndroidJUnitTest.addIncludeFilter(".*test2");
         mAndroidJUnitTest.addIncludeFilter(".*testName$");
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -228,7 +231,7 @@ public class AndroidJUnitTestTest {
         // regex with unbalanced parenthesis.
         mAndroidJUnitTest.addIncludeFilter("(testName");
         try {
-            mAndroidJUnitTest.run(mMockListener);
+            mAndroidJUnitTest.run(mTestInfo, mMockListener);
         } catch (RuntimeException expected) {
             //expected.
             return;
@@ -250,7 +253,7 @@ public class AndroidJUnitTestTest {
         mAndroidJUnitTest.addExcludeFilter(TEST2.toString());
         mAndroidJUnitTest.addIncludeFilter("com.android.test");
         mAndroidJUnitTest.addExcludeFilter("com.android.not");
-        mAndroidJUnitTest.run(mMockListener);
+        mAndroidJUnitTest.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 
@@ -272,7 +275,7 @@ public class AndroidJUnitTestTest {
         FileUtil.writeToFile(TEST1.toString(), tmpFile);
         try {
             mAndroidJUnitTest.setIncludeTestFile(tmpFile);
-            mAndroidJUnitTest.run(mMockListener);
+            mAndroidJUnitTest.run(mTestInfo, mMockListener);
             EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
         } finally {
             FileUtil.deleteFile(tmpFile);
@@ -298,7 +301,7 @@ public class AndroidJUnitTestTest {
         FileUtil.writeToFile(TEST1.toString(), tmpFile);
         try {
             mAndroidJUnitTest.setExcludeTestFile(tmpFile);
-            mAndroidJUnitTest.run(mMockListener);
+            mAndroidJUnitTest.run(mTestInfo, mMockListener);
             EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
         } finally {
             FileUtil.deleteFile(tmpFile);
@@ -335,7 +338,7 @@ public class AndroidJUnitTestTest {
             mAndroidJUnitTest.addExcludeFilter(TEST2.toString());
             mAndroidJUnitTest.setIncludeTestFile(tmpFileInclude);
             mAndroidJUnitTest.setExcludeTestFile(tmpFileExclude);
-            mAndroidJUnitTest.run(mMockListener);
+            mAndroidJUnitTest.run(mTestInfo, mMockListener);
             EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
         } finally {
             FileUtil.deleteFile(tmpFileInclude);
@@ -356,7 +359,9 @@ public class AndroidJUnitTestTest {
                 .andThrow(new DeviceNotAvailableException("failed to push", "device1"));
 
         mMockListener.testRunStarted(EasyMock.anyObject(), EasyMock.eq(0));
-        mMockListener.testRunFailed("failed to push");
+        FailureDescription failure = FailureDescription.create("failed to push");
+        failure.setFailureStatus(FailureStatus.INFRA_FAILURE);
+        mMockListener.testRunFailed(failure);
         mMockListener.testRunEnded(0, new HashMap<String, Metric>());
 
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice, mMockListener);
@@ -369,7 +374,7 @@ public class AndroidJUnitTestTest {
             mAndroidJUnitTest.addExcludeFilter(TEST2.toString());
             mAndroidJUnitTest.setIncludeTestFile(tmpFileInclude);
             mAndroidJUnitTest.setExcludeTestFile(tmpFileExclude);
-            mAndroidJUnitTest.run(mMockListener);
+            mAndroidJUnitTest.run(mTestInfo, mMockListener);
             fail("Should have thrown an exception.");
         } catch (DeviceNotAvailableException expected) {
             //expected
@@ -407,7 +412,7 @@ public class AndroidJUnitTestTest {
             OptionSetter setter = new OptionSetter(mAndroidJUnitTest);
             setter.setOptionValue("test-file-include-filter", tmpFileInclude.getAbsolutePath());
             setter.setOptionValue("test-file-exclude-filter", tmpFileExclude.getAbsolutePath());
-            mAndroidJUnitTest.run(mMockListener);
+            mAndroidJUnitTest.run(mTestInfo, mMockListener);
             EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
         } finally {
             FileUtil.deleteFile(tmpFileInclude);
@@ -500,40 +505,5 @@ public class AndroidJUnitTestTest {
         // Make sure shards cannot be re-sharded
         assertNull(((AndroidJUnitTest) res.get(0)).split(2));
         assertNull(((AndroidJUnitTest) res.get(0)).split());
-    }
-
-    /**
-     * Test that the runner can get {@link DeviceSideCollectorSpecification} from the Guice scope in
-     * order to complete the instrumentation options.
-     */
-    @Test
-    public void testSetRunnerArgs_guice() throws Exception {
-        mAndroidJUnitTest =
-                new AndroidJUnitTest() {
-                    @Override
-                    IRemoteAndroidTestRunner createRemoteAndroidTestRunner(
-                            String packageName, String runnerName, IDevice device) {
-                        return mMockRemoteRunner;
-                    }
-                };
-        // default to no timeout for simplicity
-        mAndroidJUnitTest.setTestTimeout(TEST_TIMEOUT);
-        mAndroidJUnitTest.setShellTimeout(SHELL_TIMEOUT);
-
-        // Seed the Guice Scope
-        DeviceSideCollectorSpecification spec = new DeviceSideCollectorSpecification();
-        OptionSetter setter = new OptionSetter(spec);
-        setter.setOptionValue("collectors-qualified-name", "com.test.collector");
-        setter.setOptionValue("collector-options", "key", "value");
-        IConfiguration config = new Configuration("test", "test");
-        config.setDeviceSideCollectorSpec(spec);
-        mScope.seed(IConfiguration.class, config);
-
-        Injector injector = Guice.createInjector(new InvocationScopeModule(mScope));
-        injector.injectMembers(mAndroidJUnitTest);
-        mMockRemoteRunner.addInstrumentationArg("key", "value");
-        EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
-        mAndroidJUnitTest.setRunnerArgs(mMockRemoteRunner);
-        EasyMock.verify(mMockRemoteRunner, mMockTestDevice);
     }
 }

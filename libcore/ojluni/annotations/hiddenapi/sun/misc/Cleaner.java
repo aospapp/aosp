@@ -25,7 +25,7 @@
 
 package sun.misc;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class Cleaner extends java.lang.ref.PhantomReference<java.lang.Object> {

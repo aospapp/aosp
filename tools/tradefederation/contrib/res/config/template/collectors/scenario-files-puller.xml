@@ -19,5 +19,6 @@
     <include name="template/collectors/perfetto-puller" />
     <include name="template/collectors/reboot-reason-collector" />
     <include name="template/collectors/runtime-restart-collector" />
+    <include name="template/collectors/host-statsd-collector" />
 </configuration>
 

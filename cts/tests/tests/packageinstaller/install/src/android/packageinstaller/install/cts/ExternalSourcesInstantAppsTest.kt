@@ -15,15 +15,10 @@
  */
 package android.packageinstaller.install.cts
 
-import android.app.AppOpsManager.MODE_ALLOWED
-import android.app.AppOpsManager.MODE_DEFAULT
-import android.app.AppOpsManager.MODE_ERRORED
 import android.platform.test.annotations.AppModeInstant
 import androidx.test.InstrumentationRegistry
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
-import com.android.compatibility.common.util.AppOpsUtils
-import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,33 +30,9 @@ class ExternalSourcesInstantAppsTest {
     private val pm = InstrumentationRegistry.getTargetContext().packageManager
     private val packageName = InstrumentationRegistry.getTargetContext().packageName
 
-    private fun setAppOpsMode(mode: Int) {
-        AppOpsUtils.setOpMode(packageName, "REQUEST_INSTALL_PACKAGES", mode)
-    }
-
     @Test
-    fun blockedSourceTest() {
-        setAppOpsMode(MODE_ERRORED)
+    fun externalSourceDeniedTest() {
         assertFalse("Instant app $packageName allowed to install packages",
                 pm.canRequestPackageInstalls())
-    }
-
-    @Test
-    fun allowedSourceTest() {
-        setAppOpsMode(MODE_ALLOWED)
-        assertFalse("Instant app $packageName allowed to install packages",
-                pm.canRequestPackageInstalls())
-    }
-
-    @Test
-    fun defaultSourceTest() {
-        setAppOpsMode(MODE_DEFAULT)
-        assertFalse("Instant app $packageName allowed to install packages",
-                pm.canRequestPackageInstalls())
-    }
-
-    @After
-    fun resetAppOpsMode() {
-        setAppOpsMode(MODE_DEFAULT)
     }
 }

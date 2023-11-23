@@ -18,21 +18,50 @@
 #define IORAP_MANAGER_EVENT_MANAGER_H_
 
 #include "binder/app_launch_event.h"
+#include "binder/dexopt_event.h"
+#include "binder/job_scheduled_event.h"
 #include "binder/request_id.h"
+#include "binder/task_result.h"
+
+#include <android/content/pm/PackageChangeEvent.h>
 
 #include <memory>
 
+namespace android {
+class Printer;
+}  // namespace android
+
 namespace iorap::perfetto {
-  struct RxProducerFactory;
+struct RxProducerFactory;
 }  // namespace iorap::perfetto
 
 namespace iorap::manager {
+
+// These callbacks are invoked by the EventManager to provide asynchronous notification for the status
+// of an event handler.
+//
+// Calling 'On_Event' in EventManager should be considered merely to start the task.
+// Calling 'OnComplete' here is considered to terminate the request (either with a success or error).
+// OnProgress is optional, but if it is called it must be called prior to 'OnComplete'.
+//
+// All callbacks for the same request-id are sequentially consistent.
+class TaskResultCallbacks {
+ public:
+  virtual void OnProgress(iorap::binder::RequestId request_id, iorap::binder::TaskResult task_result) {}
+  virtual void OnComplete(iorap::binder::RequestId request_id, iorap::binder::TaskResult task_result) {}
+
+  virtual ~TaskResultCallbacks() {}
+};
 
 class EventManager {
  public:
   static std::shared_ptr<EventManager> Create();
   static std::shared_ptr<EventManager> Create(
       /*borrow*/perfetto::RxProducerFactory& perfetto_factory);
+  void SetTaskResultCallbacks(std::shared_ptr<TaskResultCallbacks> callbacks);
+
+  // Joins any background threads created by EventManager.
+  void Join();
 
   // Handles an AppLaunchEvent:
   //
@@ -44,6 +73,41 @@ class EventManager {
   // * Other types are handled in a separate thread.
   bool OnAppLaunchEvent(binder::RequestId request_id,
                         const binder::AppLaunchEvent& event);
+
+  // Handles a DexOptEvent:
+  //
+  // Clean up the invalidate traces after package is updated by dexopt.
+  bool OnDexOptEvent(binder::RequestId request_id,
+                     const binder::DexOptEvent& event);
+
+
+  // Handles a JobScheduledEvent:
+  //
+  // * Start/stop background jobs (typically for idle maintenance).
+  // * For example, this could kick off a background compiler.
+  bool OnJobScheduledEvent(binder::RequestId request_id,
+                           const binder::JobScheduledEvent& event);
+
+  // Handles a PackageChangeEvent:
+  //
+  // * The package manager service send this event for package install
+  //   update or delete.
+  bool OnPackageChanged(const android::content::pm::PackageChangeEvent& event);
+
+  // Print to adb shell dumpsys (for bugreport info).
+  void Dump(/*borrow*/::android::Printer& printer);
+
+  // A dumpsys --refresh-properties command signaling that we should
+  // refresh our system properties.
+  void RefreshSystemProperties(::android::Printer& printer);
+
+  // A dumpsys --purge-package <name> command signaling
+  // that all db rows and files associated with a package should be deleted.
+  bool PurgePackage(::android::Printer& printer, const std::string& package_name);
+
+  // A dumpsys --compile-package <name> command signaling
+  // that a package should be recompiled.
+  bool CompilePackage(::android::Printer& printer, const std::string& package_name);
 
   class Impl;
  private:

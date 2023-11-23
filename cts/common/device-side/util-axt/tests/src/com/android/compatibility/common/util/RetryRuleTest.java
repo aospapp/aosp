@@ -19,10 +19,14 @@ package com.android.compatibility.common.util;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.expectThrows;
+
+import androidx.annotation.Nullable;
 
 import org.junit.Test;
 import org.junit.runner.Description;
@@ -43,15 +47,22 @@ public class RetryRuleTest {
         private final int mNumberFailures;
         private int mNumberCalls;
         private final T mException;
+        private final Runnable mCleaner;
 
         RetryableStatement(int numberFailures, T exception) {
+            this(numberFailures, exception, null);
+        }
+
+        RetryableStatement(int numberFailures, T exception, @Nullable Runnable cleaner) {
             mNumberFailures = numberFailures;
             mException = exception;
+            mCleaner = cleaner;
         }
 
         @Override
         public void evaluate() throws Throwable {
             mNumberCalls++;
+            verifyCleaner();
             if (mNumberCalls <= mNumberFailures) {
                 throw mException;
             }
@@ -61,6 +72,13 @@ public class RetryRuleTest {
         public String toString() {
             return "RetryableStatement: failures=" + mNumberFailures + ", calls=" + mNumberCalls;
         }
+
+        private void verifyCleaner() {
+            if (mCleaner == null) {
+                return;
+            }
+            verify(mCleaner, times(mNumberCalls - 1)).run();
+        }
     }
 
     private @Mock Statement mMockStatement;
@@ -68,6 +86,8 @@ public class RetryRuleTest {
     @Test
     public void testInvalidConstructor() throws Throwable {
         assertThrows(IllegalArgumentException.class, () -> new RetryRule(-1));
+        assertThrows(IllegalArgumentException.class, () -> new RetryRule(-1, null));
+        assertThrows(IllegalArgumentException.class, () -> new RetryRule(-1, () -> {}));
     }
 
     @Test
@@ -75,6 +95,57 @@ public class RetryRuleTest {
         final RetryRule rule = new RetryRule(1);
         rule.apply(new RetryableStatement<RetryableException>(1, sRetryableException), mDescription)
                 .evaluate();
+    }
+
+    @Test
+    public void testDoCleanOnRetryableException() throws Throwable {
+        final Runnable cleaner = mock(Runnable.class);
+        final RetryRule rule = new RetryRule(2, cleaner);
+
+        rule.apply(new RetryableStatement<RetryableException>(2, sRetryableException, cleaner),
+                mDescription).evaluate();
+
+        verify(cleaner, times(2)).run();
+    }
+
+    @Test
+    public void testKeepLastStatusWhenFailOnRetryableException() throws Throwable {
+        final Runnable cleaner = mock(Runnable.class);
+        final RetryRule rule = new RetryRule(2, cleaner);
+
+        final RetryableException actualException = expectThrows(RetryableException.class,
+                () -> rule.apply(
+                        new RetryableStatement<RetryableException>(3, sRetryableException, cleaner),
+                        mDescription).evaluate());
+
+        assertThat(actualException).isSameAs(sRetryableException);
+        verify(cleaner, times(2)).run();
+    }
+
+    @Test
+    public void testNeverCleanWhenStatementPass() throws Throwable {
+        final Runnable cleaner = mock(Runnable.class);
+        final RetryRule rule = new RetryRule(2, cleaner);
+
+        rule.apply(mMockStatement, mDescription).evaluate();
+
+        verify(mMockStatement, times(1)).evaluate();
+        verify(cleaner, never()).run();
+    }
+
+    @Test
+    public void testNeverCleanWhenDisabledAndStatementThrowsRetryableException() throws Throwable {
+        final RetryableException exception = new RetryableException("Y U NO?");
+        final Runnable cleaner = mock(Runnable.class);
+        final RetryRule rule = new RetryRule(0, cleaner);
+        doThrow(exception).when(mMockStatement).evaluate();
+
+        final RetryableException actualException = expectThrows(RetryableException.class,
+                () -> rule.apply(mMockStatement, mDescription).evaluate());
+
+        assertThat(actualException).isSameAs(exception);
+        verify(mMockStatement, times(1)).evaluate();
+        verify(cleaner, never()).run();
     }
 
     @Test

@@ -21,18 +21,6 @@
 
 constexpr const char* kSampleContent = "Lorem ipsum dolor sit amet";
 
-constexpr const char* kExpectedResultWithPrefix =
-    R"(Lorem ipsum dolor sit amet
-SAMPLE.TEST.Text : Lorem ipsum dolor sit amet
-end of context
-)";
-
-constexpr const char* kExpectedResultWithVariables =
-    R"(/Value/Test
-/Invalid_Value/Path
-//Path2
-)";
-
 TEST(linkerconfig_configwriter, write_line) {
   android::linkerconfig::modules::ConfigWriter writer;
 
@@ -41,33 +29,16 @@ TEST(linkerconfig_configwriter, write_line) {
   ASSERT_EQ(writer.ToString(), "Lorem ipsum dolor sit amet\n");
 }
 
-TEST(linkerconfig_configwriter, write_with_format) {
-  android::linkerconfig::modules::ConfigWriter writer;
-  writer.WriteLine("Sample text(%d) : %s", 10, kSampleContent);
-  ASSERT_EQ(writer.ToString(),
-            "Sample text(10) : Lorem ipsum dolor sit amet\n");
-}
-
-TEST(linkerconfig_configwriter, write_with_prefix) {
-  android::linkerconfig::modules::ConfigWriter writer;
-  writer.WriteLine(kSampleContent);
-  writer.SetPrefix("SAMPLE.TEST.");
-  writer.WriteLine("Text : %s", kSampleContent);
-  writer.ResetPrefix();
-  writer.WriteLine("end of context");
-
-  ASSERT_EQ(writer.ToString(), kExpectedResultWithPrefix);
-}
-
-TEST(linkerconfig_configwriter, replace_variable) {
+TEST(linkerconfig_configwriter, WriteVars) {
   android::linkerconfig::modules::ConfigWriter writer;
 
-  android::linkerconfig::modules::Variables::AddValue("Test_Prop_Q", "Value");
-  android::linkerconfig::modules::Variables::AddValue("VNDK_VER", "Q");
+  writer.WriteVars("var1", {"value1", "value2"});
+  writer.WriteVars("var2", {"value1"});
+  writer.WriteVars("var3", {});
 
-  writer.WriteLine("/@{Test_Prop_@{VNDK_VER}}/Test");
-  writer.WriteLine("/@{Invalid_Key:Invalid_Value}/Path");
-  writer.WriteLine("/@{Invalid_Key:}/Path2");
-
-  ASSERT_EQ(writer.ToString(), kExpectedResultWithVariables);
+  ASSERT_EQ(
+      "var1 = value1\n"
+      "var1 += value2\n"
+      "var2 = value1\n",
+      writer.ToString());
 }

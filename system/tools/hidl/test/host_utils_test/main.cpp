@@ -128,7 +128,34 @@ TEST_F(LibHidlGenUtilsTest, JoinStrings) {
     EXPECT_EQ("abc.,def.,ghi", StringHelper::JoinStrings({"abc", "def", "ghi"}, ".,"));
 }
 
-int main(int argc, char **argv) {
+// This test checks if Tokenize is working correctly. Since that is private, this just converts
+// everything to upper snake case.
+TEST_F(LibHidlGenUtilsTest, TokenizeTest) {
+    // Basic cases
+    EXPECT_EQ("UPPER_SNAKE_CASE", StringHelper::ToUpperSnakeCase("UPPER_SNAKE_CASE"));
+    EXPECT_EQ("UPPER_SNAKE_CASE", StringHelper::ToUpperSnakeCase("upper_snake_case"));
+    EXPECT_EQ("UPPER_SNAKE_CASE", StringHelper::ToUpperSnakeCase("UpperSnakeCase"));
+    EXPECT_EQ("UPPER_SNAKE_CASE", StringHelper::ToUpperSnakeCase("upperSnakeCase"));
+
+    // Cases with numbers
+    // TODO: The following case "Some3DText" should be tokenized as SOME_3D_TEXT
+    // EXPECT_EQ("SOME3_D_TEXT", StringHelper::ToUpperSnakeCase("Some3DText"));
+    EXPECT_EQ("SOME_3D_TEXT", StringHelper::ToUpperSnakeCase("Some_3D_Text"));
+    EXPECT_EQ("IPV4_ADDR", StringHelper::ToUpperSnakeCase("Ipv4Addr"));
+    EXPECT_EQ("IPV4_ADDR", StringHelper::ToUpperSnakeCase("Ipv4_Addr"));
+
+    // Cases with incorrect PascalCase
+    EXPECT_EQ("UI_ERROR", StringHelper::ToUpperSnakeCase("UIError"));
+    EXPECT_EQ("UI_ERROR", StringHelper::ToUpperSnakeCase("UI_Error"));
+    EXPECT_EQ("PROTOCOL_B_PRIME", StringHelper::ToUpperSnakeCase("protocolBPrime"));
+    EXPECT_EQ("PROTOCOL_B_PRIME", StringHelper::ToUpperSnakeCase("protocol_B_Prime"));
+
+    // Fully uppercase
+    EXPECT_EQ("VAL2", StringHelper::ToUpperSnakeCase("VAL2"));
+    EXPECT_EQ("VAL2OTHER", StringHelper::ToUpperSnakeCase("VAL2OTHER"));
+}
+
+int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

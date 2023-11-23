@@ -22,6 +22,7 @@ import static com.android.ex.camera2.blocking.BlockingStateCallback.*;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.hardware.cts.helpers.CameraParameterizedTestCase;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
 import android.hardware.camera2.CameraCharacteristics;
@@ -31,6 +32,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.SessionConfiguration;
 import android.util.Size;
+import android.hardware.camera2.cts.Camera2ParameterizedTestCase;
 import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
@@ -44,6 +46,7 @@ import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Surface;
 import android.view.WindowManager;
+import androidx.test.InstrumentationRegistry;
 
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
@@ -55,20 +58,22 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
-public class Camera2AndroidTestCase extends AndroidTestCase {
+import org.junit.Ignore;
+import org.junit.Test;
+
+// TODO: Can we de-duplicate this with Camera2AndroidBasicTestCase keeping in mind CtsVerifier ?
+public class Camera2AndroidTestCase extends Camera2ParameterizedTestCase {
     private static final String TAG = "Camera2AndroidTestCase";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
     // Default capture size: VGA size is required by CDD.
     protected static final Size DEFAULT_CAPTURE_SIZE = new Size(640, 480);
-    protected static final int CAPTURE_WAIT_TIMEOUT_MS = 5000;
+    protected static final int CAPTURE_WAIT_TIMEOUT_MS = 7000;
 
-    protected CameraManager mCameraManager;
     protected CameraDevice mCamera;
     protected CameraCaptureSession mCameraSession;
     protected BlockingSessionCallback mCameraSessionListener;
     protected BlockingStateCallback mCameraListener;
-    protected String[] mCameraIds;
     // include both standalone camera IDs and "hidden" physical camera IDs
     protected String[] mAllCameraIds;
     protected HashMap<String, StaticMetadata> mAllStaticInfo;
@@ -85,32 +90,15 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
 
     protected WindowManager mWindowManager;
 
-    @Override
-    public void setContext(Context context) {
-        super.setContext(context);
-        mCameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-        assertNotNull("Can't connect to camera manager!", mCameraManager);
-        mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
-    }
-
     /**
      * Set up the camera2 test case required environments, including CameraManager,
      * HandlerThread, Camera IDs, and CameraStateCallback etc.
      */
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
+        mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
 
-        /**
-         * Workaround for mockito and JB-MR2 incompatibility
-         *
-         * Avoid java.lang.IllegalArgumentException: dexcache == null
-         * https://code.google.com/p/dexmaker/issues/detail?id=2
-         */
-        System.setProperty("dexmaker.dexcache", getContext().getCacheDir().toString());
-
-        mCameraIds = mCameraManager.getCameraIdList();
-        assertNotNull("Camera ids shouldn't be null", mCameraIds);
         mHandlerThread = new HandlerThread(TAG);
         mHandlerThread.start();
         mHandler = new Handler(mHandlerThread.getLooper());
@@ -125,14 +113,14 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
 
         mAllStaticInfo = new HashMap<String, StaticMetadata>();
         List<String> hiddenPhysicalIds = new ArrayList<>();
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             CameraCharacteristics props = mCameraManager.getCameraCharacteristics(cameraId);
             StaticMetadata staticMetadata = new StaticMetadata(props,
                     CheckLevel.ASSERT, /*collector*/null);
             mAllStaticInfo.put(cameraId, staticMetadata);
 
             for (String physicalId : props.getPhysicalCameraIds()) {
-                if (!Arrays.asList(mCameraIds).contains(physicalId) &&
+                if (!Arrays.asList(mCameraIdsUnderTest).contains(physicalId) &&
                         !hiddenPhysicalIds.contains(physicalId)) {
                     hiddenPhysicalIds.add(physicalId);
                     props = mCameraManager.getCameraCharacteristics(physicalId);
@@ -143,29 +131,25 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
                 }
             }
         }
-        mAllCameraIds = new String[mCameraIds.length + hiddenPhysicalIds.size()];
-        System.arraycopy(mCameraIds, 0, mAllCameraIds, 0, mCameraIds.length);
+        mAllCameraIds = new String[mCameraIdsUnderTest.length + hiddenPhysicalIds.size()];
+        System.arraycopy(mCameraIdsUnderTest, 0, mAllCameraIds, 0, mCameraIdsUnderTest.length);
         for (int i = 0; i < hiddenPhysicalIds.size(); i++) {
-            mAllCameraIds[mCameraIds.length + i] = hiddenPhysicalIds.get(i);
+            mAllCameraIds[mCameraIdsUnderTest.length + i] = hiddenPhysicalIds.get(i);
         }
     }
 
     @Override
-    protected void tearDown() throws Exception {
-        String[] cameraIdsPostTest = mCameraManager.getCameraIdList();
-        assertNotNull("Camera ids shouldn't be null", cameraIdsPostTest);
-        Log.i(TAG, "Camera ids in setup:" + Arrays.toString(mCameraIds));
-        Log.i(TAG, "Camera ids in tearDown:" + Arrays.toString(cameraIdsPostTest));
-        assertTrue(
-                "Number of cameras changed from " + mCameraIds.length + " to " +
-                cameraIdsPostTest.length,
-                mCameraIds.length == cameraIdsPostTest.length);
-        mHandlerThread.quitSafely();
-        mHandler = null;
-        closeDefaultImageReader();
-
+    public void tearDown() throws Exception {
         try {
-            mCollector.verify();
+            if (mHandlerThread != null) {
+                mHandlerThread.quitSafely();
+            }
+            mHandler = null;
+            closeDefaultImageReader();
+
+            if (mCollector != null) {
+                mCollector.verify();
+            }
         } catch (Throwable e) {
             // When new Exception(e) is used, exception info will be printed twice.
             throw new Exception(e.getMessage());

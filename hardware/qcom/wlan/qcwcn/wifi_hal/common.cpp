@@ -420,6 +420,8 @@ wifi_error mapKernelErrortoWifiHalError(int kern_err)
             return WIFI_ERROR_OUT_OF_MEMORY;
         case -EBUSY:
             return WIFI_ERROR_BUSY;
+        case -ENOBUFS:
+            return WIFI_ERROR_TOO_MANY_REQUESTS;
     }
     return WIFI_ERROR_UNKNOWN;
 }

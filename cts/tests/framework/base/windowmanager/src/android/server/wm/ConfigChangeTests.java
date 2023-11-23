@@ -16,9 +16,9 @@
 
 package android.server.wm;
 
-import static android.server.wm.ActivityManagerState.STATE_RESUMED;
 import static android.server.wm.StateLogger.log;
 import static android.server.wm.StateLogger.logE;
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.app.Components.FONT_SCALE_ACTIVITY;
 import static android.server.wm.app.Components.FONT_SCALE_NO_RELAUNCH_ACTIVITY;
 import static android.server.wm.app.Components.FontScaleActivity.EXTRA_FONT_ACTIVITY_DPI;
@@ -30,6 +30,8 @@ import static android.view.Surface.ROTATION_0;
 import static android.view.Surface.ROTATION_180;
 import static android.view.Surface.ROTATION_270;
 import static android.view.Surface.ROTATION_90;
+
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -45,15 +47,10 @@ import android.server.wm.CommandSession.ActivityCallback;
 import android.server.wm.TestJournalProvider.TestJournalContainer;
 import android.server.wm.settings.SettingsSession;
 
-import androidx.annotation.IntDef;
-import androidx.test.filters.FlakyTest;
-
 import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.Test;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 import java.util.List;
 
@@ -66,24 +63,8 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
 
     private static final float EXPECTED_FONT_SIZE_SP = 10.0f;
 
-    /** Verifies if the count of configuration changes is expected. */
-    private static final int TEST_MODE_CONFIGURATION_CHANGE = 1;
-    /** Verifies if the count of relaunch is expected. */
-    private static final int TEST_MODE_RELAUNCH_OR_CONFIG_CHANGE = 2;
-    /** Verifies if sizes match. */
-    private static final int TEST_MODE_RESIZE = 3;
-
-    /** Test mode that defines which lifecycle callback is verified in a particular test */
-    @IntDef(flag = true, value = {
-            TEST_MODE_CONFIGURATION_CHANGE,
-            TEST_MODE_RELAUNCH_OR_CONFIG_CHANGE,
-            TEST_MODE_RESIZE
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    private @interface TestMode {}
-
     @Test
-    public void testRotation90Relaunch() throws Exception{
+    public void testRotation90Relaunch() {
         assumeTrue("Skipping test: no rotation support", supportsRotation());
 
         // Should relaunch on every rotation and receive no onConfigurationChanged()
@@ -91,7 +72,7 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
     }
 
     @Test
-    public void testRotation90NoRelaunch() throws Exception {
+    public void testRotation90NoRelaunch() {
         assumeTrue("Skipping test: no rotation support", supportsRotation());
 
         // Should receive onConfigurationChanged() on every rotation and no relaunch
@@ -99,7 +80,7 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
     }
 
     @Test
-    public void testRotation180_RegularActivity() throws Exception {
+    public void testRotation180_RegularActivity() {
         assumeTrue("Skipping test: no rotation support", supportsRotation());
         assumeFalse("Skipping test: display cutout present, can't predict exact lifecycle",
                 hasDisplayCutout());
@@ -109,7 +90,7 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
     }
 
     @Test
-    public void testRotation180_NoRelaunchActivity() throws Exception {
+    public void testRotation180_NoRelaunchActivity() {
         assumeTrue("Skipping test: no rotation support", supportsRotation());
         assumeFalse("Skipping test: display cutout present, can't predict exact lifecycle",
                 hasDisplayCutout());
@@ -118,148 +99,138 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
         testRotation(NO_RELAUNCH_ACTIVITY, 2, 0, 0);
     }
 
-    @Test
-    @FlakyTest(bugId = 110533226, detail = "Promote to presubmit once confirm it's not flaky")
-    public void testRotation180RelaunchWithCutout() throws Exception {
-        assumeTrue("Skipping test: no rotation support", supportsRotation());
-        assumeTrue("Skipping test: no display cutout", hasDisplayCutout());
-
-        testRotation180WithCutout(TEST_ACTIVITY, TEST_MODE_RELAUNCH_OR_CONFIG_CHANGE);
-    }
-
-    @Test
-    @FlakyTest(bugId = 110533226, detail = "Promote to presubmit once confirm it's not flaky")
-    public void testRotation180NoRelaunchWithCutout() throws Exception {
-        assumeTrue("Skipping test: no rotation support", supportsRotation());
-        assumeTrue("Skipping test: no display cutout", hasDisplayCutout());
-
-        testRotation180WithCutout(NO_RELAUNCH_ACTIVITY, TEST_MODE_CONFIGURATION_CHANGE);
-    }
-
     /**
      * Test activity configuration changes for devices with cutout(s). Landscape and
      * reverse-landscape rotations should result in same screen space available for apps.
      */
     @Test
-    @FlakyTest(bugId = 110533226, detail = "Promote to presubmit once confirm it's not flaky")
-    public void testConfigChangeWhenRotatingWithCutout() throws Exception {
+    public void testRotation180RelaunchWithCutout() {
         assumeTrue("Skipping test: no rotation support", supportsRotation());
         assumeTrue("Skipping test: no display cutout", hasDisplayCutout());
 
-        testRotation180WithCutout(TEST_ACTIVITY, TEST_MODE_RESIZE);
-    }
-
-    private void testRotation180WithCutout(ComponentName activityName, @TestMode int testMode)
-            throws Exception {
-        launchActivity(activityName);
-        mAmWmState.computeState(activityName);
-
-        try(final RotationSession rotationSession = new RotationSession()) {
-            final StateCount count1 = getStateCountForRotation(activityName, rotationSession,
-                    ROTATION_0 /* before */, ROTATION_180 /* after */);
-            final StateCount count2 = getStateCountForRotation(activityName, rotationSession,
-                    ROTATION_90 /* before */, ROTATION_270 /* after */);
-
-            final int configChange = count1.mConfigChangeCount + count2.mConfigChangeCount;
-            final int relaunch = count1.mRelaunchCount + count2.mRelaunchCount;
-            // There should at least one 180 rotation without resize.
-            final boolean sameSize = !count1.mResize || !count2.mResize;
-
-            switch(testMode) {
-                case TEST_MODE_CONFIGURATION_CHANGE: {
-                    assertTrue("There must be at most one 180 degree rotation that results in the"
-                            + " same configuration on device with cutout", configChange <= 1);
-                    assertEquals("There must be no relaunch during test", 0, relaunch);
-                    break;
-                }
-                case TEST_MODE_RELAUNCH_OR_CONFIG_CHANGE: {
-                    // If the size change does not cross the threshold, the activity will receive
-                    // onConfigurationChanged instead of relaunching.
-                    assertTrue("There must be at most one 180 degree rotation that results in"
-                            + " relaunch or a configuration change on device with cutout",
-                            relaunch + configChange <= 1);
-                    break;
-                }
-                case TEST_MODE_RESIZE: {
-                    assertTrue("A device with cutout should have the same available screen space"
-                            + " in landscape and reverse-landscape", sameSize);
-                    break;
-                }
-                default: {
-                    fail("unrecognized test mode: " + testMode);
-                }
-            }
-        }
-    }
-
-    private StateCount getStateCountForRotation(ComponentName activityName, RotationSession session,
-            int before, int after) throws Exception {
-        session.set(before);
-        separateTestJournal();
-        session.set(after);
-        mAmWmState.computeState(activityName);
-        final ActivityLifecycleCounts counter = new ActivityLifecycleCounts(activityName);
-
-        int configChangeCount = counter.getCount(ActivityCallback.ON_CONFIGURATION_CHANGED);
-        int relaunchCount = counter.getCount(ActivityCallback.ON_CREATE);
-        boolean resize = getLastReportedSizesForActivity(activityName) != null;
-
-        return new StateCount(configChangeCount, relaunchCount, resize);
-    }
-
-    private final static class StateCount {
-        final int mConfigChangeCount;
-        final int mRelaunchCount;
-        final boolean mResize;
-
-        StateCount(int configChangeCount, int relaunchCount, boolean resize) {
-            mConfigChangeCount = configChangeCount;
-            mRelaunchCount = relaunchCount;
-            mResize = resize;
-        }
+        testRotation180WithCutout(TEST_ACTIVITY, false /* canHandleConfigChange */);
     }
 
     @Test
-    public void testChangeFontScaleRelaunch() throws Exception {
+    public void testRotation180NoRelaunchWithCutout() {
+        assumeTrue("Skipping test: no rotation support", supportsRotation());
+        assumeTrue("Skipping test: no display cutout", hasDisplayCutout());
+
+        testRotation180WithCutout(NO_RELAUNCH_ACTIVITY, true /* canHandleConfigChange */);
+    }
+
+    private void testRotation180WithCutout(ComponentName activityName,
+            boolean canHandleConfigChange) {
+        launchActivity(activityName);
+        mWmState.computeState(activityName);
+
+        final RotationSession rotationSession = createManagedRotationSession();
+        final ActivityLifecycleCounts count1 = getLifecycleCountsForRotation(activityName,
+                rotationSession, ROTATION_0 /* before */, ROTATION_180 /* after */,
+                canHandleConfigChange);
+        final int configChangeCount1 = count1.getCount(ActivityCallback.ON_CONFIGURATION_CHANGED);
+        final int relaunchCount1 = count1.getCount(ActivityCallback.ON_CREATE);
+
+        final ActivityLifecycleCounts count2 = getLifecycleCountsForRotation(activityName,
+                rotationSession, ROTATION_90 /* before */, ROTATION_270 /* after */,
+                canHandleConfigChange);
+        final int configChangeCount2 = count2.getCount(ActivityCallback.ON_CONFIGURATION_CHANGED);
+        final int relaunchCount2 = count2.getCount(ActivityCallback.ON_CREATE);
+
+        final int configChange = configChangeCount1 + configChangeCount2;
+        final int relaunch = relaunchCount1 + relaunchCount2;
+        if (canHandleConfigChange) {
+            assertWithMessage("There must be at most one 180 degree rotation that results in the"
+                    + " same configuration.").that(configChange).isLessThan(2);
+            assertEquals("There must be no relaunch during test", 0, relaunch);
+            return;
+        }
+
+        // If the size change does not cross the threshold, the activity will receive
+        // onConfigurationChanged instead of relaunching.
+        assertWithMessage("There must be at most one 180 degree rotation that results in relaunch"
+                + " or a configuration change.").that(relaunch + configChange).isLessThan(2);
+
+        final boolean resize1 = configChangeCount1 + relaunchCount1 > 0;
+        final boolean resize2 = configChangeCount2 + relaunchCount2 > 0;
+        // There should at least one 180 rotation without resize.
+        final boolean sameSize = !resize1 || !resize2;
+
+        assertTrue("A device with cutout should have the same available screen space"
+                + " in landscape and reverse-landscape", sameSize);
+    }
+
+    private void prepareRotation(ComponentName activityName, RotationSession session,
+            int currentRotation, int initialRotation, boolean canHandleConfigChange) {
+        final boolean is90DegreeDelta = Math.abs(currentRotation - initialRotation) % 2 != 0;
+        if (is90DegreeDelta) {
+            separateTestJournal();
+        }
+        session.set(initialRotation);
+        if (is90DegreeDelta) {
+            // Consume the changes of "before" rotation to make sure the activity is in a stable
+            // state to apply "after" rotation.
+            final ActivityCallback expectedCallback = canHandleConfigChange
+                    ? ActivityCallback.ON_CONFIGURATION_CHANGED
+                    : ActivityCallback.ON_CREATE;
+            Condition.waitFor(new ActivityLifecycleCounts(activityName)
+                    .countWithRetry("activity rotated with 90 degree delta",
+                            countSpec(expectedCallback, CountSpec.GREATER_THAN, 0)));
+        }
+    }
+
+    private ActivityLifecycleCounts getLifecycleCountsForRotation(ComponentName activityName,
+            RotationSession session, int before, int after, boolean canHandleConfigChange)  {
+        final int currentRotation = mWmState.getRotation();
+        // The test verifies the events from "before" rotation to "after" rotation. So when
+        // preparing "before" rotation, the changes should be consumed to avoid being mixed into
+        // the result to verify.
+        prepareRotation(activityName, session, currentRotation, before, canHandleConfigChange);
+        separateTestJournal();
+        session.set(after);
+        mWmState.computeState(activityName);
+        return new ActivityLifecycleCounts(activityName);
+    }
+
+    @Test
+    public void testChangeFontScaleRelaunch() {
         // Should relaunch and receive no onConfigurationChanged()
         testChangeFontScale(FONT_SCALE_ACTIVITY, true /* relaunch */);
     }
 
     @Test
-    public void testChangeFontScaleNoRelaunch() throws Exception {
+    public void testChangeFontScaleNoRelaunch() {
         // Should receive onConfigurationChanged() and no relaunch
         testChangeFontScale(FONT_SCALE_NO_RELAUNCH_ACTIVITY, false /* relaunch */);
     }
 
     private void testRotation(ComponentName activityName, int rotationStep, int numRelaunch,
-            int numConfigChange) throws Exception {
+            int numConfigChange) {
         launchActivity(activityName);
-
-        mAmWmState.computeState(activityName);
+        mWmState.computeState(activityName);
 
         final int initialRotation = 4 - rotationStep;
-        try (final RotationSession rotationSession = new RotationSession()) {
-            rotationSession.set(initialRotation);
-            mAmWmState.computeState(activityName);
-            final int actualStackId =
-                    mAmWmState.getAmState().getTaskByActivity(activityName).mStackId;
-            final int displayId = mAmWmState.getAmState().getStackById(actualStackId).mDisplayId;
-            final int newDeviceRotation = getDeviceRotation(displayId);
-            if (newDeviceRotation == INVALID_DEVICE_ROTATION) {
-                logE("Got an invalid device rotation value. "
-                        + "Continuing the test despite of that, but it is likely to fail.");
-            } else if (newDeviceRotation != initialRotation) {
-                log("This device doesn't support user rotation "
-                        + "mode. Not continuing the rotation checks.");
-                return;
-            }
+        final RotationSession rotationSession = createManagedRotationSession();
+        prepareRotation(activityName, rotationSession, mWmState.getRotation(), initialRotation,
+                numConfigChange > 0);
+        final int actualStackId =
+                mWmState.getTaskByActivity(activityName).mRootTaskId;
+        final int displayId = mWmState.getRootTask(actualStackId).mDisplayId;
+        final int newDeviceRotation = getDeviceRotation(displayId);
+        if (newDeviceRotation == INVALID_DEVICE_ROTATION) {
+            logE("Got an invalid device rotation value. "
+                    + "Continuing the test despite of that, but it is likely to fail.");
+        } else if (newDeviceRotation != initialRotation) {
+            log("This device doesn't support user rotation "
+                    + "mode. Not continuing the rotation checks.");
+            return;
+        }
 
-            for (int rotation = 0; rotation < 4; rotation += rotationStep) {
-                separateTestJournal();
-                rotationSession.set(rotation);
-                mAmWmState.computeState(activityName);
-                assertRelaunchOrConfigChanged(activityName, numRelaunch, numConfigChange);
-            }
+        for (int rotation = 0; rotation < 4; rotation += rotationStep) {
+            separateTestJournal();
+            rotationSession.set(rotation);
+            mWmState.computeState(activityName);
+            assertRelaunchOrConfigChanged(activityName, numRelaunch, numConfigChange);
         }
     }
 
@@ -272,27 +243,34 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
         }
     }
 
-    private void testChangeFontScale(
-            ComponentName activityName, boolean relaunch) throws Exception {
-        try (final FontScaleSession fontScaleSession = new FontScaleSession()) {
-            fontScaleSession.set(1.0f);
+    private void testChangeFontScale(ComponentName activityName, boolean relaunch) {
+        final FontScaleSession fontScaleSession = mObjectTracker.manage(new FontScaleSession());
+        fontScaleSession.set(1.0f);
+        separateTestJournal();
+        launchActivity(activityName);
+        mWmState.computeState(activityName);
+
+        final Bundle extras = TestJournalContainer.get(activityName).extras;
+        if (!extras.containsKey(EXTRA_FONT_ACTIVITY_DPI)) {
+            fail("No fontActivityDpi reported from activity " + activityName);
+        }
+        final int densityDpi = extras.getInt(EXTRA_FONT_ACTIVITY_DPI);
+
+        for (float fontScale = 0.85f; fontScale <= 1.3f; fontScale += 0.15f) {
             separateTestJournal();
-            launchActivity(activityName);
-            mAmWmState.computeState(activityName);
+            fontScaleSession.set(fontScale);
+            mWmState.computeState(activityName);
+            assertRelaunchOrConfigChanged(activityName, relaunch ? 1 : 0, relaunch ? 0 : 1);
 
-            final int densityDpi = getActivityDensityDpi(activityName);
-
-            for (float fontScale = 0.85f; fontScale <= 1.3f; fontScale += 0.15f) {
-                separateTestJournal();
-                fontScaleSession.set(fontScale);
-                mAmWmState.computeState(activityName);
-                assertRelaunchOrConfigChanged(activityName, relaunch ? 1 : 0, relaunch ? 0 : 1);
-
-                // Verify that the display metrics are updated, and therefore the text size is also
-                // updated accordingly.
-                assertExpectedFontPixelSize(activityName,
-                        scaledPixelsToPixels(EXPECTED_FONT_SIZE_SP, fontScale, densityDpi));
-            }
+            // Verify that the display metrics are updated, and therefore the text size is also
+            // updated accordingly.
+            final Bundle changedExtras = TestJournalContainer.get(activityName).extras;
+            waitForOrFail("reported fontPixelSize from " + activityName,
+                    () -> changedExtras.containsKey(EXTRA_FONT_PIXEL_SIZE));
+            final int expectedFontPixelSize =
+                    scaledPixelsToPixels(EXPECTED_FONT_SIZE_SP, fontScale, densityDpi);
+            assertEquals("Expected font pixel size should match", expectedFontPixelSize,
+                    changedExtras.getInt(EXTRA_FONT_PIXEL_SIZE));
         }
     }
 
@@ -311,7 +289,7 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
         separateTestJournal();
         // Update package info.
         updateApplicationInfo(Arrays.asList(TEST_ACTIVITY.getPackageName()));
-        mAmWmState.waitForWithAmState((amState) -> {
+        mWmState.waitForWithAmState((amState) -> {
             // Wait for activity to be resumed and asset seq number to be updated.
             try {
                 return getAssetSeqNumber(TEST_ACTIVITY) == assetSeq + 1
@@ -320,7 +298,7 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
                 logE("Error waiting for valid state: " + e.getMessage());
                 return false;
             }
-        }, "Waiting asset sequence number to be updated and for activity to be resumed.");
+        }, "asset sequence number to be updated and for activity to be resumed.");
 
         // Check if activity is relaunched and asset seq is updated.
         assertRelaunchOrConfigChanged(TEST_ACTIVITY, 1 /* numRelaunch */,
@@ -338,26 +316,6 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
         final int DEFAULT_DENSITY = 160;
         float f = densityDpi * (1.0f / DEFAULT_DENSITY) * fontScale * sp;
         return (int) ((f >= 0) ? (f + 0.5f) : (f - 0.5f));
-    }
-
-    private static int getActivityDensityDpi(ComponentName activityName)
-            throws Exception {
-        final Bundle extras = TestJournalContainer.get(activityName).extras;
-        if (!extras.containsKey(EXTRA_FONT_ACTIVITY_DPI)) {
-            fail("No fontActivityDpi reported from activity " + activityName);
-            return -1;
-        }
-        return extras.getInt(EXTRA_FONT_ACTIVITY_DPI);
-    }
-
-    private void assertExpectedFontPixelSize(ComponentName activityName, int fontPixelSize)
-            throws Exception {
-        final Bundle extras = TestJournalContainer.get(activityName).extras;
-        if (!extras.containsKey(EXTRA_FONT_PIXEL_SIZE)) {
-            fail("No fontPixelSize reported from activity " + activityName);
-        }
-        assertEquals("Expected font pixel size does not match", fontPixelSize,
-                extras.getInt(EXTRA_FONT_PIXEL_SIZE));
     }
 
     private void updateApplicationInfo(List<String> packages) {

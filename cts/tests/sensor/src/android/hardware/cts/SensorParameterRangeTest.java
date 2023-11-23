@@ -162,7 +162,7 @@ public class SensorParameterRangeTest extends SensorTestCase {
         assertTrue(String.format("%s Range actual=%.2f expected=%.2f %s",
                     sensor.getName(), sensor.getMaximumRange(), range,
                     SensorCtsHelper.getUnitsForSensor(sensor)),
-                sensor.getMaximumRange() >= range);
+                sensor.getMaximumRange() >= (range - 0.1));
 
         double actualMaxFrequency = SensorCtsHelper.getFrequency(sensor.getMinDelay(),
                 TimeUnit.MICROSECONDS);

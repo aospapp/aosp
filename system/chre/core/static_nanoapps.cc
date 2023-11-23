@@ -37,7 +37,20 @@ namespace chre {
 #ifndef CHRE_VARIANT_SUPPLIES_STATIC_NANOAPP_LIST
 
 //! The default list of static nanoapps to load.
-const StaticNanoappInitFunction kStaticNanoappList[] = {};
+const StaticNanoappInitFunction kStaticNanoappList[] = {
+#ifdef CHRE_LOAD_GNSS_WORLD
+  initializeStaticNanoappGnssWorld,
+#endif
+#ifdef CHRE_LOAD_SENSOR_WORLD
+  initializeStaticNanoappSensorWorld,
+#endif
+#ifdef CHRE_LOAD_WIFI_WORLD
+  initializeStaticNanoappWifiWorld,
+#endif
+#ifdef CHRE_LOAD_WWAN_WORLD
+  initializeStaticNanoappWwanWorld,
+#endif
+};
 
 //! The size of the default static nanoapp list.
 const size_t kStaticNanoappCount = ARRAY_SIZE(kStaticNanoappList);

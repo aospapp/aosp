@@ -50,7 +50,7 @@ void resetDestructorCounts() {
     gDestructorCount[i] = 0;
   }
 }
-}
+}  // namespace
 
 TEST(DynamicVector, EmptyByDefault) {
   DynamicVector<int> vector;
@@ -102,13 +102,13 @@ TEST(DynamicVector, CompareEqual) {
   ASSERT_TRUE(rhs.push_back(0x1337));
   ASSERT_TRUE(rhs.push_back(0xface));
 
-  ASSERT_EQ(lhs, rhs); // equal vectors
+  ASSERT_EQ(lhs, rhs);  // equal vectors
 
   ASSERT_TRUE(lhs.push_back(0xb00c));
-  ASSERT_FALSE(lhs == rhs); // different size
+  ASSERT_FALSE(lhs == rhs);  // different size
 
   ASSERT_TRUE(rhs.push_back(0xc00b));
-  ASSERT_FALSE(lhs == rhs); // equal size different elements
+  ASSERT_FALSE(lhs == rhs);  // equal size different elements
 }
 
 constexpr int kConstructedMagic = 0xdeadbeef;
@@ -117,12 +117,12 @@ class MovableButNonCopyable : public chre::NonCopyable {
  public:
   MovableButNonCopyable(int value) : mValue(value) {}
 
-  MovableButNonCopyable(MovableButNonCopyable&& other) {
+  MovableButNonCopyable(MovableButNonCopyable &&other) {
     mValue = other.mValue;
     other.mValue = -1;
   }
 
-  MovableButNonCopyable& operator=(MovableButNonCopyable&& other) {
+  MovableButNonCopyable &operator=(MovableButNonCopyable &&other) {
     assert(mMagic == kConstructedMagic);
     mValue = other.mValue;
     other.mValue = -1;
@@ -162,18 +162,18 @@ class CopyableButNonMovable {
  public:
   CopyableButNonMovable(int value) : mValue(value) {}
 
-  CopyableButNonMovable(const CopyableButNonMovable& other) {
+  CopyableButNonMovable(const CopyableButNonMovable &other) {
     mValue = other.mValue;
   }
 
-  CopyableButNonMovable& operator=(const CopyableButNonMovable& other) {
+  CopyableButNonMovable &operator=(const CopyableButNonMovable &other) {
     assert(mMagic == kConstructedMagic);
     mValue = other.mValue;
     return *this;
   }
 
-  CopyableButNonMovable(CopyableButNonMovable&& other) = delete;
-  CopyableButNonMovable& operator=(CopyableButNonMovable&& other) = delete;
+  CopyableButNonMovable(CopyableButNonMovable &&other) = delete;
+  CopyableButNonMovable &operator=(CopyableButNonMovable &&other) = delete;
 
   int getValue() const {
     return mValue;
@@ -206,23 +206,23 @@ class MovableAndCopyable {
  public:
   MovableAndCopyable(int value) : mValue(value) {}
 
-  MovableAndCopyable(const MovableAndCopyable& other) {
+  MovableAndCopyable(const MovableAndCopyable &other) {
     mValue = other.mValue;
   }
 
-  MovableAndCopyable(MovableAndCopyable&& other) {
+  MovableAndCopyable(MovableAndCopyable &&other) {
     // The move constructor multiplies the value by 2 so that we can see that it
     // was used
     mValue = other.mValue * 2;
   }
 
-  MovableAndCopyable& operator=(const MovableAndCopyable& other) {
+  MovableAndCopyable &operator=(const MovableAndCopyable &other) {
     assert(mMagic == kConstructedMagic);
     mValue = other.mValue;
     return *this;
   }
 
-  MovableAndCopyable& operator=(MovableAndCopyable&& other) {
+  MovableAndCopyable &operator=(MovableAndCopyable &&other) {
     assert(mMagic == kConstructedMagic);
     mValue = other.mValue * 2;
     other.mValue = -1;
@@ -269,12 +269,12 @@ class Foo {
     sConstructedCounter++;
   }
 
-  Foo(const Foo& other) {
+  Foo(const Foo &other) {
     value = other.value;
     sConstructedCounter++;
   }
 
-  Foo(Foo&& other) = delete;
+  Foo(Foo &&other) = delete;
 
   /**
    * Tear down the object, decrementing the number of objects that have been
@@ -516,8 +516,8 @@ TEST(DynamicVector, Iterator) {
   vector.push_back(2);
 
   size_t index = 0;
-  for (DynamicVector<int>::iterator it = vector.begin();
-       it != vector.end(); ++it) {
+  for (DynamicVector<int>::iterator it = vector.begin(); it != vector.end();
+       ++it) {
     EXPECT_EQ(vector[index++], *it);
   }
 
@@ -767,4 +767,7 @@ TEST(DynamicVector, Resize) {
   EXPECT_EQ(vector[1].value, 1);
   EXPECT_EQ(vector[2].value, 4);
   EXPECT_EQ(vector[3].value, 5);
+
+  // Reset index for future tests
+  FancyInt::index = 0;
 }

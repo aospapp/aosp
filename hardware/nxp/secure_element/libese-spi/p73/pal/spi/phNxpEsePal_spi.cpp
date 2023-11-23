@@ -89,6 +89,11 @@ void phPalEse_spi_close(void* pDevHandle) {
   return;
 }
 ESESTATUS phNxpEse_spiIoctl(uint64_t ioctlType, void* p_data) {
+  if (!p_data) {
+    ALOGD_IF(ese_debug_enabled, "%s:p_data is null ioctltyp: %ld", __FUNCTION__,
+             (long)ioctlType);
+    return ESESTATUS_FAILED;
+  }
   ese_nxp_IoctlInOutData_t* inpOutData = (ese_nxp_IoctlInOutData_t*)p_data;
   rf_status = inpOutData->inp.data.nxpCmd.p_cmd[0];
   if (rf_status == 1) {
@@ -98,11 +103,6 @@ ESESTATUS phNxpEse_spiIoctl(uint64_t ioctlType, void* p_data) {
     ALOGD_IF(
         ese_debug_enabled,
         "******************RF IS OFF*************************************");
-  }
-  if (p_data != NULL) {
-    ALOGD_IF(ese_debug_enabled,
-             "halimpl phNxpEse_spiIoctl p_data is not null ioctltyp: %ld",
-             (long)ioctlType);
   }
   return ESESTATUS_SUCCESS;
 }

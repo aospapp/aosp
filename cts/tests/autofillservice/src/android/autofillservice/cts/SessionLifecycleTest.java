@@ -310,11 +310,22 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
         // Kill activity that is in the background
         killOfProcessLoginActivityProcess();
 
+        // Set expectations.
+        sReplier.addResponse(
+                new CannedFillResponse.Builder()
+                        .setAuthentication(authentication, ID_USERNAME, ID_PASSWORD)
+                        .setPresentation(createPresentation("authenticate2"))
+                        .build());
+
         // Cancel authentication activity
         mUiBot.pressBack();
 
+        // Wait for fill request to be processed
+        mUiBot.waitForIdle();
+        sReplier.getNextFillRequest();
+
         // Authentication should still be shown
-        mUiBot.assertDatasets("authenticate");
+        mUiBot.assertDatasets("authenticate2");
     }
 
     @Test
@@ -353,11 +364,23 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
         // Kill activity that is in the background
         killOfProcessLoginActivityProcess();
 
+        // Add response for back to the first activity
+        sReplier.addResponse(
+                new CannedFillResponse.Builder()
+                        .addDataset(new CannedFillResponse.CannedDataset.Builder(
+                                createPresentation("dataset2"))
+                                        .setField(ID_USERNAME, "filled").build())
+                        .build());
+
         // Cancel activity on top
         mUiBot.pressBack();
 
+        // Wait for fill request to be processed
+        mUiBot.waitForIdle();
+        sReplier.getNextFillRequest();
+
         // Dataset should still be shown
-        mUiBot.assertDatasets("dataset");
+        mUiBot.assertDatasets("dataset2");
     }
 
     @Test
@@ -413,11 +436,23 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
         // Wait until dataset in nested activity is shown
         mUiBot.assertDatasets("dataset2");
 
+        // Set expectations for back to the first activity
+        sReplier.addResponse(
+                new CannedFillResponse.Builder()
+                        .addDataset(new CannedFillResponse.CannedDataset.Builder(
+                                createPresentation("dataset3"))
+                                        .setField(ID_USERNAME, "filled").build())
+                        .build());
+
         // Tap "Cancel".
         mUiBot.selectByRelativeId(ID_CANCEL);
 
+        // Wait for fill request to be processed
+        mUiBot.waitForIdle();
+        sReplier.getNextFillRequest();
+
         // Dataset should still be shown
-        mUiBot.assertDatasets("dataset1");
+        mUiBot.assertDatasets("dataset3");
     }
 
     @Test

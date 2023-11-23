@@ -71,7 +71,7 @@ public class BusinessLogicDeviceExecutorTest {
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getTargetContext();
-        mExecutor = new BusinessLogicDeviceExecutor(mContext, this);
+        mExecutor = new BusinessLogicDeviceExecutor(mContext, this, new ArrayList<String>());
         // reset the instance variables tracking the method invoked and the args used
         mInvoked = null;
         mArgsUsed = null;

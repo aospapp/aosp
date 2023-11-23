@@ -41,6 +41,7 @@ public class BackupUtilsTest {
 
     private boolean mIsDumpsysCommandCalled;
     private boolean mIsEnableCommandCalled;
+    private boolean mIsActivateCommandCalled;
 
     @Before
     public void setUp() {
@@ -444,5 +445,89 @@ public class BackupUtilsTest {
         }
         assertTrue(isExceptionHappened);
         assertTrue(mIsDumpsysCommandCalled);
+    }
+
+    @Test
+    public void testActivateBackup_whenEnableTrueAndEnabled_returnsTrue() throws Exception {
+        BackupUtils backupUtils =
+                new BackupUtils() {
+                    @Override
+                    protected InputStream executeShellCommand(String command) throws IOException {
+                        String output = "";
+                        if (command.equals(getBmgrCommand("activated", TEST_USER_ID))) {
+                            output = "Backup Manager currently activated";
+                        } else if (command.equals(getBmgrCommand("activate true", TEST_USER_ID))) {
+                            output = "Backup Manager now activated";
+                            mIsActivateCommandCalled = true;
+                        }
+                        return new ByteArrayInputStream(output.getBytes("UTF-8"));
+                    }
+                };
+        assertTrue(backupUtils.activateBackupForUser(true, TEST_USER_ID));
+        assertTrue(mIsActivateCommandCalled);
+    }
+
+    @Test
+    public void testActivateBackup_whenEnableTrueAndDisabled_returnsFalse() throws Exception {
+        BackupUtils backupUtils =
+                new BackupUtils() {
+                    @Override
+                    protected InputStream executeShellCommand(String command) throws IOException {
+                        String output = "";
+                        if (command.equals(getBmgrCommand("activated", TEST_USER_ID))) {
+                            output = "Backup Manager currently deactivated";
+                        } else if (command.equals(getBmgrCommand("activate true", TEST_USER_ID))) {
+                            output = "Backup Manager now activated";
+                            mIsActivateCommandCalled = true;
+                        }
+                        return new ByteArrayInputStream(output.getBytes("UTF-8"));
+                    }
+                };
+        assertFalse(backupUtils.activateBackupForUser(true, TEST_USER_ID));
+        assertTrue(mIsActivateCommandCalled);
+    }
+
+    @Test
+    public void testActivateBackup_whenEnableFalseAndEnabled_returnsTrue() throws Exception {
+        BackupUtils backupUtils =
+                new BackupUtils() {
+                    @Override
+                    protected InputStream executeShellCommand(String command) throws IOException {
+                        String output = "";
+                        if (command.equals(getBmgrCommand("activated", TEST_USER_ID))) {
+                            output = "Backup Manager currently activated";
+                        } else if (command.equals(getBmgrCommand("activate false", TEST_USER_ID))) {
+                            output = "Backup Manager now deactivated";
+                            mIsActivateCommandCalled = true;
+                        }
+                        return new ByteArrayInputStream(output.getBytes("UTF-8"));
+                    }
+                };
+        assertTrue(backupUtils.activateBackupForUser(false, TEST_USER_ID));
+        assertTrue(mIsActivateCommandCalled);
+    }
+
+    @Test
+    public void testActivateBackup_whenEnableFalseAndDisabled_returnsFalse() throws Exception {
+        BackupUtils backupUtils =
+                new BackupUtils() {
+                    @Override
+                    protected InputStream executeShellCommand(String command) throws IOException {
+                        String output = "";
+                        if (command.equals(getBmgrCommand("activated", TEST_USER_ID))) {
+                            output = "Backup Manager currently deactivated";
+                        } else if (command.equals(getBmgrCommand("activate false", TEST_USER_ID))) {
+                            output = "Backup Manager now deactivated";
+                            mIsActivateCommandCalled = true;
+                        }
+                        return new ByteArrayInputStream(output.getBytes("UTF-8"));
+                    }
+                };
+        assertFalse(backupUtils.activateBackupForUser(false, TEST_USER_ID));
+        assertTrue(mIsActivateCommandCalled);
+    }
+
+    private String getBmgrCommand(String command, int userId) {
+        return "bmgr --user " + userId + " " + command;
     }
 }

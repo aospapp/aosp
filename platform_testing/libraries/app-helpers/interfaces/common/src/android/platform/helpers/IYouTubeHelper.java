@@ -16,6 +16,8 @@
 
 package android.platform.helpers;
 
+import android.support.test.uiautomator.Direction;
+
 public interface IYouTubeHelper extends IAppHelper {
 
     public enum VideoQuality {
@@ -138,4 +140,10 @@ public interface IYouTubeHelper extends IAppHelper {
     public default void exitFullScreenMode() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
+    /**
+     * Setup expectation: YouTube is open on home page.
+     *
+     * <p>Scroll the home page by specified direction.
+     */
+    public void scrollHomePage(Direction direction);
 }

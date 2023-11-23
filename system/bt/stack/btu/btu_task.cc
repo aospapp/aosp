@@ -71,6 +71,11 @@ void btu_hci_msg_process(BT_HDR* p_msg) {
       btu_hcif_send_cmd((uint8_t)(p_msg->event & BT_SUB_EVT_MASK), p_msg);
       break;
 
+    case BT_EVT_TO_BTU_HCI_ISO:
+      // TODO: implement handler
+      osi_free(p_msg);
+      break;
+
     default:
       osi_free(p_msg);
       break;
@@ -86,6 +91,17 @@ base::MessageLoop* get_main_message_loop() {
 bt_status_t do_in_main_thread(const base::Location& from_here,
                               base::OnceClosure task) {
   if (!main_thread.DoInThread(from_here, std::move(task))) {
+    LOG(ERROR) << __func__ << ": failed from " << from_here.ToString();
+    return BT_STATUS_FAIL;
+  }
+  return BT_STATUS_SUCCESS;
+}
+
+bt_status_t do_in_main_thread_delayed(const base::Location& from_here,
+                                      base::OnceClosure task,
+                                      const base::TimeDelta& delay) {
+  if (!get_main_message_loop()->task_runner()->PostDelayedTask(
+          from_here, std::move(task), delay)) {
     LOG(ERROR) << __func__ << ": failed from " << from_here.ToString();
     return BT_STATUS_FAIL;
   }

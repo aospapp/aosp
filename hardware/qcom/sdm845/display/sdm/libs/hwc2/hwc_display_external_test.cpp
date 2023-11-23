@@ -625,7 +625,8 @@ int HWCDisplayExternalTest::InitLayer(Layer *layer) {
   GetDisplayAttributesForConfig(INT32(active_config), &var_info);
 
   layer->flags.updating = 1;
-  layer->src_rect = LayerRect(0, 0, var_info.x_pixels, var_info.y_pixels);
+  layer->src_rect = LayerRect(0, 0, FLOAT(var_info.x_pixels),
+      FLOAT(var_info.y_pixels));
   layer->dst_rect = layer->src_rect;
   layer->frame_rate = var_info.fps;
   layer->blending = kBlendingPremultiplied;

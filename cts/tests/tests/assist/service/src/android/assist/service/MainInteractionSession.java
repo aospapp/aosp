@@ -82,7 +82,13 @@ public class MainInteractionSession extends VoiceInteractionSession {
         Log.i(TAG, "onDestroy()");
         super.onDestroy();
         if (mReceiver != null) {
-            mContext.unregisterReceiver(mReceiver);
+            try {
+                mContext.unregisterReceiver(mReceiver);
+            } catch (IllegalArgumentException e) {
+                // Ignore this exception when unregisterReceiver fails. Due to there will be timing
+                // case to destroy VoiceInteractionSessionService before VoiceInteractionSession.
+                Log.e(TAG, "Failed to unregister receiver in onDestroy.", e);
+            }
         }
     }
 

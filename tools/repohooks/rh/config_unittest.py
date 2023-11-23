@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 # Copyright 2016 The Android Open Source Project
 #
@@ -36,8 +36,8 @@ import rh.hooks
 import rh.config
 
 
-class PreSubmitConfigTests(unittest.TestCase):
-    """Tests for the PreSubmitConfig class."""
+class PreUploadConfigTests(unittest.TestCase):
+    """Tests for the PreUploadConfig class."""
 
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
@@ -48,7 +48,7 @@ class PreSubmitConfigTests(unittest.TestCase):
     def _write_config(self, data, filename=None):
         """Helper to write out a config file for testing."""
         if filename is None:
-            filename = rh.config.PreSubmitConfig.FILENAME
+            filename = rh.config.PreUploadConfig.FILENAME
         path = os.path.join(self.tempdir, filename)
         with open(path, 'w') as fp:
             fp.write(data)
@@ -56,16 +56,16 @@ class PreSubmitConfigTests(unittest.TestCase):
     def _write_global_config(self, data):
         """Helper to write out a global config file for testing."""
         self._write_config(
-            data, filename=rh.config.PreSubmitConfig.GLOBAL_FILENAME)
+            data, filename=rh.config.PreUploadConfig.GLOBAL_FILENAME)
 
     def testMissing(self):
         """Instantiating a non-existent config file should be fine."""
-        rh.config.PreSubmitConfig()
+        rh.config.PreUploadConfig()
 
     def testEmpty(self):
         """Instantiating an empty config file should be fine."""
         self._write_config('')
-        rh.config.PreSubmitConfig(paths=(self.tempdir,))
+        rh.config.PreUploadConfig(paths=(self.tempdir,))
 
     def testValid(self):
         """Verify a fully valid file works."""
@@ -82,30 +82,30 @@ cpplint = --some 'more args'
 [Options]
 ignore_merged_commits = true
 """)
-        rh.config.PreSubmitConfig(paths=(self.tempdir,))
+        rh.config.PreUploadConfig(paths=(self.tempdir,))
 
     def testUnknownSection(self):
         """Reject unknown sections."""
         self._write_config('[BOOGA]')
-        self.assertRaises(rh.config.ValidationError, rh.config.PreSubmitConfig,
+        self.assertRaises(rh.config.ValidationError, rh.config.PreUploadConfig,
                           paths=(self.tempdir,))
 
     def testUnknownBuiltin(self):
         """Reject unknown builtin hooks."""
         self._write_config('[Builtin Hooks]\nbooga = borg!')
-        self.assertRaises(rh.config.ValidationError, rh.config.PreSubmitConfig,
+        self.assertRaises(rh.config.ValidationError, rh.config.PreUploadConfig,
                           paths=(self.tempdir,))
 
     def testEmptyCustomHook(self):
         """Reject empty custom hooks."""
         self._write_config('[Hook Scripts]\nbooga = \t \n')
-        self.assertRaises(rh.config.ValidationError, rh.config.PreSubmitConfig,
+        self.assertRaises(rh.config.ValidationError, rh.config.PreUploadConfig,
                           paths=(self.tempdir,))
 
     def testInvalidIni(self):
         """Reject invalid ini files."""
         self._write_config('[Hook Scripts]\n =')
-        self.assertRaises(rh.config.ValidationError, rh.config.PreSubmitConfig,
+        self.assertRaises(rh.config.ValidationError, rh.config.PreUploadConfig,
                           paths=(self.tempdir,))
 
     def testInvalidString(self):
@@ -113,7 +113,7 @@ ignore_merged_commits = true
         self._write_config("""[Hook Scripts]
 name = script --'bad-quotes
 """)
-        self.assertRaises(rh.config.ValidationError, rh.config.PreSubmitConfig,
+        self.assertRaises(rh.config.ValidationError, rh.config.PreUploadConfig,
                           paths=(self.tempdir,))
 
     def testGlobalConfigs(self):
@@ -125,7 +125,7 @@ commit_msg_test_field = false""")
         self._write_config("""[Builtin Hooks]
 commit_msg_bug_field = false
 commit_msg_test_field = true""")
-        config = rh.config.PreSubmitConfig(paths=(self.tempdir,),
+        config = rh.config.PreUploadConfig(paths=(self.tempdir,),
                                            global_paths=(self.tempdir,))
         self.assertEqual(config.builtin_hooks,
                          ['commit_msg_changeid_field', 'commit_msg_test_field'])

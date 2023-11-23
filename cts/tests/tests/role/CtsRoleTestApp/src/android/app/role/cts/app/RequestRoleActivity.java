@@ -35,10 +35,6 @@ public class RequestRoleActivity extends Activity {
 
         if (savedInstanceState == null) {
             String roleName = getIntent().getStringExtra(Intent.EXTRA_ROLE_NAME);
-            if (TextUtils.isEmpty(roleName)) {
-                throw new IllegalArgumentException("Role name in extras cannot be null or empty");
-            }
-
             RoleManager roleManager = getSystemService(RoleManager.class);
             Intent intent = roleManager.createRequestRoleIntent(roleName);
             startActivityForResult(intent, REQUEST_CODE_REQUEST_ROLE);

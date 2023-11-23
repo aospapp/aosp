@@ -16,6 +16,7 @@
 
 package android.platform.systemui.tests.jank;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
@@ -25,8 +26,10 @@ import android.support.test.jank.JankTestBase;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.timeresulthelper.TimeResultLogger;
+import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.Until;
 import android.system.helpers.OverviewHelper;
 
 import com.android.launcher3.tapl.AllApps;
@@ -215,6 +218,37 @@ public class LauncherJankTests extends JankTestBase {
     public void testOpenCloseMessagesApp() throws Exception {
         for (int i = 0; i < INNER_LOOP; i++) {
             mLauncherStrategy.launch("Messages", "com.google.android.apps.messaging");
+            mLauncher.pressHome();
+        }
+    }
+
+    private void startAppFast(String packageName) {
+        final android.app.Instrumentation instrumentation = getInstrumentation();
+        final Intent intent =
+                instrumentation
+                        .getContext()
+                        .getPackageManager()
+                        .getLaunchIntentForPackage(packageName);
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        instrumentation.getTargetContext().startActivity(intent);
+        assertTrue(
+                packageName + " didn't start",
+                mDevice.wait(Until.hasObject(By.pkg(packageName).depth(0)), 60000));
+    }
+
+    /**
+     * Fast-opens the Messages app repeatedly and goes to home, measuring jank for going from app to
+     * home.
+     */
+    @JankTest(
+            beforeTest = "beforeOpenCloseMessagesApp",
+            afterTest = "afterOpenCloseMessagesApp",
+            expectedFrames = 90)
+    @GfxMonitor(processName = "#getLauncherPackage")
+    public void testAppToHome() throws Exception {
+        for (int i = 0; i < INNER_LOOP; i++) {
+            startAppFast("com.google.android.apps.messaging");
             mLauncher.pressHome();
         }
     }

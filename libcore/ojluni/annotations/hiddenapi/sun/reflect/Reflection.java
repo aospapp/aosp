@@ -38,7 +38,7 @@ public class Reflection {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static void ensureMemberAccess(
             java.lang.Class<?> currentClass,
             java.lang.Class<?> memberClass,
@@ -68,7 +68,7 @@ public class Reflection {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     static boolean isSubclassOf(java.lang.Class<?> queryClass, java.lang.Class<?> ofClass) {
         throw new RuntimeException("Stub!");
     }

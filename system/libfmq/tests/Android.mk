@@ -24,6 +24,8 @@ LOCAL_REQUIRED_MODULES :=                           \
     android.hardware.tests.msgq@1.0-service-test    \
     hidl_test_helper
 
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/nativetest64
+
 ifneq ($(TARGET_2ND_ARCH),)
 LOCAL_REQUIRED_MODULES += android.hardware.tests.msgq@1.0-service-test$(TARGET_2ND_ARCH_MODULE_SUFFIX)
 LOCAL_REQUIRED_MODULES += mq_test_client$(TARGET_2ND_ARCH_MODULE_SUFFIX)

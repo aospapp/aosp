@@ -48,6 +48,8 @@ var ClangUnknownCflags = sorted([]string{
 	"-Wunused-but-set-parameter",
 	"-Wunused-but-set-variable",
 	"-fdiagnostics-color",
+	// http://b/153759688
+	"-fuse-init-array",
 
 	// arm + arm64 + mips + mips64
 	"-fgcse-after-reload",
@@ -101,20 +103,16 @@ func init() {
 		// not emit the table by default on Android since NDK still uses GNU binutils.
 		"-faddrsig",
 
-		// -Wimplicit-fallthrough is not enabled by -Wall.
-		"-Wimplicit-fallthrough",
-
 		// Help catch common 32/64-bit errors.
 		"-Werror=int-conversion",
+
+		// Enable the new pass manager.
+		"-fexperimental-new-pass-manager",
 
 		// Disable overly aggressive warning for macros defined with a leading underscore
 		// This happens in AndroidConfig.h, which is included nearly everywhere.
 		// TODO: can we remove this now?
 		"-Wno-reserved-id-macro",
-
-		// Disable overly aggressive warning for format strings.
-		// Bug: 20148343
-		"-Wno-format-pedantic",
 
 		// Workaround for ccache with clang.
 		// See http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html.
@@ -123,9 +121,6 @@ func init() {
 		// Force clang to always output color diagnostics. Ninja will strip the ANSI
 		// color codes if it is not running in a terminal.
 		"-fcolor-diagnostics",
-
-		// http://b/68236239 Allow 0/NULL instead of using nullptr everywhere.
-		"-Wno-zero-as-null-pointer-constant",
 
 		// Warnings from clang-7.0
 		"-Wno-sign-compare",
@@ -136,13 +131,18 @@ func init() {
 		// Disable -Winconsistent-missing-override until we can clean up the existing
 		// codebase for it.
 		"-Wno-inconsistent-missing-override",
+
+		// Warnings from clang-10
+		// Nested and array designated initialization is nice to have.
+		"-Wno-c99-designator",
 	}, " "))
 
 	pctx.StaticVariable("ClangExtraCppflags", strings.Join([]string{
+		// -Wimplicit-fallthrough is not enabled by -Wall.
+		"-Wimplicit-fallthrough",
+
 		// Enable clang's thread-safety annotations in libcxx.
-		// Turn off -Wthread-safety-negative, to avoid breaking projects that use -Weverything.
 		"-D_LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS",
-		"-Wno-thread-safety-negative",
 
 		// libc++'s math.h has an #include_next outside of system_headers.
 		"-Wno-gnu-include-next",
@@ -164,19 +164,29 @@ func init() {
 		// new warnings are fixed.
 		"-Wno-tautological-constant-compare",
 		"-Wno-tautological-type-limit-compare",
-		"-Wno-tautological-unsigned-enum-zero-compare",
-		"-Wno-tautological-unsigned-zero-compare",
-
-		// Disable c++98-specific warning since Android is not concerned with C++98
-		// compatibility.
-		"-Wno-c++98-compat-extra-semi",
-
-		// Disable this warning because we don't care about behavior with older compilers.
-		"-Wno-return-std-move-in-c++11",
+		// http://b/145210666
+		"-Wno-reorder-init-list",
+		// http://b/145211066
+		"-Wno-implicit-int-float-conversion",
+		// New warnings to be fixed after clang-r377782.
+		"-Wno-int-in-bool-context",          // http://b/148287349
+		"-Wno-sizeof-array-div",             // http://b/148815709
+		"-Wno-tautological-overlap-compare", // http://b/148815696
+		// New warnings to be fixed after clang-r383902.
+		"-Wno-deprecated-copy",                      // http://b/153746672
+		"-Wno-range-loop-construct",                 // http://b/153747076
+		"-Wno-misleading-indentation",               // http://b/153746954
+		"-Wno-zero-as-null-pointer-constant",        // http://b/68236239
+		"-Wno-deprecated-anon-enum-enum-conversion", // http://b/153746485
+		"-Wno-deprecated-enum-enum-conversion",      // http://b/153746563
+		"-Wno-string-compare",                       // http://b/153764102
+		"-Wno-enum-enum-conversion",                 // http://b/154138986
+		"-Wno-enum-float-conversion",                // http://b/154255917
+		"-Wno-pessimizing-move",                     // http://b/154270751
 	}, " "))
 
-	// Extra cflags for projects under external/ directory to disable warnings that are infeasible
-	// to fix in all the external projects and their upstream repos.
+	// Extra cflags for external third-party projects to disable warnings that
+	// are infeasible to fix in all the external projects and their upstream repos.
 	pctx.StaticVariable("ClangExtraExternalCflags", strings.Join([]string{
 		"-Wno-enum-compare",
 		"-Wno-enum-compare-switch",
@@ -188,6 +198,13 @@ func init() {
 		// Bug: http://b/29823425 Disable -Wnull-dereference until the
 		// new instances detected by this warning are fixed.
 		"-Wno-null-dereference",
+
+		// http://b/145211477
+		"-Wno-pointer-compare",
+		// http://b/145211022
+		"-Wno-xor-used-as-pow",
+		// http://b/145211022
+		"-Wno-final-dtor-non-final-class",
 	}, " "))
 }
 

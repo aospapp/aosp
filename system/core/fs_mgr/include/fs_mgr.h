@@ -46,7 +46,9 @@ enum verity_mode {
 enum mount_mode {
     MOUNT_MODE_DEFAULT = 0,
     MOUNT_MODE_EARLY = 1,
-    MOUNT_MODE_LATE = 2
+    MOUNT_MODE_LATE = 2,
+    // TODO(b/135984674): remove this after refactoring fs_mgr_mount_all.
+    MOUNT_MODE_ONLY_USERDATA = 3
 };
 
 #define FS_MGR_MNTALL_DEV_IS_METADATA_ENCRYPTED 7
@@ -67,7 +69,7 @@ int fs_mgr_mount_all(android::fs_mgr::Fstab* fstab, int mount_mode);
 int fs_mgr_do_mount(android::fs_mgr::Fstab* fstab, const char* n_name, char* n_blk_device,
                     char* tmp_mount_point);
 int fs_mgr_do_mount(android::fs_mgr::Fstab* fstab, const char* n_name, char* n_blk_device,
-                    char* tmp_mount_point, bool need_cp);
+                    char* tmp_mount_point, bool need_cp, bool metadata_encrypted);
 int fs_mgr_do_mount_one(const android::fs_mgr::FstabEntry& entry,
                         const std::string& mount_point = "");
 int fs_mgr_do_tmpfs_mount(const char *n_name);
@@ -104,6 +106,11 @@ enum FsMgrUmountStatus : int {
 // fs_mgr_umount_all() is the reverse of fs_mgr_mount_all. In particular,
 // it destroys verity devices from device mapper after the device is unmounted.
 int fs_mgr_umount_all(android::fs_mgr::Fstab* fstab);
+
+// Finds a entry in |fstab| that was used to mount a /data on |data_block_device|.
+android::fs_mgr::FstabEntry* fs_mgr_get_mounted_entry_for_userdata(
+        android::fs_mgr::Fstab* fstab, const std::string& data_block_device);
+int fs_mgr_remount_userdata_into_checkpointing(android::fs_mgr::Fstab* fstab);
 
 // Finds the dm_bow device on which this block device is stacked, or returns
 // empty string

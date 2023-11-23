@@ -29,34 +29,33 @@
  * when creating the global instance of the nanoapp.
  * @param appId the app's unique 64-bit ID
  */
-#define CHRE_STATIC_NANOAPP_INIT(appName, appId_, appVersion_)   \
-namespace chre {                                                 \
-                                                                 \
-UniquePtr<Nanoapp> initializeStaticNanoapp##appName() {          \
-  UniquePtr<Nanoapp> nanoapp = MakeUnique<Nanoapp>();            \
-  static struct chreNslNanoappInfo appInfo;                      \
-  appInfo.magic = CHRE_NSL_NANOAPP_INFO_MAGIC;                   \
-  appInfo.structMinorVersion =                                   \
-    CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION;                  \
-  appInfo.targetApiVersion = CHRE_API_VERSION;                   \
-  appInfo.vendor = "Google"; /* TODO: make this configurable */  \
-  appInfo.name = #appName;                                       \
-  appInfo.isSystemNanoapp = true;                                \
-  appInfo.isTcmNanoapp = false;                                  \
-  appInfo.appId = appId_;                                        \
-  appInfo.appVersion = appVersion_;                              \
-  appInfo.entryPoints.start = nanoappStart;                      \
-  appInfo.entryPoints.handleEvent = nanoappHandleEvent;          \
-  appInfo.entryPoints.end = nanoappEnd;                          \
-  appInfo.appVersionString = "<undefined>";                      \
-  if (nanoapp.isNull()) {                                        \
-    FATAL_ERROR("Failed to allocate nanoapp " #appName);         \
-  } else {                                                       \
-    nanoapp->loadStatic(&appInfo);                               \
-  }                                                              \
-                                                                 \
-  return nanoapp;                                                \
-}                                                                \
-}  /* namespace chre */
+#define CHRE_STATIC_NANOAPP_INIT(appName, appId_, appVersion_)               \
+  namespace chre {                                                           \
+                                                                             \
+  UniquePtr<Nanoapp> initializeStaticNanoapp##appName() {                    \
+    UniquePtr<Nanoapp> nanoapp = MakeUnique<Nanoapp>();                      \
+    static struct chreNslNanoappInfo appInfo;                                \
+    appInfo.magic = CHRE_NSL_NANOAPP_INFO_MAGIC;                             \
+    appInfo.structMinorVersion = CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION; \
+    appInfo.targetApiVersion = CHRE_API_VERSION;                             \
+    appInfo.vendor = "Google"; /* TODO: make this configurable */            \
+    appInfo.name = #appName;                                                 \
+    appInfo.isSystemNanoapp = true;                                          \
+    appInfo.isTcmNanoapp = false;                                            \
+    appInfo.appId = appId_;                                                  \
+    appInfo.appVersion = appVersion_;                                        \
+    appInfo.entryPoints.start = nanoappStart;                                \
+    appInfo.entryPoints.handleEvent = nanoappHandleEvent;                    \
+    appInfo.entryPoints.end = nanoappEnd;                                    \
+    appInfo.appVersionString = "<undefined>";                                \
+    if (nanoapp.isNull()) {                                                  \
+      FATAL_ERROR("Failed to allocate nanoapp " #appName);                   \
+    } else {                                                                 \
+      nanoapp->loadStatic(&appInfo);                                         \
+    }                                                                        \
+                                                                             \
+    return nanoapp;                                                          \
+  }                                                                          \
+  } /* namespace chre */
 
 #endif  // CHRE_PLATFORM_LINUX_STATIC_NANOAPP_INIT_H_

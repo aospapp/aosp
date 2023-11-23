@@ -27,6 +27,7 @@ import java.nio.ShortBuffer;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
+
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
@@ -441,6 +442,19 @@ public class PacketUtils {
 
     private static byte[] getByteArrayFromBuffer(ByteBuffer buffer) {
         return Arrays.copyOfRange(buffer.array(), 0, buffer.position());
+    }
+
+    public static IpHeader getIpHeader(
+            int protocol, InetAddress src, InetAddress dst, Payload payload) {
+        if ((src instanceof Inet6Address) != (dst instanceof Inet6Address)) {
+            throw new IllegalArgumentException("Invalid src/dst address combination");
+        }
+
+        if (src instanceof Inet6Address) {
+            return new Ip6Header(protocol, (Inet6Address) src, (Inet6Address) dst, payload);
+        } else {
+            return new Ip4Header(protocol, (Inet4Address) src, (Inet4Address) dst, payload);
+        }
     }
 
     /*

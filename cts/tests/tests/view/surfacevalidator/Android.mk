@@ -25,6 +25,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-fil
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     androidx.test.rules \
+    cts-wm-util \
     ub-uiautomator
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

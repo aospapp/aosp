@@ -32,6 +32,7 @@ import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.provider.BaseColumns;
 import android.text.TextUtils;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AutoCompleteTextView;
@@ -45,8 +46,10 @@ import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -231,6 +234,49 @@ public class SearchView_CursorTest {
 
         // Just to be sure, verify that our spy suggestion listener was called
         verify(mockSuggestionListener, times(1)).onSuggestionClick(0);
+        verifyNoMoreInteractions(mockSuggestionListener);
+    }
+
+    @Test
+    public void testSuggestionEnterKey() throws Throwable {
+        final SearchView.OnSuggestionListener mockSuggestionListener =
+                spy(new MySuggestionListener());
+        when(mockSuggestionListener.onSuggestionClick(anyInt())).thenCallRealMethod();
+
+        final SearchView.OnQueryTextListener mockQueryTextListener =
+                spy(new MyQueryTextListener());
+        when(mockQueryTextListener.onQueryTextChange(anyString())).thenCallRealMethod();
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mSearchView, () -> {
+            mSearchView.setIconifiedByDefault(false);
+            mSearchView.setOnQueryTextListener(mockQueryTextListener);
+            mSearchView.setOnSuggestionListener(mockSuggestionListener);
+            mSearchView.requestFocus();
+            mSearchView.setQuery("Di", false);
+        });
+
+        mInstrumentation.waitForIdleSync();
+        verify(mockQueryTextListener, times(1)).onQueryTextChange("Di");
+
+        CtsKeyEventUtil.sendKeys(mInstrumentation, mSearchView, KeyEvent.KEYCODE_DPAD_DOWN,
+                KeyEvent.KEYCODE_ENTER);
+
+        // Verify that our spy suggestion listener was called.
+        verify(mockSuggestionListener, times(1)).onSuggestionClick(0);
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mSearchView, () -> {
+            mSearchView.setQuery("Bo", false);
+        });
+
+        mInstrumentation.waitForIdleSync();
+        verify(mockQueryTextListener, times(1)).onQueryTextChange("Bo");
+
+        CtsKeyEventUtil.sendKeys(mInstrumentation, mSearchView, KeyEvent.KEYCODE_DPAD_DOWN,
+                KeyEvent.KEYCODE_NUMPAD_ENTER);
+
+        // Verify that our spy suggestion listener was called.
+        verify(mockSuggestionListener, times(2)).onSuggestionClick(0);
+
         verifyNoMoreInteractions(mockSuggestionListener);
     }
 }

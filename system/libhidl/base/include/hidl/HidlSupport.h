@@ -20,18 +20,24 @@
 #include <algorithm>
 #include <array>
 #include <iterator>
-#include <cutils/native_handle.h>
 #include <hidl/HidlInternal.h>
-#include <hidl/Status.h>
 #include <map>
 #include <sstream>
 #include <stddef.h>
 #include <tuple>
 #include <type_traits>
+#include <vector>
+
+// no requirements on types not used in scatter/gather
+// no requirements on other libraries
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpadded"
+#include <cutils/native_handle.h>
+#include <hidl/Status.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
 #include <utils/StrongPointer.h>
-#include <vector>
+#pragma clang diagnostic pop
 
 namespace android {
 
@@ -123,8 +129,9 @@ struct hidl_handle {
 private:
     void freeHandle();
 
-    details::hidl_pointer<const native_handle_t> mHandle __attribute__ ((aligned(8)));
-    bool mOwnsHandle __attribute ((aligned(8)));
+    details::hidl_pointer<const native_handle_t> mHandle;
+    bool mOwnsHandle;
+    uint8_t mPad[7];
 };
 
 struct hidl_string {
@@ -174,6 +181,7 @@ private:
     details::hidl_pointer<const char> mBuffer;
     uint32_t mSize;  // NOT including the terminating '\0'.
     bool mOwnsBuffer; // if true then mBuffer is a mutable char *
+    uint8_t mPad[3];
 
     // copy from data with size. Assume that my memory is freed
     // (through clear(), for example)
@@ -294,9 +302,9 @@ struct hidl_memory {
     static const size_t kOffsetOfName;
 
 private:
-    hidl_handle mHandle __attribute__ ((aligned(8)));
-    uint64_t mSize __attribute__ ((aligned(8)));
-    hidl_string mName __attribute__ ((aligned(8)));
+    hidl_handle mHandle;
+    uint64_t mSize;
+    hidl_string mName;
 };
 
 // HidlMemory is a wrapper class to support sp<> for hidl_memory. It also
@@ -326,15 +334,12 @@ protected:
 
 template<typename T>
 struct hidl_vec {
-    hidl_vec() {
+    using value_type = T;
+
+    hidl_vec() : mBuffer(nullptr), mSize(0), mOwnsBuffer(false) {
         static_assert(hidl_vec<T>::kOffsetOfBuffer == 0, "wrong offset");
 
-        memset(this, 0, sizeof(*this));
-        // mSize is 0
-        // mBuffer is nullptr
-
-        // this is for consistency with the original implementation
-        mOwnsBuffer = true;
+        memset(mPad, 0, sizeof(mPad));
     }
 
     // Note, does not initialize primitive types.
@@ -510,7 +515,7 @@ struct hidl_vec {
         T* newBuffer = new T[size]();
 
         for (size_t i = 0; i < std::min(static_cast<uint32_t>(size), mSize); ++i) {
-            newBuffer[i] = mBuffer[i];
+            newBuffer[i] = std::move(mBuffer[i]);
         }
 
         if (mOwnsBuffer) {
@@ -571,11 +576,15 @@ public:
     iterator end() { return data()+mSize; }
     const_iterator begin() const { return data(); }
     const_iterator end() const { return data()+mSize; }
+    iterator find(const T& v) { return std::find(begin(), end(), v); }
+    const_iterator find(const T& v) const { return std::find(begin(), end(), v); }
+    bool contains(const T& v) const { return find(v) != end(); }
 
-private:
+  private:
     details::hidl_pointer<T> mBuffer;
     uint32_t mSize;
     bool mOwnsBuffer;
+    uint8_t mPad[3];
 
     // copy from an array-like object, assuming my resources are freed.
     template <typename Array>
@@ -731,6 +740,8 @@ struct hidl_array {
     using std_array_type = typename details::std_array<T, SIZE1, SIZES...>::type;
 
     hidl_array() = default;
+    hidl_array(const hidl_array&) noexcept = default;
+    hidl_array(hidl_array&&) noexcept = default;
 
     // Copies the data from source, using T::operator=(const T &).
     hidl_array(const T *source) {
@@ -744,6 +755,9 @@ struct hidl_array {
         details::accessor<T, SIZE1, SIZES...> modifier(mBuffer);
         modifier = array;
     }
+
+    hidl_array& operator=(const hidl_array&) noexcept = default;
+    hidl_array& operator=(hidl_array&&) noexcept = default;
 
     T *data() { return mBuffer; }
     const T *data() const { return mBuffer; }
@@ -793,10 +807,12 @@ private:
 // An array of T's. Assumes that T::operator=(const T &) is defined.
 template<typename T, size_t SIZE1>
 struct hidl_array<T, SIZE1> {
-
+    using value_type = T;
     using std_array_type = typename details::std_array<T, SIZE1>::type;
 
     hidl_array() = default;
+    hidl_array(const hidl_array&) noexcept = default;
+    hidl_array(hidl_array&&) noexcept = default;
 
     // Copies the data from source, using T::operator=(const T &).
     hidl_array(const T *source) {
@@ -807,6 +823,9 @@ struct hidl_array<T, SIZE1> {
 
     // Copies the data from the given std::array, using T::operator=(const T &).
     hidl_array(const std_array_type &array) : hidl_array(array.data()) {}
+
+    hidl_array& operator=(const hidl_array&) noexcept = default;
+    hidl_array& operator=(hidl_array&&) noexcept = default;
 
     T *data() { return mBuffer; }
     const T *data() const { return mBuffer; }

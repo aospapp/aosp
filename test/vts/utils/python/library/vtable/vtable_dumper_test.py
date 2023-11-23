@@ -65,7 +65,8 @@ class VtableDumperTest(unittest.TestCase):
         for vtable in self.dumper.DumpVtables():
             entries = [(entry.offset, entry.names) for entry in vtable.entries]
             vtables_dump.append((vtable.name, entries))
-        self.assertItemsEqual(vtables_dump, _VTABLES)
+        vtables_dump.sort()
+        self.assertEqual(vtables_dump, _VTABLES)
 
 
 if __name__ == '__main__':

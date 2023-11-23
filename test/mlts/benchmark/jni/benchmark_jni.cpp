@@ -16,6 +16,8 @@
 
 #include "run_tflite.h"
 
+#include "tensorflow/lite/nnapi/nnapi_implementation.h"
+
 #include <jni.h>
 #include <string>
 #include <iomanip>
@@ -374,4 +376,14 @@ Java_com_android_nn_benchmark_core_NNTestBase_dumpAllLayers(
     const char *dumpPathStr = env->GetStringUTFChars(dumpPath, JNI_FALSE);
     model->dumpAllLayers(dumpPathStr, data.data());
     env->ReleaseStringUTFChars(dumpPath, dumpPathStr);
+}
+
+extern "C"
+JNIEXPORT jboolean
+JNICALL
+Java_com_android_nn_benchmark_core_NNTestBase_hasAccelerator() {
+  uint32_t device_count = 0;
+  NnApiImplementation()->ANeuralNetworks_getDeviceCount(&device_count);
+  // We only consider a real device, not 'nnapi-reference'.
+  return device_count > 1;
 }

@@ -174,10 +174,6 @@
         <item name="themeTileMode">2</item>
     </style>
 
-    <style name="Theme_NoSwipeDismiss">
-        <item name="android:windowSwipeToDismiss">false</item>
-    </style>
-
     <style name="WhiteBackgroundTheme" parent="@android:style/Theme.Holo.NoActionBar.Fullscreen">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowFullscreen">true</item>

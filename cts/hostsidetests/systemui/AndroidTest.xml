@@ -18,9 +18,12 @@
     <option name="config-descriptor:metadata" key="component" value="sysui" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsSystemUiDeviceApp.apk" />
+        <option name="test-file-name" value="CtsSystemUiDeviceAudioRecorderAppAudioRecord.apk" />
+        <option name="test-file-name" value="CtsSystemUiDeviceAudioRecorderAppMediaRecorder.apk" />
     </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsSystemUiHostTestCases.jar" />

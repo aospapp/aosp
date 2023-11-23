@@ -37,10 +37,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -104,6 +106,9 @@ public class ResultHandler {
     private static final String RESULT_ATTR = "result";
     private static final String RESULT_TAG = "Result";
     private static final String RUNTIME_ATTR = "runtime";
+    private static final String RUN_HISTORY_ATTR = "run_history";
+    private static final String RUN_HISTORY_TAG = "RunHistory";
+    private static final String RUN_TAG = "Run";
     private static final String SCREENSHOT_TAG = "Screenshot";
     private static final String SKIPPED_ATTR = "skipped";
     private static final String STACK_TAG = "StackTrace";
@@ -198,6 +203,10 @@ public class ResultHandler {
             invocation.addInvocationInfo(BUILD_ID, parser.getAttributeValue(NS, BUILD_ID));
             invocation.addInvocationInfo(BUILD_PRODUCT, parser.getAttributeValue(NS,
                     BUILD_PRODUCT));
+            String runHistoryValue = parser.getAttributeValue(NS, RUN_HISTORY_ATTR);
+            if (runHistoryValue != null) {
+                invocation.addInvocationInfo(RUN_HISTORY_ATTR, runHistoryValue);
+            }
 
             // The build fingerprint needs to reflect the true fingerprint of the device under test,
             // ignoring potential overrides made by test suites (namely STS) for APFE build
@@ -212,7 +221,19 @@ public class ResultHandler {
             // --skip-device-info flag
             parser.nextTag();
             parser.require(XmlPullParser.END_TAG, NS, BUILD_TAG);
+
+            // Parse RunHistory tag.
             parser.nextTag();
+            boolean hasRunHistoryTag = true;
+            try {
+                parser.require(parser.START_TAG, NS, RUN_HISTORY_TAG);
+            } catch (XmlPullParserException e) {
+                hasRunHistoryTag = false;
+            }
+            if (hasRunHistoryTag) {
+                parseRunHistory(parser);
+            }
+
             parser.require(XmlPullParser.START_TAG, NS, SUMMARY_TAG);
             parser.nextTag();
             parser.require(XmlPullParser.END_TAG, NS, SUMMARY_TAG);
@@ -269,6 +290,10 @@ public class ResultHandler {
                                 // Ignore the new format in the old parser.
                                 parser.nextText();
                                 parser.require(XmlPullParser.END_TAG, NS, METRIC_TAG);
+                            } else if (RUN_HISTORY_TAG.equals(parser.getName())) {
+                                // Ignore the test result history since it only exists in
+                                // CTS Verifier, which will not use parsing feature.
+                                skipCurrentTag(parser);
                             } else {
                                 parser.nextTag();
                             }
@@ -308,6 +333,34 @@ public class ResultHandler {
         }
     }
 
+    /** Parse and replay all run history information. */
+    private static void parseRunHistory(XmlPullParser parser)
+            throws IOException, XmlPullParserException {
+        while (parser.nextTag() == XmlPullParser.START_TAG) {
+            parser.require(XmlPullParser.START_TAG, NS, RUN_TAG);
+            parser.nextTag();
+            parser.require(XmlPullParser.END_TAG, NS, RUN_TAG);
+        }
+        parser.require(XmlPullParser.END_TAG, NS, RUN_HISTORY_TAG);
+        parser.nextTag();
+    }
+
+    /** Skip the current XML tags. */
+    private static void skipCurrentTag(XmlPullParser parser)
+            throws XmlPullParserException, IOException {
+        int depth = 1;
+        while (depth != 0) {
+            switch (parser.next()) {
+                case XmlPullParser.END_TAG:
+                    depth--;
+                    break;
+                case XmlPullParser.START_TAG:
+                    depth++;
+                    break;
+            }
+        }
+    }
+
     /**
      * @param result
      * @param resultDir
@@ -315,15 +368,26 @@ public class ResultHandler {
      * @param referenceUrl A nullable string that can contain a URL to a related data
      * @param logUrl A nullable string that can contain a URL to related log files
      * @param commandLineArgs A string containing the arguments to the run command
+     * @param resultAttributes Extra key-value pairs to be added as attributes and corresponding
+     *     values into the result XML file
      * @return The result file created.
      * @throws IOException
      * @throws XmlPullParserException
      */
-    public static File writeResults(String suiteName, String suiteVersion, String suitePlan,
-            String suiteBuild, IInvocationResult result, File resultDir,
-            long startTime, long endTime, String referenceUrl, String logUrl,
-            String commandLineArgs)
-                    throws IOException, XmlPullParserException {
+    public static File writeResults(
+            String suiteName,
+            String suiteVersion,
+            String suitePlan,
+            String suiteBuild,
+            IInvocationResult result,
+            File resultDir,
+            long startTime,
+            long endTime,
+            String referenceUrl,
+            String logUrl,
+            String commandLineArgs,
+            Map<String, String> resultAttributes)
+            throws IOException, XmlPullParserException {
         int passed = result.countResults(TestStatus.PASS);
         int failed = result.countResults(TestStatus.FAIL);
         File resultFile = new File(resultDir, TEST_RESULT_FILE_NAME);
@@ -346,6 +410,12 @@ public class ResultHandler {
         serializer.attribute(NS, SUITE_BUILD_ATTR, suiteBuild);
         serializer.attribute(NS, REPORT_VERSION_ATTR, RESULT_FILE_VERSION);
         serializer.attribute(NS, COMMAND_LINE_ARGS, nullToEmpty(commandLineArgs));
+
+        if (resultAttributes != null) {
+            for (Entry<String, String> entry : resultAttributes.entrySet()) {
+                serializer.attribute(NS, entry.getKey(), entry.getValue());
+            }
+        }
 
         if (referenceUrl != null) {
             serializer.attribute(NS, REFERENCE_URL_ATTR, referenceUrl);
@@ -391,6 +461,21 @@ public class ResultHandler {
             }
         }
         serializer.endTag(NS, BUILD_TAG);
+
+        // Run history - this contains a list of start and end times of previous runs. More
+        // information may be added in the future.
+        Collection<InvocationResult.RunHistory> runHistories =
+                ((InvocationResult) result).getRunHistories();
+        if (!runHistories.isEmpty()) {
+            serializer.startTag(NS, RUN_HISTORY_TAG);
+            for (InvocationResult.RunHistory runHistory : runHistories) {
+                serializer.startTag(NS, RUN_TAG);
+                serializer.attribute(NS, START_TIME_ATTR, String.valueOf(runHistory.startTime));
+                serializer.attribute(NS, END_TIME_ATTR, String.valueOf(runHistory.endTime));
+                serializer.endTag(NS, RUN_TAG);
+            }
+            serializer.endTag(NS, RUN_HISTORY_TAG);
+        }
 
         // Summary
         serializer.startTag(NS, SUMMARY_TAG);
@@ -459,6 +544,15 @@ public class ResultHandler {
                     if (report != null) {
                         ReportLog.serialize(serializer, report);
                     }
+
+                    // Test result history contains a list of execution time for each test item.
+                    List<TestResultHistory> testResultHistories = r.getTestResultHistories();
+                    if (testResultHistories != null) {
+                        for (TestResultHistory resultHistory : testResultHistories) {
+                            TestResultHistory.serialize(serializer, resultHistory, r.getName());
+                        }
+                    }
+
                     serializer.endTag(NS, TEST_TAG);
                 }
                 serializer.endTag(NS, CASE_TAG);

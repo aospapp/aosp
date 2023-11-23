@@ -45,6 +45,7 @@ public class AggregatePostProcessorTest {
     private static final String STATS_KEY_VAR = "var";
     private static final String STATS_KEY_STDEV = "stdev";
     private static final String STATS_KEY_MEDIAN = "median";
+    private static final String STATS_KEY_TOTAL = "total";
     // Separator for final upload
     private static final String STATS_KEY_SEPARATOR = "-";
 
@@ -71,6 +72,7 @@ public class AggregatePostProcessorTest {
         singularDoubleStats.put(STATS_KEY_VAR, "0.54");
         singularDoubleStats.put(STATS_KEY_STDEV, "0.73");
         singularDoubleStats.put(STATS_KEY_MEDIAN, "2.00");
+        singularDoubleStats.put(STATS_KEY_TOTAL, "6.00");
 
         // Construct ListMultimap of multiple iterations of test metrics.
         // Stores processed metrics which is overwitten with every test; this is consistent with
@@ -83,7 +85,8 @@ public class AggregatePostProcessorTest {
             metricBuilder.getMeasurementsBuilder().setSingleString(singularDoubleMetrics.get(i));
             Metric currentTestMetric = metricBuilder.build();
             testMetrics.put(singularDoubleKey, currentTestMetric);
-            processedMetrics = mProcessor.processTestMetrics(TEST_1, testMetrics);
+            processedMetrics =
+                    mProcessor.processTestMetricsAndLogs(TEST_1, testMetrics, new HashMap<>());
         }
 
         Assert.assertTrue(
@@ -146,6 +149,16 @@ public class AggregatePostProcessorTest {
                         .build()
                         .getMeasurements()
                         .getSingleString());
+        Assert.assertTrue(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, singularDoubleKey, STATS_KEY_TOTAL)));
+        Assert.assertEquals(
+                singularDoubleStats.get(STATS_KEY_TOTAL),
+                processedMetrics
+                        .get(String.join(STATS_KEY_SEPARATOR, singularDoubleKey, STATS_KEY_TOTAL))
+                        .build()
+                        .getMeasurements()
+                        .getSingleString());
     }
 
     /** Test correct aggregation of list double metrics. */
@@ -162,6 +175,7 @@ public class AggregatePostProcessorTest {
         listDoubleStats.put(STATS_KEY_VAR, "0.36");
         listDoubleStats.put(STATS_KEY_STDEV, "0.60");
         listDoubleStats.put(STATS_KEY_MEDIAN, "2.05");
+        listDoubleStats.put(STATS_KEY_TOTAL, "12.10");
 
         // Stores processed metrics which is overwitten with every test; this is consistent with
         // the current reporting behavior. We only test the correctness on the final metrics values.
@@ -173,7 +187,8 @@ public class AggregatePostProcessorTest {
             metricBuilder.getMeasurementsBuilder().setSingleString(listDoubleMetrics.get(i));
             Metric currentTestMetric = metricBuilder.build();
             testMetrics.put(listDoubleKey, currentTestMetric);
-            processedMetrics = mProcessor.processTestMetrics(TEST_1, testMetrics);
+            processedMetrics =
+                    mProcessor.processTestMetricsAndLogs(TEST_1, testMetrics, new HashMap<>());
         }
 
         Assert.assertTrue(
@@ -233,6 +248,16 @@ public class AggregatePostProcessorTest {
                         .build()
                         .getMeasurements()
                         .getSingleString());
+        Assert.assertTrue(
+                processedMetrics.containsKey(
+                        listDoubleKey + STATS_KEY_SEPARATOR + STATS_KEY_TOTAL));
+        Assert.assertEquals(
+                listDoubleStats.get(STATS_KEY_TOTAL),
+                processedMetrics
+                        .get(listDoubleKey + STATS_KEY_SEPARATOR + STATS_KEY_TOTAL)
+                        .build()
+                        .getMeasurements()
+                        .getSingleString());
     }
 
 
@@ -253,7 +278,8 @@ public class AggregatePostProcessorTest {
             metricBuilder.getMeasurementsBuilder().setSingleString(nonNumericMetrics.get(i));
             Metric currentTestMetric = metricBuilder.build();
             testMetrics.put(nonNumericKey, currentTestMetric);
-            processedMetrics = mProcessor.processTestMetrics(TEST_1, testMetrics);
+            processedMetrics =
+                    mProcessor.processTestMetricsAndLogs(TEST_1, testMetrics, new HashMap<>());
         }
 
         Assert.assertFalse(
@@ -274,6 +300,9 @@ public class AggregatePostProcessorTest {
         Assert.assertFalse(
                 processedMetrics.containsKey(
                         String.join(STATS_KEY_SEPARATOR, nonNumericKey, STATS_KEY_MEDIAN)));
+        Assert.assertFalse(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, nonNumericKey, STATS_KEY_TOTAL)));
     }
 
     /** Test empty result. */
@@ -291,7 +320,8 @@ public class AggregatePostProcessorTest {
             metricBuilder.getMeasurementsBuilder().setSingleString("");
             Metric currentTestMetric = metricBuilder.build();
             testMetrics.put(emptyResultKey, currentTestMetric);
-            processedMetrics = mProcessor.processTestMetrics(TEST_1, testMetrics);
+            processedMetrics =
+                    mProcessor.processTestMetricsAndLogs(TEST_1, testMetrics, new HashMap<>());
         }
 
         Assert.assertFalse(
@@ -312,6 +342,9 @@ public class AggregatePostProcessorTest {
         Assert.assertFalse(
                 processedMetrics.containsKey(
                         String.join(STATS_KEY_SEPARATOR, emptyResultKey, STATS_KEY_MEDIAN)));
+        Assert.assertFalse(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, emptyResultKey, STATS_KEY_TOTAL)));
     }
 
     /** Test single run. */
@@ -330,7 +363,7 @@ public class AggregatePostProcessorTest {
         Metric currentTestMetric = metricBuilder.build();
         testMetrics.put(singleRunKey, currentTestMetric);
         Map<String, Metric.Builder> processedMetrics =
-                mProcessor.processTestMetrics(TEST_1, testMetrics);
+                mProcessor.processTestMetricsAndLogs(TEST_1, testMetrics, new HashMap<>());
 
         Assert.assertTrue(
                 processedMetrics.containsKey(
@@ -392,6 +425,16 @@ public class AggregatePostProcessorTest {
                         .build()
                         .getMeasurements()
                         .getSingleString());
+        Assert.assertTrue(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, singleRunKey, STATS_KEY_TOTAL)));
+        Assert.assertEquals(
+                singleRunVal,
+                processedMetrics
+                        .get(String.join(STATS_KEY_SEPARATOR, singleRunKey, STATS_KEY_TOTAL))
+                        .build()
+                        .getMeasurements()
+                        .getSingleString());
     }
 
 
@@ -410,7 +453,7 @@ public class AggregatePostProcessorTest {
         Metric currentRunMetric = metricBuilder.build();
         runMetrics.put(key, currentRunMetric);
         Map<String, Metric.Builder> processedMetrics =
-                mProcessor.processRunMetrics(runMetrics);
+                mProcessor.processRunMetricsAndLogs(runMetrics, new HashMap<>());
 
         Assert.assertTrue(
                 processedMetrics.containsKey(
@@ -430,11 +473,13 @@ public class AggregatePostProcessorTest {
         Assert.assertTrue(
                 processedMetrics.containsKey(
                         String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_MEDIAN)));
+        Assert.assertTrue(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_TOTAL)));
     }
 
     /**
-     *  Test empty processed run metrics when there is one double value associated with
-     *  the key.
+     * Test collecting processed run metrics when there is one double value associated with the key.
      */
     @Test
     public void testSingleValueProcessRunMetrics() {
@@ -447,9 +492,26 @@ public class AggregatePostProcessorTest {
         Metric currentRunMetric = metricBuilder.build();
         runMetrics.put(key, currentRunMetric);
         Map<String, Metric.Builder> processedMetrics =
-                mProcessor.processRunMetrics(runMetrics);
+                mProcessor.processRunMetricsAndLogs(runMetrics, new HashMap<>());
 
-        Assert.assertEquals(0, processedMetrics.size());
+        Assert.assertTrue(
+                processedMetrics.containsKey(String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_MIN)));
+        Assert.assertTrue(
+                processedMetrics.containsKey(String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_MAX)));
+        Assert.assertTrue(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_MEAN)));
+        Assert.assertTrue(
+                processedMetrics.containsKey(String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_VAR)));
+        Assert.assertTrue(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_STDEV)));
+        Assert.assertTrue(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_MEDIAN)));
+        Assert.assertTrue(
+                processedMetrics.containsKey(
+                        String.join(STATS_KEY_SEPARATOR, key, STATS_KEY_TOTAL)));
     }
 
     /**
@@ -466,7 +528,7 @@ public class AggregatePostProcessorTest {
         Metric currentRunMetric = metricBuilder.build();
         runMetrics.put(key, currentRunMetric);
         Map<String, Metric.Builder> processedMetrics =
-                mProcessor.processRunMetrics(runMetrics);
+                mProcessor.processRunMetricsAndLogs(runMetrics, new HashMap<>());
 
         Assert.assertEquals(0, processedMetrics.size());
     }
@@ -500,14 +562,18 @@ public class AggregatePostProcessorTest {
             metricBuilder1.getMeasurementsBuilder().setSingleString(test1Metrics.get(i));
             Metric currentTest1Metric = metricBuilder1.build();
             currentTest1Metrics.put(test1Key, currentTest1Metric);
-            processedTest1Metrics = mProcessor.processTestMetrics(TEST_1, currentTest1Metrics);
+            processedTest1Metrics =
+                    mProcessor.processTestMetricsAndLogs(
+                            TEST_1, currentTest1Metrics, new HashMap<>());
 
             HashMap<String, Metric> currentTest2Metrics = new HashMap<String, Metric>();
             Metric.Builder metricBuilder2 = Metric.newBuilder();
             metricBuilder2.getMeasurementsBuilder().setSingleString(test2Metrics.get(i));
             Metric currentTest2Metric = metricBuilder2.build();
             currentTest2Metrics.put(test2Key, currentTest2Metric);
-            processedTest2Metrics = mProcessor.processTestMetrics(TEST_2, currentTest2Metrics);
+            processedTest2Metrics =
+                    mProcessor.processTestMetricsAndLogs(
+                            TEST_2, currentTest2Metrics, new HashMap<>());
         }
 
         Assert.assertTrue(

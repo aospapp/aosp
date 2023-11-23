@@ -29,7 +29,7 @@ import java.io.StringWriter
 
 class TextModifiers(
     override val codebase: Codebase,
-    flags: Int = 0,
+    flags: Int = PACKAGE_PRIVATE,
     annotations: MutableList<AnnotationItem>? = null
 ) : DefaultModifierList(codebase, flags, annotations) {
 
@@ -72,7 +72,7 @@ class TextModifiers(
                 override fun attributes(): List<AnnotationAttribute> = attributes
                 override fun originalName(): String? = originalName
                 override fun qualifiedName(): String? = qualifiedName
-                override fun toSource(target: AnnotationTarget): String = source
+                override fun toSource(target: AnnotationTarget, showDefaultAttrs: Boolean): String = source
             }
             annotations.add(item)
         }

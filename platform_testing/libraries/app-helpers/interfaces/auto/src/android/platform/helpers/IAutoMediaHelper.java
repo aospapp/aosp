@@ -21,15 +21,20 @@ public interface IAutoMediaHelper extends IAppHelper {
      * Setup expectations: media app is open
      *
      * This method is used to play media.
-     *
      */
     void playMedia();
+
+    /**
+     * Setup expectations: on home screen.
+     *
+     * This method is used to play media from home screen.
+     */
+    void playPauseMediaFromHomeScreen();
 
     /**
      * Setup expectations: media app is open.
      *
      * This method is used to pause media.
-     *
      */
     void pauseMedia();
 
@@ -37,23 +42,34 @@ public interface IAutoMediaHelper extends IAppHelper {
      * Setup expectations: media app is open.
      *
      * This method is used to select next track.
-     *
      */
     void clickNextTrack();
+
+    /**
+     * Setup expectations: on home screen.
+     *
+     * This method is used to select next track from home screen.
+     */
+    void clickNextTrackFromHomeScreen();
 
     /**
      * Setup expectations: media app is open.
      *
      * This method is used to select previous track.
-     *
      */
     void clickPreviousTrack();
+
+    /**
+     * Setup expectations: on home screen.
+     *
+     * This method is used to select previous track from home screen.
+     */
+    void clickPreviousTrackFromHomeScreen();
 
     /**
      * Setup expectations: media app is open.
      *
      * This method is used to shuffle tracks.
-     *
      */
     void clickShuffleAll();
 
@@ -74,7 +90,6 @@ public interface IAutoMediaHelper extends IAppHelper {
      *           openMenuWith(Folder,mediafilename,trackName);
      *
      * @param - menuOptions used to pass multiple level of menu options in one go.
-     *
      */
     void openMenuWith(String... menuOptions);
 
@@ -93,4 +108,24 @@ public interface IAutoMediaHelper extends IAppHelper {
      * @return to get current playing track name.
      */
     String getMediaTrackName();
+
+    /**
+     * Setup expectations: on home screen.
+     *
+     * @return to get current playing track name from home screen.
+     */
+    String getMediaTrackNameFromHomeScreen();
+
+    /**
+     * Setup expectations: Media app is open. User navigates to sub-page of the Media Player
+     *
+     * This method is to go back to the Media Player main page from any sub-page.
+     */
+    void goBackToMediaHomePage();
+
+    /**
+     * This method is used to check if media is currently playing Returns true if media is playing
+     * else returns false
+     */
+    boolean isPlaying();
 }

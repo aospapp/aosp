@@ -16,15 +16,20 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include "base/json/json_value_converter.h"
-#include "types/address.h"
-#include "types/class_of_device.h"
+#include "hci/address.h"
+#include "hci/hci_packets.h"
+#include "os/log.h"
 
 namespace test_vendor_lib {
+
+using ::bluetooth::hci::Address;
+using ::bluetooth::hci::ClassOfDevice;
 
 class DeviceProperties {
  public:
@@ -45,8 +50,9 @@ class DeviceProperties {
     return extended_features_[0];
   }
 
-  void SetSupportedFeatures(uint64_t features) {
-    extended_features_[0] = features;
+  void SetExtendedFeatures(uint64_t features, uint8_t page_number) {
+    ASSERT(page_number < extended_features_.size());
+    extended_features_[page_number] = features;
   }
 
   // Specification Version 4.2, Volume 2, Part E, Section 7.4.4
@@ -55,7 +61,7 @@ class DeviceProperties {
   }
 
   uint64_t GetExtendedFeatures(uint8_t page_number) const {
-    CHECK(page_number < extended_features_.size());
+    ASSERT(page_number < extended_features_.size());
     return extended_features_[page_number];
   }
 
@@ -67,6 +73,8 @@ class DeviceProperties {
   uint8_t GetSynchronousDataPacketSize() const {
     return sco_data_packet_size_;
   }
+
+  uint8_t GetEncryptionKeySize() const { return encryption_key_size_; }
 
   uint16_t GetTotalNumAclDataPackets() const {
     return num_acl_data_packets_;
@@ -138,12 +146,13 @@ class DeviceProperties {
   }
 
   void SetName(const std::vector<uint8_t>& name) {
-    name_ = name;
+    name_.fill(0);
+    for (size_t i = 0; i < 248 && i < name.size(); i++) {
+      name_[i] = name[i];
+    }
   }
 
-  const std::vector<uint8_t>& GetName() const {
-    return name_;
-  }
+  const std::array<uint8_t, 248>& GetName() const { return name_; }
 
   void SetExtendedInquiryData(const std::vector<uint8_t>& eid) {
     extended_inquiry_data_ = eid;
@@ -188,6 +197,47 @@ class DeviceProperties {
 
   uint8_t GetLeAdvertisementType() const {
     return le_advertisement_type_;
+  }
+
+  uint16_t GetLeAdvertisingIntervalMin() const {
+    return le_advertising_interval_min_;
+  }
+
+  uint16_t GetLeAdvertisingIntervalMax() const {
+    return le_advertising_interval_max_;
+  }
+
+  uint8_t GetLeAdvertisingOwnAddressType() const {
+    return le_advertising_own_address_type_;
+  }
+
+  uint8_t GetLeAdvertisingPeerAddressType() const {
+    return le_advertising_peer_address_type_;
+  }
+
+  Address GetLeAdvertisingPeerAddress() const {
+    return le_advertising_peer_address_;
+  }
+
+  uint8_t GetLeAdvertisingChannelMap() const {
+    return le_advertising_channel_map_;
+  }
+
+  uint8_t GetLeAdvertisingFilterPolicy() const {
+    return le_advertising_filter_policy_;
+  }
+
+  void SetLeAdvertisingParameters(uint16_t interval_min, uint16_t interval_max, uint8_t ad_type,
+                                  uint8_t own_address_type, uint8_t peer_address_type, Address peer_address,
+                                  uint8_t channel_map, uint8_t filter_policy) {
+    le_advertisement_type_ = ad_type;
+    le_advertising_interval_min_ = interval_min;
+    le_advertising_interval_max_ = interval_max;
+    le_advertising_own_address_type_ = own_address_type;
+    le_advertising_peer_address_type_ = peer_address_type;
+    le_advertising_peer_address_ = peer_address;
+    le_advertising_channel_map_ = channel_map;
+    le_advertising_filter_policy_ = filter_policy;
   }
 
   void SetLeAdvertisementType(uint8_t ad_type) {
@@ -238,6 +288,9 @@ class DeviceProperties {
     return le_supported_states_;
   }
 
+  // Specification Version 4.2, Volume 2, Part E, Section 7.8.41
+  uint8_t GetLeResolvingListSize() const { return le_resolving_list_size_; }
+
   // Vendor-specific commands
   const std::vector<uint8_t>& GetLeVendorCap() const {
     return le_vendor_cap_;
@@ -261,23 +314,33 @@ class DeviceProperties {
   std::vector<uint8_t> supported_codecs_;
   std::vector<uint32_t> vendor_specific_codecs_;
   std::vector<uint8_t> supported_commands_;
-  std::vector<uint64_t> extended_features_{{0x875b3fd8fe8ffeff, 0x07}};
+  std::vector<uint64_t> extended_features_{{0x875b3fd8fe8ffeff, 0x0f}};
   ClassOfDevice class_of_device_{{0, 0, 0}};
   std::vector<uint8_t> extended_inquiry_data_;
-  std::vector<uint8_t> name_;
+  std::array<uint8_t, 248> name_;
   Address address_;
   uint8_t page_scan_repetition_mode_;
   uint16_t clock_offset_;
+  uint8_t encryption_key_size_{10};
 
   // Low Energy
   uint16_t le_data_packet_length_;
   uint8_t num_le_data_packets_;
   uint8_t le_white_list_size_;
+  uint8_t le_resolving_list_size_;
   uint64_t le_supported_features_{0x075b3fd8fe8ffeff};
   uint64_t le_supported_states_;
   std::vector<uint8_t> le_vendor_cap_;
   Address le_address_;
   uint8_t le_address_type_;
+
+  uint16_t le_advertising_interval_min_;
+  uint16_t le_advertising_interval_max_;
+  uint8_t le_advertising_own_address_type_;
+  uint8_t le_advertising_peer_address_type_;
+  Address le_advertising_peer_address_;
+  uint8_t le_advertising_channel_map_;
+  uint8_t le_advertising_filter_policy_;
   uint8_t le_advertisement_type_;
   std::vector<uint8_t> le_advertisement_;
   std::vector<uint8_t> le_scan_response_;

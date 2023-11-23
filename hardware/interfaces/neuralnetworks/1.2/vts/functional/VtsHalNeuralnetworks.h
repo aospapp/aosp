@@ -14,97 +14,45 @@
  * limitations under the License.
  */
 
-#ifndef VTS_HAL_NEURALNETWORKS_V1_2_H
-#define VTS_HAL_NEURALNETWORKS_V1_2_H
+#ifndef ANDROID_HARDWARE_NEURALNETWORKS_V1_2_VTS_HAL_NEURALNETWORKS_H
+#define ANDROID_HARDWARE_NEURALNETWORKS_V1_2_VTS_HAL_NEURALNETWORKS_H
 
-#include "Callbacks.h"
-
-#include <android/hardware/neuralnetworks/1.0/types.h>
-#include <android/hardware/neuralnetworks/1.1/types.h>
 #include <android/hardware/neuralnetworks/1.2/IDevice.h>
+#include <android/hardware/neuralnetworks/1.2/IPreparedModel.h>
 #include <android/hardware/neuralnetworks/1.2/types.h>
-
-#include <VtsHalHidlTargetTestBase.h>
-#include <VtsHalHidlTargetTestEnvBase.h>
-
-#include <android-base/macros.h>
 #include <gtest/gtest.h>
-#include <iostream>
 #include <vector>
+#include "1.0/Utils.h"
+#include "1.2/Callbacks.h"
 
-namespace android {
-namespace hardware {
-namespace neuralnetworks {
-namespace V1_2 {
+namespace android::hardware::neuralnetworks::V1_2::vts::functional {
 
-using V1_0::DeviceStatus;
-using V1_0::ErrorStatus;
-using V1_0::Request;
+using NamedDevice = Named<sp<IDevice>>;
+using NeuralnetworksHidlTestParam = NamedDevice;
 
-namespace vts {
-namespace functional {
-
-// A class for test environment setup
-class NeuralnetworksHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
-    DISALLOW_COPY_AND_ASSIGN(NeuralnetworksHidlEnvironment);
-    NeuralnetworksHidlEnvironment();
-    ~NeuralnetworksHidlEnvironment() override;
-
-   public:
-    static NeuralnetworksHidlEnvironment* getInstance();
-    void registerTestServices() override;
-};
-
-// The main test class for NEURALNETWORKS HIDL HAL.
-class NeuralnetworksHidlTest : public ::testing::VtsHalHidlTargetTestBase {
-    DISALLOW_COPY_AND_ASSIGN(NeuralnetworksHidlTest);
-
-   public:
-    NeuralnetworksHidlTest();
-    ~NeuralnetworksHidlTest() override;
+class NeuralnetworksHidlTest : public testing::TestWithParam<NeuralnetworksHidlTestParam> {
+  protected:
     void SetUp() override;
-    void TearDown() override;
-
-   protected:
-    sp<IDevice> device;
+    const sp<IDevice> kDevice = getData(GetParam());
 };
 
-// Tag for the validation tests
-class ValidationTest : public NeuralnetworksHidlTest {
-   protected:
-     void validateEverything(const Model& model, const std::vector<Request>& requests);
+const std::vector<NamedDevice>& getNamedDevices();
 
-   private:
-     void validateModel(const Model& model);
-     void validateRequests(const sp<IPreparedModel>& preparedModel,
-                           const std::vector<Request>& requests);
-     void validateBurst(const sp<IPreparedModel>& preparedModel,
-                        const std::vector<Request>& requests);
-};
+std::string printNeuralnetworksHidlTest(
+        const testing::TestParamInfo<NeuralnetworksHidlTestParam>& info);
 
-// Tag for the generated tests
-class GeneratedTest : public NeuralnetworksHidlTest {};
+#define INSTANTIATE_DEVICE_TEST(TestSuite)                                                 \
+    INSTANTIATE_TEST_SUITE_P(PerInstance, TestSuite, testing::ValuesIn(getNamedDevices()), \
+                             printNeuralnetworksHidlTest)
 
-// Tag for the dynamic output shape tests
-class DynamicOutputShapeTest : public NeuralnetworksHidlTest {};
+// Create an IPreparedModel object. If the model cannot be prepared,
+// "preparedModel" will be nullptr instead.
+void createPreparedModel(const sp<IDevice>& device, const Model& model,
+                         sp<IPreparedModel>* preparedModel);
 
 // Utility function to get PreparedModel from callback and downcast to V1_2.
-sp<IPreparedModel> getPreparedModel_1_2(
-    const sp<V1_2::implementation::PreparedModelCallback>& callback);
+sp<IPreparedModel> getPreparedModel_1_2(const sp<implementation::PreparedModelCallback>& callback);
 
-}  // namespace functional
-}  // namespace vts
-}  // namespace V1_2
-}  // namespace neuralnetworks
-}  // namespace hardware
-}  // namespace android
+}  // namespace android::hardware::neuralnetworks::V1_2::vts::functional
 
-namespace android::hardware::neuralnetworks::V1_0 {
-
-// pretty-print values for error messages
-::std::ostream& operator<<(::std::ostream& os, ErrorStatus errorStatus);
-::std::ostream& operator<<(::std::ostream& os, DeviceStatus deviceStatus);
-
-}  // namespace android::hardware::neuralnetworks::V1_0
-
-#endif  // VTS_HAL_NEURALNETWORKS_V1_2_H
+#endif  // ANDROID_HARDWARE_NEURALNETWORKS_V1_2_VTS_HAL_NEURALNETWORKS_H

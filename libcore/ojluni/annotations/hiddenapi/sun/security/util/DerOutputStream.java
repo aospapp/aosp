@@ -30,22 +30,22 @@ package sun.security.util;
 public class DerOutputStream extends java.io.ByteArrayOutputStream
         implements sun.security.util.DerEncoder {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DerOutputStream(int size) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DerOutputStream() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void write(byte tag, byte[] buf) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void write(byte tag, sun.security.util.DerOutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -55,12 +55,12 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putDerValue(sun.security.util.DerValue val) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putBoolean(boolean val) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -69,7 +69,7 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putInteger(java.math.BigInteger i) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -78,7 +78,7 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putInteger(int i) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -87,7 +87,7 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putBitString(byte[] bits) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -101,22 +101,22 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putOctetString(byte[] octets) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putNull() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putOID(sun.security.util.ObjectIdentifier oid) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putSequence(sun.security.util.DerValue[] seq) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -125,7 +125,7 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putOrderedSetOf(byte tag, sun.security.util.DerEncoder[] set)
             throws java.io.IOException {
         throw new RuntimeException("Stub!");
@@ -142,12 +142,12 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putUTF8String(java.lang.String s) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putPrintableString(java.lang.String s) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -156,7 +156,7 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putIA5String(java.lang.String s) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -174,7 +174,7 @@ public class DerOutputStream extends java.io.ByteArrayOutputStream
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void putUTCTime(java.util.Date d) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

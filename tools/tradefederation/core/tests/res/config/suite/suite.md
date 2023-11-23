@@ -73,7 +73,7 @@ To run a suite with remote build, you need to provide build arguments, e.g.,
 ```
 tradefed.sh run google/template/lab-base \
   --template:map test=suite/framework-base-presubmit --test-tag SUITE \
-  --branch git_master --build-flavor angler-userdebug \
+  --branch git_main --build-flavor angler-userdebug \
   --build-os fastbuild3b_linux --build-id $BUILD_ID \
   --test-zip-file-filter .*device-tests.zip
 ```

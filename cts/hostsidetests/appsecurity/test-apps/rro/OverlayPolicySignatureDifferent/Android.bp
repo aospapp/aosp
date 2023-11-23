@@ -14,14 +14,14 @@
 // limitations under the License.
 //
 
-android_test {
+android_test_helper_app {
     name: "CtsOverlayPolicySignatureDifferent",
     defaults: ["cts_support_defaults"],
     sdk_version: "current",
     certificate: ":cts-testkey2",
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }

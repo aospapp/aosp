@@ -19,12 +19,20 @@
 #include <errno.h>
 #include <stdio.h>
 #if !defined(_WIN32)
+#include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 #endif
+#if defined(__BIONIC__)
+#include <linux/memfd.h>  // To access memfd flags.
+#endif
+
+#include <android-base/logging.h>
+#include <android-base/unique_fd.h>
 
 #include "macros.h"
+
 
 // When building for linux host, glibc in prebuilts does not include memfd_create system call
 // number. As a temporary testing measure, we add the definition here.
@@ -66,5 +74,59 @@ int memfd_create(const char* name ATTRIBUTE_UNUSED, unsigned int flags ATTRIBUTE
 }
 
 #endif  // __NR_memfd_create
+
+// This is a wrapper that will attempt to simulate memfd_create if normal running fails.
+int memfd_create_compat(const char* name, unsigned int flags) {
+  int res = memfd_create(name, flags);
+  if (res >= 0) {
+    return res;
+  }
+#if !defined(_WIN32)
+  // Try to create an anonymous file with tmpfile that we can use instead.
+  if (flags == 0) {
+    FILE* file = tmpfile();
+    if (file != nullptr) {
+      // We want the normal 'dup' semantics since memfd_create without any flags isn't CLOEXEC.
+      // Unfortunately on some android targets we will compiler error if we use dup directly and so
+      // need to use fcntl.
+      int nfd = fcntl(fileno(file), F_DUPFD, /*lowest allowed fd*/ 0);
+      fclose(file);
+      return nfd;
+    }
+  }
+#endif
+  return res;
+}
+
+#if defined(__BIONIC__)
+
+static bool IsSealFutureWriteSupportedInternal() {
+  android::base::unique_fd fd(art::memfd_create("test_android_memfd", MFD_ALLOW_SEALING));
+  if (fd == -1) {
+    LOG(INFO) << "memfd_create failed: " << strerror(errno) << ", no memfd support.";
+    return false;
+  }
+
+  if (fcntl(fd, F_ADD_SEALS, F_SEAL_FUTURE_WRITE) == -1) {
+    LOG(INFO) << "fcntl(F_ADD_SEALS) failed: " << strerror(errno) << ", no memfd support.";
+    return false;
+  }
+
+  LOG(INFO) << "Using memfd for future sealing";
+  return true;
+}
+
+bool IsSealFutureWriteSupported() {
+  static bool is_seal_future_write_supported = IsSealFutureWriteSupportedInternal();
+  return is_seal_future_write_supported;
+}
+
+#else
+
+bool IsSealFutureWriteSupported() {
+  return false;
+}
+
+#endif
 
 }  // namespace art

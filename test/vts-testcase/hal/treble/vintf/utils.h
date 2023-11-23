@@ -62,8 +62,11 @@ using std::string;
 
 using std::vector;
 
-using HalVerifyFn = std::function<void(const FQName& fq_name,
-                                       const string& instance_name, Transport)>;
+using HidlVerifyFn = std::function<void(
+    const FQName& fq_name, const string& instance_name, Transport)>;
+using AidlVerifyFn =
+    std::function<void(const std::string& package, const std::string& name,
+                       const std::string& instance)>;
 using HashCharArray = hidl_array<unsigned char, 32>;
 using HalManifestPtr = std::shared_ptr<const HalManifest>;
 using MatrixPtr = std::shared_ptr<const CompatibilityMatrix>;
@@ -91,6 +94,9 @@ const string PackageRoot(const FQName& fq_iface_name);
 
 // Returns true iff HAL interface is Android platform.
 bool IsAndroidPlatformInterface(const FQName& fq_iface_name);
+
+// Returns true iff the device has the specified feature.
+bool DeviceSupportsFeature(const char* feature);
 
 // Returns the set of released hashes for a given HAL interface.
 set<string> ReleasedHashes(const FQName& fq_iface_name);

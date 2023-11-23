@@ -15,7 +15,9 @@
  */
 package libcore.java.time.chrono;
 
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -26,10 +28,11 @@ import java.time.chrono.ChronoZonedDateTime;
 import java.time.chrono.JapaneseChronology;
 import java.time.chrono.JapaneseDate;
 import java.time.chrono.JapaneseEra;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.time.temporal.ChronoField;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
+import java.util.Locale;
+import org.junit.Test;
 
 /**
  * Additional tests for {@link JapaneseChronology} and {@link JapaneseDate}.
@@ -110,4 +113,35 @@ public class JapaneseChronologyTest {
         assertEquals(true, date.isSupported(ChronoField.YEAR));
         assertEquals(true, date.isSupported(ChronoField.YEAR_OF_ERA));
     }
+
+    @Test
+    public void test_JapaneseEras_dateTimeFormatter() {
+        DateTimeFormatter formatter = DateTimeFormatter
+            .ofLocalizedDate(FormatStyle.FULL)
+            .withChronology(JapaneseChronology.INSTANCE);
+
+        final LocalDate heisei = LocalDate.of(2018, 1, 1);
+        final Locale ja = Locale.forLanguageTag("ja-JP-u-ca-japanese");
+        assertEquals("平成30年1月1日月曜日", heisei.format(formatter.withLocale(ja)));
+        assertEquals("Monday, January 1, 30 Heisei",
+            heisei.format(formatter.withLocale(Locale.ENGLISH)));
+
+        final LocalDate reiwa = LocalDate.of(2019, 5, 1);
+        assertEquals("令和1年5月1日水曜日", reiwa.format(formatter.withLocale(ja)));
+        assertEquals("Wednesday, May 1, 1 Reiwa",
+            reiwa.format(formatter.withLocale(Locale.ENGLISH)));
+    }
+
+    // This tests era names from calendars.properties file
+    @Test
+    public void test_JapaneseEras_calendarsDotProperties() {
+        final LocalDate heisei = LocalDate.of(2018, 1, 1);
+        final LocalDate reiwa = LocalDate.of(2019, 5, 1);
+        JapaneseDate heiseiDate = JapaneseChronology.INSTANCE.date(heisei);
+        JapaneseDate reiwaDate = JapaneseChronology.INSTANCE.date(reiwa);
+
+        assertEquals("Heisei", heiseiDate.getEra().toString());
+        assertEquals("Reiwa", reiwaDate.getEra().toString());
+    }
+
 }

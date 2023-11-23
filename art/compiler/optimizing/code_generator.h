@@ -222,7 +222,19 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
   virtual Assembler* GetAssembler() = 0;
   virtual const Assembler& GetAssembler() const = 0;
   virtual size_t GetWordSize() const = 0;
-  virtual size_t GetFloatingPointSpillSlotSize() const = 0;
+
+  // Get FP register width in bytes for spilling/restoring in the slow paths.
+  //
+  // Note: In SIMD graphs this should return SIMD register width as all FP and SIMD registers
+  // alias and live SIMD registers are forced to be spilled in full size in the slow paths.
+  virtual size_t GetSlowPathFPWidth() const {
+    // Default implementation.
+    return GetCalleePreservedFPWidth();
+  }
+
+  // Get FP register width required to be preserved by the target ABI.
+  virtual size_t GetCalleePreservedFPWidth() const  = 0;
+
   virtual uintptr_t GetAddressOf(HBasicBlock* block) = 0;
   void InitializeCodeGeneration(size_t number_of_spill_slots,
                                 size_t maximum_safepoint_spill_size,
@@ -319,20 +331,36 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
     return GetFrameSize() - FrameEntrySpillSize() - kShouldDeoptimizeFlagSize;
   }
 
-  // Record native to dex mapping for a suspend point.  Required by runtime.
+  // Record native to dex mapping for a suspend point. Required by runtime.
+  void RecordPcInfo(HInstruction* instruction,
+                    uint32_t dex_pc,
+                    uint32_t native_pc,
+                    SlowPathCode* slow_path = nullptr,
+                    bool native_debug_info = false);
+
+  // Record native to dex mapping for a suspend point.
+  // The native_pc is used from Assembler::CodePosition.
+  //
+  // Note: As Assembler::CodePosition is target dependent, it does not guarantee the exact native_pc
+  // for the instruction. If the exact native_pc is required it must be provided explicitly.
   void RecordPcInfo(HInstruction* instruction,
                     uint32_t dex_pc,
                     SlowPathCode* slow_path = nullptr,
                     bool native_debug_info = false);
+
   // Check whether we have already recorded mapping at this PC.
   bool HasStackMapAtCurrentPc();
+
   // Record extra stack maps if we support native debugging.
+  //
+  // ARM specific behaviour: The recorded native PC might be a branch over pools to instructions
+  // corresponding the dex PC.
   void MaybeRecordNativeDebugInfo(HInstruction* instruction,
                                   uint32_t dex_pc,
                                   SlowPathCode* slow_path = nullptr);
 
   bool CanMoveNullCheckToUser(HNullCheck* null_check);
-  void MaybeRecordImplicitNullCheck(HInstruction* instruction);
+  virtual void MaybeRecordImplicitNullCheck(HInstruction* instruction);
   LocationSummary* CreateThrowingSlowPathLocations(
       HInstruction* instruction, RegisterSet caller_saves = RegisterSet::Empty());
   void GenerateNullCheck(HNullCheck* null_check);
@@ -546,6 +574,8 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
 
   void GenerateInvokeCustomCall(HInvokeCustom* invoke);
 
+  void CreateStringBuilderAppendLocations(HStringBuilderAppend* instruction, Location out);
+
   void CreateUnresolvedFieldLocationSummary(
       HInstruction* field_access,
       DataType::Type field_type,
@@ -673,7 +703,7 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
   }
 
   uint32_t GetFpuSpillSize() const {
-    return POPCOUNT(fpu_spill_mask_) * GetFloatingPointSpillSlotSize();
+    return POPCOUNT(fpu_spill_mask_) * GetCalleePreservedFPWidth();
   }
 
   uint32_t GetCoreSpillSize() const {
@@ -759,7 +789,10 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
   size_t GetStackOffsetOfSavedRegister(size_t index);
   void GenerateSlowPaths();
   void BlockIfInRegister(Location location, bool is_out = false) const;
-  void EmitEnvironment(HEnvironment* environment, SlowPathCode* slow_path);
+  void EmitEnvironment(HEnvironment* environment,
+                       SlowPathCode* slow_path,
+                       bool needs_vreg_info = true);
+  void EmitVRegInfo(HEnvironment* environment, SlowPathCode* slow_path);
 
   OptimizingCompilerStats* stats_;
 
@@ -788,6 +821,8 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
   std::unique_ptr<CodeGenerationData> code_generation_data_;
 
   friend class OptimizingCFITest;
+  ART_FRIEND_TEST(CodegenTest, ARM64FrameSizeSIMD);
+  ART_FRIEND_TEST(CodegenTest, ARM64FrameSizeNoSIMD);
 
   DISALLOW_COPY_AND_ASSIGN(CodeGenerator);
 };

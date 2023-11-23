@@ -22,28 +22,38 @@ BaseDeviceFactory provides basic interface to create a device factory.
 
 
 class BaseDeviceFactory(object):
-  """A class that provides basic interface to create a device factory."""
+    """A class that provides basic interface to create a device factory."""
 
-  LATEST = "latest"
+    LATEST = "latest"
 
-  def __init__(self, compute_client):
+    def __init__(self, compute_client):
 
-    self._compute_client = compute_client
+        self._compute_client = compute_client
 
-  def GetComputeClient(self):
-    """To get client object.
+    def GetComputeClient(self):
+        """To get client object.
 
-    Returns:
-      Returns an instance of gcompute_client.ComputeClient or its subclass.
-    """
-    return self._compute_client
+        Returns:
+          Returns an instance of gcompute_client.ComputeClient or its subclass.
+        """
+        return self._compute_client
 
-  def CreateInstance(self):
-    """Creates single configured device.
+    # pylint: disable=no-self-use
+    def CreateInstance(self):
+        """Creates single configured device.
 
-    Subclasses has to define this function
+        Subclasses has to define this function
 
-    Returns:
-      The name of the created instance.
-    """
-    return
+        Returns:
+          The name of the created instance.
+        """
+        return
+
+    # pylint: disable=no-self-use
+    def GetBuildInfoDict(self):
+        """Get build info dictionary.
+
+        Returns:
+          A build info dictionary.
+        """
+        return None

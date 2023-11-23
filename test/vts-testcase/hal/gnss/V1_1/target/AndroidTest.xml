@@ -24,11 +24,9 @@
         <option name="test-module-name" value="VtsHalGnssV1_1Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalGnssV1_1TargetTest/VtsHalGnssV1_1TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalGnssV1_1TargetTest/VtsHalGnssV1_1TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="test-timeout" value="15m"/>
-        <!-- TODO(b/113276383): re-enable GetLocationLowPower when b/112611179 is fixed. -->
-        <option name="exclude-filter" value="GnssHalTest.GetLocationLowPower" />
     </test>
 </configuration>

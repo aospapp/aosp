@@ -36,9 +36,6 @@ class DataPathStressTest(AwareBaseTest):
     # Maximum percentage of NDP setup failures over all iterations
     MAX_FAILURE_PERCENTAGE = 1
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     ################################################################
 
     def run_oob_ndp_stress(self,

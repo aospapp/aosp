@@ -30,7 +30,7 @@
   <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CompatibilityProtoResultReporter" />
   <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CertificationSuiteResultReporter" />
   <template-include name="reporters" default="basic-reporters" />
-  <multi_target_preparer class="com.android.tradefed.targetprep.VtsTestPlanResultReporter" />
+  <target_preparer class="com.android.tradefed.targetprep.VtsTestPlanResultReporter" />
 
   <test class="com.android.compatibility.common.tradefed.testtype.suite.CompatibilityTestSuite">
     <option name="config-patterns" value="Vts.*\.config" />

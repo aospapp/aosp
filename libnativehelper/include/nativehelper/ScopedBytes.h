@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef SCOPED_BYTES_H_included
-#define SCOPED_BYTES_H_included
+#ifndef LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDBYTES_H_
+#define LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDBYTES_H_
 
 #include "JNIHelp.h"
 #include <nativehelper/scoped_bytes.h>
 
-#endif  // SCOPED_BYTES_H_included
+#endif  // LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDBYTES_H_

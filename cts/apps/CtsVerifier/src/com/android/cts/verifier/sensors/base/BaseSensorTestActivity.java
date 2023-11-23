@@ -97,13 +97,9 @@ public abstract class BaseSensorTestActivity
     private GLSurfaceView mGLSurfaceView;
     private boolean mUsingGlSurfaceView;
 
-    // Flag for sensor tests with retry.
-    protected boolean mEnableRetry = false;
     // Flag for Retry button appearance.
-    protected boolean mShouldRetry = false;
-    // Flag for the last sub-test to show Finish button.
-    protected boolean mIsLastSubtest = false;
-    protected int mRetryCount = 0;
+    private boolean mShouldRetry = false;
+    private int mRetryCount = 0;
 
     /**
      * Constructor to be used by subclasses.
@@ -142,9 +138,8 @@ public abstract class BaseSensorTestActivity
         mFailButton = (Button) findViewById(R.id.fail_button);
         mGLSurfaceView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
         mRetryButton = (Button) findViewById(R.id.retry_button);
-        mRetryButton.setOnClickListener(this);
+        mRetryButton.setOnClickListener(new retryButtonListener());
 
-        mRetryButton.setVisibility(View.GONE);
         updateNextButton(false /*enabled*/);
         mExecutorService.execute(this);
     }
@@ -173,20 +168,29 @@ public abstract class BaseSensorTestActivity
 
     @Override
     public void onClick(View target) {
-        switch (target.getId()) {
-            case R.id.next_button:
-                mShouldRetry = false;
-                break;
-            case R.id.retry_button:
-                mShouldRetry = true;
-                break;
-        }
+        mShouldRetry = false;
 
         synchronized (mWaitForUserLatches) {
             for (CountDownLatch latch : mWaitForUserLatches) {
                 latch.countDown();
             }
             mWaitForUserLatches.clear();
+        }
+    }
+
+    private class retryButtonListener implements View.OnClickListener {
+
+        @Override
+        public void onClick(View v) {
+            mShouldRetry = true;
+            ++mRetryCount;
+
+            synchronized (mWaitForUserLatches) {
+                for (CountDownLatch latch : mWaitForUserLatches) {
+                    latch.countDown();
+                }
+                mWaitForUserLatches.clear();
+            }
         }
     }
 
@@ -273,6 +277,13 @@ public abstract class BaseSensorTestActivity
      */
     protected abstract SensorTestDetails executeTests() throws InterruptedException;
 
+    /**
+     * Get mShouldRetry to check if test is required to retry.
+     */
+    protected boolean getShouldRetry() {
+        return mShouldRetry;
+    }
+
     @Override
     public SensorTestLogger getTestLogger() {
         return mTestLogger;
@@ -312,8 +323,12 @@ public abstract class BaseSensorTestActivity
         }
 
         mTestLogger.logInstructions(waitMessageResId);
+        setNextButtonText(waitMessageResId);
+
+        updateRetryButton(true);
         updateNextButton(true);
         latch.await();
+        updateRetryButton(false);
         updateNextButton(false);
     }
 
@@ -326,14 +341,18 @@ public abstract class BaseSensorTestActivity
 
     /**
      * Waits for the operator to acknowledge to retry execution.
-     * If the execution is for the last subtest, will notify user by Finish button.
      */
     protected void waitForUserToRetry() throws InterruptedException {
-        if (mIsLastSubtest) {
-            waitForUser(R.string.snsr_wait_to_finish);
-        } else {
-            waitForUser(R.string.snsr_wait_to_retry);
-        }
+        mShouldRetry = true;
+        waitForUser(R.string.snsr_wait_to_retry);
+    }
+
+    /**
+     * Waits for the operator to acknowledge to finish execution.
+     */
+    protected void waitForUserToFinish() throws InterruptedException {
+        mShouldRetry = true;
+        waitForUser(R.string.snsr_wait_to_finish);
     }
 
     /**
@@ -559,27 +578,36 @@ public abstract class BaseSensorTestActivity
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mNextButton.setText(getNextButtonText());
-                updateRetryButton(enabled);
                 mNextButton.setEnabled(enabled);
             }
         });
     }
 
     /**
-     * Get the text for next button.
+     * Set the text for next button by instruction message.
      * During retry, next button text is changed to notify users.
+     *
+     * @param waitMessageResId The action requested to the operator.
      */
-    private int getNextButtonText() {
-        int nextButtonText = R.string.next_button_text;
-        if (mShouldRetry) {
-            if (mIsLastSubtest){
-                nextButtonText = R.string.finish_button_text;
-            } else {
+    private void setNextButtonText(int waitMessageResId) {
+        int nextButtonText;
+        switch (waitMessageResId) {
+            case R.string.snsr_wait_to_retry:
                 nextButtonText = R.string.fail_and_next_button_text;
-            }
+                break;
+            case R.string.snsr_wait_to_finish:
+                nextButtonText = R.string.finish_button_text;
+                break;
+            default:
+                nextButtonText = R.string.next_button_text;
+                break;
         }
-        return nextButtonText;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mNextButton.setText(nextButtonText);
+            }
+        });
     }
 
     /**
@@ -588,16 +616,22 @@ public abstract class BaseSensorTestActivity
      *
      * @param enabled The status of button.
      */
-    private void updateRetryButton(boolean enabled) {
-        String showRetryCount = String.format(
-            "%s (%d)", getResources().getText(R.string.retry_button_text), mRetryCount);
-        if (mShouldRetry) {
-            mRetryButton.setText(showRetryCount);
-            mRetryButton.setVisibility(View.VISIBLE);
-            mRetryButton.setEnabled(enabled);
-        } else {
-            mRetryButton.setVisibility(View.GONE);
-        }
+    private void updateRetryButton(final boolean enabled) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (mShouldRetry) {
+                    String showRetryCount = String.format(
+                        "%s (%d)", getResources().getText(R.string.retry_button_text), mRetryCount);
+                    mRetryButton.setText(showRetryCount);
+                    mRetryButton.setVisibility(View.VISIBLE);
+                    mRetryButton.setEnabled(enabled);
+                } else {
+                    mRetryButton.setVisibility(View.GONE);
+                    mRetryCount = 0;
+                }
+            }
+        });
     }
 
     private void enableTestResultButton(
@@ -665,6 +699,7 @@ public abstract class BaseSensorTestActivity
                     logTestSkip(name, summary);
                     break;
                 case PASS:
+                    mShouldRetry = false;
                     logTestPass(name, summary);
                     break;
                 case FAIL:

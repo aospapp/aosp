@@ -108,7 +108,7 @@ public final class CameraMetadataGetter implements AutoCloseable {
         CameraCharacteristics staticMetadata;
         String[] cameraIds;
         try {
-            cameraIds = mCameraManager.getCameraIdList();
+            cameraIds = mCameraManager.getCameraIdListNoLazy();
         } catch (CameraAccessException e) {
             Log.e(TAG, "Unable to get camera ids, skip this info, error: " + e.getMessage());
             return "";
@@ -180,7 +180,7 @@ public final class CameraMetadataGetter implements AutoCloseable {
         StringBuffer templates = new StringBuffer("{\"CameraRequestTemplates\":{");
         String[] cameraIds;
         try {
-            cameraIds = mCameraManager.getCameraIdList();
+            cameraIds = mCameraManager.getCameraIdListNoLazy();
         } catch (CameraAccessException e) {
             Log.e(TAG, "Unable to get camera ids, skip this info, error: " + e.getMessage());
             return "";

@@ -22,6 +22,18 @@ yaml.add_representer(collections.OrderedDict,
                      lambda dumper, data: dumper.represent_dict(data),
                      Dumper=yaml.SafeDumper)
 
+
+def _str_representer(dumper, data):
+    if len(data.splitlines()) > 1:
+        data = '\n'.join(line.rstrip() for line in data.splitlines())
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+
+# Automatically convert multiline strings into block literals
+yaml.add_representer(str, _str_representer, Dumper=yaml.SafeDumper)
+
+
 _DUMP_KWARGS = dict(explicit_start=True, allow_unicode=True, indent=4)
 if yaml.__version__ >= '5.1':
     _DUMP_KWARGS.update(sort_keys=False)

@@ -18,6 +18,8 @@
 
 #include "sysdeps.h"
 
+#include "client/usb.h"
+
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <IOKit/IOKitLib.h>
@@ -461,6 +463,7 @@ void usb_init() {
             std::this_thread::sleep_for(100ms);
         }
 
+        adb_notify_device_scan_complete();
         initialized = true;
     }
 }

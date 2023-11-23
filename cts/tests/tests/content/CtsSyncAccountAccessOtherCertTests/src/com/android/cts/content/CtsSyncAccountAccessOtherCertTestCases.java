@@ -90,6 +90,10 @@ public class CtsSyncAccountAccessOtherCertTestCases {
         disallowSyncAdapterRunInBackgroundAndDataInBackground();
     }
 
+    /*
+    @Ignore("In some cases test cannot scroll through notifications to find permission request "
+            + "b/147410068")
+     */
     @Test
     public void testAccountAccess_otherCertAsAuthenticatorCanNotSeeAccount() throws Exception {
         assumeTrue(hasDataConnection());
@@ -123,24 +127,36 @@ public class CtsSyncAccountAccessOtherCertTestCases {
                 }
             } else {
                 uiDevice.openNotification();
-                try {
-                    UiObject2 permissionRequest = uiDevice.wait(
-                            Until.findObject(By.text(PERMISSION_REQUESTED)), UI_TIMEOUT_MILLIS);
+                int scrollUps = 0;
 
-                    permissionRequest.click();
-                } catch (Throwable t) {
-                    ByteArrayOutputStream os = new ByteArrayOutputStream();
-                    getUiDevice().dumpWindowHierarchy(os);
+                while (true) {
+                    try {
+                        UiObject2 permissionRequest = uiDevice.wait(
+                                Until.findObject(By.text(PERMISSION_REQUESTED)), UI_TIMEOUT_MILLIS);
 
-                    Log.w(LOG_TAG, "Window hierarchy:");
-                    for (String line : os.toString("UTF-8").split("\n")) {
-                        Log.w(LOG_TAG, line);
+                        permissionRequest.click();
+                        break;
+                    } catch (Throwable t) {
+                        if (scrollUps < 10) {
+                            // The notification we search for is below the fold, scroll to find it
+                            swipeUp(uiDevice);
+                            scrollUps++;
+                            continue;
+                        }
 
-                        // Do not overwhelm logging
-                        Thread.sleep(10);
+                        ByteArrayOutputStream os = new ByteArrayOutputStream();
+                        getUiDevice().dumpWindowHierarchy(os);
+
+                        Log.w(LOG_TAG, "Window hierarchy:");
+                        for (String line : os.toString("UTF-8").split("\n")) {
+                            Log.w(LOG_TAG, line);
+
+                            // Do not overwhelm logging
+                            Thread.sleep(10);
+                        }
+
+                        throw t;
                     }
-
-                    throw  t;
                 }
             }
 
@@ -177,7 +193,7 @@ public class CtsSyncAccountAccessOtherCertTestCases {
         int height = uiDevice.getDisplayHeight();
         return uiDevice.swipe(
             width / 2 /* startX */,
-            height - 1 /* startY */,
+            height / 2 /* startY */,
             width / 2 /* endX */,
             1 /* endY */,
             50 /* numberOfSteps */);

@@ -71,6 +71,10 @@ public class WebViewDeviceSideStartupTest
 
     @UiThreadTest
     public void testCookieManagerBlockingUiThread() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
         // Instant app can only have https connection.
         CtsTestServer server = new CtsTestServer(mActivity, true);
         final String url = server.getCookieUrl("death.html");
@@ -87,16 +91,9 @@ public class WebViewDeviceSideStartupTest
                 Log.i(TAG, "done setting cookie before creating webview");
             }
         });
-        NullWebViewUtils.NullWebViewFromThreadExceptionHandler h =
-                new NullWebViewUtils.NullWebViewFromThreadExceptionHandler();
 
-        background.setUncaughtExceptionHandler(h);
         background.start();
         background.join();
-
-        if (!h.isWebViewAvailable(mActivity)) {
-            return;
-        }
 
         // Now create WebView and test that setting the cookie beforehand really worked.
         mActivity.createAndAttachWebView();
@@ -165,6 +162,10 @@ public class WebViewDeviceSideStartupTest
 
     @UiThreadTest
     public void testStrictModeNotViolatedOnStartup() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
         StrictMode.ThreadPolicy oldThreadPolicy = StrictMode.getThreadPolicy();
         StrictMode.VmPolicy oldVmPolicy = StrictMode.getVmPolicy();
         StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
@@ -174,6 +175,8 @@ public class WebViewDeviceSideStartupTest
                 .build());
         StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
                 .detectAll()
+                // TODO(b/151974299): Remove this after fixing existing context usage violation.
+                .permitIncorrectContextUse()
                 .penaltyLog()
                 .penaltyDeath()
                 .build());
@@ -193,23 +196,8 @@ public class WebViewDeviceSideStartupTest
     }
 
     private void createWebViewAndNavigate() {
-        try {
-            mActivity.createAndAttachWebView();
-        } catch (Throwable t) {
-            NullWebViewUtils.determineIfWebViewAvailable(mActivity, t);
-            if (NullWebViewUtils.isWebViewAvailable()) {
-                // Rethrow t if WebView is available (because then we failed in some way that
-                // indicates that the device supports WebView but couldn't load it for some reason).
-                throw t;
-            } else {
-                // No WebView available - bail out!
-                return;
-            }
-        }
-
-        // WebView is available, so try to call some WebView APIs to ensure they don't cause
-        // strictmode violations
-
+        // Try to call some WebView APIs to ensure they don't cause strictmode violations
+        mActivity.createAndAttachWebView();
         WebViewSyncLoader syncLoader = new WebViewSyncLoader(mActivity.getWebView());
         syncLoader.loadUrlAndWaitForCompletion("about:blank");
         syncLoader.loadUrlAndWaitForCompletion("");
@@ -218,8 +206,9 @@ public class WebViewDeviceSideStartupTest
 
     @UiThreadTest
     public void testGetWebViewLooperOnUiThread() {
-        PackageManager pm = mActivity.getPackageManager();
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) return;
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
 
         createAndCheckWebViewLooper();
     }
@@ -229,8 +218,9 @@ public class WebViewDeviceSideStartupTest
      * This ensures WebView.getWebViewLooper() is not implemented as 'return Looper.myLooper();'.
      */
     public void testGetWebViewLooperCreatedOnUiThreadFromInstrThread() {
-        PackageManager pm = mActivity.getPackageManager();
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) return;
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
 
         // Create the WebView on the UI thread and then ensure webview.getWebViewLooper() returns
         // the UI thread.
@@ -248,8 +238,9 @@ public class WebViewDeviceSideStartupTest
      */
     public void testGetWebViewLooperCreatedOnBackgroundThreadFromInstThread()
             throws InterruptedException {
-        PackageManager pm = mActivity.getPackageManager();
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) return;
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
 
         // Create a WebView on a background thread, check it from the UI thread
         final WebView webviewHolder[] = new WebView[1];

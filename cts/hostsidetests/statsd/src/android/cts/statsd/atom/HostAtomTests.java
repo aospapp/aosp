@@ -16,12 +16,14 @@
 package android.cts.statsd.atom;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.os.BatteryPluggedStateEnum;
 import android.os.BatteryStatusEnum;
 import android.platform.test.annotations.RestrictedBuildTest;
 import android.server.DeviceIdleModeEnum;
 import android.view.DisplayStateEnum;
+import android.telephony.NetworkTypeEnum;
 
 import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.os.AtomsProto.AppBreadcrumbReported;
@@ -29,8 +31,12 @@ import com.android.os.AtomsProto.Atom;
 import com.android.os.AtomsProto.BatterySaverModeStateChanged;
 import com.android.os.AtomsProto.BuildInformation;
 import com.android.os.AtomsProto.ConnectivityStateChanged;
+import com.android.os.AtomsProto.SimSlotState;
+import com.android.os.AtomsProto.SupportedRadioAccessFamily;
 import com.android.os.StatsLog.ConfigMetricsReportList;
 import com.android.os.StatsLog.EventMetricData;
+
+import com.google.common.collect.Range;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -48,15 +54,34 @@ public class HostAtomTests extends AtomTestCase {
     private static final String WAKE_LOCK_FILE = "/proc/wakelocks";
     private static final String WAKE_SOURCES_FILE = "/d/wakeup_sources";
 
+    // Bitmask of radio access technologies that all GSM phones should at least partially support
+    protected static final long NETWORK_TYPE_BITMASK_GSM_ALL =
+            (1 << (NetworkTypeEnum.NETWORK_TYPE_GSM_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_GPRS_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_EDGE_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_UMTS_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_HSDPA_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_HSUPA_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_HSPA_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_HSPAP_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_TD_SCDMA_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_LTE_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_LTE_CA_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_NR_VALUE - 1));
+    // Bitmask of radio access technologies that all CDMA phones should at least partially support
+    protected static final long NETWORK_TYPE_BITMASK_CDMA_ALL =
+            (1 << (NetworkTypeEnum.NETWORK_TYPE_CDMA_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_1XRTT_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_EVDO_0_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_EVDO_A_VALUE - 1))
+            | (1 << (NetworkTypeEnum.NETWORK_TYPE_EHRPD_VALUE - 1));
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
     }
 
     public void testScreenStateChangedAtom() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         // Setup, make sure the screen is off and turn off AoD if it is on.
         // AoD needs to be turned off because the screen should go into an off state. But, if AoD is
         // on and the device doesn't support STATE_DOZE, the screen sadly goes back to STATE_ON.
@@ -103,9 +128,6 @@ public class HostAtomTests extends AtomTestCase {
     }
 
     public void testChargingStateChangedAtom() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_AUTOMOTIVE, false)) return;
         // Setup, set charging state to full.
         setChargingState(5);
@@ -156,9 +178,6 @@ public class HostAtomTests extends AtomTestCase {
     }
 
     public void testPluggedStateChangedAtom() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_AUTOMOTIVE, false)) return;
         // Setup, unplug device.
         unplugDevice();
@@ -209,9 +228,6 @@ public class HostAtomTests extends AtomTestCase {
     }
 
     public void testBatteryLevelChangedAtom() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_AUTOMOTIVE, false)) return;
         // Setup, set battery level to full.
         setBatteryLevel(100);
@@ -257,9 +273,6 @@ public class HostAtomTests extends AtomTestCase {
     }
 
     public void testDeviceIdleModeStateChangedAtom() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         // Setup, leave doze mode.
         leaveDozeMode();
         Thread.sleep(WAIT_TIME_SHORT);
@@ -296,9 +309,6 @@ public class HostAtomTests extends AtomTestCase {
     }
 
     public void testBatterySaverModeStateChangedAtom() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_AUTOMOTIVE, false)) return;
         // Setup, turn off battery saver.
         turnBatterySaverOff();
@@ -333,12 +343,9 @@ public class HostAtomTests extends AtomTestCase {
 
     @RestrictedBuildTest
     public void testRemainingBatteryCapacity() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_WATCH, false)) return;
         if (!hasFeature(FEATURE_AUTOMOTIVE, false)) return;
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.REMAINING_BATTERY_CAPACITY_FIELD_NUMBER, null);
 
         uploadConfig(config);
@@ -349,22 +356,20 @@ public class HostAtomTests extends AtomTestCase {
 
         List<Atom> data = getGaugeMetricDataList();
 
-        assertTrue(data.size() > 0);
+        assertThat(data).isNotEmpty();
         Atom atom = data.get(0);
-        assertTrue(atom.getRemainingBatteryCapacity().hasChargeMicroAmpereHour());
+        assertThat(atom.getRemainingBatteryCapacity().hasChargeMicroAmpereHour()).isTrue();
         if (hasBattery()) {
-            assertTrue(atom.getRemainingBatteryCapacity().getChargeMicroAmpereHour() > 0);
+            assertThat(atom.getRemainingBatteryCapacity().getChargeMicroAmpereHour())
+                .isGreaterThan(0);
         }
     }
 
     @RestrictedBuildTest
     public void testFullBatteryCapacity() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_WATCH, false)) return;
         if (!hasFeature(FEATURE_AUTOMOTIVE, false)) return;
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.FULL_BATTERY_CAPACITY_FIELD_NUMBER, null);
 
         uploadConfig(config);
@@ -375,20 +380,17 @@ public class HostAtomTests extends AtomTestCase {
 
         List<Atom> data = getGaugeMetricDataList();
 
-        assertTrue(data.size() > 0);
+        assertThat(data).isNotEmpty();
         Atom atom = data.get(0);
-        assertTrue(atom.getFullBatteryCapacity().hasCapacityMicroAmpereHour());
+        assertThat(atom.getFullBatteryCapacity().hasCapacityMicroAmpereHour()).isTrue();
         if (hasBattery()) {
-            assertTrue(atom.getFullBatteryCapacity().getCapacityMicroAmpereHour() > 0);
+            assertThat(atom.getFullBatteryCapacity().getCapacityMicroAmpereHour()).isGreaterThan(0);
         }
     }
 
     public void testBatteryVoltage() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_WATCH, false)) return;
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.BATTERY_VOLTAGE_FIELD_NUMBER, null);
 
         uploadConfig(config);
@@ -399,21 +401,18 @@ public class HostAtomTests extends AtomTestCase {
 
         List<Atom> data = getGaugeMetricDataList();
 
-        assertTrue(data.size() > 0);
+        assertThat(data).isNotEmpty();
         Atom atom = data.get(0);
-        assertTrue(atom.getBatteryVoltage().hasVoltageMillivolt());
+        assertThat(atom.getBatteryVoltage().hasVoltageMillivolt()).isTrue();
         if (hasBattery()) {
-            assertTrue(atom.getBatteryVoltage().getVoltageMillivolt() > 0);
+            assertThat(atom.getBatteryVoltage().getVoltageMillivolt()).isGreaterThan(0);
         }
     }
 
     // This test is for the pulled battery level atom.
     public void testBatteryLevel() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_WATCH, false)) return;
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.BATTERY_LEVEL_FIELD_NUMBER, null);
 
         uploadConfig(config);
@@ -424,22 +423,18 @@ public class HostAtomTests extends AtomTestCase {
 
         List<Atom> data = getGaugeMetricDataList();
 
-        assertTrue(data.size() > 0);
+        assertThat(data).isNotEmpty();
         Atom atom = data.get(0);
-        assertTrue(atom.getBatteryLevel().hasBatteryLevel());
+        assertThat(atom.getBatteryLevel().hasBatteryLevel()).isTrue();
         if (hasBattery()) {
-            assertTrue(atom.getBatteryLevel().getBatteryLevel() > 0);
-            assertTrue(atom.getBatteryLevel().getBatteryLevel() <= 100);
+            assertThat(atom.getBatteryLevel().getBatteryLevel()).isIn(Range.openClosed(0, 100));
         }
     }
 
     // This test is for the pulled battery charge count atom.
     public void testBatteryCycleCount() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_WATCH, false)) return;
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.BATTERY_CYCLE_COUNT_FIELD_NUMBER, null);
 
         uploadConfig(config);
@@ -450,19 +445,19 @@ public class HostAtomTests extends AtomTestCase {
 
         List<Atom> data = getGaugeMetricDataList();
 
-        assertTrue(data.size() > 0);
+        assertThat(data).isNotEmpty();
         Atom atom = data.get(0);
-        assertTrue(atom.getBatteryCycleCount().hasCycleCount());
+        assertThat(atom.getBatteryCycleCount().hasCycleCount()).isTrue();
         if (hasBattery()) {
-            assertTrue(atom.getBatteryCycleCount().getCycleCount() >= 0);
+            assertThat(atom.getBatteryCycleCount().getCycleCount()).isAtLeast(0);
         }
     }
 
     public void testKernelWakelock() throws Exception {
-        if (statsdDisabled() || !kernelWakelockStatsExist()) {
+        if (!kernelWakelockStatsExist()) {
             return;
         }
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.KERNEL_WAKELOCK_FIELD_NUMBER, null);
 
         uploadConfig(config);
@@ -473,12 +468,14 @@ public class HostAtomTests extends AtomTestCase {
 
         List<Atom> data = getGaugeMetricDataList();
 
-        Atom atom = data.get(0);
-        assertTrue(!atom.getKernelWakelock().getName().equals(""));
-        assertTrue(atom.getKernelWakelock().hasCount());
-        assertTrue(atom.getKernelWakelock().hasVersion());
-        assertTrue(atom.getKernelWakelock().getVersion() > 0);
-        assertTrue(atom.getKernelWakelock().hasTimeMicros());
+        assertThat(data).isNotEmpty();
+        for (Atom atom : data) {
+            assertThat(atom.getKernelWakelock().hasName()).isTrue();
+            assertThat(atom.getKernelWakelock().hasCount()).isTrue();
+            assertThat(atom.getKernelWakelock().hasVersion()).isTrue();
+            assertThat(atom.getKernelWakelock().getVersion()).isGreaterThan(0);
+            assertThat(atom.getKernelWakelock().hasTimeMicros()).isTrue();
+        }
     }
 
     // Returns true iff either |WAKE_LOCK_FILE| or |WAKE_SOURCES_FILE| exists.
@@ -491,14 +488,11 @@ public class HostAtomTests extends AtomTestCase {
     }
 
     public void testWifiActivityInfo() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_WIFI, true)) return;
         if (!hasFeature(FEATURE_WATCH, false)) return;
         if (!checkDeviceFor("checkWifiEnhancedPowerReportingSupported")) return;
 
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.WIFI_ACTIVITY_INFO_FIELD_NUMBER, null);
 
         uploadConfig(config);
@@ -510,21 +504,17 @@ public class HostAtomTests extends AtomTestCase {
         List<Atom> dataList = getGaugeMetricDataList();
 
         for (Atom atom: dataList) {
-            assertTrue(atom.getWifiActivityInfo().getTimestampMillis() > 0);
-            assertTrue(atom.getWifiActivityInfo().getStackState() >= 0);
-            assertTrue(atom.getWifiActivityInfo().getControllerIdleTimeMillis() > 0);
-            assertTrue(atom.getWifiActivityInfo().getControllerTxTimeMillis() >= 0);
-            assertTrue(atom.getWifiActivityInfo().getControllerRxTimeMillis() >= 0);
-            assertTrue(atom.getWifiActivityInfo().getControllerEnergyUsed() >= 0);
+            assertThat(atom.getWifiActivityInfo().getTimestampMillis()).isGreaterThan(0L);
+            assertThat(atom.getWifiActivityInfo().getStackState()).isAtLeast(0);
+            assertThat(atom.getWifiActivityInfo().getControllerIdleTimeMillis()).isGreaterThan(0L);
+            assertThat(atom.getWifiActivityInfo().getControllerTxTimeMillis()).isAtLeast(0L);
+            assertThat(atom.getWifiActivityInfo().getControllerRxTimeMillis()).isAtLeast(0L);
+            assertThat(atom.getWifiActivityInfo().getControllerEnergyUsed()).isAtLeast(0L);
         }
     }
 
     public void testBuildInformation() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
-
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.BUILD_INFORMATION_FIELD_NUMBER, null);
         uploadConfig(config);
 
@@ -533,25 +523,23 @@ public class HostAtomTests extends AtomTestCase {
         Thread.sleep(WAIT_TIME_LONG);
 
         List<Atom> data = getGaugeMetricDataList();
-        assertTrue(data.size() > 0);
+        assertThat(data).isNotEmpty();
         BuildInformation atom = data.get(0).getBuildInformation();
-        assertEquals(getProperty("ro.product.brand"),             atom.getBrand());
-        assertEquals(getProperty("ro.product.name"),              atom.getProduct());
-        assertEquals(getProperty("ro.product.device"),            atom.getDevice());
-        assertEquals(getProperty("ro.build.version.release"),     atom.getVersionRelease());
-        assertEquals(getProperty("ro.build.id"),                  atom.getId());
-        assertEquals(getProperty("ro.build.version.incremental"), atom.getVersionIncremental());
-        assertEquals(getProperty("ro.build.type"),                atom.getType());
-        assertEquals(getProperty("ro.build.tags"),                atom.getTags());
+        assertThat(getProperty("ro.product.brand")).isEqualTo(atom.getBrand());
+        assertThat(getProperty("ro.product.name")).isEqualTo(atom.getProduct());
+        assertThat(getProperty("ro.product.device")).isEqualTo(atom.getDevice());
+        assertThat(getProperty("ro.build.version.release_or_codename")).isEqualTo(atom.getVersionRelease());
+        assertThat(getProperty("ro.build.id")).isEqualTo(atom.getId());
+        assertThat(getProperty("ro.build.version.incremental"))
+            .isEqualTo(atom.getVersionIncremental());
+        assertThat(getProperty("ro.build.type")).isEqualTo(atom.getType());
+        assertThat(getProperty("ro.build.tags")).isEqualTo(atom.getTags());
     }
 
     public void testOnDevicePowerMeasurement() throws Exception {
         if (!OPTIONAL_TESTS_ENABLED) return;
-        if (statsdDisabled()) {
-            return;
-        }
 
-        StatsdConfig.Builder config = getPulledConfig();
+        StatsdConfig.Builder config = createConfigBuilder();
         addGaugeAtomWithDimensions(config, Atom.ON_DEVICE_POWER_MEASUREMENT_FIELD_NUMBER, null);
 
         uploadConfig(config);
@@ -563,16 +551,14 @@ public class HostAtomTests extends AtomTestCase {
         List<Atom> dataList = getGaugeMetricDataList();
 
         for (Atom atom: dataList) {
-            assertTrue(atom.getOnDevicePowerMeasurement().getMeasurementTimestampMillis() >= 0);
-            assertTrue(atom.getOnDevicePowerMeasurement().getEnergyMicrowattSecs() >= 0);
+            assertThat(atom.getOnDevicePowerMeasurement().getMeasurementTimestampMillis())
+                .isAtLeast(0L);
+            assertThat(atom.getOnDevicePowerMeasurement().getEnergyMicrowattSecs()).isAtLeast(0L);
         }
     }
 
     // Explicitly tests if the adb command to log a breadcrumb is working.
     public void testBreadcrumbAdb() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         final int atomTag = Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER;
         createAndUploadConfig(atomTag);
         Thread.sleep(WAIT_TIME_SHORT);
@@ -582,15 +568,12 @@ public class HostAtomTests extends AtomTestCase {
 
         List<EventMetricData> data = getEventMetricDataList();
         AppBreadcrumbReported atom = data.get(0).getAtom().getAppBreadcrumbReported();
-        assertTrue(atom.getLabel() == 1);
-        assertTrue(atom.getState().getNumber() == AppBreadcrumbReported.State.START_VALUE);
+        assertThat(atom.getLabel()).isEqualTo(1);
+        assertThat(atom.getState().getNumber()).isEqualTo(AppBreadcrumbReported.State.START_VALUE);
     }
 
     // Test dumpsys stats --proto.
     public void testDumpsysStats() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         final int atomTag = Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER;
         createAndUploadConfig(atomTag);
         Thread.sleep(WAIT_TIME_SHORT);
@@ -600,7 +583,7 @@ public class HostAtomTests extends AtomTestCase {
 
         // Get the stats incident section.
         List<ConfigMetricsReportList> listList = getReportsFromStatsDataDumpProto();
-        assertTrue(listList.size() > 0);
+        assertThat(listList).isNotEmpty();
 
         // Extract the relevent report from the incident section.
         ConfigMetricsReportList ourList = null;
@@ -612,22 +595,20 @@ public class HostAtomTests extends AtomTestCase {
                 break;
             }
         }
-        assertNotNull("Could not find list for uid=" + hostUid
-                + " id=" + CONFIG_ID, ourList);
+        assertWithMessage(String.format("Could not find list for uid=%d id=%d", hostUid, CONFIG_ID))
+            .that(ourList).isNotNull();
 
         // Make sure that the report is correct.
         List<EventMetricData> data = getEventMetricDataList(ourList);
         AppBreadcrumbReported atom = data.get(0).getAtom().getAppBreadcrumbReported();
-        assertTrue(atom.getLabel() == 1);
-        assertTrue(atom.getState().getNumber() == AppBreadcrumbReported.State.START_VALUE);
+        assertThat(atom.getLabel()).isEqualTo(1);
+        assertThat(atom.getState().getNumber()).isEqualTo(AppBreadcrumbReported.State.START_VALUE);
     }
 
     public void testConnectivityStateChange() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_WIFI, true)) return;
         if (!hasFeature(FEATURE_WATCH, false)) return;
+        if (!hasFeature(FEATURE_LEANBACK_ONLY, false)) return;
 
         final int atomTag = Atom.CONNECTIVITY_STATE_CHANGED_FIELD_NUMBER;
         createAndUploadConfig(atomTag);
@@ -656,6 +637,63 @@ public class HostAtomTests extends AtomTestCase {
                 foundConnectEvent = true;
             }
         }
-        assertTrue(foundConnectEvent && foundDisconnectEvent);
+        assertThat(foundConnectEvent).isTrue();
+        assertThat(foundDisconnectEvent).isTrue();
+    }
+
+    public void testSimSlotState() throws Exception {
+        if (!hasFeature(FEATURE_TELEPHONY, true)) {
+            return;
+        }
+
+        StatsdConfig.Builder config = createConfigBuilder();
+        addGaugeAtomWithDimensions(config, Atom.SIM_SLOT_STATE_FIELD_NUMBER, null);
+        uploadConfig(config);
+
+        Thread.sleep(WAIT_TIME_LONG);
+        setAppBreadcrumbPredicate();
+        Thread.sleep(WAIT_TIME_LONG);
+
+        List<Atom> data = getGaugeMetricDataList();
+        assertThat(data).isNotEmpty();
+        SimSlotState atom = data.get(0).getSimSlotState();
+        // NOTE: it is possible for devices with telephony support to have no SIM at all
+        assertThat(atom.getActiveSlotCount()).isEqualTo(getActiveSimSlotCount());
+        assertThat(atom.getSimCount()).isAtMost(getActiveSimCountUpperBound());
+        assertThat(atom.getEsimCount()).isAtMost(getActiveEsimCountUpperBound());
+        // Above assertions do no necessarily enforce the following, since some are upper bounds
+        assertThat(atom.getActiveSlotCount()).isAtLeast(atom.getSimCount());
+        assertThat(atom.getSimCount()).isAtLeast(atom.getEsimCount());
+        assertThat(atom.getEsimCount()).isAtLeast(0);
+        // For GSM phones, at least one slot should be active even if there is no card
+        if (hasGsmPhone()) {
+            assertThat(atom.getActiveSlotCount()).isAtLeast(1);
+        }
+    }
+
+    public void testSupportedRadioAccessFamily() throws Exception {
+        if (!hasFeature(FEATURE_TELEPHONY, true)) {
+            return;
+        }
+
+        StatsdConfig.Builder config = createConfigBuilder();
+        addGaugeAtomWithDimensions(config, Atom.SUPPORTED_RADIO_ACCESS_FAMILY_FIELD_NUMBER, null);
+        uploadConfig(config);
+
+        Thread.sleep(WAIT_TIME_LONG);
+        setAppBreadcrumbPredicate();
+        Thread.sleep(WAIT_TIME_LONG);
+
+        List<Atom> data = getGaugeMetricDataList();
+        assertThat(data).isNotEmpty();
+        SupportedRadioAccessFamily atom = data.get(0).getSupportedRadioAccessFamily();
+        if (hasGsmPhone()) {
+            assertThat(atom.getNetworkTypeBitmask() & NETWORK_TYPE_BITMASK_GSM_ALL)
+                    .isNotEqualTo(0L);
+        }
+        if (hasCdmaPhone()) {
+            assertThat(atom.getNetworkTypeBitmask() & NETWORK_TYPE_BITMASK_CDMA_ALL)
+                    .isNotEqualTo(0L);
+        }
     }
 }

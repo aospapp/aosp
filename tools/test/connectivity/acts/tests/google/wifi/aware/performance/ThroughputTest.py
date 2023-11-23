@@ -35,9 +35,6 @@ class ThroughputTest(AwareBaseTest):
     PASSPHRASE = "This is some random passphrase - very very secure!!"
     PASSPHRASE2 = "This is some random passphrase - very very secure - but diff!!"
 
-    def __init__(self, controllers):
-        super(ThroughputTest, self).__init__(controllers)
-
     def request_network(self, dut, ns):
         """Request a Wi-Fi Aware network.
 
@@ -409,3 +406,35 @@ class ThroughputTest(AwareBaseTest):
             [self.PASSPHRASE, self.PASSPHRASE2], results=results)
         asserts.explicit_pass(
             "test_iperf_max_ndi_aware_only_passphrases passes", extras=results)
+
+    def run_test_traffic_latency_single_ndp_ib_aware_only_open(self):
+        """Measure IPv6 traffic latency performance(ping) on NDP between 2 devices.
+        Security config is open.
+        """
+        p_dut = self.android_devices[0]
+        p_dut.pretty_name = "publisher"
+        s_dut = self.android_devices[1]
+        s_dut.pretty_name = "subscriber"
+        ndp_info = autils.create_ib_ndp(p_dut,
+                                        s_dut,
+                                        autils.create_discovery_config(
+                                            self.SERVICE_NAME, aconsts.PUBLISH_TYPE_UNSOLICITED),
+                                        autils.create_discovery_config(
+                                            self.SERVICE_NAME, aconsts.SUBSCRIBE_TYPE_PASSIVE),
+                                        self.device_startup_offset)
+        p_req_key = ndp_info[0]
+        s_req_key = ndp_info[1]
+        p_aware_if = ndp_info[2]
+        s_aware_if = ndp_info[3]
+        p_ipv6 = ndp_info[4]
+        s_ipv6 = ndp_info[5]
+        self.log.info("Interface names: P=%s, S=%s", p_aware_if, s_aware_if)
+        self.log.info("Interface addresses (IPv6): P=%s, S=%s", p_ipv6, s_ipv6)
+        self.log.info("Start ping %s from %s", s_ipv6, p_ipv6)
+        latency_result = autils.run_ping6(p_dut, s_ipv6)
+        self.log.info("The latency results are %s", latency_result)
+
+    def test_traffic_latency_single_ndp_ib_aware_only_open(self):
+        """Test IPv6 traffic latency performance on NDP with security config is open.
+        """
+        self.run_test_traffic_latency_single_ndp_ib_aware_only_open()

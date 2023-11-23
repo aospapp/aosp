@@ -19,6 +19,7 @@ package com.android.tradefed.command;
 import com.android.tradefed.device.metric.AutoLogCollector;
 import com.android.tradefed.util.UniqueMultiMap;
 
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -37,11 +38,6 @@ public interface ICommandOptions {
     public boolean isFullHelpMode();
 
     /**
-     * Returns <code>true</code> if full json help mode has been requested
-     */
-    public boolean isJsonHelpMode();
-
-    /**
      * Return <code>true</code> if we should <emph>skip</emph> adding this command to the queue.
      */
     public boolean isDryRunMode();
@@ -56,14 +52,6 @@ public interface ICommandOptions {
      * Return the loop mode for the config.
      */
     public boolean isLoopMode();
-
-    /**
-     * Get the min loop time for the config.
-     *
-     * @deprecated use {@link #getLoopTime()} instead
-     */
-    @Deprecated
-    public long getMinLoopTime();
 
     /**
      * Get the time to wait before re-scheduling this command.
@@ -155,9 +143,6 @@ public interface ICommandOptions {
     /** Whether or not sharding should use the token support. */
     public boolean shouldUseTokenSharding();
 
-    /** Return true if the test should skip device setup during TestInvocation setup. */
-    public boolean shouldSkipPreDeviceSetup();
-
     /** Returns if we should use dynamic sharding or not */
     public boolean shouldUseDynamicSharding();
 
@@ -199,4 +184,22 @@ public interface ICommandOptions {
 
     /** Whether or not to attempt parallel setup of the remote devices. */
     public boolean shouldUseParallelRemoteSetup();
+
+    /** Whether or not to use replicated setup for all the remote devices. */
+    public boolean shouldUseReplicateSetup();
+
+    /** Set whether or not to use replicated setup. */
+    public void setReplicateSetup(boolean replicate);
+
+    /** Whether or not to report progression of remote invocation at module level. */
+    public boolean shouldReportModuleProgression();
+
+    /** Whether or not to start extra instances in the remote VM in postsubmit. */
+    public int getExtraRemotePostsubmitInstance();
+
+    /** Whether or not to release the device early when done with it. */
+    public boolean earlyDeviceRelease();
+
+    /** Returns the map of args to pass to the dynamic download query. */
+    public Map<String, String> getDynamicDownloadArgs();
 }

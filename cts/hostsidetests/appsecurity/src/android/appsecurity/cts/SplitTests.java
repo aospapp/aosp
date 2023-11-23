@@ -112,7 +112,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testSingleBase(true);
     }
     private void testSingleBase(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).run();
+        new InstallMultiple(instant).addFile(APK).run();
         runDeviceTests(PKG, CLASS, "testSingleBase");
     }
 
@@ -127,7 +127,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testDensitySingle(true);
     }
     private void testDensitySingle(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_mdpi).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_mdpi).run();
         runDeviceTests(PKG, CLASS, "testDensitySingle");
     }
 
@@ -142,8 +142,8 @@ public class SplitTests extends BaseAppSecurityTest {
         testDensityAll(true);
     }
     private void testDensityAll(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_mdpi).addApk(APK_hdpi).addApk(APK_xhdpi)
-                .addApk(APK_xxhdpi).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_mdpi).addFile(APK_hdpi).addFile(APK_xhdpi)
+                .addFile(APK_xxhdpi).run();
         runDeviceTests(PKG, CLASS, "testDensityAll");
     }
 
@@ -162,11 +162,11 @@ public class SplitTests extends BaseAppSecurityTest {
         testDensityBest(true);
     }
     private void testDensityBest(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_mdpi).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_mdpi).run();
         runDeviceTests(PKG, CLASS, "testDensityBest1");
 
         // Now splice in an additional split which offers better resources
-        new InstallMultiple(instant).inheritFrom(PKG).addApk(APK_xxhdpi).run();
+        new InstallMultiple(instant).inheritFrom(PKG).addFile(APK_xxhdpi).run();
         runDeviceTests(PKG, CLASS, "testDensityBest2");
     }
 
@@ -185,7 +185,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testApi(true);
     }
     private void testApi(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_v7).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_v7).run();
         runDeviceTests(PKG, CLASS, "testApi");
     }
 
@@ -200,7 +200,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testLocale(true);
     }
     private void testLocale(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_de).addApk(APK_fr).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_de).addFile(APK_fr).run();
         runDeviceTests(PKG, CLASS, "testLocale");
     }
 
@@ -223,7 +223,7 @@ public class SplitTests extends BaseAppSecurityTest {
         final String apk = ABI_TO_APK.get(abi);
         assertNotNull("Failed to find APK for ABI " + abi, apk);
 
-        new InstallMultiple(instant).addApk(APK).addApk(apk).run();
+        new InstallMultiple(instant).addFile(APK).addFile(apk).run();
         runDeviceTests(PKG, CLASS, "testNative");
     }
 
@@ -248,7 +248,7 @@ public class SplitTests extends BaseAppSecurityTest {
         final String apk = ABI_TO_APK.get(abi);
         assertNotNull("Failed to find APK for ABI " + abi, apk);
 
-        new InstallMultiple(instant).useNaturalAbi().addApk(APK).addApk(apk).run();
+        new InstallMultiple(instant).useNaturalAbi().addFile(APK).addFile(apk).run();
         runDeviceTests(PKG, CLASS, "testNative");
     }
 
@@ -267,9 +267,9 @@ public class SplitTests extends BaseAppSecurityTest {
         testNativeAll(true);
     }
     private void testNativeAll(boolean instant) throws Exception {
-        final InstallMultiple inst = new InstallMultiple(instant).addApk(APK);
+        final InstallMultiple inst = new InstallMultiple(instant).addFile(APK);
         for (String apk : ABI_TO_APK.values()) {
-            inst.addApk(apk);
+            inst.addFile(apk);
         }
         inst.run();
         runDeviceTests(PKG, CLASS, "testNative");
@@ -292,9 +292,9 @@ public class SplitTests extends BaseAppSecurityTest {
         testNativeAllNatural(true);
     }
     private void testNativeAllNatural(boolean instant) throws Exception {
-        final InstallMultiple inst = new InstallMultiple(instant).useNaturalAbi().addApk(APK);
+        final InstallMultiple inst = new InstallMultiple(instant).useNaturalAbi().addFile(APK);
         for (String apk : ABI_TO_APK.values()) {
-            inst.addApk(apk);
+            inst.addFile(apk);
         }
         inst.run();
         runDeviceTests(PKG, CLASS, "testNative");
@@ -311,7 +311,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testDuplicateBase(true);
     }
     private void testDuplicateBase(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK).runExpectingFailure();
+        new InstallMultiple(instant).addFile(APK).addFile(APK).runExpectingFailure();
     }
 
     @Test
@@ -325,7 +325,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testDuplicateSplit(true);
     }
     private void testDuplicateSplit(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_v7).addApk(APK_v7).runExpectingFailure();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_v7).addFile(APK_v7).runExpectingFailure();
     }
 
     @Test
@@ -339,7 +339,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testDiffCert(true);
     }
     private void testDiffCert(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_DIFF_CERT_v7).runExpectingFailure();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_DIFF_CERT_v7).runExpectingFailure();
     }
 
     @Test
@@ -353,8 +353,8 @@ public class SplitTests extends BaseAppSecurityTest {
         testDiffCertInherit(true);
     }
     private void testDiffCertInherit(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).run();
-        new InstallMultiple(instant).inheritFrom(PKG).addApk(APK_DIFF_CERT_v7).runExpectingFailure();
+        new InstallMultiple(instant).addFile(APK).run();
+        new InstallMultiple(instant).inheritFrom(PKG).addFile(APK_DIFF_CERT_v7).runExpectingFailure();
     }
 
     @Test
@@ -368,7 +368,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testDiffVersion(true);
     }
     private void testDiffVersion(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_DIFF_VERSION_v7).runExpectingFailure();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_DIFF_VERSION_v7).runExpectingFailure();
     }
 
     @Test
@@ -382,8 +382,8 @@ public class SplitTests extends BaseAppSecurityTest {
         testDiffVersionInherit(true);
     }
     private void testDiffVersionInherit(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).run();
-        new InstallMultiple(instant).inheritFrom(PKG).addApk(APK_DIFF_VERSION_v7).runExpectingFailure();
+        new InstallMultiple(instant).addFile(APK).run();
+        new InstallMultiple(instant).inheritFrom(PKG).addFile(APK_DIFF_VERSION_v7).runExpectingFailure();
     }
 
     @Test
@@ -397,7 +397,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testDiffRevision(true);
     }
     private void testDiffRevision(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_DIFF_REVISION_v7).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_DIFF_REVISION_v7).run();
         runDeviceTests(PKG, CLASS, "testRevision0_12");
     }
 
@@ -412,9 +412,9 @@ public class SplitTests extends BaseAppSecurityTest {
         testDiffRevisionInheritBase(true);
     }
     private void testDiffRevisionInheritBase(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_v7).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_v7).run();
         runDeviceTests(PKG, CLASS, "testRevision0_0");
-        new InstallMultiple(instant).inheritFrom(PKG).addApk(APK_DIFF_REVISION_v7).run();
+        new InstallMultiple(instant).inheritFrom(PKG).addFile(APK_DIFF_REVISION_v7).run();
         runDeviceTests(PKG, CLASS, "testRevision0_12");
     }
 
@@ -429,9 +429,9 @@ public class SplitTests extends BaseAppSecurityTest {
         testDiffRevisionInheritSplit(true);
     }
     private void testDiffRevisionInheritSplit(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_v7).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_v7).run();
         runDeviceTests(PKG, CLASS, "testRevision0_0");
-        new InstallMultiple(instant).inheritFrom(PKG).addApk(APK_DIFF_REVISION).run();
+        new InstallMultiple(instant).inheritFrom(PKG).addFile(APK_DIFF_REVISION).run();
         runDeviceTests(PKG, CLASS, "testRevision12_0");
     }
 
@@ -446,8 +446,8 @@ public class SplitTests extends BaseAppSecurityTest {
         testDiffRevisionDowngrade(true);
     }
     private void testDiffRevisionDowngrade(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_DIFF_REVISION_v7).run();
-        new InstallMultiple(instant).inheritFrom(PKG).addApk(APK_v7).runExpectingFailure();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_DIFF_REVISION_v7).run();
+        new InstallMultiple(instant).inheritFrom(PKG).addFile(APK_v7).runExpectingFailure();
     }
 
     @Test
@@ -461,7 +461,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testFeatureBase(true);
     }
     private void testFeatureBase(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_FEATURE).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_FEATURE).run();
         runDeviceTests(PKG, CLASS, "testFeatureBase");
     }
 
@@ -476,7 +476,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testFeatureApi(true);
     }
     private void testFeatureApi(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).addApk(APK_FEATURE).addApk(APK_FEATURE_v7).run();
+        new InstallMultiple(instant).addFile(APK).addFile(APK_FEATURE).addFile(APK_FEATURE_v7).run();
         runDeviceTests(PKG, CLASS, "testFeatureApi");
     }
 
@@ -506,14 +506,14 @@ public class SplitTests extends BaseAppSecurityTest {
         // always install as a full app; we're testing that the instant app can be
         // updated without restarting and need a broadcast receiver to ensure the
         // correct behaviour. So, this component must be visible to instant apps.
-        new InstallMultiple().addApk(APK).run();
+        new InstallMultiple().addFile(APK).run();
 
-        new InstallMultiple(instant).addApk(APK_NO_RESTART_BASE).run();
+        new InstallMultiple(instant).addFile(APK_NO_RESTART_BASE).run();
         runDeviceTests(PKG, CLASS, "testBaseInstalled", instant);
         new InstallMultiple(instant)
                 .addArg("--dont-kill")
                 .inheritFrom(PKG_NO_RESTART)
-                .addApk(APK_NO_RESTART_FEATURE)
+                .addFile(APK_NO_RESTART_FEATURE)
                 .run();
         runDeviceTests(PKG, CLASS, "testFeatureInstalled", instant);
     }
@@ -529,7 +529,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testSingleBase(true);
     }
     private void testRequiredSplitMissing(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK_NEED_SPLIT_BASE)
+        new InstallMultiple(instant).addFile(APK_NEED_SPLIT_BASE)
                 .runExpectingFailure("INSTALL_FAILED_MISSING_SPLIT");
     }
 
@@ -544,7 +544,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testSingleBase(true);
     }
     private void testRequiredSplitInstalledFeature(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK_NEED_SPLIT_BASE).addApk(APK_NEED_SPLIT_FEATURE)
+        new InstallMultiple(instant).addFile(APK_NEED_SPLIT_BASE).addFile(APK_NEED_SPLIT_FEATURE)
                 .run();
     }
 
@@ -559,7 +559,7 @@ public class SplitTests extends BaseAppSecurityTest {
         testSingleBase(true);
     }
     private void testRequiredSplitInstalledConfig(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK_NEED_SPLIT_BASE).addApk(APK_NEED_SPLIT_CONFIG)
+        new InstallMultiple(instant).addFile(APK_NEED_SPLIT_BASE).addFile(APK_NEED_SPLIT_CONFIG)
                 .run();
     }
 
@@ -576,9 +576,9 @@ public class SplitTests extends BaseAppSecurityTest {
     private void testRequiredSplitRemoved(boolean instant) throws Exception {
         // start with a base and two splits
         new InstallMultiple(instant)
-                .addApk(APK_NEED_SPLIT_BASE)
-                .addApk(APK_NEED_SPLIT_FEATURE)
-                .addApk(APK_NEED_SPLIT_CONFIG)
+                .addFile(APK_NEED_SPLIT_BASE)
+                .addFile(APK_NEED_SPLIT_FEATURE)
+                .addFile(APK_NEED_SPLIT_CONFIG)
                 .run();
         // it's okay to remove one of the splits
         new InstallMultiple(instant).inheritFrom(PKG).removeSplit("split_feature").run();
@@ -601,9 +601,9 @@ public class SplitTests extends BaseAppSecurityTest {
         testClearCodeCache(true);
     }
     private void testClearCodeCache(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK).run();
+        new InstallMultiple(instant).addFile(APK).run();
         runDeviceTests(PKG, CLASS, "testCodeCacheWrite");
-        new InstallMultiple(instant).addArg("-r").addApk(APK_DIFF_VERSION).run();
+        new InstallMultiple(instant).addArg("-r").addFile(APK_DIFF_VERSION).run();
         runDeviceTests(PKG, CLASS, "testCodeCacheRead");
     }
 }

@@ -40,12 +40,12 @@ public class IPAddressUtil {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static boolean isIPv4LiteralAddress(java.lang.String src) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static boolean isIPv6LiteralAddress(java.lang.String src) {
         throw new RuntimeException("Stub!");
     }

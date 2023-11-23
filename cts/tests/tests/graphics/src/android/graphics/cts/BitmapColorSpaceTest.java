@@ -39,7 +39,6 @@ import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.RequiresDevice;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.ColorUtils;
 
@@ -54,8 +53,11 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.Arrays;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
 @SmallTest
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnitParamsRunner.class)
 public class BitmapColorSpaceTest {
     private static final String LOG_TAG = "BitmapColorSpaceTest";
 
@@ -1036,39 +1038,72 @@ public class BitmapColorSpaceTest {
         assertTrue(pass);
     }
 
+    private Object[] compressFormatsAndColorSpaces() {
+        return Utils.crossProduct(Bitmap.CompressFormat.values(),
+                BitmapTest.getRgbColorSpaces().toArray());
+    }
+
     @Test
-    public void testEncodeP3() {
+    @Parameters(method = "compressFormatsAndColorSpaces")
+    public void testEncodeColorSpace(Bitmap.CompressFormat format, ColorSpace colorSpace) {
         Bitmap b = null;
+        ColorSpace decodedColorSpace = null;
         ImageDecoder.Source src = ImageDecoder.createSource(mResources.getAssets(),
                 "blue-16bit-srgb.png");
         try {
             b = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
                 decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+                decoder.setTargetColorSpace(colorSpace);
             });
             assertNotNull(b);
             assertEquals(Bitmap.Config.RGBA_F16, b.getConfig());
+            decodedColorSpace = b.getColorSpace();
+
+            // Requesting a ColorSpace with an EXTENDED variant will use the EXTENDED one because
+            // the image is 16-bit.
+            if (colorSpace == ColorSpace.get(ColorSpace.Named.SRGB)) {
+                assertSame(ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB), decodedColorSpace);
+            } else if (colorSpace == ColorSpace.get(ColorSpace.Named.LINEAR_SRGB)) {
+                assertSame(ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB),
+                          decodedColorSpace);
+            } else {
+                assertSame(colorSpace, decodedColorSpace);
+            }
         } catch (IOException e) {
             fail("Failed with " + e);
         }
 
-        for (Bitmap.CompressFormat format : new Bitmap.CompressFormat[] {
-                Bitmap.CompressFormat.JPEG,
-                Bitmap.CompressFormat.WEBP,
-                Bitmap.CompressFormat.PNG,
-        }) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            assertTrue("Failed to encode F16 to " + format, b.compress(format, 100, out));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        assertTrue("Failed to encode F16 to " + format, b.compress(format, 100, out));
 
-            byte[] array = out.toByteArray();
-            src = ImageDecoder.createSource(ByteBuffer.wrap(array));
+        byte[] array = out.toByteArray();
+        src = ImageDecoder.createSource(ByteBuffer.wrap(array));
 
-            try {
-                Bitmap b2 = ImageDecoder.decodeBitmap(src);
-                assertEquals("Wrong color space for " + format,
-                        ColorSpace.get(ColorSpace.Named.DISPLAY_P3), b2.getColorSpace());
-            } catch (IOException e) {
-                fail("Failed with " + e);
+        try {
+            Bitmap b2 = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+            ColorSpace encodedColorSpace = b2.getColorSpace();
+            if (format == Bitmap.CompressFormat.PNG) {
+                assertEquals(Bitmap.Config.RGBA_F16, b2.getConfig());
+                assertSame(decodedColorSpace, encodedColorSpace);
+            } else {
+                // Compressing to the other formats does not support creating a compressed version
+                // that we will decode to F16.
+                assertEquals(Bitmap.Config.ARGB_8888, b2.getConfig());
+
+                // Decoding an EXTENDED variant to 8888 results in the non-extended variant.
+                if (decodedColorSpace == ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB)) {
+                    assertSame(ColorSpace.get(ColorSpace.Named.SRGB), encodedColorSpace);
+                } else if (decodedColorSpace
+                        == ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB)) {
+                    assertSame(ColorSpace.get(ColorSpace.Named.LINEAR_SRGB), encodedColorSpace);
+                } else {
+                    assertSame(decodedColorSpace, encodedColorSpace);
+                }
             }
+        } catch (IOException e) {
+            fail("Failed with " + e);
         }
     }
 
@@ -1088,11 +1123,7 @@ public class BitmapColorSpaceTest {
             fail("Failed with " + e);
         }
 
-        for (Bitmap.CompressFormat format : new Bitmap.CompressFormat[] {
-                Bitmap.CompressFormat.JPEG,
-                Bitmap.CompressFormat.WEBP,
-                Bitmap.CompressFormat.PNG,
-        }) {
+        for (Bitmap.CompressFormat format : Bitmap.CompressFormat.values()) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             assertTrue("Failed to encode 8888 to " + format, b.compress(format, 100, out));
 
@@ -1145,5 +1176,62 @@ public class BitmapColorSpaceTest {
             ColorUtils.verifyColor("PRO_PHOTO image did not convert properly", expected,
                     dst.getColor(0, 0), .001f);
         }
+    }
+
+    @Test
+    public void testGrayscaleProfile() throws IOException {
+        ImageDecoder.Source source = ImageDecoder.createSource(mResources.getAssets(),
+                "gimp-d65-grayscale.jpg");
+        Bitmap bm = ImageDecoder.decodeBitmap(source, (decoder, info, s) -> {
+            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+        });
+        ColorSpace cs = bm.getColorSpace();
+        assertNotNull(cs);
+        assertTrue(cs instanceof ColorSpace.Rgb);
+        ColorSpace.Rgb rgbCs = (ColorSpace.Rgb) cs;
+
+        // A gray color space uses a special primaries array of all 1s.
+        float[] primaries = rgbCs.getPrimaries();
+        assertNotNull(primaries);
+        assertEquals(6, primaries.length);
+        for (float primary : primaries) {
+            assertEquals(0, Float.compare(primary, 1.0f));
+        }
+
+        // A gray color space will have all zeroes in the transform
+        // and inverse transform, except for the diagonal.
+        for (float[] transform : new float[][]{rgbCs.getTransform(), rgbCs.getInverseTransform()}) {
+            assertNotNull(transform);
+            assertEquals(9, transform.length);
+            for (int index : new int[] { 1, 2, 3, 5, 6, 7 }) {
+                assertEquals(0, Float.compare(0.0f, transform[index]));
+            }
+        }
+
+        // When creating another Bitmap with the same ColorSpace, the two
+        // ColorSpaces should be equal.
+        Bitmap otherBm = Bitmap.createBitmap(null, 100, 100, Bitmap.Config.ARGB_8888, true, cs);
+        assertEquals(cs, otherBm.getColorSpace());
+
+        // Same for a scaled bitmap.
+        Bitmap scaledBm = Bitmap.createScaledBitmap(bm, bm.getWidth() / 4, bm.getHeight() / 4,
+                true);
+        assertEquals(cs, scaledBm.getColorSpace());
+
+        // A previous ColorSpace bug resulted in a Bitmap created like scaledBm
+        // having all black pixels. Verify that the Bitmap contains colors other
+        // than black and white.
+        boolean foundOtherColor = false;
+        final int width = scaledBm.getWidth();
+        final int height = scaledBm.getHeight();
+        int[] pixels = new int[width * height];
+        scaledBm.getPixels(pixels, 0, width, 0, 0, width, height);
+        for (int pixel : pixels) {
+            if (pixel != Color.BLACK && pixel != Color.WHITE) {
+                foundOtherColor = true;
+                break;
+            }
+        }
+        assertTrue(foundOtherColor);
     }
 }

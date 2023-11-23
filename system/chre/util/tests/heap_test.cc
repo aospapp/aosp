@@ -1,5 +1,5 @@
-#include "gtest/gtest.h"
 #include "chre/util/heap.h"
+#include "gtest/gtest.h"
 
 #include <algorithm>
 #include <array>
@@ -40,7 +40,8 @@ TEST(HeapTest, NestedPushPopHeap) {
       chre::push_heap(v, comp);
     }
 
-    std::sort(array_sorted.begin(), array_sorted.begin() + s, std::greater<int>());
+    std::sort(array_sorted.begin(), array_sorted.begin() + s,
+              std::greater<int>());
 
     for (size_t i = 0; i < s; ++i) {
       chre::pop_heap(v, comp);
@@ -79,7 +80,8 @@ TEST(HeapTest, NestedRemoveHeap) {
       chre::push_heap(v, comp);
     }
 
-    std::sort(array_sorted.begin(), array_sorted.begin() + s, std::greater<int>());
+    std::sort(array_sorted.begin(), array_sorted.begin() + s,
+              std::greater<int>());
 
     // randomly remove one
     chre::remove_heap(v, std::rand() % s, comp);

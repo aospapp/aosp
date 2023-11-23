@@ -9,11 +9,14 @@ A config tells statsd what metrics to collect from the device during a test. For
 
 ## Checking in a config
 
-To check in a config, follow these steps:
+To check in config(s) for a new set of metrics, follow these steps:
 
-1. Create a directory under this directory for the new config (e.g. `app-start`).
-2. Put the new config in the subdirectory using the directory name + `.pb` extension.
-3. Write a README file explaining what the config does and put it under the new subdirectory.
+1. Create a directory under this directory for the new metrics (e.g. `app-start`).
+2. Put the new config(s) in the subdirectory using the directory name and optionally with additional
+suffixes if there are multiple configs related to the overarching metrics, with `.pb` extension.
+This ensures that each config has a unique name.
+3. Write a README file explaining what the config(s) in the new subdirectory does and put it under
+the new subdirectory.
 
 # (Internal only) Creating a config
 
@@ -27,14 +30,15 @@ section (and this section only) in the Android Metrics documentation to create a
 2. Validate the config following the
 [Validate and sent a changelist for review](http://go/westworld-modulefooding#validate-and-send-a-changelist-for-review)
 section, but skip the sending CL for review part.
-2. Build the config parsing utility:
+3. Build the config parsing utility:
 `blaze build -c opt java/com/google/wireless/android/stats/westworld:parse_definitions`
-3. Use the utility to create the binary config:
+4. Use the utility to create the binary config:
 ```
 blaze-bin/java/com/google/wireless/android/stats/westworld/parse_definitions \
 --action=WRITE_STATSD_CONFIG \
 --definitions_dir=wireless/android/stats/platform/westworld/public/definitions/westworld/ \
 --config_name=<You config's name defined in step 1> \
+--enable_string_hash=false \    # Output human-readable package names to the uid map in the report.
 --allowed_sources=<Comma separated list of allowed log sources> \
 --output_file=<Output path of your config>
 ```

@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "command.h"
+#include "test_util.h"
 
 class ListCommandTest : public ::testing::Test {
  protected:
@@ -42,4 +43,8 @@ TEST_F(ListCommandTest, multiple_options) {
 
 TEST_F(ListCommandTest, show_features_option) {
   ASSERT_TRUE(list_cmd->Run({"--show-features"}));
+}
+
+TEST_F(ListCommandTest, pmu_option) {
+  ASSERT_TRUE(list_cmd->Run({"pmu"}));
 }

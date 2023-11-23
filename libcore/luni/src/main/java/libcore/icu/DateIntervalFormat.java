@@ -16,10 +16,10 @@
 
 package libcore.icu;
 
+import android.compat.annotation.UnsupportedAppUsage;
 import android.icu.util.Calendar;
 import android.icu.util.ULocale;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.text.FieldPosition;
 import java.util.TimeZone;
 import libcore.util.BasicLruCache;

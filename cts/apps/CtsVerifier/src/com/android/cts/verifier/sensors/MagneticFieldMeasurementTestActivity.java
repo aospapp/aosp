@@ -18,6 +18,7 @@ package com.android.cts.verifier.sensors;
 
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.sensors.base.SensorCtsVerifierTestActivity;
+import com.android.cts.verifier.sensors.helpers.SensorFeaturesDeactivator;
 
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -31,6 +32,11 @@ import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
 import android.hardware.cts.helpers.sensorverification.MagnitudeVerification;
 import android.hardware.cts.helpers.sensorverification.OffsetVerification;
 import android.hardware.cts.helpers.sensorverification.StandardDeviationVerification;
+import android.hardware.GeomagneticField;
+import android.location.Location;
+import android.location.LocationManager;
+import android.content.Context;
+import java.util.List;
 
 /**
  * Semi-automated test that focuses characteristics associated with Accelerometer measurements.
@@ -40,6 +46,8 @@ import android.hardware.cts.helpers.sensorverification.StandardDeviationVerifica
  */
 public class MagneticFieldMeasurementTestActivity extends SensorCtsVerifierTestActivity {
     private static final float THRESHOLD_CALIBRATED_UNCALIBRATED_UT = 3f;
+    private static final float NANOTESLA_TO_MICROTESLA = 1.0f / 1000;
+    private static final int LOCATION_TRIES = 2;
 
     public MagneticFieldMeasurementTestActivity() {
         super(MagneticFieldMeasurementTestActivity.class);
@@ -47,6 +55,8 @@ public class MagneticFieldMeasurementTestActivity extends SensorCtsVerifierTestA
 
     @Override
     public void activitySetUp() throws InterruptedException {
+        SensorFeaturesDeactivator sensorFeaturesDeactivator = new SensorFeaturesDeactivator(this);
+        sensorFeaturesDeactivator.requestToSetLocationMode(true /* state */);
         calibrateMagnetometer();
     }
 
@@ -81,10 +91,42 @@ public class MagneticFieldMeasurementTestActivity extends SensorCtsVerifierTestA
         TestSensorOperation verifyNorm =
                 TestSensorOperation.createOperation(environment, 100 /* event count */);
 
-        float expectedMagneticFieldEarth =
-                (SensorManager.MAGNETIC_FIELD_EARTH_MAX + SensorManager.MAGNETIC_FIELD_EARTH_MIN) / 2;
-        float magneticFieldEarthThreshold =
-                expectedMagneticFieldEarth - SensorManager.MAGNETIC_FIELD_EARTH_MIN;
+        float expectedMagneticFieldEarth;
+        float magneticFieldEarthThreshold = (SensorManager.MAGNETIC_FIELD_EARTH_MAX
+                - SensorManager.MAGNETIC_FIELD_EARTH_MIN) / 2;
+
+        Location location = null;
+        LocationManager lm = (LocationManager) getApplicationContext().getSystemService(
+                Context.LOCATION_SERVICE);
+
+        int tries = LOCATION_TRIES;
+        while (lm != null && location == null && tries > 0)  {
+            tries--;
+            List<String> providers = lm.getProviders(true /* enabledOnly */);
+            int providerIndex = providers.size();
+            while (providerIndex > 0 && location == null) {
+                providerIndex--;
+                location = lm.getLastKnownLocation(providers.get(providerIndex));
+            }
+            if (location == null) {
+                getTestLogger().logMessage(R.string.snsr_mag_move_outside);
+                waitForUserToContinue();
+            }
+        }
+
+        if (location == null) {
+            expectedMagneticFieldEarth = (SensorManager.MAGNETIC_FIELD_EARTH_MAX
+                    + SensorManager.MAGNETIC_FIELD_EARTH_MIN) / 2;
+            getTestLogger().logMessage(R.string.snsr_mag_no_location, expectedMagneticFieldEarth);
+            waitForUserToContinue();
+        } else {
+            GeomagneticField geomagneticField = new GeomagneticField((float) location.getLatitude(),
+                    (float) location.getLongitude(), (float) location.getAltitude(),
+                    location.getTime());
+            expectedMagneticFieldEarth =
+                    geomagneticField.getFieldStrength() * NANOTESLA_TO_MICROTESLA;
+        }
+
         verifyNorm.addVerification(new MagnitudeVerification(
                 expectedMagneticFieldEarth,
                 magneticFieldEarthThreshold));
@@ -107,6 +149,8 @@ public class MagneticFieldMeasurementTestActivity extends SensorCtsVerifierTestA
      * - the values representing the expectation of the test
      * - the values sampled from the sensor
      */
+// TODO: Re-enable when b/146757096 is fixed
+/*
     @SuppressWarnings("unused")
     public String testOffset() throws Throwable {
         getTestLogger().logMessage(R.string.snsr_mag_verify_offset);
@@ -116,12 +160,13 @@ public class MagneticFieldMeasurementTestActivity extends SensorCtsVerifierTestA
                 Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED,
                 SensorManager.SENSOR_DELAY_FASTEST);
         TestSensorOperation verifyOffset =
-                TestSensorOperation.createOperation(environment, 100 /* event count */);
+                TestSensorOperation.createOperation(environment, 100 /* event count );
 
         verifyOffset.addVerification(OffsetVerification.getDefault(environment));
         verifyOffset.execute(getCurrentTestNode());
         return null;
     }
+*/
 
     /**
      * This test verifies that the standard deviation of a set of sampled data from a particular

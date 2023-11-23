@@ -61,11 +61,11 @@ void palSystemApiLog(enum chreLogLevel level, const char *formatStr, ...) {
 
 // Initialize the CHRE System API with function implementations provided above.
 const chrePalSystemApi gChrePalSystemApi = {
-  CHRE_PAL_SYSTEM_API_CURRENT_VERSION, /* version */
-  palSystemApiGetCurrentTime,          /* getCurrentTime */
-  palSystemApiLog,                     /* log */
-  palSystemApiMemoryAlloc,             /* memoryAlloc */
-  palSystemApiMemoryFree,              /* memoryFree */
+    CHRE_PAL_SYSTEM_API_CURRENT_VERSION, /* version */
+    palSystemApiGetCurrentTime,          /* getCurrentTime */
+    palSystemApiLog,                     /* log */
+    palSystemApiMemoryAlloc,             /* memoryAlloc */
+    palSystemApiMemoryFree,              /* memoryFree */
 };
 
 }  // namespace chre

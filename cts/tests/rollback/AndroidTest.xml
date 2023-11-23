@@ -23,8 +23,8 @@
         <option name="test-file-name" value="CtsRollbackManagerTestCases.apk"/>
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="pm uninstall com.android.cts.rollback.lib.testapp.A" />
-        <option name="teardown-command" value="pm uninstall com.android.cts.rollback.lib.testapp.A" />
+        <option name="run-command" value="pm uninstall com.android.cts.install.lib.testapp.A" />
+        <option name="teardown-command" value="pm uninstall com.android.cts.install.lib.testapp.A" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="com.android.cts.rollback"/>

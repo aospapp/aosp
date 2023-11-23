@@ -116,6 +116,9 @@ NO_RETURN void SleepForever();
 // Flush CPU caches. Returns true on success, false if flush failed.
 WARN_UNUSED bool FlushCpuCaches(void* begin, void* end);
 
+// On some old kernels, a cache operation may segfault.
+WARN_UNUSED bool CacheOperationsMaySegFault();
+
 template <typename T>
 constexpr PointerSize ConvertToPointerSize(T any) {
   if (any == 4 || any == 8) {
@@ -150,6 +153,14 @@ static inline void CheckedCall(const Func& function, const char* what, Args... a
 // the status file. Returns value found on success and "<unknown>" if the key is not found or
 // there is an I/O error.
 std::string GetProcessStatus(const char* key);
+
+// Return whether the address is guaranteed to be backed by a file or is shared.
+// This information can be used to know whether MADV_DONTNEED will make
+// following accesses repopulate the memory or return zero.
+bool IsAddressKnownBackedByFileOrShared(const void* addr);
+
+// Returns the number of threads running.
+int GetTaskCount();
 
 }  // namespace art
 

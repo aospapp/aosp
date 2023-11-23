@@ -25,13 +25,15 @@ void *MemoryManager::nanoappAlloc(Nanoapp *app, uint32_t bytes) {
   if (bytes > 0) {
     if (mAllocationCount >= kMaxAllocationCount) {
       LOGE("Failed to allocate memory from Nanoapp ID %" PRIu32
-           ": allocation count exceeded limit.", app->getInstanceId());
+           ": allocation count exceeded limit.",
+           app->getInstanceId());
     } else if ((mTotalAllocatedBytes + bytes) > kMaxAllocationBytes) {
       LOGE("Failed to allocate memory from Nanoapp ID %" PRIu32
-           ": not enough space.", app->getInstanceId());
+           ": not enough space.",
+           app->getInstanceId());
     } else {
-      header = static_cast<AllocHeader*>(
-          doAlloc(app, sizeof(AllocHeader) + bytes));
+      header =
+          static_cast<AllocHeader *>(doAlloc(app, sizeof(AllocHeader) + bytes));
 
       if (header != nullptr) {
         app->setTotalAllocatedBytes(app->getTotalAllocatedBytes() + bytes);
@@ -51,7 +53,7 @@ void *MemoryManager::nanoappAlloc(Nanoapp *app, uint32_t bytes) {
 
 void MemoryManager::nanoappFree(Nanoapp *app, void *ptr) {
   if (ptr != nullptr) {
-    AllocHeader *header = static_cast<AllocHeader*>(ptr);
+    AllocHeader *header = static_cast<AllocHeader *>(ptr);
     header--;
 
     // TODO: Clean up API contract of chreSendEvent to specify nanoapps can't
@@ -59,13 +61,13 @@ void MemoryManager::nanoappFree(Nanoapp *app, void *ptr) {
     // used below and the code can return.
     if (app->getInstanceId() != header->data.instanceId) {
       LOGW("Nanoapp ID=%" PRIu32 " tried to free data from nanoapp ID=%" PRIu32,
-          app->getInstanceId(), header->data.instanceId);
+           app->getInstanceId(), header->data.instanceId);
     }
 
     size_t nanoAppTotalAllocatedBytes = app->getTotalAllocatedBytes();
     if (nanoAppTotalAllocatedBytes >= header->data.bytes) {
-      app->setTotalAllocatedBytes(
-          nanoAppTotalAllocatedBytes - header->data.bytes);
+      app->setTotalAllocatedBytes(nanoAppTotalAllocatedBytes -
+                                  header->data.bytes);
     } else {
       app->setTotalAllocatedBytes(0);
     }
@@ -83,12 +85,11 @@ void MemoryManager::nanoappFree(Nanoapp *app, void *ptr) {
   }
 }
 
-void MemoryManager::logStateToBuffer(char *buffer, size_t *bufferPos,
-                                     size_t bufferSize) const {
-  debugDumpPrint(buffer, bufferPos, bufferSize,
-                 "\nNanoapp heap usage: %zu bytes allocated, %zu peak bytes"
-                 " allocated, count %zu\n", getTotalAllocatedBytes(),
-                 getPeakAllocatedBytes(), getAllocationCount());
+void MemoryManager::logStateToBuffer(DebugDumpWrapper &debugDump) const {
+  debugDump.print(
+      "\nNanoapp heap usage: %zu bytes allocated, %zu peak bytes"
+      " allocated, count %zu\n",
+      getTotalAllocatedBytes(), getPeakAllocatedBytes(), getAllocationCount());
 }
 
 }  // namespace chre

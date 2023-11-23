@@ -16,6 +16,8 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
@@ -40,6 +42,16 @@ public class ReplacementSpanTest {
     public void testUpdateDrawState() {
         ReplacementSpan replacementSpan = new MockReplacementSpan();
         replacementSpan.updateDrawState(null);
+    }
+
+    @Test
+    public void testContentDescription() {
+        final String testContentDescription = "testContentDescription";
+        ReplacementSpan replacementSpan = new MockReplacementSpan();
+
+        replacementSpan.setContentDescription(testContentDescription);
+
+        assertEquals(testContentDescription, replacementSpan.getContentDescription());
     }
 
     private class MockReplacementSpan extends ReplacementSpan {

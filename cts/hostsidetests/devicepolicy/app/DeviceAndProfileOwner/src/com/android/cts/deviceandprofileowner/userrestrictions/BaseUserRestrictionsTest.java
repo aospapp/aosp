@@ -19,8 +19,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Process;
+import android.os.UserHandle;
 import android.os.UserManager;
 
+import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.cts.deviceandprofileowner.BaseDeviceAdminTest;
 
 import java.util.Arrays;
@@ -42,14 +45,12 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
             UserManager.DISALLOW_USB_FILE_TRANSFER,
             UserManager.DISALLOW_CONFIG_CREDENTIALS,
             UserManager.DISALLOW_REMOVE_USER,
-            UserManager.DISALLOW_REMOVE_MANAGED_PROFILE,
             UserManager.DISALLOW_DEBUGGING_FEATURES,
             UserManager.DISALLOW_CONFIG_VPN,
             UserManager.DISALLOW_CONFIG_TETHERING,
             UserManager.DISALLOW_NETWORK_RESET,
             UserManager.DISALLOW_FACTORY_RESET,
             UserManager.DISALLOW_ADD_USER,
-            UserManager.DISALLOW_ADD_MANAGED_PROFILE,
             UserManager.ENSURE_VERIFY_APPS,
             UserManager.DISALLOW_CONFIG_CELL_BROADCASTS,
             UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS,
@@ -115,9 +116,23 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
                         .getBoolean(restriction));
     }
 
+    /** Returns whether {@link UserManager} itself has applied the given restriction to the user. */
+    protected boolean hasBaseUserRestriction(String restriction, UserHandle userHandle) {
+        return ShellIdentityUtils.invokeMethodWithShellPermissions(mUserManager,
+                (um) -> um.hasBaseUserRestriction(restriction, userHandle));
+    }
+
+    /**
+     * Check that {@link UserManager#hasUserRestriction} gives the expected results for each
+     * restriction.
+     * @param expected the list of user restrictions that are expected to have been applied due
+     *                 to DO/PO
+     */
     protected void assertRestrictions(Set<String> expected) {
+        final UserHandle userHandle = Process.myUserHandle();
         for (String r : ALL_USER_RESTRICTIONS) {
-            assertLayeredRestriction(r, expected.contains(r));
+            assertLayeredRestriction(r,
+                    expected.contains(r) || hasBaseUserRestriction(r, userHandle));
         }
     }
 

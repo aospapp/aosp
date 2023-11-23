@@ -20,47 +20,49 @@ include $(CLEAR_VARS)
 
 # makefile rules to copy jars to HOST_OUT/tradefed
 # so tradefed.sh can automatically add to classpath
+
+# Output tradefed-no-fwk as "tradefed.jar" for seamlessly replacing the jar.
 deps := $(call copy-many-files,\
-  $(call intermediates-dir-for,JAVA_LIBRARIES,tradefed,HOST)/javalib.jar:$(HOST_OUT)/tradefed/tradefed.jar)
+  $(call intermediates-dir-for,JAVA_LIBRARIES,tradefed-no-fwk,HOST)/javalib.jar:$(HOST_OUT)/tradefed/tradefed.jar)
+
+fwk_deps := $(call copy-many-files,\
+  $(call intermediates-dir-for,JAVA_LIBRARIES,tradefed-test-framework,HOST)/javalib.jar:$(HOST_OUT)/tradefed/tradefed-test-framework.jar)
+
+isodeps := $(call copy-many-files,\
+  $(call intermediates-dir-for,JAVA_LIBRARIES,tradefed-isolation,HOST)/javalib.jar:$(HOST_OUT)/tradefed/tradefed-isolation.jar)
 
 # this dependency ensures the above rule will be executed if jar is installed
-$(HOST_OUT_JAVA_LIBRARIES)/tradefed.jar : $(deps)
+$(HOST_OUT_JAVA_LIBRARIES)/tradefed.jar : $(deps) $(isodeps) $(fwk_deps)
 # The copy rule for loganalysis is in tools/loganalysis/Android.mk
 $(HOST_OUT_JAVA_LIBRARIES)/tradefed.jar : $(HOST_OUT)/tradefed/loganalysis.jar
 
 #######################################################
-include $(CLEAR_VARS)
 
 # Create a simple alias to build all the TF-related targets
 # Note that this is incompatible with `make dist`.  If you want to make
 # the distribution, you must run `tapas` with the individual target names.
 .PHONY: tradefed-core
-tradefed-core: tradefed atest_tradefed tradefed-contrib tf-contrib-tests script_help
+tradefed-core: tradefed tradefed-isolation tradefed-test-framework atest_tradefed.sh tradefed-contrib tf-contrib-tests script_help.sh tradefed.sh
 
 .PHONY: tradefed-all
-tradefed-all: tradefed-core tradefed-tests tradefed_win verify loganalysis-tests
-
-# ====================================
-include $(CLEAR_VARS)
-# copy tradefed.sh script to host dir
-
-LOCAL_MODULE_TAGS := optional
-
-LOCAL_PREBUILT_EXECUTABLES := tradefed.sh tradefed_win.bat script_help.sh verify.sh run_tf_cmd.sh atest_tradefed.sh
-include $(BUILD_HOST_PREBUILT)
+tradefed-all: tradefed-core tradefed-tests tradefed_win loganalysis-tests
 
 ########################################################
 # Zip up the built files and dist it as tradefed.zip
 
-tradefed_dist_host_jars := tradefed tradefed-tests loganalysis loganalysis-tests tf-remote-client tradefed-contrib tf-contrib-tests
-tradefed_dist_host_exes := tradefed.sh tradefed_win.bat script_help.sh verify.sh run_tf_cmd.sh atest_tradefed.sh
+# Do not include "tradefed" in here, it's created below from tradefed-no-fwk
+tradefed_dist_host_jars := tradefed-test-framework tradefed-tests loganalysis loganalysis-tests tf-remote-client tradefed-contrib tf-contrib-tests tradefed-isolation
+tradefed_dist_host_exes := tradefed.sh tradefed_win.bat script_help.sh run_tf_cmd.sh atest_tradefed.sh
 tradefed_dist_test_apks := TradeFedUiTestApp TradeFedTestApp DeviceSetupUtil
 
 # Generate a src:dest list of copies to perform.
 # The source should always be an intermediate / source location, not the
 # installed location, as that will force installation, and cause this zip to be
 # regenerated too often during incremental builds.
-tradefed_dist_copy_pairs := $(foreach m, $(tradefed_dist_host_jars), $(call intermediates-dir-for,JAVA_LIBRARIES,$(m),HOST,COMMON)/javalib.jar:$(m).jar)
+
+# Copy tradefed-no-fwk to tradefed.jar to be an inplace replacement
+tradefed_dist_copy_pairs := $(call intermediates-dir-for,JAVA_LIBRARIES,tradefed-no-fwk,HOST,COMMON)/javalib.jar:tradefed.jar
+tradefed_dist_copy_pairs += $(foreach m, $(tradefed_dist_host_jars), $(call intermediates-dir-for,JAVA_LIBRARIES,$(m),HOST,COMMON)/javalib.jar:$(m).jar)
 tradefed_dist_copy_pairs += $(foreach m, $(tradefed_dist_host_exes), $(LOCAL_PATH)/$(m):$(m))
 tradefed_dist_copy_pairs += $(foreach m, $(tradefed_dist_test_apks), $(call intermediates-dir-for,APPS,$(m))/package.apk:$(m).apk)
 

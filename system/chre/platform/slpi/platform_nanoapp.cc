@@ -34,7 +34,7 @@
 
 namespace chre {
 #if defined(CHRE_SLPI_SEE) && defined(CHRE_SLPI_UIMG_ENABLED)
-namespace{
+namespace {
 void rewriteToChreEventType(uint16_t *eventType) {
   CHRE_ASSERT(eventType);
 
@@ -54,6 +54,8 @@ void rewriteToChreEventType(uint16_t *eventType) {
       (CHRE_EVENT_SENSOR_DATA_EVENT_BASE + CHRE_SENSOR_TYPE_VENDOR_START + 7);
   constexpr uint16_t kUncalMagBigImageEventType =
       (CHRE_EVENT_SENSOR_DATA_EVENT_BASE + CHRE_SENSOR_TYPE_VENDOR_START + 8);
+  constexpr uint16_t kLightBigImageEventType =
+      (CHRE_EVENT_SENSOR_DATA_EVENT_BASE + CHRE_SENSOR_TYPE_VENDOR_START + 9);
 
   if (*eventType == kAccelBigImageEventType) {
     *eventType = CHRE_EVENT_SENSOR_ACCELEROMETER_DATA;
@@ -63,6 +65,8 @@ void rewriteToChreEventType(uint16_t *eventType) {
     *eventType = CHRE_EVENT_SENSOR_UNCALIBRATED_GYROSCOPE_DATA;
   } else if (*eventType == kUncalMagBigImageEventType) {
     *eventType = CHRE_EVENT_SENSOR_UNCALIBRATED_GEOMAGNETIC_FIELD_DATA;
+  } else if (*eventType == kLightBigImageEventType) {
+    *eventType = CHRE_EVENT_SENSOR_LIGHT_DATA;
   }
 }
 
@@ -74,16 +78,18 @@ void rewriteToChreEventType(uint16_t *eventType) {
  * @return The sensor type of the corresponding big-image sensor, or the input
  *     sensor type if one does not exist.
  */
-SensorType getBigImageSensorType(SensorType sensorType) {
+uint8_t getBigImageSensorType(uint8_t sensorType) {
   switch (sensorType) {
-    case SensorType::Accelerometer:
-      return SensorType::VendorType3;
-    case SensorType::UncalibratedAccelerometer:
-      return SensorType::VendorType6;
-    case SensorType::UncalibratedGyroscope:
-      return SensorType::VendorType7;
-    case SensorType::UncalibratedGeomagneticField:
-      return SensorType::VendorType8;
+    case CHRE_SENSOR_TYPE_ACCELEROMETER:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_ACCEL;
+    case CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_ACCEL;
+    case CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_GYRO;
+    case CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_MAG;
+    case CHRE_SENSOR_TYPE_LIGHT:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_LIGHT;
     default:
       return sensorType;
   }
@@ -98,9 +104,14 @@ SensorType getBigImageSensorType(SensorType sensorType) {
  *     handle if one does not exist.
  */
 uint32_t getBigImageSensorHandle(uint32_t sensorHandle) {
-  SensorType sensorType = getSensorTypeFromSensorHandle(sensorHandle);
-  sensorType = getBigImageSensorType(sensorType);
-  return getSensorHandleFromSensorType(sensorType);
+  Sensor *sensor =
+      EventLoopManagerSingleton::get()->getSensorRequestManager().getSensor(
+          sensorHandle);
+  uint8_t bigImageType = getBigImageSensorType(sensor->getSensorType());
+  uint32_t bigImageHandle;
+  EventLoopManagerSingleton::get()->getSensorRequestManager().getSensorHandle(
+      bigImageType, &bigImageHandle);
+  return bigImageHandle;
 }
 
 /**
@@ -108,14 +119,15 @@ uint32_t getBigImageSensorHandle(uint32_t sensorHandle) {
  */
 bool isBiasEventType(uint16_t eventType) {
   return eventType == CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO ||
-      eventType == CHRE_EVENT_SENSOR_UNCALIBRATED_ACCELEROMETER_BIAS_INFO ||
-      eventType == CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO ||
-      eventType == CHRE_EVENT_SENSOR_UNCALIBRATED_GYROSCOPE_BIAS_INFO ||
-      eventType == CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO ||
-      eventType == CHRE_EVENT_SENSOR_UNCALIBRATED_GEOMAGNETIC_FIELD_BIAS_INFO;
+         eventType == CHRE_EVENT_SENSOR_UNCALIBRATED_ACCELEROMETER_BIAS_INFO ||
+         eventType == CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO ||
+         eventType == CHRE_EVENT_SENSOR_UNCALIBRATED_GYROSCOPE_BIAS_INFO ||
+         eventType == CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO ||
+         eventType ==
+             CHRE_EVENT_SENSOR_UNCALIBRATED_GEOMAGNETIC_FIELD_BIAS_INFO;
 }
 
-} //  anonymous namespace
+}  //  anonymous namespace
 #endif  // defined(CHRE_SLPI_SEE) && defined(CHRE_SLPI_UIMG_ENABLED)
 
 PlatformNanoapp::~PlatformNanoapp() {
@@ -134,8 +146,7 @@ bool PlatformNanoapp::start() {
   return openNanoapp() && mAppInfo->entryPoints.start();
 }
 
-void PlatformNanoapp::handleEvent(uint32_t senderInstanceId,
-                                  uint16_t eventType,
+void PlatformNanoapp::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
                                   const void *eventData) {
   if (!isUimgApp()) {
     slpiForceBigImage();
@@ -170,8 +181,8 @@ void PlatformNanoapp::end() {
   closeNanoapp();
 }
 
-bool PlatformNanoappBase::setAppInfo(
-    uint64_t appId, uint32_t appVersion, const char *appFilename) {
+bool PlatformNanoappBase::setAppInfo(uint64_t appId, uint32_t appVersion,
+                                     const char *appFilename) {
   CHRE_ASSERT(!isLoaded());
   mExpectedAppId = appId;
   mExpectedAppVersion = appVersion;
@@ -189,8 +200,8 @@ bool PlatformNanoappBase::setAppInfo(
   return success;
 }
 
-bool PlatformNanoappBase::reserveBuffer(
-    uint64_t appId, uint32_t appVersion, size_t appBinaryLen) {
+bool PlatformNanoappBase::reserveBuffer(uint64_t appId, uint32_t appVersion,
+                                        size_t appBinaryLen) {
   CHRE_ASSERT(!isLoaded());
   bool success = false;
   constexpr size_t kMaxAppSize = 2 * 1024 * 1024;  // 2 MiB
@@ -213,8 +224,8 @@ bool PlatformNanoappBase::reserveBuffer(
   return success;
 }
 
-bool PlatformNanoappBase::copyNanoappFragment(
-    const void *buffer, size_t bufferLen) {
+bool PlatformNanoappBase::copyNanoappFragment(const void *buffer,
+                                              size_t bufferLen) {
   CHRE_ASSERT(!isLoaded());
 
   bool success = true;
@@ -238,8 +249,9 @@ void PlatformNanoappBase::loadStatic(const struct chreNslNanoappInfo *appInfo) {
 }
 
 bool PlatformNanoappBase::isLoaded() const {
-  return (mIsStatic || (mAppBinary != nullptr && mBytesLoaded == mAppBinaryLen)
-          || mDsoHandle != nullptr || mAppFilename != nullptr);
+  return (mIsStatic ||
+          (mAppBinary != nullptr && mBytesLoaded == mAppBinaryLen) ||
+          mDsoHandle != nullptr || mAppFilename != nullptr);
 }
 
 bool PlatformNanoappBase::isUimgApp() const {
@@ -292,9 +304,8 @@ bool PlatformNanoappBase::openNanoappFromBuffer() {
   char filename[kMaxFilenameLen];
   snprintf(filename, sizeof(filename), "%016" PRIx64, mExpectedAppId);
 
-  mDsoHandle = dlopenbuf(
-      filename, static_cast<const char *>(mAppBinary),
-      static_cast<int>(mAppBinaryLen), RTLD_NOW);
+  mDsoHandle = dlopenbuf(filename, static_cast<const char *>(mAppBinary),
+                         static_cast<int>(mAppBinaryLen), RTLD_NOW);
   memoryFreeBigImage(mAppBinary);
   mAppBinary = nullptr;
 
@@ -327,10 +338,11 @@ bool PlatformNanoappBase::verifyNanoappInfo() {
       if (!success) {
         mAppInfo = nullptr;
       } else {
-        LOGI("Successfully loaded nanoapp: %s (0x%016" PRIx64 ") version 0x%"
-             PRIx32 " (%s) uimg %d system %d", mAppInfo->name, mAppInfo->appId,
-             mAppInfo->appVersion, getAppVersionString(),
-             mAppInfo->isTcmNanoapp, mAppInfo->isSystemNanoapp);
+        LOGI("Successfully loaded nanoapp: %s (0x%016" PRIx64
+             ") version 0x%" PRIx32 " (%s) uimg %d system %d",
+             mAppInfo->name, mAppInfo->appId, mAppInfo->appVersion,
+             getAppVersionString(), mAppInfo->isTcmNanoapp,
+             mAppInfo->isSystemNanoapp);
       }
     }
   }
@@ -340,15 +352,15 @@ bool PlatformNanoappBase::verifyNanoappInfo() {
 
 const char *PlatformNanoappBase::getAppVersionString() const {
   const char *versionString = "<undefined>";
-  if (mAppInfo != nullptr && mAppInfo->structMinorVersion >= 2 
-      && mAppInfo->appVersionString != NULL) {
+  if (mAppInfo != nullptr && mAppInfo->structMinorVersion >= 2 &&
+      mAppInfo->appVersionString != NULL) {
     size_t appVersionStringLength = strlen(mAppInfo->appVersionString);
 
     size_t offset = 0;
     for (size_t i = 0; i < appVersionStringLength; i++) {
       size_t newOffset = i + 1;
-      if (mAppInfo->appVersionString[i] == '@'
-          && newOffset < appVersionStringLength) {
+      if (mAppInfo->appVersionString[i] == '@' &&
+          newOffset < appVersionStringLength) {
         offset = newOffset;
         break;
       }
@@ -372,6 +384,10 @@ uint32_t PlatformNanoapp::getTargetApiVersion() const {
   return (mAppInfo != nullptr) ? mAppInfo->targetApiVersion : 0;
 }
 
+const char *PlatformNanoapp::getAppName() const {
+  return (mAppInfo != nullptr) ? mAppInfo->name : "Unknown";
+}
+
 bool PlatformNanoapp::isSystemNanoapp() const {
   // Right now, we assume that system nanoapps are always static nanoapps. Since
   // mAppInfo can only be null either prior to loading the app (in which case
@@ -381,12 +397,10 @@ bool PlatformNanoapp::isSystemNanoapp() const {
   return (mAppInfo != nullptr) ? mAppInfo->isSystemNanoapp : false;
 }
 
-void PlatformNanoapp::logStateToBuffer(char *buffer, size_t *bufferPos,
-                                       size_t bufferSize) const {
+void PlatformNanoapp::logStateToBuffer(DebugDumpWrapper &debugDump) const {
   if (mAppInfo != nullptr) {
-    debugDumpPrint(buffer, bufferPos, bufferSize,
-                   " %s: vendor=\"%s\" commit=\"%s\"",
-                   mAppInfo->name, mAppInfo->vendor, getAppVersionString());
+    debugDump.print("%s (%s) @ %s", mAppInfo->name, mAppInfo->vendor,
+                    getAppVersionString());
   }
 }
 

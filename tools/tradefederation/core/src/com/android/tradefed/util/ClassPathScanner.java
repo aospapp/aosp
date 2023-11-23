@@ -21,9 +21,11 @@ import com.android.ddmlib.Log;
 import java.io.File;
 import java.io.IOException;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
@@ -108,16 +110,17 @@ public class ClassPathScanner {
 
     /**
      * Gets the names of all entries contained in given jar file, that match given filter
+     *
      * @throws IOException
      */
-    public Set<String> getEntriesFromJar(File plainFile, IClassPathFilter filter)
+    public Map<String, String> getEntriesFromJar(File plainFile, IClassPathFilter filter)
             throws IOException {
-        Set<String> entryNames = new LinkedHashSet<String>();
+        Map<String, String> entryNames = new LinkedHashMap<>();
         JarFile jarFile = new JarFile(plainFile);
         for (Enumeration<? extends ZipEntry> e = jarFile.entries(); e.hasMoreElements(); ) {
             String entryName = e.nextElement().getName();
             if (filter.accept(entryName)) {
-                entryNames.add(filter.transform(entryName));
+                entryNames.put(filter.transform(entryName), plainFile.getName());
             }
             entryName = null;
         }
@@ -199,7 +202,7 @@ public class ClassPathScanner {
             File classPathFile = new File(classPathElement);
             try {
                 if (classPathFile.isFile() && classPathElement.endsWith(".jar")) {
-                    entryNames.addAll(getEntriesFromJar(classPathFile, filter));
+                    entryNames.addAll(getEntriesFromJar(classPathFile, filter).keySet());
                 } else if (classPathFile.isDirectory()) {
                     entryNames.addAll(getEntriesFromDir(classPathFile, filter));
                 } else {
@@ -210,6 +213,35 @@ public class ClassPathScanner {
             } catch (IOException e) {
                 Log.w(LOG_TAG, String.format("Failed to read class path entry %s. Reason: %s",
                         classPathElement, e.toString()));
+            }
+        }
+        return entryNames;
+    }
+
+    /**
+     * Retrieves set of classpath entries that match given {@link IClassPathFilter} and returns them
+     * with which JAR they come from. Used to validate origin of files.
+     */
+    public Map<String, String> getClassPathEntriesFromJar(IClassPathFilter filter) {
+        Map<String, String> entryNames = new LinkedHashMap<>();
+        for (String classPathElement : mClassPath) {
+            File classPathFile = new File(classPathElement);
+            try {
+                if (classPathFile.isFile() && classPathElement.endsWith(".jar")) {
+                    entryNames.putAll(getEntriesFromJar(classPathFile, filter));
+                } else {
+                    Log.w(
+                            LOG_TAG,
+                            String.format(
+                                    "class path entry %s does not exist or is not recognized, skipping",
+                                    classPathElement));
+                }
+            } catch (IOException e) {
+                Log.w(
+                        LOG_TAG,
+                        String.format(
+                                "Failed to read class path entry %s. Reason: %s",
+                                classPathElement, e.toString()));
             }
         }
         return entryNames;

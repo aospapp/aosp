@@ -24,7 +24,6 @@ class NativeTest(BaseTestClass):
 
     def __init__(self, controllers):
         BaseTestClass.__init__(self, controllers)
-        self.droid = self.native_android_devices[0].droid
         self.tests = (
                 "test_bool_return_true",
                 "test_bool_return_false",
@@ -32,6 +31,10 @@ class NativeTest(BaseTestClass):
                 "test_string_empty_return",
                 "test_max_param_size",
         )
+
+    def setup_class(self):
+        super().setup_class()
+        self.droid = self.native_android_devices[0].droid
 
     def test_bool_return_true(self):
         return self.droid.TestBoolTrueReturn()

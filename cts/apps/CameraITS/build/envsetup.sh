@@ -31,7 +31,7 @@ command -v python >/dev/null 2>&1 || \
 python -V 2>&1 | grep -q "Python 2.7" || \
     echo ">> Require python 2.7" >&2
 
-for M in numpy PIL matplotlib scipy.stats scipy.spatial
+for M in numpy PIL matplotlib scipy.stats scipy.spatial serial
 do
     python -c "import $M" >/dev/null 2>&1 || \
         echo ">> Require Python $M module" >&2

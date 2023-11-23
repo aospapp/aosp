@@ -15,14 +15,14 @@
  */
 package com.android.tradefed.result;
 
-import static org.mockito.Mockito.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import com.android.tradefed.build.BuildInfo;
-import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
@@ -35,15 +35,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 
 /** Unit tests for {@link JsonHttpTestResultReporter}. */
 @RunWith(JUnit4.class)
 public class JsonHttpTestResultReporterTest {
     // Corresponds to the option name in JsonHttpTestResultReporter.
     private static final String SKIP_FAILED_RUNS_OPTION = "skip-failed-runs";
+    private static final String COLLECT_DEVICE_DETAILS_OPTION = "include-device-details";
 
     // Corresponds to the KEY_METRICS field in JsonHttpTestResultReporter.
     private static final String JSON_METRIC_KEY = "metrics";
@@ -87,6 +89,20 @@ public class JsonHttpTestResultReporterTest {
         // Only the first run should be in the posted metrics.
         Assert.assertTrue(jsonCaptor.getValue().getJSONObject(JSON_METRIC_KEY).has("run1"));
         Assert.assertFalse(jsonCaptor.getValue().getJSONObject(JSON_METRIC_KEY).has("run2"));
+    }
+
+    /** Test for parsing additional device details when collect device details is enabled. */
+    @Test
+    public void testIncludeAdditionalTestDetails() throws ConfigurationException {
+        OptionSetter optionSetter = new OptionSetter(mReporter);
+        optionSetter.setOptionValue(COLLECT_DEVICE_DETAILS_OPTION, String.valueOf(true));
+        // getDevice and parseAdditionalDeviceDetails method calls happen when the
+        // additional device details flag is enabled.
+        Mockito.doReturn(null).when(mReporter).getDevice(any(InvocationContext.class));
+        Mockito.doNothing().when(mReporter).parseAdditionalDeviceDetails(any());
+        mReporter.invocationStarted(mContext);
+        injectTestRun(mReporter, "run1", "test", "metric1", 0, true);
+        mReporter.invocationEnded(0);
     }
 
     /**

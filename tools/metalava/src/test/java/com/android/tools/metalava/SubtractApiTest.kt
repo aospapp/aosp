@@ -24,7 +24,7 @@ class SubtractApiTest : DriverTest() {
     @Test
     fun `Subtract APIs`() {
         check(
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -76,7 +76,7 @@ class SubtractApiTest : DriverTest() {
                 package test.pkg;
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
                 public class OnlyInNew {
-                OnlyInNew() { throw new RuntimeException("Stub!"); }
+                private OnlyInNew() { throw new RuntimeException("Stub!"); }
                 public void method1() { throw new RuntimeException("Stub!"); }
                 public void method5() { throw new RuntimeException("Stub!"); }
                 public void method6() { throw new RuntimeException("Stub!"); }

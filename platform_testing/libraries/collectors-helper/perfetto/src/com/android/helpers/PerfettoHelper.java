@@ -40,6 +40,8 @@ public class PerfettoHelper {
     private static final String PERFETTO_START_CMD = "perfetto --background -c %s%s -o %s";
     private static final String PERFETTO_TMP_OUTPUT_FILE =
             "/data/misc/perfetto-traces/trace_output.pb";
+    // Additional arg to indicate that the perfetto config file is text format.
+    private static final String PERFETTO_TXT_PROTO_ARG = " --txt";
     // Command to stop (i.e kill) the perfetto tracing.
     private static final String PERFETTO_STOP_CMD = "pkill -INT perfetto";
     // Command to check the perfetto process id.
@@ -62,9 +64,10 @@ public class PerfettoHelper {
      * /data/misc/perfetto-traces/ folder in the device.
      *
      * @param configFileName used for collecting the perfetto trace.
+     * @param isTextProtoConfig true if the config file is textproto format otherwise false.
      * @return true if trace collection started successfully otherwise return false.
      */
-    public boolean startCollecting(String configFileName) {
+    public boolean startCollecting(String configFileName, boolean isTextProtoConfig) {
         mUIDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         if (configFileName == null || configFileName.isEmpty()) {
             Log.e(LOG_TAG, "Perfetto config file name is null or empty.");
@@ -79,15 +82,22 @@ public class PerfettoHelper {
                     return false;
                 }
             }
+
             // Remove already existing temporary output trace file if any.
             String output = mUIDevice.executeShellCommand(String.format(REMOVE_CMD,
                     PERFETTO_TMP_OUTPUT_FILE));
             Log.i(LOG_TAG, String.format("Perfetto output file cleanup - %s", output));
 
+            String perfettoCmd = String.format(PERFETTO_START_CMD,
+                    PERFETTO_ROOT_DIR, configFileName, PERFETTO_TMP_OUTPUT_FILE);
+
+            if(isTextProtoConfig) {
+               perfettoCmd = perfettoCmd + PERFETTO_TXT_PROTO_ARG;
+            }
+
             // Start perfetto tracing.
             Log.i(LOG_TAG, "Starting perfetto tracing.");
-            String startOutput = mUIDevice.executeShellCommand(String.format(PERFETTO_START_CMD,
-                    PERFETTO_ROOT_DIR, configFileName, PERFETTO_TMP_OUTPUT_FILE));
+            String startOutput = mUIDevice.executeShellCommand(perfettoCmd);
             Log.i(LOG_TAG, String.format("Perfetto start command output - %s", startOutput));
             // TODO : Once the output status is available use that for additional validation.
             if (!isPerfettoRunning()) {
@@ -139,7 +149,7 @@ public class PerfettoHelper {
      *
      * @return true if perfetto is stopped successfully.
      */
-    private boolean stopPerfetto() throws IOException {
+    public boolean stopPerfetto() throws IOException {
         String stopOutput = mUIDevice.executeShellCommand(PERFETTO_STOP_CMD);
         Log.i(LOG_TAG, String.format("Perfetto stop command output - %s", stopOutput));
         int waitCount = 0;

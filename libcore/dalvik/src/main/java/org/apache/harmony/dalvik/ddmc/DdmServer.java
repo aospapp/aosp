@@ -16,11 +16,13 @@
 
 package org.apache.harmony.dalvik.ddmc;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.annotation.optimization.FastNative;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+
+import dalvik.annotation.optimization.FastNative;
 
 
 /**

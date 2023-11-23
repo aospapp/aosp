@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,20 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
 import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc18_04 extends SecurityTestCase {
     /**
      * b/69683251
      * Does not require root but must be a hostside test to avoid
      * a race condition
      */
+    @Test
     @SecurityTest(minPatchLevel = "2018-04")
     public void testPocCVE_2017_13286() throws Exception {
         getOomCatcher().setHighMemoryTest();
@@ -35,6 +41,7 @@ public class Poc18_04 extends SecurityTestCase {
      * b/69634768
      * Does not require root but must be a hostside test to avoid a race condition
      */
+    @Test
     @SecurityTest(minPatchLevel = "2018-04")
     public void testPocCVE_2017_13288() throws Exception {
         getOomCatcher().setHighMemoryTest();
@@ -45,6 +52,7 @@ public class Poc18_04 extends SecurityTestCase {
      * b/70398564
      * Does not require root but must be a hostside test to avoid a race condition
      */
+    @Test
     @SecurityTest(minPatchLevel = "2018-04")
     public void testPocCVE_2017_13289() throws Exception {
         getOomCatcher().setHighMemoryTest();

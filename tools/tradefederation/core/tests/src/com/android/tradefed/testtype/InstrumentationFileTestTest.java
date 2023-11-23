@@ -19,15 +19,19 @@ package com.android.tradefed.testtype;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.ITestRunListener;
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ITestLifeCycleReceiver;
 import com.android.tradefed.result.TestDescription;
@@ -62,6 +66,7 @@ public class InstrumentationFileTestTest {
     private ITestDevice mMockTestDevice;
     private ITestInvocationListener mMockListener;
     private InstrumentationTest mMockITest;
+    private TestInformation mTestInfo;
 
     private File mTestFile;
 
@@ -75,6 +80,8 @@ public class InstrumentationFileTestTest {
 
         EasyMock.expect(mMockTestDevice.getIDevice()).andStubReturn(mockIDevice);
         EasyMock.expect(mMockTestDevice.getSerialNumber()).andStubReturn("serial");
+        EasyMock.expect(mMockTestDevice.checkApiLevelAgainstNextRelease(EasyMock.anyInt()))
+                .andStubReturn(false);
 
         // mock out InstrumentationTest that will be used to create InstrumentationFileTest
         mMockITest = new InstrumentationTest() {
@@ -83,9 +90,14 @@ public class InstrumentationFileTestTest {
                 return "runner";
             }
         };
+        mMockITest.setConfiguration(new Configuration("", ""));
         mMockITest.setDevice(mMockTestDevice);
         mMockITest.setPackageName(TEST_PACKAGE_VALUE);
+        mMockITest.setConfiguration(new Configuration("name", "description"));
         mMockITest = Mockito.spy(mMockITest);
+
+        IInvocationContext context = new InvocationContext();
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     /** Test normal run scenario with a single test. */
@@ -139,7 +151,7 @@ public class InstrumentationFileTestTest {
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.eq(new HashMap<String, Metric>()));
 
         EasyMock.replay(mMockListener, mMockTestDevice);
-        mInstrumentationFileTest.run(mMockListener);
+        mInstrumentationFileTest.run(mTestInfo, mMockListener);
         assertEquals(mMockTestDevice, mMockITest.getDevice());
         // Ensure that we unset the package name
         Mockito.verify(mMockITest).setTestPackageName(null);
@@ -243,7 +255,7 @@ public class InstrumentationFileTestTest {
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.eq(new HashMap<String, Metric>()));
 
         EasyMock.replay(mMockListener, mMockTestDevice);
-        mInstrumentationFileTest.run(mMockListener);
+        mInstrumentationFileTest.run(mTestInfo, mMockListener);
         assertEquals(mMockTestDevice, mMockITest.getDevice());
     }
 
@@ -251,6 +263,7 @@ public class InstrumentationFileTestTest {
     @Test
     public void testRun_serialReRunOfTwoFailedToCompleteTests()
             throws DeviceNotAvailableException, ConfigurationException {
+        mMockListener = EasyMock.createStrictMock(ITestInvocationListener.class);
         final Collection<TestDescription> testsList = new ArrayList<>(1);
         final TestDescription test1 = new TestDescription("ClassFoo1", "methodBar1");
         final TestDescription test2 = new TestDescription("ClassFoo2", "methodBar2");
@@ -307,6 +320,7 @@ public class InstrumentationFileTestTest {
                     }
                 };
         setRunTestExpectations(secdondSerialRunAnswer);
+        mMockTestDevice.waitForDeviceAvailable();
 
         mInstrumentationFileTest = new InstrumentationFileTest(mMockITest, testsList, true, -1) {
             @Override
@@ -339,6 +353,10 @@ public class InstrumentationFileTestTest {
         mMockListener.testStarted(EasyMock.eq(test1), EasyMock.anyLong());
         mMockListener.testEnded(
                 EasyMock.eq(test1), EasyMock.anyLong(), EasyMock.eq(new HashMap<String, Metric>()));
+        mMockListener.testStarted(EasyMock.eq(test2), EasyMock.anyLong());
+        mMockListener.testFailed(EasyMock.eq(test2), EasyMock.<FailureDescription>anyObject());
+        mMockListener.testEnded(
+                EasyMock.eq(test2), EasyMock.anyLong(), EasyMock.eq(new HashMap<String, Metric>()));
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.eq(new HashMap<String, Metric>()));
         // first serial re-run:
         mMockListener.testRunStarted(TEST_PACKAGE_VALUE, 0, 1);
@@ -349,7 +367,7 @@ public class InstrumentationFileTestTest {
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.eq(new HashMap<String, Metric>()));
 
         EasyMock.replay(mMockListener, mMockTestDevice);
-        mInstrumentationFileTest.run(mMockListener);
+        mInstrumentationFileTest.run(mTestInfo, mMockListener);
         assertEquals(mMockTestDevice, mMockITest.getDevice());
         // test file is expected to be null since we defaulted to serial test execution
         assertEquals(null, mMockITest.getTestFilePathOnDevice());
@@ -406,7 +424,7 @@ public class InstrumentationFileTestTest {
         mMockListener.testStarted(EasyMock.eq(test2), EasyMock.anyLong());
 
         EasyMock.replay(mMockListener, mMockTestDevice);
-        mInstrumentationFileTest.run(mMockListener);
+        mInstrumentationFileTest.run(mTestInfo, mMockListener);
         assertEquals(mMockTestDevice, mMockITest.getDevice());
     }
 
@@ -539,7 +557,7 @@ public class InstrumentationFileTestTest {
         // MAX_ATTEMPTS is 3, so there will be no forth run.
 
         EasyMock.replay(mMockListener, mMockTestDevice);
-        mInstrumentationFileTest.run(mMockListener);
+        mInstrumentationFileTest.run(mTestInfo, mMockListener);
         assertEquals(mMockTestDevice, mMockITest.getDevice());
     }
 
@@ -636,7 +654,7 @@ public class InstrumentationFileTestTest {
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.eq(new HashMap<String, Metric>()));
 
         EasyMock.replay(mMockListener, mMockTestDevice);
-        mInstrumentationFileTest.run(mMockListener);
+        mInstrumentationFileTest.run(mTestInfo, mMockListener);
         assertEquals(mMockTestDevice, mMockITest.getDevice());
     }
 
@@ -660,7 +678,7 @@ public class InstrumentationFileTestTest {
             }
         } catch (IOException e) {
             // fail if the file is corrupt in any way
-            fail("failed reading test file");
+            throw new RuntimeException(e);
         }
     }
 

@@ -20,7 +20,6 @@ import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
 import static android.server.wm.ComponentNameUtils.getActivityName;
-import static android.server.wm.UiDeviceUtils.pressHomeButton;
 import static android.server.wm.app.Components.ENTRY_POINT_ALIAS_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.server.wm.app.Components.SINGLE_TASK_ACTIVITY;
@@ -29,19 +28,12 @@ import static android.view.Display.DEFAULT_DISPLAY;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.fail;
 
 import android.content.ComponentName;
 import android.platform.test.annotations.Presubmit;
 
-import androidx.test.filters.FlakyTest;
-
 import org.junit.Test;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Build/Install/Run:
@@ -58,8 +50,8 @@ public class AmStartOptionsTests extends ActivityManagerTestBase {
         for (int i = 0; i < 2; i++) {
             executeShellCommand("am start -n " + getActivityName(TEST_ACTIVITY) + " -D");
 
-            mAmWmState.waitForDebuggerWindowVisible(TEST_ACTIVITY);
-            int procId = mAmWmState.getAmState().getActivityProcId(TEST_ACTIVITY);
+            mWmState.waitForDebuggerWindowVisible(TEST_ACTIVITY);
+            int procId = mWmState.getActivityProcId(TEST_ACTIVITY);
 
             assertThat("Invalid ProcId.", procId, greaterThanOrEqualTo(0));
             if (i > 0) {
@@ -75,7 +67,6 @@ public class AmStartOptionsTests extends ActivityManagerTestBase {
     }
 
     @Test
-    @FlakyTest
     public void testDashW_Indirect() throws Exception {
         testDashW(ENTRY_POINT_ALIAS_ACTIVITY, SINGLE_TASK_ACTIVITY);
     }
@@ -87,14 +78,15 @@ public class AmStartOptionsTests extends ActivityManagerTestBase {
                 .setTargetActivity(TEST_ACTIVITY).execute();
 
         // Return to home
-        pressHomeButton();
+        launchHomeActivity();
 
         // Start LaunchingActivity again and finish TestActivity
         final int flags =
                 FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_SINGLE_TOP;
-        final String result = executeShellCommand(
-                "am start -W -f " + flags + " -n " + getActivityName(LAUNCHING_ACTIVITY));
-        verifyShellOutput(result, LAUNCHING_ACTIVITY, false);
+        executeShellCommand("am start -W -f " + flags + " -n " + getActivityName(LAUNCHING_ACTIVITY)
+                + " --display " + DEFAULT_DISPLAY);
+        waitAndAssertTopResumedActivity(LAUNCHING_ACTIVITY, DEFAULT_DISPLAY,
+                "Activity must be launched.");
     }
 
     private void testDashW(final ComponentName entryActivity, final ComponentName actualActivity)
@@ -103,7 +95,7 @@ public class AmStartOptionsTests extends ActivityManagerTestBase {
         startActivityAndVerifyResult(entryActivity, actualActivity, true);
 
         // Test warm start
-        pressHomeButton();
+        launchHomeActivity();
         startActivityAndVerifyResult(entryActivity, actualActivity, false);
 
         // Test "hot" start (app already in front)
@@ -112,73 +104,16 @@ public class AmStartOptionsTests extends ActivityManagerTestBase {
 
     private void startActivityAndVerifyResult(final ComponentName entryActivity,
             final ComponentName actualActivity, boolean shouldStart) {
-        // See TODO below
-        // final LogSeparator logSeparator = separateLogs();
+        mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
 
         // Pass in different data only when cold starting. This is to make the intent
         // different in subsequent warm/hot launches, so that the entrypoint alias
         // activity is always started, but the actual activity is not started again
         // because of the NEW_TASK and singleTask flags.
-        final String result = executeShellCommand(
-                "am start -n " + getActivityName(entryActivity) + " -W"
-                + (shouldStart ? " -d about:blank" : ""));
+        executeShellCommand("am start -n " + getActivityName(entryActivity) + " -W --display "
+                + DEFAULT_DISPLAY + (shouldStart ? " -d about:blank" : ""));
 
-        // Verify shell command return value
-        verifyShellOutput(result, actualActivity, shouldStart);
-
-        // TODO: Disable logcat check for now.
-        // Logcat of WM or AM tag could be lost (eg. chatty if earlier events generated
-        // too many lines), and make the test look flaky. We need to either use event
-        // log or swith to other mechanisms. Only verify shell output for now, it should
-        // still catch most failures.
-
-        // Verify adb logcat log
-        //verifyLogcat(actualActivity, shouldStart, logSeparator);
-    }
-
-    private static final Pattern sNotStartedWarningPattern = Pattern.compile(
-            "Warning: Activity not started(.*)");
-    private static final Pattern sStatusPattern = Pattern.compile(
-            "Status: (.*)");
-    private static final Pattern sActivityPattern = Pattern.compile(
-            "Activity: (.*)");
-    private static final String sStatusOk = "ok";
-
-    private void verifyShellOutput(
-            final String result, final ComponentName activity, boolean shouldStart) {
-        boolean warningFound = false;
-        String status = null;
-        String reportedActivity = null;
-
-        final String[] lines = result.split("\\n");
-        // Going from the end of logs to beginning in case if some other activity is started first.
-        for (int i = lines.length - 1; i >= 0; i--) {
-            final String line = lines[i].trim();
-            Matcher matcher = sNotStartedWarningPattern.matcher(line);
-            if (matcher.matches()) {
-                warningFound = true;
-                continue;
-            }
-            matcher = sStatusPattern.matcher(line);
-            if (matcher.matches()) {
-                status = matcher.group(1);
-                continue;
-            }
-            matcher = sActivityPattern.matcher(line);
-            if (matcher.matches()) {
-                reportedActivity = matcher.group(1);
-                continue;
-            }
-        }
-
-        assertEquals("Status is ok", sStatusOk, status);
-        assertEquals("Reported activity is " +  getActivityName(activity),
-                getActivityName(activity), reportedActivity);
-
-        if (shouldStart && warningFound) {
-            fail("Should start new activity but brought something to front.");
-        } else if (!shouldStart && !warningFound){
-            fail("Should bring existing activity to front but started new activity.");
-        }
+        waitAndAssertTopResumedActivity(actualActivity, DEFAULT_DISPLAY,
+                "Activity must be launched");
     }
 }

@@ -70,6 +70,7 @@ typedef struct {
     metadata_buffer_t *metadata;
     mm_camera_super_buf_t *src_metadata;
     jpeg_settings_t *jpeg_settings;
+    bool hdr_plus_processing;
 } qcamera_hal3_jpeg_data_t;
 
 typedef struct {
@@ -124,6 +125,7 @@ public:
     int32_t processData(mm_camera_super_buf_t *input,
             buffer_handle_t *output, uint32_t frameNumber);
     int32_t processData(mm_camera_super_buf_t *input);
+    int32_t processJpegJob(qcamera_hal3_jpeg_data_t *job);
     int32_t processPPData(mm_camera_super_buf_t *frame);
     int32_t processPPMetadata(mm_camera_super_buf_t *reproc_meta);
     int32_t processJpegSettingData(jpeg_settings_t *jpeg_settings);

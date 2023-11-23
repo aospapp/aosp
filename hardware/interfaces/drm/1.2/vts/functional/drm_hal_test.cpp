@@ -18,10 +18,12 @@
 
 #include <gtest/gtest.h>
 #include <hidl/HidlSupport.h>
+#include <hidl/ServiceManagement.h>
 #include <log/log.h>
 #include <openssl/aes.h>
+#include <vector>
 
-#include "drm_hal_common.h"
+#include "android/hardware/drm/1.2/vts/drm_hal_common.h"
 
 using ::android::hardware::drm::V1_0::Status;
 using ::android::hardware::drm::V1_1::KeyRequestType;
@@ -32,13 +34,13 @@ using ::android::hardware::drm::V1_2::KeyStatus;
 using ::android::hardware::drm::V1_2::KeyStatusType;
 using ::android::hardware::drm::V1_2::OfflineLicenseState;
 
-using ::android::hardware::drm::V1_2::vts::DrmHalClearkeyTest;
+using ::android::hardware::drm::V1_2::vts::DrmHalClearkeyTestV1_2;
 using ::android::hardware::drm::V1_2::vts::DrmHalPluginListener;
 using ::android::hardware::drm::V1_2::vts::DrmHalTest;
-using ::android::hardware::drm::V1_2::vts::DrmHidlEnvironment;
 using ::android::hardware::drm::V1_2::vts::kCallbackLostState;
 using ::android::hardware::drm::V1_2::vts::kCallbackKeysChange;
 
+using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_string;
 
 static const char* const kVideoMp4 = "video/mp4";
@@ -47,12 +49,13 @@ static const char* const kDrmErrorTestKey = "drmErrorTest";
 static const char* const kDrmErrorInvalidState = "invalidState";
 static const char* const kDrmErrorResourceContention = "resourceContention";
 static const SecurityLevel kSwSecureCrypto = SecurityLevel::SW_SECURE_CRYPTO;
+static const SecurityLevel kHwSecureAll = SecurityLevel::HW_SECURE_ALL;
 
 /**
  * Ensure drm factory supports module UUID Scheme
  */
 TEST_P(DrmHalTest, VendorUuidSupported) {
-    auto res = drmFactory->isCryptoSchemeSupported_1_2(getVendorUUID(), kVideoMp4, kSwSecureCrypto);
+    auto res = drmFactory->isCryptoSchemeSupported_1_2(getUUID(), kVideoMp4, kSwSecureCrypto);
     ALOGI("kVideoMp4 = %s res %d", kVideoMp4, (bool)res);
     EXPECT_TRUE(res);
 }
@@ -80,7 +83,7 @@ TEST_P(DrmHalTest, EmptyPluginUUIDNotSupported) {
  * Ensure drm factory doesn't support an invalid mime type
  */
 TEST_P(DrmHalTest, BadMimeNotSupported) {
-    EXPECT_FALSE(drmFactory->isCryptoSchemeSupported_1_2(getVendorUUID(), kBadMime, kSwSecureCrypto));
+    EXPECT_FALSE(drmFactory->isCryptoSchemeSupported_1_2(getUUID(), kBadMime, kSwSecureCrypto));
 }
 
 /**
@@ -96,36 +99,17 @@ TEST_P(DrmHalTest, BadMimeNotSupported) {
  * that is delivered back to the HAL.
  */
 TEST_P(DrmHalTest, DoProvisioning) {
-    RETURN_IF_SKIPPED;
-    hidl_string certificateType;
-    hidl_string certificateAuthority;
-    hidl_vec<uint8_t> provisionRequest;
-    hidl_string defaultUrl;
-    auto res = drmPlugin->getProvisionRequest_1_2(
-            certificateType, certificateAuthority,
-            [&](StatusV1_2 status, const hidl_vec<uint8_t>& request,
-                const hidl_string& url) {
-                if (status == StatusV1_2::OK) {
-                    EXPECT_NE(request.size(), 0u);
-                    provisionRequest = request;
-                    defaultUrl = url;
-                } else if (status == StatusV1_2::ERROR_DRM_CANNOT_HANDLE) {
-                    EXPECT_EQ(0u, request.size());
-                }
-            });
-    EXPECT_OK(res);
-
-    if (provisionRequest.size() > 0) {
-        vector<uint8_t> response = vendorModule->handleProvisioningRequest(
-                provisionRequest, defaultUrl);
-        ASSERT_NE(0u, response.size());
-
-        auto res = drmPlugin->provideProvisionResponse(
-                response, [&](Status status, const hidl_vec<uint8_t>&,
-                              const hidl_vec<uint8_t>&) {
-                    EXPECT_EQ(Status::OK, status);
-                });
-        EXPECT_OK(res);
+    for (auto level : {kHwSecureAll, kSwSecureCrypto}) {
+        StatusV1_0 err = StatusV1_0::OK;
+        auto sid = openSession(level, &err);
+        if (err == StatusV1_0::OK) {
+            closeSession(sid);
+        } else if (err == StatusV1_0::ERROR_DRM_CANNOT_HANDLE) {
+            continue;
+        } else {
+            EXPECT_EQ(StatusV1_0::ERROR_DRM_NOT_PROVISIONED, err);
+            provision();
+        }
     }
 }
 
@@ -282,7 +266,6 @@ TEST_P(DrmHalTest, GetHdcpLevels) {
  * the listener gets them.
  */
 TEST_P(DrmHalTest, ListenerKeysChange) {
-    RETURN_IF_SKIPPED;
     sp<DrmHalPluginListener> listener = new DrmHalPluginListener();
     auto res = drmPlugin->setListener(listener);
     EXPECT_OK(res);
@@ -314,7 +297,6 @@ TEST_P(DrmHalTest, ListenerKeysChange) {
  * Positive decrypt test.  "Decrypt" a single clear segment
  */
 TEST_P(DrmHalTest, ClearSegmentTest) {
-    RETURN_IF_SKIPPED;
     for (const auto& config : contentConfigurations) {
         for (const auto& key : config.keys) {
             const size_t kSegmentSize = 1024;
@@ -342,7 +324,6 @@ TEST_P(DrmHalTest, ClearSegmentTest) {
  * Verify data matches.
  */
 TEST_P(DrmHalTest, EncryptedAesCtrSegmentTest) {
-    RETURN_IF_SKIPPED;
     for (const auto& config : contentConfigurations) {
         for (const auto& key : config.keys) {
             const size_t kSegmentSize = 1024;
@@ -369,7 +350,6 @@ TEST_P(DrmHalTest, EncryptedAesCtrSegmentTest) {
  * Negative decrypt test.  Decrypted frame too large to fit in output buffer
  */
 TEST_P(DrmHalTest, ErrorFrameTooLarge) {
-    RETURN_IF_SKIPPED;
     for (const auto& config : contentConfigurations) {
         for (const auto& key : config.keys) {
             const size_t kSegmentSize = 1024;
@@ -395,7 +375,6 @@ TEST_P(DrmHalTest, ErrorFrameTooLarge) {
  * Negative decrypt test. Decrypt without loading keys.
  */
 TEST_P(DrmHalTest, EncryptedAesCtrSegmentTestNoKeys) {
-    RETURN_IF_SKIPPED;
     for (const auto& config : contentConfigurations) {
         for (const auto& key : config.keys) {
             vector<uint8_t> iv(AES_BLOCK_SIZE, 0);
@@ -420,15 +399,14 @@ TEST_P(DrmHalTest, EncryptedAesCtrSegmentTestNoKeys) {
 /**
  * Ensure clearkey drm factory doesn't support security level higher than supported
  */
-TEST_P(DrmHalClearkeyTest, BadLevelNotSupported) {
-    const SecurityLevel kHwSecureAll = SecurityLevel::HW_SECURE_ALL;
-    EXPECT_FALSE(drmFactory->isCryptoSchemeSupported_1_2(getVendorUUID(), kVideoMp4, kHwSecureAll));
+TEST_P(DrmHalClearkeyTestV1_2, BadLevelNotSupported) {
+    EXPECT_FALSE(drmFactory->isCryptoSchemeSupported_1_2(getUUID(), kVideoMp4, kHwSecureAll));
 }
 
 /**
  * Test resource contention during attempt to generate key request
  */
-TEST_P(DrmHalClearkeyTest, GetKeyRequestResourceContention) {
+TEST_P(DrmHalClearkeyTestV1_2, GetKeyRequestResourceContention) {
     Status status = drmPlugin->setPropertyString(kDrmErrorTestKey, kDrmErrorResourceContention);
     EXPECT_EQ(Status::OK, status);
     auto sessionId = openSession();
@@ -449,7 +427,7 @@ TEST_P(DrmHalClearkeyTest, GetKeyRequestResourceContention) {
 /**
  * Test clearkey plugin offline key with mock error
  */
-TEST_P(DrmHalClearkeyTest, OfflineLicenseInvalidState) {
+TEST_P(DrmHalClearkeyTestV1_2, OfflineLicenseInvalidState) {
     auto sessionId = openSession();
     hidl_vec<uint8_t> keySetId = loadKeys(sessionId, KeyType::OFFLINE);
     Status status = drmPlugin->setPropertyString(kDrmErrorTestKey, kDrmErrorInvalidState);
@@ -470,7 +448,7 @@ TEST_P(DrmHalClearkeyTest, OfflineLicenseInvalidState) {
 /**
  * Test SessionLostState is triggered on error
  */
-TEST_P(DrmHalClearkeyTest, SessionLostState) {
+TEST_P(DrmHalClearkeyTestV1_2, SessionLostState) {
     sp<DrmHalPluginListener> listener = new DrmHalPluginListener();
     auto res = drmPlugin->setListener(listener);
     EXPECT_OK(res);
@@ -490,7 +468,7 @@ TEST_P(DrmHalClearkeyTest, SessionLostState) {
 /**
  * Negative decrypt test. Decrypt with invalid key.
  */
-TEST_P(DrmHalClearkeyTest, DecryptWithEmptyKey) {
+TEST_P(DrmHalClearkeyTestV1_2, DecryptWithEmptyKey) {
     vector<uint8_t> iv(AES_BLOCK_SIZE, 0);
     const Pattern noPattern = {0, 0};
     const uint32_t kClearBytes = 512;
@@ -527,7 +505,7 @@ TEST_P(DrmHalClearkeyTest, DecryptWithEmptyKey) {
 /**
  * Negative decrypt test. Decrypt with a key exceeds AES_BLOCK_SIZE.
  */
-TEST_P(DrmHalClearkeyTest, DecryptWithKeyTooLong) {
+TEST_P(DrmHalClearkeyTestV1_2, DecryptWithKeyTooLong) {
     vector<uint8_t> iv(AES_BLOCK_SIZE, 0);
     const Pattern noPattern = {0, 0};
     const uint32_t kClearBytes = 512;
@@ -553,39 +531,4 @@ TEST_P(DrmHalClearkeyTest, DecryptWithKeyTooLong) {
     invalidResponse.resize(kKeyTooLongResponseSize);
     memcpy(invalidResponse.data(), keyTooLongResponse.c_str(), kKeyTooLongResponseSize);
     decryptWithInvalidKeys(invalidResponse, iv, noPattern, subSamples);
-}
-
-/**
- * Instantiate the set of test cases for each vendor module
- */
-
-INSTANTIATE_TEST_CASE_P(
-        DrmHalTestClearkey, DrmHalTest,
-        testing::Values("clearkey"));
-
-INSTANTIATE_TEST_CASE_P(
-        DrmHalTestClearkeyExtended, DrmHalClearkeyTest,
-        testing::Values("clearkey"));
-
-INSTANTIATE_TEST_CASE_P(
-        DrmHalTestVendor, DrmHalTest,
-        testing::ValuesIn(DrmHalTest::gVendorModules->getPathList()));
-
-int main(int argc, char** argv) {
-#if defined(__LP64__)
-    const char* kModulePath = "/data/local/tmp/64/lib";
-#else
-    const char* kModulePath = "/data/local/tmp/32/lib";
-#endif
-    DrmHalTest::gVendorModules = new drm_vts::VendorModules(kModulePath);
-    if (DrmHalTest::gVendorModules->getPathList().size() == 0) {
-        std::cerr << "WARNING: No vendor modules found in " << kModulePath <<
-                ", all vendor tests will be skipped" << std::endl;
-    }
-    ::testing::AddGlobalTestEnvironment(DrmHidlEnvironment::Instance());
-    ::testing::InitGoogleTest(&argc, argv);
-    DrmHidlEnvironment::Instance()->init(&argc, argv);
-    int status = RUN_ALL_TESTS();
-    ALOGI("Test result = %d", status);
-    return status;
 }

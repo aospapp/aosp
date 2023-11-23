@@ -23,7 +23,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.Handler;
+import android.os.Looper;
 
 public class BaseProcessInstrumentation extends Instrumentation {
     final String mMainProc;
@@ -63,6 +64,17 @@ public class BaseProcessInstrumentation extends Instrumentation {
             // We are running in a secondary proc, just report it.
             //Log.i("xxx", "Instrumentation adding result in " + proc);
             addResults(result);
+            // Just in case something messes up, if it takes too long for this instrumentation
+            // process to finish, then we will force it to finish.
+            new Handler(Looper.myLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    Bundle result = new Bundle();
+                    result.putString("FAILURE",
+                            "Timed out waiting for sub-instrumentation to complete");
+                    finish(Activity.RESULT_CANCELED, result);
+                }
+            }, 20 * 1000);
         }
     }
 }

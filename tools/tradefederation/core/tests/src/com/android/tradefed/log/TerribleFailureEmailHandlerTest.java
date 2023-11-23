@@ -67,15 +67,10 @@ public class TerribleFailureEmailHandlerTest extends TestCase {
     }
 
     /**
-     * Test that onTerribleFailure catches IllegalArgumentException when Mailer
-     * state is incorrect
+     * Test that onTerribleFailure catches IllegalArgumentException when Mailer state is incorrect
      */
-    public void testOnTerribleFailure_catchesIllegalArgumentException() {
-        try {
-            mMockEmail.send(EasyMock.<Message> anyObject());
-        } catch (IOException e) {
-            fail("IOException escaped the method under test - should never happen");
-        }
+    public void testOnTerribleFailure_catchesIllegalArgumentException() throws IOException {
+        mMockEmail.send(EasyMock.<Message>anyObject());
         EasyMock.expectLastCall().andThrow(new IllegalArgumentException("Mailer state illegal"));
         EasyMock.replay(mMockEmail);
 
@@ -84,15 +79,9 @@ public class TerribleFailureEmailHandlerTest extends TestCase {
         assertFalse(retValue);
     }
 
-    /**
-     * Test that onTerribleFailure catches IOException
-     */
-    public void testOnTerribleFailure_catchesIOException() {
-        try {
-            mMockEmail.send(EasyMock.<Message> anyObject());
-        } catch (IOException e) {
-            fail("IOException escaped the method under test - should never happen");
-        }
+    /** Test that onTerribleFailure catches IOException */
+    public void testOnTerribleFailure_catchesIOException() throws IOException {
+        mMockEmail.send(EasyMock.<Message>anyObject());
         EasyMock.expectLastCall().andThrow(new IOException("Mailer had an IO Exception"));
         EasyMock.replay(mMockEmail);
 

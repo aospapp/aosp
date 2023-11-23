@@ -13,23 +13,6 @@
 // limitations under the License.
 
 java_library_static {
-    name: "ctsdeviceutillegacy",
-
-    static_libs: [
-        "compatibility-device-util",
-        "junit",
-    ],
-
-    libs: ["android.test.base.stubs"],
-
-    srcs: ["src/**/*.java"],
-
-    sdk_version: "test_current",
-
-}
-
-// A variant of ctsdeviceutillegacy that depends on androidx.test instead of android.support.test
-java_library_static {
     name: "ctsdeviceutillegacy-axt",
 
     static_libs: [

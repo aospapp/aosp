@@ -94,13 +94,15 @@ public class SilentProvisioningTestManager {
             }
 
             mReceivedProfileProvisionedIntent =
-                    managedProfileProvisionedReceiver.awaitForBroadcast();
+                    managedProfileProvisionedReceiver.awaitForBroadcast(
+                            TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
             if (mReceivedProfileProvisionedIntent == null) {
                 Log.i(TAG, "managedProfileProvisionedReceiver.awaitForBroadcast(): failed");
                 return false;
             }
 
-            if (managedProfileAddedReceiver.awaitForBroadcast() == null) {
+            if (managedProfileAddedReceiver.awaitForBroadcast(
+                    TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS)) == null) {
                 Log.i(TAG, "managedProfileAddedReceiver.awaitForBroadcast(): failed");
                 return false;
             }

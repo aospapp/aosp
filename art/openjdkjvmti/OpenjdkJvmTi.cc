@@ -40,6 +40,7 @@
 
 #include "jvmti.h"
 
+#include "alloc_manager.h"
 #include "art_jvmti.h"
 #include "base/logging.h"  // For gLogVerbosity.
 #include "base/mutex.h"
@@ -79,6 +80,7 @@ namespace openjdkjvmti {
 // These should never be null.
 EventHandler* gEventHandler;
 DeoptManager* gDeoptManager;
+AllocationManager* gAllocManager;
 
 #define ENSURE_NON_NULL(n)      \
   do {                          \
@@ -344,50 +346,40 @@ class JvmtiFunctions {
     return StackUtil::NotifyFramePop(env, thread, depth);
   }
 
-  static jvmtiError ForceEarlyReturnObject(jvmtiEnv* env,
-                                           jthread thread ATTRIBUTE_UNUSED,
-                                           jobject value ATTRIBUTE_UNUSED) {
+  static jvmtiError ForceEarlyReturnObject(jvmtiEnv* env, jthread thread, jobject value) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_force_early_return);
-    return ERR(NOT_IMPLEMENTED);
+    return StackUtil::ForceEarlyReturn(env, gEventHandler, thread, value);
   }
 
-  static jvmtiError ForceEarlyReturnInt(jvmtiEnv* env,
-                                        jthread thread ATTRIBUTE_UNUSED,
-                                        jint value ATTRIBUTE_UNUSED) {
+  static jvmtiError ForceEarlyReturnInt(jvmtiEnv* env, jthread thread, jint value) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_force_early_return);
-    return ERR(NOT_IMPLEMENTED);
+    return StackUtil::ForceEarlyReturn(env, gEventHandler, thread, value);
   }
 
-  static jvmtiError ForceEarlyReturnLong(jvmtiEnv* env,
-                                         jthread thread ATTRIBUTE_UNUSED,
-                                         jlong value ATTRIBUTE_UNUSED) {
+  static jvmtiError ForceEarlyReturnLong(jvmtiEnv* env, jthread thread, jlong value) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_force_early_return);
-    return ERR(NOT_IMPLEMENTED);
+    return StackUtil::ForceEarlyReturn(env, gEventHandler, thread, value);
   }
 
-  static jvmtiError ForceEarlyReturnFloat(jvmtiEnv* env,
-                                          jthread thread ATTRIBUTE_UNUSED,
-                                          jfloat value ATTRIBUTE_UNUSED) {
+  static jvmtiError ForceEarlyReturnFloat(jvmtiEnv* env, jthread thread, jfloat value) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_force_early_return);
-    return ERR(NOT_IMPLEMENTED);
+    return StackUtil::ForceEarlyReturn(env, gEventHandler, thread, value);
   }
 
-  static jvmtiError ForceEarlyReturnDouble(jvmtiEnv* env,
-                                           jthread thread ATTRIBUTE_UNUSED,
-                                           jdouble value ATTRIBUTE_UNUSED) {
+  static jvmtiError ForceEarlyReturnDouble(jvmtiEnv* env, jthread thread, jdouble value) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_force_early_return);
-    return ERR(NOT_IMPLEMENTED);
+    return StackUtil::ForceEarlyReturn(env, gEventHandler, thread, value);
   }
 
-  static jvmtiError ForceEarlyReturnVoid(jvmtiEnv* env, jthread thread ATTRIBUTE_UNUSED) {
+  static jvmtiError ForceEarlyReturnVoid(jvmtiEnv* env, jthread thread) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_force_early_return);
-    return ERR(NOT_IMPLEMENTED);
+    return StackUtil::ForceEarlyReturn<nullptr_t>(env, gEventHandler, thread, nullptr);
   }
 
   static jvmtiError FollowReferences(jvmtiEnv* env,
@@ -788,18 +780,7 @@ class JvmtiFunctions {
   static jvmtiError RetransformClasses(jvmtiEnv* env, jint class_count, const jclass* classes) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_retransform_classes);
-    std::string error_msg;
-    jvmtiError res = Transformer::RetransformClasses(ArtJvmTiEnv::AsArtJvmTiEnv(env),
-                                                     gEventHandler,
-                                                     art::Runtime::Current(),
-                                                     art::Thread::Current(),
-                                                     class_count,
-                                                     classes,
-                                                     &error_msg);
-    if (res != OK) {
-      JVMTI_LOG(WARNING, env) << "FAILURE TO RETRANFORM " << error_msg;
-    }
-    return res;
+    return Transformer::RetransformClasses(env, class_count, classes);
   }
 
   static jvmtiError RedefineClasses(jvmtiEnv* env,
@@ -807,18 +788,7 @@ class JvmtiFunctions {
                                     const jvmtiClassDefinition* class_definitions) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_redefine_classes);
-    std::string error_msg;
-    jvmtiError res = Redefiner::RedefineClasses(ArtJvmTiEnv::AsArtJvmTiEnv(env),
-                                                gEventHandler,
-                                                art::Runtime::Current(),
-                                                art::Thread::Current(),
-                                                class_count,
-                                                class_definitions,
-                                                &error_msg);
-    if (res != OK) {
-      JVMTI_LOG(WARNING, env) << "FAILURE TO REDEFINE " << error_msg;
-    }
-    return res;
+    return Redefiner::RedefineClasses(env, class_count, class_definitions);
   }
 
   static jvmtiError GetObjectSize(jvmtiEnv* env, jobject object, jlong* size_ptr) {
@@ -1414,6 +1384,7 @@ class JvmtiFunctions {
       art::gLogVerbosity.compiler = val;
       art::gLogVerbosity.deopt = val;
       art::gLogVerbosity.heap = val;
+      art::gLogVerbosity.interpreter = val;
       art::gLogVerbosity.jdwp = val;
       art::gLogVerbosity.jit = val;
       art::gLogVerbosity.monitor = val;
@@ -1427,6 +1398,7 @@ class JvmtiFunctions {
       art::gLogVerbosity.verifier = val;
       // Do not set verifier-debug.
       art::gLogVerbosity.image = val;
+      art::gLogVerbosity.plugin = val;
 
       // Note: can't switch systrace_lock_logging. That requires changing entrypoints.
 
@@ -1527,6 +1499,7 @@ static jint GetEnvHandler(art::JavaVMExt* vm, /*out*/void** env, jint version) {
 extern "C" bool ArtPlugin_Initialize() {
   art::Runtime* runtime = art::Runtime::Current();
 
+  gAllocManager = new AllocationManager;
   gDeoptManager = new DeoptManager;
   gEventHandler = new EventHandler;
 
@@ -1541,9 +1514,12 @@ extern "C" bool ArtPlugin_Initialize() {
   ClassUtil::Register(gEventHandler);
   DumpUtil::Register(gEventHandler);
   MethodUtil::Register(gEventHandler);
+  HeapExtensions::Register(gEventHandler);
   SearchUtil::Register();
   HeapUtil::Register();
-  Transformer::Setup();
+  FieldUtil::Register(gEventHandler);
+  BreakpointUtil::Register(gEventHandler);
+  Transformer::Register(gEventHandler);
 
   {
     // Make sure we can deopt anything we need to.
@@ -1566,6 +1542,8 @@ extern "C" bool ArtPlugin_Deinitialize() {
   MethodUtil::Unregister();
   SearchUtil::Unregister();
   HeapUtil::Unregister();
+  FieldUtil::Unregister();
+  BreakpointUtil::Unregister();
 
   // TODO It would be good to delete the gEventHandler and gDeoptManager here but we cannot since
   // daemon threads might be suspended and we want to make sure that even if they wake up briefly

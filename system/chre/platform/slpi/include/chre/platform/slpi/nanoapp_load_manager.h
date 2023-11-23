@@ -43,22 +43,22 @@ struct FragmentedLoadInfo {
  */
 class NanoappLoadManager : public NonCopyable {
  public:
-   /**
-    * Prepares for a (possibly fragmented) load transaction. If an ongoing
-    * transaction exists, the transaction will be overwritten by the new
-    * incoming transaction.
-    *
-    * @param hostClientId the ID of client that originated this transaction
-    * @param transactionId the ID of the transaction
-    * @param appId the ID of the app to load
-    * @param appVersion the version of the app to load
-    * @param totalBinaryLen the total nanoapp binary length
-    *
-    * @return true if the preparation was successful, false otherwise
-    */
-  bool prepareForLoad(
-      uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
-      uint32_t appVersion, size_t totalBinaryLen);
+  /**
+   * Prepares for a (possibly fragmented) load transaction. If an ongoing
+   * transaction exists, the transaction will be overwritten by the new
+   * incoming transaction.
+   *
+   * @param hostClientId the ID of client that originated this transaction
+   * @param transactionId the ID of the transaction
+   * @param appId the ID of the app to load
+   * @param appVersion the version of the app to load
+   * @param totalBinaryLen the total nanoapp binary length
+   *
+   * @return true if the preparation was successful, false otherwise
+   */
+  bool prepareForLoad(uint16_t hostClientId, uint32_t transactionId,
+                      uint64_t appId, uint32_t appVersion,
+                      size_t totalBinaryLen);
 
   /**
    * Copies a fragment of a nanoapp binary. If the parameters do not match the
@@ -72,9 +72,9 @@ class NanoappLoadManager : public NonCopyable {
    *
    * @return true if the copy was successful, false otherwise
    */
-  bool copyNanoappFragment(
-      uint16_t hostClientId, uint32_t transactionId, uint32_t fragmentId,
-      const void *buffer, size_t bufferLen);
+  bool copyNanoappFragment(uint16_t hostClientId, uint32_t transactionId,
+                           uint32_t fragmentId, const void *buffer,
+                           size_t bufferLen);
 
   /**
    * Invalidates an ongoing load transaction. After this method is invoked,
@@ -134,8 +134,8 @@ class NanoappLoadManager : public NonCopyable {
    *
    * @return true if the arguments represent the next fragment, false otherwise
    */
-  bool validateFragment(
-      uint16_t hostClientId, uint32_t transactionId, uint32_t fragmentId) const;
+  bool validateFragment(uint16_t hostClientId, uint32_t transactionId,
+                        uint32_t fragmentId) const;
 };
 
 }  // namespace chre

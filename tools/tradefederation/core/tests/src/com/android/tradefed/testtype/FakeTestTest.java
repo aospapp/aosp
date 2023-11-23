@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
@@ -43,6 +44,7 @@ public class FakeTestTest {
     private FakeTest mTest = null;
     private ITestInvocationListener mListener = null;
     private OptionSetter mOption = null;
+    private TestInformation mTestInfo;
 
     @Rule public TemporaryFolder mTempFolder = new TemporaryFolder();
 
@@ -51,6 +53,7 @@ public class FakeTestTest {
         mTest = new FakeTest();
         mOption = new OptionSetter(mTest);
         mListener = EasyMock.createStrictMock(ITestInvocationListener.class);
+        mTestInfo = TestInformation.newBuilder().build();
     }
 
     @Test
@@ -148,7 +151,7 @@ public class FakeTestTest {
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "");
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 
@@ -161,7 +164,7 @@ public class FakeTestTest {
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "P");
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 
@@ -174,7 +177,7 @@ public class FakeTestTest {
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "F");
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 
@@ -192,7 +195,7 @@ public class FakeTestTest {
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "PFPAI");
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 
@@ -221,7 +224,7 @@ public class FakeTestTest {
         mOption.setOptionValue("test-log", testLog.getAbsolutePath());
         mOption.setOptionValue("test-run-log", testRunLog.getAbsolutePath());
         mOption.setOptionValue("test-invocation-log", invocationLog.getAbsolutePath());
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 
@@ -238,7 +241,7 @@ public class FakeTestTest {
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "(PF)2");
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 
@@ -263,7 +266,7 @@ public class FakeTestTest {
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "((PF)2)2");
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 
@@ -293,7 +296,7 @@ public class FakeTestTest {
         mOption.setOptionValue("run", name1, "PF");
         mOption.setOptionValue("run", name2, "FP");
         mOption.setOptionValue("run", name3, "");
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 

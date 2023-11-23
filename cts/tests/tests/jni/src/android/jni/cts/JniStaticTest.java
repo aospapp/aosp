@@ -316,8 +316,8 @@ public class JniStaticTest extends JniTestCase {
     /**
      * dlopen(3) any of the public lib via file name (non-absolute path) should succeed.
      */
-    public void test_dlopenPublicLibrariesInRuntimeNamespace() {
-        String error = LinkerNamespacesHelper.runDlopenPublicLibrariesInRuntimeNamespace();
+    public void test_dlopenPublicLibraries() {
+        String error = LinkerNamespacesHelper.runDlopenPublicLibraries();
         if (error != null) {
             fail(error);
         }

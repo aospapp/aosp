@@ -19,6 +19,7 @@ package android.provider.cts;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeFalse;
 
 import android.app.slice.Slice;
 import android.app.slice.SliceManager;
@@ -67,6 +68,8 @@ public class WifiSliceTest {
 
   @Before
   public void setUp() throws Exception {
+    assumeFalse("Skipping test: Auto does not support provider android.settings.slices", isCar());
+    assumeFalse("Skipping test: TV does not support provider android.settings.slices", isTv());
     mWifiSlice = mSliceManager.bindSlice(WIFI_SLICE_URI, Collections.emptySet());
   }
 
@@ -131,6 +134,17 @@ public class WifiSliceTest {
       assertThat(mSliceManager.checkSlicePermission(WIFI_SLICE_URI, testPid, testUid))
               .isEqualTo(PERMISSION_GRANTED);
     }
+  }
+
+  private boolean isCar() {
+    PackageManager pm = mContext.getPackageManager();
+    return pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+  }
+
+  private boolean isTv() {
+    PackageManager pm = mContext.getPackageManager();
+    return pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
+            && pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK);
   }
 
   private boolean isWifiEnabled() {

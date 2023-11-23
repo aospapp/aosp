@@ -29,6 +29,11 @@ import android.platform.test.annotations.SecurityTest;
 @SecurityTest
 public class SkiaICORecursiveDecodingTest extends AndroidTestCase {
 
+    @SecurityTest(minPatchLevel = "2018-05")
+    public void testAndroid_cve_2017_13318() {
+        doSkiaIcoRecursiveDecodingTest(R.raw.cve_2017_13318);
+    }
+
     @SecurityTest
     public void test_android_bug_17262540() {
         doSkiaIcoRecursiveDecodingTest(R.raw.bug_17262540);

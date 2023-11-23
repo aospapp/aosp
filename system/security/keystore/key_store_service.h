@@ -66,7 +66,6 @@ class KeyStoreService : public android::security::keystore::BnKeystoreService {
     ::android::binder::Status listUidsOfAuthBoundKeys(std::vector<::std::string>* uids,
                                                       int32_t* _aidl_return) override;
 
-    ::android::binder::Status reset(int32_t* _aidl_return) override;
     ::android::binder::Status onUserPasswordChanged(int32_t userId,
                                                     const ::android::String16& newPassword,
                                                     int32_t* _aidl_return) override;
@@ -126,13 +125,16 @@ class KeyStoreService : public android::security::keystore::BnKeystoreService {
     finish(const ::android::sp<::android::security::keystore::IKeystoreOperationResultCallback>& cb,
            const ::android::sp<::android::IBinder>& token,
            const ::android::security::keymaster::KeymasterArguments& params,
-           const ::std::vector<uint8_t>& signature, const ::std::vector<uint8_t>& entropy,
-           int32_t* _aidl_return) override;
+           const ::std::vector<uint8_t>& input, const ::std::vector<uint8_t>& signature,
+           const ::std::vector<uint8_t>& entropy, int32_t* _aidl_return) override;
     ::android::binder::Status
     abort(const ::android::sp<::android::security::keystore::IKeystoreResponseCallback>& cb,
           const ::android::sp<::android::IBinder>& token, int32_t* _aidl_return) override;
     ::android::binder::Status addAuthToken(const ::std::vector<uint8_t>& authToken,
                                            int32_t* _aidl_return) override;
+    ::android::binder::Status getTokensForCredstore(
+        int64_t challenge, int64_t secureUserId, int32_t authTokenMaxAge,
+        const ::android::sp<::android::security::keystore::ICredstoreTokenCallback>& cb) override;
     ::android::binder::Status onUserAdded(int32_t userId, int32_t parentId,
                                           int32_t* _aidl_return) override;
     ::android::binder::Status onUserRemoved(int32_t userId, int32_t* _aidl_return) override;
@@ -231,37 +233,6 @@ class KeyStoreService : public android::security::keystore::BnKeystoreService {
                                          std::vector<KeyParameter>* params);
 
     sp<KeyStore> mKeyStore;
-
-    /**
-     * This mutex locks keystore operations from concurrent execution.
-     * The keystore service has always been conceptually single threaded. Even with the introduction
-     * of keymaster workers, it was assumed that the dispatcher thread executes exclusively on
-     * certain code paths. With the introduction of wifi Keystore service in the keystore process
-     * this assumption no longer holds as the hwbinder thread servicing this interface makes
-     * functions (rather than IPC) calls into keystore. This mutex protects the keystore logic
-     * from concurrent execution.
-     */
-    std::mutex keystoreServiceMutex_;
-
-    std::mutex operationDeviceMapMutex_;
-    std::map<sp<IBinder>, std::shared_ptr<KeymasterWorker>> operationDeviceMap_;
-
-    void addOperationDevice(sp<IBinder> token, std::shared_ptr<KeymasterWorker> dev) {
-        std::lock_guard<std::mutex> lock(operationDeviceMapMutex_);
-        operationDeviceMap_.emplace(std::move(token), std::move(dev));
-    }
-    std::shared_ptr<KeymasterWorker> getOperationDevice(const sp<IBinder>& token) {
-        std::lock_guard<std::mutex> lock(operationDeviceMapMutex_);
-        auto it = operationDeviceMap_.find(token);
-        if (it != operationDeviceMap_.end()) {
-            return it->second;
-        }
-        return {};
-    }
-    void removeOperationDevice(const sp<IBinder>& token) {
-        std::lock_guard<std::mutex> lock(operationDeviceMapMutex_);
-        operationDeviceMap_.erase(token);
-    }
 };
 
 };  // namespace keystore

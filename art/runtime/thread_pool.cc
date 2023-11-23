@@ -97,10 +97,17 @@ void ThreadPoolWorker::Run() {
 void* ThreadPoolWorker::Callback(void* arg) {
   ThreadPoolWorker* worker = reinterpret_cast<ThreadPoolWorker*>(arg);
   Runtime* runtime = Runtime::Current();
-  CHECK(runtime->AttachCurrentThread(worker->name_.c_str(),
-                                     true,
-                                     nullptr,
-                                     worker->thread_pool_->create_peers_));
+  CHECK(runtime->AttachCurrentThread(
+      worker->name_.c_str(),
+      true,
+      // Thread-groups are only tracked by the peer j.l.Thread objects. If we aren't creating peers
+      // we don't need to specify the thread group. We want to place these threads in the System
+      // thread group because that thread group is where important threads that debuggers and
+      // similar tools should not mess with are placed. As this is an internal-thread-pool we might
+      // rely on being able to (for example) wait for all threads to finish some task. If debuggers
+      // are suspending these threads that might not be possible.
+      worker->thread_pool_->create_peers_ ? runtime->GetSystemThreadGroup() : nullptr,
+      worker->thread_pool_->create_peers_));
   worker->thread_ = Thread::Current();
   // Mark thread pool workers as runtime-threads.
   worker->thread_->SetIsRuntimeThread(true);
@@ -120,6 +127,12 @@ void ThreadPool::AddTask(Thread* self, Task* task) {
 }
 
 void ThreadPool::RemoveAllTasks(Thread* self) {
+  // The ThreadPool is responsible for calling Finalize (which usually delete
+  // the task memory) on all the tasks.
+  Task* task = nullptr;
+  while ((task = TryGetTask(self)) != nullptr) {
+    task->Finalize();
+  }
   MutexLock mu(self, task_queue_lock_);
   tasks_.clear();
 }
@@ -195,6 +208,7 @@ void ThreadPool::SetMaxActiveWorkers(size_t max_workers) {
 
 ThreadPool::~ThreadPool() {
   DeleteThreads();
+  RemoveAllTasks(Thread::Current());
 }
 
 void ThreadPool::StartWorkers(Thread* self) {

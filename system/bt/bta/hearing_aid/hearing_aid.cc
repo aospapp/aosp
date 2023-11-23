@@ -232,7 +232,7 @@ class HearingAidImpl : public HearingAid {
   uint16_t overwrite_min_ce_len;
 
  public:
-  virtual ~HearingAidImpl() = default;
+  ~HearingAidImpl() override = default;
 
   HearingAidImpl(bluetooth::hearing_aid::HearingAidCallbacks* callbacks,
                  Closure initCb)
@@ -388,6 +388,13 @@ class HearingAidImpl : public HearingAid {
           UpdateBleConnParams(address);
     } else {
       hearingDevice->connection_update_status = AWAITING;
+    }
+
+    tACL_CONN* p_acl = btm_bda_to_acl(address, BT_TRANSPORT_LE);
+    if (p_acl != nullptr && controller_get_interface()->supports_ble_2m_phy() &&
+        HCI_LE_2M_PHY_SUPPORTED(p_acl->peer_le_features)) {
+      LOG(INFO) << address << " set preferred PHY to 2M";
+      BTM_BleSetPhy(address, PHY_LE_2M, PHY_LE_2M, 0);
     }
 
     // Set data length
@@ -914,9 +921,6 @@ class HearingAidImpl : public HearingAid {
     }
 
     if (hearingDevice->first_connection) {
-      /* add device into BG connection to accept remote initiated connection */
-      BTA_GATTC_Open(gatt_if, address, false, GATT_TRANSPORT_LE, false);
-
       btif_storage_add_hearing_aid(*hearingDevice);
 
       hearingDevice->first_connection = false;
@@ -1005,13 +1009,16 @@ class HearingAidImpl : public HearingAid {
     }
   }
 
-  void OnAudioSuspend() {
+  void OnAudioSuspend(const std::function<void()>& stop_audio_ticks) {
+    CHECK(stop_audio_ticks) << "stop_audio_ticks is empty";
+
     if (!audio_running) {
       LOG(WARNING) << __func__ << ": Unexpected audio suspend";
     } else {
       LOG(INFO) << __func__ << ": audio_running=" << audio_running;
     }
     audio_running = false;
+    stop_audio_ticks();
 
     std::vector<uint8_t> stop({CONTROL_POINT_OP_STOP});
     for (auto& device : hearingDevices.devices) {
@@ -1032,23 +1039,33 @@ class HearingAidImpl : public HearingAid {
     }
   }
 
-  void OnAudioResume() {
+  void OnAudioResume(const std::function<void()>& start_audio_ticks) {
+    CHECK(start_audio_ticks) << "start_audio_ticks is empty";
+
     if (audio_running) {
       LOG(ERROR) << __func__ << ": Unexpected Audio Resume";
     } else {
       LOG(INFO) << __func__ << ": audio_running=" << audio_running;
     }
-    audio_running = true;
+
+    for (auto& device : hearingDevices.devices) {
+      if (!device.accepting_audio) continue;
+      audio_running = true;
+      SendStart(&device);
+    }
+
+    if (!audio_running) {
+      LOG(INFO) << __func__ << ": No device (0/" << GetDeviceCount()
+                << ") ready to start";
+      return;
+    }
 
     // TODO: shall we also reset the encoder ?
     encoder_state_release();
     encoder_state_init();
     seq_counter = 0;
 
-    for (auto& device : hearingDevices.devices) {
-      if (!device.accepting_audio) continue;
-      SendStart(&device);
-    }
+    start_audio_ticks();
   }
 
   uint8_t GetOtherSideStreamStatus(HearingDevice* this_side_device) {
@@ -1140,10 +1157,9 @@ class HearingAidImpl : public HearingAid {
     }
 
     if (left == nullptr && right == nullptr) {
-      HearingAidAudioSource::Stop();
-      audio_running = false;
-      encoder_state_release();
-      current_volume = VOLUME_UNKNOWN;
+      LOG(WARNING) << __func__ << ": No more (0/" << GetDeviceCount()
+                   << ") devices ready";
+      DoDisconnectAudioStop();
       return;
     }
 
@@ -1456,8 +1472,17 @@ class HearingAidImpl : public HearingAid {
 
     hearingDevices.Remove(address);
 
-    if (connected)
-      callbacks->OnConnectionState(ConnectionState::DISCONNECTED, address);
+    if (!connected) {
+      return;
+    }
+
+    callbacks->OnConnectionState(ConnectionState::DISCONNECTED, address);
+    for (const auto& device : hearingDevices.devices) {
+      if (device.accepting_audio) return;
+    }
+    LOG(INFO) << __func__ << ": No more (0/" << GetDeviceCount()
+              << ") devices ready";
+    DoDisconnectAudioStop();
   }
 
   void OnGattDisconnected(tGATT_STATUS status, uint16_t conn_id,
@@ -1479,7 +1504,19 @@ class HearingAidImpl : public HearingAid {
 
     DoDisconnectCleanUp(hearingDevice);
 
+    // This is needed just for the first connection. After stack is restarted,
+    // code that loads device will add them to whitelist.
+    BTA_GATTC_Open(gatt_if, hearingDevice->address, false, GATT_TRANSPORT_LE,
+                   false);
+
     callbacks->OnConnectionState(ConnectionState::DISCONNECTED, remote_bda);
+
+    for (const auto& device : hearingDevices.devices) {
+      if (device.accepting_audio) return;
+    }
+    LOG(INFO) << __func__ << ": No more (0/" << GetDeviceCount()
+              << ") devices ready";
+    DoDisconnectAudioStop();
   }
 
   void DoDisconnectCleanUp(HearingDevice* hearingDevice) {
@@ -1510,6 +1547,13 @@ class HearingAidImpl : public HearingAid {
               << ", playback_started=" << hearingDevice->playback_started;
     hearingDevice->playback_started = false;
     hearingDevice->command_acked = false;
+  }
+
+  void DoDisconnectAudioStop() {
+    HearingAidAudioSource::Stop();
+    audio_running = false;
+    encoder_state_release();
+    current_volume = VOLUME_UNKNOWN;
   }
 
   void SetVolume(int8_t volume) override {
@@ -1723,14 +1767,11 @@ class HearingAidAudioReceiverImpl : public HearingAidAudioReceiver {
   void OnAudioDataReady(const std::vector<uint8_t>& data) override {
     if (instance) instance->OnAudioDataReady(data);
   }
-  void OnAudioSuspend(std::promise<void> do_suspend_promise) override {
-    if (instance) instance->OnAudioSuspend();
-    do_suspend_promise.set_value();
+  void OnAudioSuspend(const std::function<void()>& stop_audio_ticks) override {
+    if (instance) instance->OnAudioSuspend(stop_audio_ticks);
   }
-
-  void OnAudioResume(std::promise<void> do_resume_promise) override {
-    if (instance) instance->OnAudioResume();
-    do_resume_promise.set_value();
+  void OnAudioResume(const std::function<void()>& start_audio_ticks) override {
+    if (instance) instance->OnAudioResume(start_audio_ticks);
   }
 };
 

@@ -19,8 +19,8 @@
 import datetime
 import time
 
-from acts import tracelogger
 from acts import utils
+from acts.controllers.buds_lib import tako_trace_logger
 
 
 class AudioUtilsError(Exception):
@@ -36,7 +36,7 @@ class AudioUtils(object):
     """
 
     def __init__(self):
-        self.logger = tracelogger.TakoTraceLogger()
+        self.logger = tako_trace_logger.TakoTraceLogger()
 
     def play_audio_into_device(self, audio_file_path, audio_player, dut):
         """Open mic on DUT, play audio into DUT, close mic on DUT.

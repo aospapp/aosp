@@ -1,3 +1,8 @@
+# Implement the 2.1 HAL instead!
+
+It is strongly recommended that you implement the 2.1 HAL directly. See
+`hardware/interfaces/health/2.1/README.md` for more details.
+
 # Upgrading from Health 1.0 HAL
 
 1. Remove `android.hardware.health@1.0*` from `PRODUCT_PACKAGES`
@@ -44,7 +49,6 @@
             "libbase",
             "libcutils",
             "libhidlbase",
-            "libhidltransport",
             "libutils",
             "android.hardware.health@2.0",
         ],

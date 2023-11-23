@@ -32,9 +32,18 @@ import java.util.Set;
 
 /**
  * Container for Compatibility test info.
+ *
+ * @deprecated This class is associated with {@link CompatibilityTest} which is deprecated
  */
-public interface IModuleDef extends Comparable<IModuleDef>, IBuildReceiver, IDeviceTest,
-        IRemoteTest, IRuntimeHintProvider, ITestCollector, IInvocationContextReceiver {
+@Deprecated
+public interface IModuleDef
+        extends Comparable<IModuleDef>,
+                IBuildReceiver,
+                IDeviceTest,
+                IRemoteTest,
+                IRuntimeHintProvider,
+                ITestCollector,
+                IInvocationContextReceiver {
 
     /** key names used for saving module info into {@link IInvocationContext} */
     // This currently references ModuleDefinition so that there's only once source for String

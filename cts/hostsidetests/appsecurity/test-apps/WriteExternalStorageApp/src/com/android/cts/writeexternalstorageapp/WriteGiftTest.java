@@ -17,12 +17,11 @@
 package com.android.cts.writeexternalstorageapp;
 
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_NONE;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_READ;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_WRITE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirNoAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileNoAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadWriteAccess;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificGiftPaths;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificNoGiftPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificObbGiftPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readInt;
@@ -35,37 +34,27 @@ import java.io.File;
 import java.util.List;
 
 public class WriteGiftTest extends AndroidTestCase {
-    /**
-     * Leave gifts for other packages in their primary external cache dirs.
-     */
-    public void testGifts() throws Exception {
-        final List<File> noneList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_NONE);
-        for (File none : noneList) {
-            none.getParentFile().mkdirs();
-            none.createNewFile();
-            assertFileReadWriteAccess(none);
-
-            writeInt(none, 100);
-            assertEquals(100, readInt(none));
-        }
-
-        final List<File> readList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_READ);
-        for (File read : readList) {
-            read.getParentFile().mkdirs();
-            read.createNewFile();
-            assertFileReadWriteAccess(read);
-
-            writeInt(read, 101);
-            assertEquals(101, readInt(read));
-        }
-
-        final List<File> writeList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_WRITE);
+    public void testStageNonGifts() throws Exception {
+        final List<File> writeList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_WRITE);
         for (File write : writeList) {
             write.getParentFile().mkdirs();
-            write.createNewFile();
-            assertFileReadWriteAccess(write);
-
+            assertTrue(write.createNewFile());
             writeInt(write, 102);
+        }
+    }
+
+    /**
+     * Verify that we can't leave gifts in other package specific directories.
+     */
+    public void testNoGifts() throws Exception {
+        final List<File> noneList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_NONE);
+        for (File none : noneList) {
+            assertFileNoAccess(none);
+        }
+
+        final List<File> writeList = getAllPackageSpecificNoGiftPaths(getContext(), PACKAGE_WRITE);
+        for (File write : writeList) {
+            assertFileReadWriteAccess(write);
             assertEquals(102, readInt(write));
         }
     }

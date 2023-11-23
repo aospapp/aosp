@@ -20,7 +20,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /** Representation of a method in the API with parameters (arguments) and a return value. */
@@ -43,7 +45,7 @@ class ApiMethod implements Comparable<ApiMethod> {
     private final boolean mAbstractMethod;
 
     // A list of test APKs (aka CTS modules) that use this method.
-    private final Set<String> mCoveredWith = new HashSet<>();
+    private final Map<String, Boolean> mCoveredWith = new ConcurrentHashMap<>();
 
     ApiMethod(
             String name,
@@ -97,13 +99,13 @@ class ApiMethod implements Comparable<ApiMethod> {
 
     public boolean isFinalMethod() { return mFinalMethod; }
 
-    public Set<String> getCoveredWith() { return mCoveredWith; }
+    public Set<String> getCoveredWith() { return mCoveredWith.keySet(); }
 
     public void setCovered(String coveredWithModule) {
         if (coveredWithModule.endsWith(".apk")) {
             coveredWithModule = coveredWithModule.substring(0, coveredWithModule.length() - 4);
         }
 
-        mCoveredWith.add(coveredWithModule);
+        mCoveredWith.put(coveredWithModule, true);
     }
 }

@@ -23,8 +23,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.google.common.base.Preconditions;
-
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -50,8 +49,8 @@ public final class OneTimeDeviceConfigListener implements OnPropertiesChangedLis
 
     public OneTimeDeviceConfigListener(@NonNull String namespace, @NonNull String key,
             long timeoutMs) {
-        mNamespace = Preconditions.checkNotNull(namespace);
-        mKey = Preconditions.checkNotNull(key);
+        mNamespace = Objects.requireNonNull(namespace);
+        mKey = Objects.requireNonNull(key);
         mTimeoutMs = timeoutMs;
     }
 

@@ -52,11 +52,15 @@ public class TestLoader {
     public Test loadTests(File testJarFile, Collection<File> dependentJars) {
         ClassPathScanner scanner = new ClassPathScanner();
         try {
-            Set<String> classNames = scanner.getEntriesFromJar(testJarFile,
-                    new ExternalClassNameFilter());
+            Set<String> classNames =
+                    scanner.getEntriesFromJar(testJarFile, new ExternalClassNameFilter()).keySet();
 
-            ClassLoader jarClassLoader = buildJarClassLoader(testJarFile, dependentJars);
-            return loadTests(classNames, jarClassLoader);
+            URLClassLoader jarClassLoader = buildJarClassLoader(testJarFile, dependentJars);
+            try {
+                return loadTests(classNames, jarClassLoader);
+            } finally {
+                jarClassLoader.close();
+            }
         } catch (IOException e) {
             Log.e(LOG_TAG, String.format("IOException when loading test classes from jar %s",
                     testJarFile.getAbsolutePath()));
@@ -65,7 +69,7 @@ public class TestLoader {
         return null;
     }
 
-    private ClassLoader buildJarClassLoader(File jarFile, Collection<File> dependentJars)
+    private URLClassLoader buildJarClassLoader(File jarFile, Collection<File> dependentJars)
             throws MalformedURLException {
         URL[] urls = new URL[dependentJars.size() + 1];
         urls[0] = jarFile.toURI().toURL();

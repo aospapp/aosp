@@ -203,10 +203,10 @@ class CompilerDriverProfileTest : public CompilerDriverTest {
 
     ProfileCompilationInfo info;
     for (const std::unique_ptr<const DexFile>& dex_file : dex_files) {
-      profile_info_.AddMethodIndex(ProfileCompilationInfo::MethodHotness::kFlagHot,
-                                   MethodReference(dex_file.get(), 1));
-      profile_info_.AddMethodIndex(ProfileCompilationInfo::MethodHotness::kFlagHot,
-                                   MethodReference(dex_file.get(), 2));
+      profile_info_.AddMethod(ProfileMethodInfo(MethodReference(dex_file.get(), 1)),
+                              ProfileCompilationInfo::MethodHotness::kFlagHot);
+      profile_info_.AddMethod(ProfileMethodInfo(MethodReference(dex_file.get(), 2)),
+                              ProfileCompilationInfo::MethodHotness::kFlagHot);
     }
     return &profile_info_;
   }
@@ -308,7 +308,7 @@ class CompilerDriverVerifyTest : public CompilerDriverTest {
     bool found = compiler_driver_->GetCompiledClass(
         ClassReference(&klass->GetDexFile(), klass->GetDexTypeIndex().index_), &status);
     ASSERT_TRUE(found);
-    EXPECT_EQ(status, ClassStatus::kVerified);
+    EXPECT_GE(status, ClassStatus::kVerified);
   }
 };
 
@@ -353,8 +353,8 @@ TEST_F(CompilerDriverVerifyTest, RetryVerifcationStatusCheckVerified) {
        ++i) {
     const ClassStatus expected_status = enum_cast<ClassStatus>(i);
     // Skip unsupported status that are not supposed to be ever recorded.
-    if (expected_status == ClassStatus::kVerifyingAtRuntime ||
-        expected_status == ClassStatus::kInitializing) {
+    if (expected_status == ClassStatus::kInitializing ||
+        expected_status == ClassStatus::kInitialized) {
       continue;
     }
     compiler_driver_->RecordClassStatus(ref, expected_status);

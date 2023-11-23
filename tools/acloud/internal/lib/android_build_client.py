@@ -16,6 +16,7 @@
 
 """A client that talks to Android Build APIs."""
 
+import collections
 import io
 import logging
 
@@ -24,7 +25,16 @@ import apiclient
 from acloud import errors
 from acloud.internal.lib import base_cloud_client
 
+
 logger = logging.getLogger(__name__)
+
+# The BuildInfo namedtuple data structure.
+# It will be the data structure returned by GetBuildInfo method.
+BuildInfo = collections.namedtuple("BuildInfo", [
+    "branch",  # The branch name string
+    "build_id",  # The build id string
+    "build_target",  # The build target string
+    "release_build_id"])  # The release build id string
 
 
 class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
@@ -46,6 +56,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
     BUILD_TYPE_SUBMITTED = "submitted"
     ONE_RESULT = 1
     BUILD_SUCCESSFUL = True
+    LATEST = "latest"
 
     # Message constant
     COPY_TO_MSG = ("build artifact (target: %s, build_id: %s, "
@@ -177,3 +188,41 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
             "No available good builds for branch: %s target: %s"
             % (build_branch, build_target)
         )
+
+    def GetBuildInfo(self, build_target, build_id, branch):
+        """Get build info namedtuple.
+
+        Args:
+          build_target: Target name.
+          build_id: Build id, a string or None, e.g. "2263051", "P2804227"
+                    If None or latest, the last green build id will be
+                    returned.
+          branch: Branch name, a string or None, e.g. git_master. If None, the
+                  returned branch will be searched by given build_id.
+
+        Returns:
+          A build info namedtuple with keys build_target, build_id, branch and
+          gcs_bucket_build_id
+        """
+        if build_id and build_id != self.LATEST:
+            # Get build from build_id and build_target
+            api = self.service.build().get(buildId=build_id,
+                                           target=build_target)
+            build = self.Execute(api) or {}
+        elif branch:
+            # Get last green build in the branch
+            api = self.service.build().list(
+                branch=branch,
+                target=build_target,
+                successful=True,
+                maxResults=1,
+                buildType="submitted")
+            builds = self.Execute(api).get("builds", [])
+            build = builds[0] if builds else {}
+        else:
+            build = {}
+
+        build_id = build.get("buildId")
+        build_target = build_target if build_id else None
+        return BuildInfo(build.get("branch"), build_id, build_target,
+                         build.get("releaseCandidateName"))

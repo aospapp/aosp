@@ -14,15 +14,21 @@
 
 instrumentation_metric_tests := \
     AutofillPerfTests \
+    BlobStorePerfTests \
     crashcollector \
     CorePerfTests \
     DocumentsUIAppPerfTests \
-    MtpDocumentsProviderPerfTests \
+    MtpServicePerfTests \
     RsBlasBenchmark \
     ImageProcessingJB \
+    MediaProviderClientTests \
+    MultiUserPerfDummyApp \
     MultiUserPerfTests \
     NeuralNetworksApiBenchmark \
-    TextClassifierPerfTests
+    PackageManagerPerfTests \
+    TextClassifierPerfTests \
+    WmPerfTests \
+    trace_config_detailed.textproto
 
     # TODO(b/72332760): Uncomment when fixed
     #DocumentsUIPerfTests

@@ -26,6 +26,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <optional>
+#include "testutils.h"
 
 char *buffer;
 volatile int counter = 0;
@@ -37,6 +38,8 @@ static void handler (int, siginfo_t *si, void *) {
 }
 
 TEST(memory, mprotect) {
+    ASSUME_GAMECORE_CERTIFIED();
+
     VkInstance instance;
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;

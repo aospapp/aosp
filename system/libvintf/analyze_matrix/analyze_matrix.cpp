@@ -50,18 +50,11 @@ std::optional<std::set<std::string>> getInterfaces(const CompatibilityMatrix& ma
     auto set = std::make_optional<std::set<std::string>>();
     mat.forEachInstance([&set](const auto& matrixInstance) {
         for (auto minorVer = matrixInstance.versionRange().minMinor;
-             minorVer <= matrixInstance.versionRange().maxMinor; ++minorVer) {
-            FqInstance fqInstance;
-            if (!fqInstance.setTo(matrixInstance.package(), matrixInstance.versionRange().majorVer,
-                                  minorVer, matrixInstance.interface())) {
-                LOG(ERROR) << "Matrix not valid; '" << matrixInstance.package() << "@"
-                           << matrixInstance.versionRange().majorVer << "." << minorVer
-                           << "::" << matrixInstance.interface() << "' is not a valid FQName.";
-                set = std::nullopt;
-                return false;  // break
-            }
-
-            set->insert(fqInstance.string());
+             minorVer >= matrixInstance.versionRange().minMinor &&
+             minorVer <= matrixInstance.versionRange().maxMinor;
+             ++minorVer) {
+            Version version{matrixInstance.versionRange().majorVer, minorVer};
+            set->insert(matrixInstance.interfaceDescription(version));
         }
         return true;  // continue
     });

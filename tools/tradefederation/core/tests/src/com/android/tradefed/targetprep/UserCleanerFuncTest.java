@@ -59,7 +59,7 @@ public class UserCleanerFuncTest extends BaseHostJUnit4Test {
         device.createUser(UUID.randomUUID().toString());
         assertEquals("additional users created", 3, device.listUsers().size());
 
-        mCleaner.tearDown(getDevice(), null, null);
+        mCleaner.tearDown(getTestInformation(), null);
         assertEquals("additional users removed", 1, device.listUsers().size());
     }
 }

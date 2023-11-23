@@ -17,6 +17,7 @@
 """Unittests for cli_translator."""
 
 import unittest
+import json
 import os
 import re
 import sys
@@ -82,6 +83,9 @@ class CLITranslatorUnittests(unittest.TestCase):
         # Test mapping related args
         self.args.test_mapping = False
         self.args.include_subdirs = False
+        self.args.enable_file_patterns = False
+        # Cache finder related args
+        self.args.clear_cache = False
         self.ctr.mod_info = mock.Mock
         self.ctr.mod_info.name_to_module_info = {}
 
@@ -99,11 +103,11 @@ class CLITranslatorUnittests(unittest.TestCase):
                             mock_findtestbymodule, mock_raw_input):
         """Test _get_test_infos method."""
         ctr = cli_t.CLITranslator()
-        find_method_return_module_info = lambda x, y: uc.MODULE_INFO
+        find_method_return_module_info = lambda x, y: uc.MODULE_INFOS
         # pylint: disable=invalid-name
-        find_method_return_module_class_info = (lambda x, test: uc.MODULE_INFO
+        find_method_return_module_class_info = (lambda x, test: uc.MODULE_INFOS
                                                 if test == uc.MODULE_NAME
-                                                else uc.CLASS_INFO)
+                                                else uc.CLASS_INFOS)
         find_method_return_nothing = lambda x, y: None
         one_test = [uc.MODULE_NAME]
         mult_test = [uc.MODULE_NAME, uc.CLASS_NAME]
@@ -157,6 +161,54 @@ class CLITranslatorUnittests(unittest.TestCase):
                     test_detail1.options,
                     test_info.data[constants.TI_MODULE_ARG])
             else:
+                self.assertEqual(
+                    test_detail2.options,
+                    test_info.data[constants.TI_MODULE_ARG])
+
+    @mock.patch.object(metrics, 'FindTestFinishEvent')
+    @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
+    def test_get_test_infos_2(self, mock_getfindmethods, _metrics):
+        """Test _get_test_infos method."""
+        ctr = cli_t.CLITranslator()
+        find_method_return_module_info2 = lambda x, y: uc.MODULE_INFOS2
+        find_method_ret_mod_cls_info2 = (
+            lambda x, test: uc.MODULE_INFOS2
+            if test == uc.MODULE_NAME else uc.CLASS_INFOS2)
+        one_test = [uc.MODULE_NAME]
+        mult_test = [uc.MODULE_NAME, uc.CLASS_NAME]
+        # Let's make sure we return what we expect.
+        expected_test_infos = {uc.MODULE_INFO, uc.MODULE_INFO2}
+        mock_getfindmethods.return_value = [
+            test_finder_base.Finder(None, find_method_return_module_info2,
+                                    None)]
+        unittest_utils.assert_strict_equal(
+            self, ctr._get_test_infos(one_test), expected_test_infos)
+        # Check we receive multiple test infos.
+        expected_test_infos = {uc.MODULE_INFO, uc.CLASS_INFO, uc.MODULE_INFO2,
+                               uc.CLASS_INFO2}
+        mock_getfindmethods.return_value = [
+            test_finder_base.Finder(None, find_method_ret_mod_cls_info2,
+                                    None)]
+        unittest_utils.assert_strict_equal(
+            self, ctr._get_test_infos(mult_test), expected_test_infos)
+        # Check the method works for test mapping.
+        test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
+        test_detail2 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_OPTION)
+        expected_test_infos = {uc.MODULE_INFO, uc.CLASS_INFO, uc.MODULE_INFO2,
+                               uc.CLASS_INFO2}
+        mock_getfindmethods.return_value = [
+            test_finder_base.Finder(None, find_method_ret_mod_cls_info2,
+                                    None)]
+        test_infos = ctr._get_test_infos(
+            mult_test, [test_detail1, test_detail2])
+        unittest_utils.assert_strict_equal(
+            self, test_infos, expected_test_infos)
+        for test_info in test_infos:
+            if test_info in [uc.MODULE_INFO, uc.MODULE_INFO2]:
+                self.assertEqual(
+                    test_detail1.options,
+                    test_info.data[constants.TI_MODULE_ARG])
+            elif test_info in [uc.CLASS_INFO, uc.CLASS_INFO2]:
                 self.assertEqual(
                     test_detail2.options,
                     test_info.data[constants.TI_MODULE_ARG])
@@ -242,9 +294,7 @@ class CLITranslatorUnittests(unittest.TestCase):
                 test_group=constants.TEST_GROUP_POSTSUBMIT,
                 file_name='test_mapping_sample', checked_files=set())
         expected_presubmit = set([TEST_1, TEST_2, TEST_5, TEST_7, TEST_9])
-        expected = set(
-            [TEST_1, TEST_2, TEST_3, TEST_5, TEST_6, TEST_7, TEST_8, TEST_9,
-             TEST_10])
+        expected = set([TEST_3, TEST_6, TEST_8, TEST_10])
         expected_all_tests = {'presubmit': expected_presubmit,
                               'postsubmit': set(
                                   [TEST_3, TEST_6, TEST_8, TEST_10]),
@@ -302,7 +352,24 @@ class CLITranslatorUnittests(unittest.TestCase):
         sys.stdout = sys.__stdout__
         output = 'Did you mean the following modules?\n{0}\n{1}\n'.format(
             uc.MODULE_NAME, uc.MODULE2_NAME)
-        self.assertEquals(capture_output.getvalue(), output)
+        self.assertEqual(capture_output.getvalue(), output)
+
+    def test_filter_comments(self):
+        """Test filter_comments method"""
+        file_with_comments = os.path.join(TEST_MAPPING_TOP_DIR,
+                                          'folder6',
+                                          'test_mapping_sample_with_comments')
+        file_with_comments_golden = os.path.join(TEST_MAPPING_TOP_DIR,
+                                                 'folder6',
+                                                 'test_mapping_sample_golden')
+        test_mapping_dict = json.loads(
+            self.ctr.filter_comments(file_with_comments))
+        test_mapping_dict_gloden = None
+        with open(file_with_comments_golden) as json_file:
+            test_mapping_dict_gloden = json.load(json_file)
+
+        self.assertEqual(test_mapping_dict, test_mapping_dict_gloden)
+
 
 if __name__ == '__main__':
     unittest.main()

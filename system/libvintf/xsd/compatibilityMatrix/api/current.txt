@@ -71,8 +71,10 @@ package compatibility.matrix {
     ctor public Kernel();
     method public compatibility.matrix.Kernel.Conditions getConditions();
     method public java.util.List<compatibility.matrix.Config> getConfig();
+    method public String getLevel();
     method public String getVersion();
     method public void setConditions(compatibility.matrix.Kernel.Conditions);
+    method public void setLevel(String);
     method public void setVersion(String);
   }
 

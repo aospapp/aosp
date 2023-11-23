@@ -23,6 +23,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.opengl.GLES20;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
@@ -50,6 +51,7 @@ import javax.microedition.khronos.opengles.GL10;
  * file, and read it back in from disk.  The data we're generating is just an elementary
  * stream, so we'd need to perform additional steps to make that happen.
  */
+@Presubmit
 @SmallTest
 @RequiresDevice
 public class EncodeDecodeTest extends AndroidTestCase {

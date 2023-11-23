@@ -21,29 +21,21 @@
       </div>
     </div>
     <div class="children" v-if="children">
-      <tree-view v-for="(c,i) in children" :item="c" @item-selected="childItemSelected" :selected="selected" :v-key="i" :chip-class='chipClass' :filter="childFilter(c)" :flattened="flattened"
-          :force-flattened="applyingFlattened" v-show="filterMatches(c)" ref='children' />
+      <tree-view v-for="(c,i) in children" :item="c" @item-selected="childItemSelected" :selected="selected" :key="i" :chip-class='chipClass' :filter="childFilter(c)" :flattened="flattened" :force-flattened="applyingFlattened" v-show="filterMatches(c)" ref='children' />
     </div>
   </div>
 </template>
-
 <script>
-
 import jsonProtoDefs from 'frameworks/base/core/proto/android/server/windowmanagertrace.proto'
 import protobuf from 'protobufjs'
 
 var protoDefs = protobuf.Root.fromJSON(jsonProtoDefs);
-var TraceMessage = protoDefs.lookupType(
-  "com.android.server.wm.WindowManagerTraceFileProto");
-var ServiceMessage = protoDefs.lookupType(
-  "com.android.server.wm.WindowManagerServiceDumpProto");
 
 export default {
   name: 'tree-view',
   props: ['item', 'selected', 'chipClass', 'filter', 'flattened', 'force-flattened'],
-  data () {
-    return {
-    };
+  data() {
+    return {};
   },
   methods: {
     selectNext(found, parent) {
@@ -84,17 +76,23 @@ export default {
     },
     chipClassForChip(c) {
       return ['tree-view-internal-chip', this.chipClassOrDefault,
-          this.chipClassOrDefault + '-' + (c.class || 'default')];
+        this.chipClassOrDefault + '-' + (c.class || 'default')
+      ];
     },
     filterMatches(c) {
+      // If a filter is set, consider the item matches if the current item or any of its
+      // children matches.
       if (this.filter) {
-        return this.filter(c, this.applyingFlattened);
+        var thisMatches = this.filter(c);
+        const childMatches = (child) => this.filterMatches(child);
+        return thisMatches || (!this.applyingFlattened && 
+            c.children && c.children.some(childMatches));
       }
       return true;
     },
     childFilter(c) {
-      if (this.filter && this.filter.includeChildren) {
-        if (this.filterMatches(c)) {
+      if (this.filter) {
+        if (this.filter(c)) {
           // Filter matched c, don't apply further filtering on c's children.
           return undefined;
         }
@@ -117,22 +115,26 @@ export default {
     },
   }
 }
-</script>
 
+</script>
 <style>
 .children {
   margin-left: 24px;
 }
+
 .kind {
   color: #333;
 }
+
 .selected {
   background-color: #3f51b5;
   color: white;
 }
-.selected .kind{
+
+.selected .kind {
   color: #ccc;
 }
+
 .tree-view-internal-chip {
   display: inline-block;
 }
@@ -151,6 +153,16 @@ export default {
 
 .tree-view-chip.tree-view-chip-error {
   background-color: #ff6b6b;
+  color: black;
+}
+
+.tree-view-chip.tree-view-chip-gpu {
+  background-color: #00c853;
+  color: black;
+}
+
+.tree-view-chip.tree-view-chip-hwc {
+  background-color: #448aff;
   color: black;
 }
 

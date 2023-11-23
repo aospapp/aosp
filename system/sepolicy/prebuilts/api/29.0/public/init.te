@@ -46,8 +46,6 @@ allow init {
   userdata_block_device
 }:{ blk_file lnk_file } relabelto;
 
-allow init super_block_device:lnk_file relabelto;
-
 # setrlimit
 allow init self:global_capability_class_set sys_resource;
 
@@ -167,6 +165,7 @@ allow init {
   file_type
   -app_data_file
   -exec_type
+  -gsi_data_file
   -iorapd_data_file
   -keystore_data_file
   -misc_logd_file
@@ -364,6 +363,7 @@ allow init {
   sysfs_leds
   sysfs_power
   sysfs_fs_f2fs
+  sysfs_dm
 }:file w_file_perms;
 
 allow init {

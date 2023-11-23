@@ -20,9 +20,9 @@
 #include "barrier.h"
 #include "base/histogram.h"
 #include "base/mutex.h"
-#include "base/time_utils.h"
 #include "base/value_object.h"
 #include "jni.h"
+#include "reflective_handle_scope.h"
 #include "suspend_reason.h"
 
 #include <bitset>
@@ -37,6 +37,7 @@ class GarbageCollector;
 class GcPauseListener;
 }  // namespace gc
 class Closure;
+class IsMarkedVisitor;
 class RootVisitor;
 class Thread;
 class TimingLogger;
@@ -47,7 +48,8 @@ class ThreadList {
   static constexpr uint32_t kMaxThreadId = 0xFFFF;
   static constexpr uint32_t kInvalidThreadId = 0;
   static constexpr uint32_t kMainThreadId = 1;
-  static constexpr uint64_t kDefaultThreadSuspendTimeout = MsToNs(kIsDebugBuild ? 50000 : 10000);
+  static constexpr uint64_t kDefaultThreadSuspendTimeout =
+      kIsDebugBuild ? 50'000'000'000ull : 10'000'000'000ull;
 
   explicit ThreadList(uint64_t thread_suspend_timeout_ns);
   ~ThreadList();
@@ -102,6 +104,10 @@ class ThreadList {
   // Find an existing thread (or self) by its thread id (not tid).
   Thread* FindThreadByThreadId(uint32_t thread_id) REQUIRES(Locks::thread_list_lock_);
 
+  // Does the thread list still contain the given thread, or one at the same address?
+  // Used by Monitor to provide (mostly accurate) debugging information.
+  bool Contains(Thread* thread) REQUIRES(Locks::thread_list_lock_);
+
   // Run a checkpoint on threads, running threads are not suspended but run the checkpoint inside
   // of the suspend check. Returns how many checkpoints that are expected to run, including for
   // already suspended threads for b/24191051. Run the callback, if non-null, inside the
@@ -128,25 +134,16 @@ class ThreadList {
                !Locks::thread_list_lock_,
                !Locks::thread_suspend_count_lock_);
 
-  // Suspends all threads
-  void SuspendAllForDebugger()
-      REQUIRES(!Locks::mutator_lock_,
-               !Locks::thread_list_lock_,
-               !Locks::thread_suspend_count_lock_);
-
-  void SuspendSelfForDebugger()
-      REQUIRES(!Locks::thread_suspend_count_lock_);
-
-  // Resume all threads
-  void ResumeAllForDebugger()
-      REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_);
-
-  void UndoDebuggerSuspensions()
-      REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_);
-
   // Iterates over all the threads.
   void ForEach(void (*callback)(Thread*, void*), void* context)
       REQUIRES(Locks::thread_list_lock_);
+
+  template<typename CallBack>
+  void ForEach(CallBack cb) REQUIRES(Locks::thread_list_lock_) {
+    ForEach([](Thread* t, void* ctx) REQUIRES(Locks::thread_list_lock_) {
+      (*reinterpret_cast<CallBack*>(ctx))(t);
+    }, &cb);
+  }
 
   // Add/remove current thread from list.
   void Register(Thread* self)
@@ -166,6 +163,8 @@ class ThreadList {
       REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  void VisitReflectiveTargets(ReflectiveValueVisitor* visitor) const REQUIRES(Locks::mutator_lock_);
+
   // Return a copy of the thread list.
   std::list<Thread*> GetList() REQUIRES(Locks::thread_list_lock_) {
     return list_;
@@ -178,11 +177,18 @@ class ThreadList {
     return empty_checkpoint_barrier_.get();
   }
 
+  void SweepInterpreterCaches(IsMarkedVisitor* visitor) const
+      REQUIRES(!Locks::thread_list_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void WaitForOtherNonDaemonThreadsToExit(bool check_no_birth = true)
+      REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_,
+               !Locks::mutator_lock_);
+
  private:
   uint32_t AllocThreadId(Thread* self);
   void ReleaseThreadId(Thread* self, uint32_t id) REQUIRES(!Locks::allocated_thread_ids_lock_);
 
-  bool Contains(Thread* thread) REQUIRES(Locks::thread_list_lock_);
   bool Contains(pid_t tid) REQUIRES(Locks::thread_list_lock_);
   size_t RunCheckpoint(Closure* checkpoint_function, bool includeSuspended)
       REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_);
@@ -191,8 +197,6 @@ class ThreadList {
       REQUIRES(!Locks::thread_list_lock_);
 
   void SuspendAllDaemonThreadsForShutdown()
-      REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_);
-  void WaitForOtherNonDaemonThreadsToExit()
       REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_);
 
   void SuspendAllInternal(Thread* self,
@@ -211,7 +215,6 @@ class ThreadList {
 
   // Ongoing suspend all requests, used to ensure threads added to list_ respect SuspendAll.
   int suspend_all_count_ GUARDED_BY(Locks::thread_suspend_count_lock_);
-  int debug_suspend_all_count_ GUARDED_BY(Locks::thread_suspend_count_lock_);
 
   // Number of threads unregistering, ~ThreadList blocks until this hits 0.
   int unregistering_count_ GUARDED_BY(Locks::thread_list_lock_);

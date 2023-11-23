@@ -26,7 +26,7 @@ LOCAL_SRC_FILES :=  \
 LOCAL_SHARED_LIBRARIES := liblog
 
 # For AOSP builds, use dummy implementation.
-ifeq ($(wildcard vendor/google_easel),)
+ifeq ($(wildcard vendor/google_paintbox),)
     LOCAL_CFLAGS += -DUSE_DUMMY_IMPL=1
 else
 ifneq ($(TARGET_EASEL_VARIANT), amber)

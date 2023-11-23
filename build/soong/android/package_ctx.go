@@ -16,11 +16,9 @@ package android
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/google/blueprint"
-	"github.com/google/blueprint/pathtools"
 )
 
 // PackageContext is a wrapper for blueprint.PackageContext that adds
@@ -59,10 +57,6 @@ func (e *configErrorWrapper) Errorf(format string, args ...interface{}) {
 }
 func (e *configErrorWrapper) AddNinjaFileDeps(deps ...string) {
 	e.pctx.AddNinjaFileDeps(deps...)
-}
-
-func (e *configErrorWrapper) Fs() pathtools.FileSystem {
-	return nil
 }
 
 type PackageVarContext interface {
@@ -104,7 +98,8 @@ func (p PackageContext) PoolFunc(name string,
 }
 
 // RuleFunc wraps blueprint.PackageContext.RuleFunc, converting the interface{} config
-// argument to a Context that supports Config().
+// argument to a Context that supports Config(), and provides a default Pool if none is
+// specified.
 func (p PackageContext) RuleFunc(name string,
 	f func(PackageRuleContext) blueprint.RuleParams, argNames ...string) blueprint.Rule {
 
@@ -113,6 +108,11 @@ func (p PackageContext) RuleFunc(name string,
 		params := f(ctx)
 		if len(ctx.errors) > 0 {
 			return params, ctx.errors[0]
+		}
+		if ctx.Config().UseRemoteBuild() && params.Pool == nil {
+			// When USE_GOMA=true or USE_RBE=true are set and the rule is not supported by
+			// goma/RBE, restrict jobs to the local parallelism value
+			params.Pool = localPool
 		}
 		return params, nil
 	}, argNames...)
@@ -171,12 +171,8 @@ func (p PackageContext) SourcePathVariableWithEnvOverride(name, path, env string
 // package-scoped variable's initialization.
 func (p PackageContext) HostBinToolVariable(name, path string) blueprint.Variable {
 	return p.VariableFunc(name, func(ctx PackageVarContext) string {
-		return p.HostBinToolPath(ctx, path).String()
+		return ctx.Config().HostToolPath(ctx, path).String()
 	})
-}
-
-func (p PackageContext) HostBinToolPath(ctx PackageVarContext, path string) Path {
-	return PathForOutput(ctx, "host", ctx.Config().PrebuiltOS(), "bin", path)
 }
 
 // HostJNIToolVariable returns a Variable whose value is the path to a host tool
@@ -185,16 +181,8 @@ func (p PackageContext) HostBinToolPath(ctx PackageVarContext, path string) Path
 // package-scoped variable's initialization.
 func (p PackageContext) HostJNIToolVariable(name, path string) blueprint.Variable {
 	return p.VariableFunc(name, func(ctx PackageVarContext) string {
-		return p.HostJNIToolPath(ctx, path).String()
+		return ctx.Config().HostJNIToolPath(ctx, path).String()
 	})
-}
-
-func (p PackageContext) HostJNIToolPath(ctx PackageVarContext, path string) Path {
-	ext := ".so"
-	if runtime.GOOS == "darwin" {
-		ext = ".dylib"
-	}
-	return PathForOutput(ctx, "host", ctx.Config().PrebuiltOS(), "lib64", path+ext)
 }
 
 // HostJavaToolVariable returns a Variable whose value is the path to a host
@@ -203,12 +191,8 @@ func (p PackageContext) HostJNIToolPath(ctx PackageVarContext, path string) Path
 // part of a package-scoped variable's initialization.
 func (p PackageContext) HostJavaToolVariable(name, path string) blueprint.Variable {
 	return p.VariableFunc(name, func(ctx PackageVarContext) string {
-		return p.HostJavaToolPath(ctx, path).String()
+		return ctx.Config().HostJavaToolPath(ctx, path).String()
 	})
-}
-
-func (p PackageContext) HostJavaToolPath(ctx PackageVarContext, path string) Path {
-	return PathForOutput(ctx, "host", ctx.Config().PrebuiltOS(), "framework", path)
 }
 
 // IntermediatesPathVariable returns a Variable whose value is the intermediate
@@ -234,29 +218,45 @@ func (p PackageContext) PrefixedExistentPathsForSourcesVariable(
 	})
 }
 
-// AndroidStaticRule wraps blueprint.StaticRule and provides a default Pool if none is specified
+// AndroidStaticRule is an alias for StaticRule.
 func (p PackageContext) AndroidStaticRule(name string, params blueprint.RuleParams,
-	argNames ...string) blueprint.Rule {
-	return p.AndroidRuleFunc(name, func(PackageRuleContext) blueprint.RuleParams {
-		return params
-	}, argNames...)
-}
-
-// AndroidGomaStaticRule wraps blueprint.StaticRule but uses goma's parallelism if goma is enabled
-func (p PackageContext) AndroidGomaStaticRule(name string, params blueprint.RuleParams,
 	argNames ...string) blueprint.Rule {
 	return p.StaticRule(name, params, argNames...)
 }
 
-func (p PackageContext) AndroidRuleFunc(name string,
-	f func(PackageRuleContext) blueprint.RuleParams, argNames ...string) blueprint.Rule {
-	return p.RuleFunc(name, func(ctx PackageRuleContext) blueprint.RuleParams {
-		params := f(ctx)
-		if ctx.Config().UseGoma() && params.Pool == nil {
+// StaticRule wraps blueprint.StaticRule and provides a default Pool if none is specified.
+func (p PackageContext) StaticRule(name string, params blueprint.RuleParams,
+	argNames ...string) blueprint.Rule {
+	return p.RuleFunc(name, func(PackageRuleContext) blueprint.RuleParams {
+		return params
+	}, argNames...)
+}
+
+// RemoteRuleSupports configures rules with whether they have Goma and/or RBE support.
+type RemoteRuleSupports struct {
+	Goma bool
+	RBE  bool
+}
+
+// AndroidRemoteStaticRule wraps blueprint.StaticRule but uses goma or RBE's parallelism if goma or RBE are enabled
+// and the appropriate SUPPORTS_* flag is set.
+func (p PackageContext) AndroidRemoteStaticRule(name string, supports RemoteRuleSupports, params blueprint.RuleParams,
+	argNames ...string) blueprint.Rule {
+
+	return p.PackageContext.RuleFunc(name, func(config interface{}) (blueprint.RuleParams, error) {
+		ctx := &configErrorWrapper{p, config.(Config), nil}
+		if ctx.Config().UseGoma() && !supports.Goma {
 			// When USE_GOMA=true is set and the rule is not supported by goma, restrict jobs to the
 			// local parallelism value
 			params.Pool = localPool
 		}
-		return params
+
+		if ctx.Config().UseRBE() && !supports.RBE {
+			// When USE_RBE=true is set and the rule is not supported by RBE, restrict jobs to the
+			// local parallelism value
+			params.Pool = localPool
+		}
+
+		return params, nil
 	}, argNames...)
 }

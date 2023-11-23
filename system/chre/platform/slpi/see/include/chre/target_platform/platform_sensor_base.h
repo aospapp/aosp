@@ -18,6 +18,12 @@
 #define CHRE_PLATFORM_SLPI_SEE_PLATFORM_SENSOR_BASE_H_
 
 #include "chre/core/sensor_request.h"
+#include "chre/core/sensor_type_helpers.h"
+#include "chre/platform/slpi/see/see_helper.h"
+
+#ifdef CHREX_SENSOR_SUPPORT
+#include "chre/extensions/platform/vendor_sensor_types.h"
+#endif  // CHREX_SENSOR_SUPPORT
 
 namespace chre {
 
@@ -30,54 +36,26 @@ constexpr size_t kSensorNameMaxLen = 64;
 class PlatformSensorBase {
  public:
   /**
-   * Initializes the members of PlatformSensorBase.
+   * Initializes various members of PlatformSensorBase.
    */
-  void initBase(
-      SensorType sensorType, uint64_t mMinInterval, const char *sensorName,
-      ChreSensorData *lastEvent, size_t lastEventSize, bool passiveSupported);
+  void initBase(uint8_t sensorType, uint64_t minInterval,
+                const char *sensorName, bool passiveSupported);
 
-  /**
-   * Copies the supplied event to the sensor's last event and marks last event
-   * valid.
-   *
-   * @param event The pointer to the event to copy from.
-   */
-  void setLastEvent(const ChreSensorData *event);
-
-  /**
-   * Sets the current status of this sensor in the CHRE API format.
-   *
-   * @param status The current sampling status.
-   */
-  void setSamplingStatus(const struct chreSensorSamplingStatus& status);
-
- protected:
-  //! The sensor type of this sensor.
-  SensorType mSensorType;
-
-  //! The minimum interval of this sensor.
-  uint64_t mMinInterval;
+  //! Stores the last received sampling status from SEE for this sensor making
+  //! it easier to dedup updates that come in later from SEE.
+  SeeHelperCallbackInterface::SamplingStatusData mLastReceivedSamplingStatus{};
 
   //! The name (type and model) of this sensor.
   char mSensorName[kSensorNameMaxLen];
 
-  //! Pointer to dynamically allocated memory to store the last event. Only
-  //! non-null if this is an on-change sensor.
-  ChreSensorData *mLastEvent = nullptr;
+  //! The minimum interval of this sensor.
+  uint64_t mMinInterval;
 
-  //! The amount of memory we've allocated in lastEvent (this varies depending
-  //! on the sensor type)
-  size_t mLastEventSize = 0;
-
-  //! Set to true only when this is an on-change sensor that is currently active
-  //! and we have a copy of the most recent event in lastEvent.
-  bool mLastEventValid = false;
+  //! The sensor type of this sensor.
+  uint8_t mSensorType;
 
   //! Whether this sensor supports passive sensor requests.
   bool mPassiveSupported = false;
-
-  //! Stores the sampling status for all CHRE clients of this sensor.
-  struct chreSensorSamplingStatus mSamplingStatus;
 };
 
 }  // namespace chre

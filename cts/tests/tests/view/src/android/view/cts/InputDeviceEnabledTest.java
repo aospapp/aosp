@@ -23,9 +23,9 @@ import android.app.Instrumentation;
 import android.hardware.input.InputManager;
 import android.view.InputDevice;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -38,12 +38,11 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class InputDeviceEnabledTest {
     private InputManager mInputManager;
-    private Instrumentation mInstrumentation;
 
     @Before
     public void setup() {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        mInputManager = mInstrumentation.getTargetContext().getSystemService(InputManager.class);
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        mInputManager = instrumentation.getTargetContext().getSystemService(InputManager.class);
         assertNotNull(mInputManager);
     }
 

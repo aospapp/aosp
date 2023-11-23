@@ -52,7 +52,7 @@ public class PreferenceActivityLegacyFlowTest {
 
     @Before
     public void setup() {
-        mTestUtils = new TestUtils();
+        mTestUtils = new TestUtils(mActivityRule);
         mActivity = mActivityRule.getActivity();
     }
 

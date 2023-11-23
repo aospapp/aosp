@@ -24,6 +24,7 @@
 
 #include <android-base/logging.h>
 #include <hidl-hash/Hash.h>
+#include <hidl-util/Formatter.h>
 #include <hidl-util/StringHelper.h>
 #include <iostream>
 
@@ -173,7 +174,7 @@ void Coordinator::onFileAccess(const std::string& path, const std::string& mode)
         // 1). If there is a bug in hidl-gen, the dependencies on the first project from
         //     the second would be required to recover correctly when the bug is fixed.
         // 2). This option is never used in Android builds.
-        mReadFiles.insert(StringHelper::LTrim(path, mRootPath));
+        mReadFiles.insert(makeRelative(path));
     }
 
     if (!mVerbose) {
@@ -200,7 +201,7 @@ status_t Coordinator::writeDepFile(const std::string& forFile) const {
     out << StringHelper::LTrim(forFile, mOutputPath) << ": \\\n";
     out.indent([&] {
         for (const std::string& file : mReadFiles) {
-            out << StringHelper::LTrim(file, mRootPath) << " \\\n";
+            out << makeRelative(file) << " \\\n";
         }
     });
     return OK;
@@ -241,18 +242,6 @@ status_t Coordinator::parseOptional(const FQName& fqName, AST** ast, std::set<AS
     // Add this to the cache immediately, so we can discover circular imports.
     mCache[fqName] = nullptr;
 
-    AST *typesAST = nullptr;
-
-    if (fqName.name() != "types") {
-        // Any interface file implicitly imports its package's types.hal.
-        FQName typesName = fqName.getTypesForPackage();
-        // Do not enforce on imports. Do not add imports' imports to this AST.
-        status_t err = parseOptional(typesName, &typesAST, nullptr, Enforce::NONE);
-        if (err != OK) return err;
-
-        // fall through.
-    }
-
     std::string packagePath;
     status_t err =
         getPackagePath(fqName, false /* relative */, false /* sanitized */, &packagePath);
@@ -262,10 +251,10 @@ status_t Coordinator::parseOptional(const FQName& fqName, AST** ast, std::set<AS
 
     *ast = new AST(this, &Hash::getHash(path));
 
-    if (typesAST != nullptr) {
+    if (fqName.name() != "types") {
         // If types.hal for this AST's package existed, make it's defined
         // types available to the (about to be parsed) AST right away.
-        (*ast)->addImportedAST(typesAST);
+        (*ast)->addImplicitImport(fqName.getTypesForPackage());
     }
 
     std::unique_ptr<FILE, std::function<void(FILE*)>> file(fopen(path.c_str(), "rb"), fclose);
@@ -300,10 +289,10 @@ status_t Coordinator::parseOptional(const FQName& fqName, AST** ast, std::set<AS
                 fprintf(stderr,
                         "ERROR: File at '%s' declares an interface '%s' "
                         "instead of the expected types common to the package.\n",
-                        path.c_str(), (*ast)->getInterface()->localName().c_str());
+                        path.c_str(), (*ast)->getInterface()->definedName().c_str());
 
                 err = UNKNOWN_ERROR;
-            } else if ((*ast)->getInterface()->localName() != fqName.name()) {
+            } else if ((*ast)->getInterface()->definedName() != fqName.name()) {
                 fprintf(stderr,
                         "ERROR: File at '%s' does not declare interface type "
                         "'%s'.\n",
@@ -397,9 +386,13 @@ std::string Coordinator::makeAbsolute(const std::string& path) const {
     return mRootPath + path;
 }
 
+std::string Coordinator::makeRelative(const std::string& filename) const {
+    return StringHelper::LTrim(filename, mRootPath);
+}
+
 status_t Coordinator::getPackageRoot(const FQName& fqName, std::string* root) const {
     const PackageRoot* packageRoot = findPackageRoot(fqName);
-    if (root == nullptr) {
+    if (packageRoot == nullptr) {
         return UNKNOWN_ERROR;
     }
     *root = packageRoot->root.package();
@@ -566,7 +559,7 @@ status_t Coordinator::addUnreferencedTypes(const std::vector<FQName>& packageInt
     std::set<FQName> typesDefinedTypes;  // only types.hal types
 
     for (const auto& fqName : packageInterfaces) {
-        AST* ast = parse(fqName);
+        AST* ast = parse(fqName, nullptr /*imported*/, Coordinator::Enforce::NONE);
         if (!ast) {
             std::cerr << "ERROR: Could not parse " << fqName.string() << ". Aborting." << std::endl;
 
@@ -660,6 +653,21 @@ status_t Coordinator::enforceRestrictionsOnPackage(const FQName& fqName,
     return OK;
 }
 
+status_t Coordinator::packageExists(const FQName& package, bool* result) const {
+    std::string packagePath;
+    status_t err =
+            getPackagePath(package, false /* relative */, false /* sanitized */, &packagePath);
+    if (err != OK) return err;
+
+    if (existdir(makeAbsolute(packagePath).c_str())) {
+        *result = true;
+        return OK;
+    }
+
+    *result = false;
+    return OK;
+}
+
 status_t Coordinator::enforceMinorVersionUprevs(const FQName& currentPackage,
                                                 Enforce enforcement) const {
     if(!currentPackage.hasVersion()) {
@@ -677,12 +685,11 @@ status_t Coordinator::enforceMinorVersionUprevs(const FQName& currentPackage,
     while (prevPackage.getPackageMinorVersion() > 0) {
         prevPackage = prevPackage.downRev();
 
-        std::string prevPackagePath;
-        status_t err = getPackagePath(prevPackage, false /* relative */, false /* sanitized */,
-                                      &prevPackagePath);
+        bool result;
+        status_t err = packageExists(prevPackage, &result);
         if (err != OK) return err;
 
-        if (existdir(makeAbsolute(prevPackagePath).c_str())) {
+        if (result) {
             hasPrevPackage = true;
             break;
         }
@@ -820,6 +827,12 @@ Coordinator::HashStatus Coordinator::checkHash(const FQName& fqName) const {
 
     // hash not defined, interface not frozen
     if (frozen.size() == 0) {
+        if (isVerbose()) {
+            std::cerr << "VERBOSE: clearing runtime hash for " << fqName.string()
+                      << " because it is not frozen and so its hash cannot be depended upon as an "
+                         "indication of stability."
+                      << std::endl;
+        }
         // This ensures that it can be detected.
         Hash::clearHash(ast->getFilename());
 
@@ -941,6 +954,89 @@ bool Coordinator::MakeParentHierarchy(const std::string &path) {
     }
 
     return true;
+}
+
+void Coordinator::emitOptionsUsageString(Formatter& out) {
+    out << "[-p <root path>] (-r <interface root>)+ [-R] [-v] [-d <depfile>]";
+}
+
+void Coordinator::emitOptionsDetailString(Formatter& out) {
+    out << "-p <root path>: Android build root, defaults to $ANDROID_BUILD_TOP or pwd.\n"
+        << "-R: Do not add default package roots if not specified in -r.\n"
+        << "-r <package:path root>: E.g., android.hardware:hardware/interfaces.\n"
+        << "-v: verbose output.\n"
+        << "-d <depfile>: location of depfile to write to.\n";
+}
+
+void Coordinator::parseOptions(int argc, char** argv, const std::string& options,
+                               const HandleArg& handleArg) {
+    // reset global state for getopt
+    optind = 1;
+
+    bool suppressDefaultPackagePaths = false;
+
+    int res;
+    std::string optstr = options + "p:r:Rvd:";
+    while ((res = getopt(argc, argv, optstr.c_str())) >= 0) {
+        switch (res) {
+            case 'v': {
+                setVerbose(true);
+                break;
+            }
+            case 'd': {
+                setDepFile(optarg);
+                break;
+            }
+            case 'p': {
+                if (!getRootPath().empty()) {
+                    fprintf(stderr, "ERROR: -p <root path> can only be specified once.\n");
+                    exit(1);
+                }
+                setRootPath(optarg);
+                break;
+            }
+            case 'r': {
+                std::string val(optarg);
+                auto index = val.find_first_of(':');
+                if (index == std::string::npos) {
+                    fprintf(stderr, "ERROR: -r option must contain ':': %s\n", val.c_str());
+                    exit(1);
+                }
+
+                auto root = val.substr(0, index);
+                auto path = val.substr(index + 1);
+
+                std::string error;
+                status_t err = addPackagePath(root, path, &error);
+                if (err != OK) {
+                    fprintf(stderr, "%s\n", error.c_str());
+                    exit(1);
+                }
+
+                break;
+            }
+            case 'R': {
+                suppressDefaultPackagePaths = true;
+                break;
+            }
+            // something downstream should handle these cases
+            default: { handleArg(res, optarg); }
+        }
+    }
+
+    if (getRootPath().empty()) {
+        const char* ANDROID_BUILD_TOP = getenv("ANDROID_BUILD_TOP");
+        if (ANDROID_BUILD_TOP != nullptr) {
+            setRootPath(ANDROID_BUILD_TOP);
+        }
+    }
+
+    if (!suppressDefaultPackagePaths) {
+        addDefaultPackagePath("android.hardware", "hardware/interfaces");
+        addDefaultPackagePath("android.hidl", "system/libhidl/transport");
+        addDefaultPackagePath("android.frameworks", "frameworks/hardware/interfaces");
+        addDefaultPackagePath("android.system", "system/hardware/interfaces");
+    }
 }
 
 }  // namespace android

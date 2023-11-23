@@ -18,6 +18,9 @@ package android.cts.statsd.atom;
 import static android.cts.statsd.atom.DeviceAtomTestCase.DEVICE_SIDE_TEST_APK;
 import static android.cts.statsd.atom.DeviceAtomTestCase.DEVICE_SIDE_TEST_PACKAGE;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.os.BatteryStatsProto;
 import android.os.StatsDataDumpProto;
 import android.service.battery.BatteryServiceDumpProto;
@@ -45,6 +48,7 @@ import com.android.os.StatsLog.ConfigMetricsReport;
 import com.android.os.StatsLog.ConfigMetricsReportList;
 import com.android.os.StatsLog.DurationMetricData;
 import com.android.os.StatsLog.EventMetricData;
+import com.android.os.StatsLog.GaugeBucketInfo;
 import com.android.os.StatsLog.GaugeMetricData;
 import com.android.os.StatsLog.CountMetricData;
 import com.android.os.StatsLog.StatsLogReport;
@@ -54,8 +58,13 @@ import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
+import com.google.common.collect.Range;
 import com.google.common.io.Files;
 import com.google.protobuf.ByteString;
+
+import perfetto.protos.PerfettoConfig.DataSourceConfig;
+import perfetto.protos.PerfettoConfig.FtraceConfig;
+import perfetto.protos.PerfettoConfig.TraceConfig;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -63,9 +72,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Base class for testing Statsd atoms.
@@ -103,6 +120,13 @@ public class AtomTestCase extends BaseTestCase {
     public static final String FEATURE_TELEPHONY = "android.hardware.telephony";
     public static final String FEATURE_WATCH = "android.hardware.type.watch";
     public static final String FEATURE_WIFI = "android.hardware.wifi";
+    public static final String FEATURE_INCREMENTAL_DELIVERY =
+            "android.software.incremental_delivery";
+
+    // Telephony phone types
+    public static final int PHONE_TYPE_GSM = 1;
+    public static final int PHONE_TYPE_CDMA = 2;
+    public static final int PHONE_TYPE_CDMA_LTE = 6;
 
     protected static final int WAIT_TIME_SHORT = 500;
     protected static final int WAIT_TIME_LONG = 2_000;
@@ -110,13 +134,11 @@ public class AtomTestCase extends BaseTestCase {
     protected static final long SCREEN_STATE_CHANGE_TIMEOUT = 4000;
     protected static final long SCREEN_STATE_POLLING_INTERVAL = 500;
 
+    protected static final long NS_PER_SEC = (long) 1E+9;
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-
-        if (statsdDisabled()) {
-            return;
-        }
 
         // Uninstall to clear the history in case it's still on the device.
         removeConfig(CONFIG_ID);
@@ -160,15 +182,41 @@ public class AtomTestCase extends BaseTestCase {
     /**
      * Returns a protobuf-encoded perfetto config that enables the kernel
      * ftrace tracer with sched_switch for 10 seconds.
-     * See https://android.googlesource.com/platform/external/perfetto/+/master/docs/trace-config.md
-     * for details on how to generate this.
      */
     protected ByteString getPerfettoConfig() {
-        return ByteString.copyFrom(new byte[] { 0xa, 0x3, 0x8, (byte) 0x80, 0x1, 0x12, 0x23, 0xa,
-                        0x21, 0xa, 0xc, 0x6c, 0x69, 0x6e, 0x75, 0x78, 0x2e, 0x66, 0x74, 0x72, 0x61,
-                        0x63, 0x65, 0x10, 0x0, (byte) 0xa2, 0x6, 0xe, 0xa, 0xc, 0x73, 0x63, 0x68,
-                        0x65, 0x64, 0x5f, 0x73, 0x77, 0x69, 0x74, 0x63, 0x68, 0x18, (byte) 0x90,
-                        0x4e, (byte) 0x98, 0x01, 0x01 });
+        TraceConfig.Builder builder = TraceConfig.newBuilder();
+
+        TraceConfig.BufferConfig buffer = TraceConfig.BufferConfig
+            .newBuilder()
+            .setSizeKb(128)
+            .build();
+        builder.addBuffers(buffer);
+
+        FtraceConfig ftraceConfig = FtraceConfig.newBuilder()
+            .addFtraceEvents("sched/sched_switch")
+            .build();
+        DataSourceConfig dataSourceConfig = DataSourceConfig.newBuilder()
+            .setName("linux.ftrace")
+            .setTargetBuffer(0)
+            .setFtraceConfig(ftraceConfig)
+            .build();
+        TraceConfig.DataSource dataSource = TraceConfig.DataSource
+            .newBuilder()
+            .setConfig(dataSourceConfig)
+            .build();
+        builder.addDataSources(dataSource);
+
+        builder.setDurationMs(10000);
+        builder.setAllowUserBuildTracing(true);
+
+        // To avoid being hit with guardrails firing in multiple test runs back
+        // to back, we set a unique session key for each config.
+        Random random = new Random();
+        StringBuilder sessionNameBuilder = new StringBuilder("statsd-cts-");
+        sessionNameBuilder.append(random.nextInt() & Integer.MAX_VALUE);
+        builder.setUniqueSessionName(sessionNameBuilder.toString());
+
+        return builder.build().toByteString();
     }
 
     /**
@@ -182,26 +230,46 @@ public class AtomTestCase extends BaseTestCase {
             throw new Exception(String.format("Error while executing %s: %s %s", cmd, cr.getStdout(), cr.getStderr()));
     }
 
+    private String probe(String path) throws Exception {
+        return getDevice().executeShellCommand("if [ -e " + path + " ] ; then"
+                + " cat " + path + " ; else echo -1 ; fi");
+    }
+
     /**
      * Determines whether perfetto enabled the kernel ftrace tracer.
      */
     protected boolean isSystemTracingEnabled() throws Exception {
-        final String path = "/sys/kernel/debug/tracing/tracing_on";
-        String tracing_on = getDevice().executeShellCommand("cat " + path);
-        if (tracing_on.startsWith("0"))
-            return false;
-        if (tracing_on.startsWith("1"))
-            return true;
-        throw new Exception(String.format("Unexpected state for %s = %s", path, tracing_on));
+        final String traceFsPath = "/sys/kernel/tracing/tracing_on";
+        String tracing_on = probe(traceFsPath);
+        if (tracing_on.startsWith("0")) return false;
+        if (tracing_on.startsWith("1")) return true;
+
+        // fallback to debugfs
+        LogUtil.CLog.d("Unexpected state for %s = %s. Falling back to debugfs", traceFsPath,
+                tracing_on);
+
+        final String debugFsPath = "/sys/kernel/debug/tracing/tracing_on";
+        tracing_on = probe(debugFsPath);
+        if (tracing_on.startsWith("0")) return false;
+        if (tracing_on.startsWith("1")) return true;
+        throw new Exception(String.format("Unexpected state for %s = %s", traceFsPath, tracing_on));
     }
 
     protected static StatsdConfig.Builder createConfigBuilder() {
-        return StatsdConfig.newBuilder().setId(CONFIG_ID)
-                .addAllowedLogSource("AID_SYSTEM")
-                .addAllowedLogSource("AID_BLUETOOTH")
-                // TODO(b/134091167): Fix bluetooth source name issue in Auto platform.
-                .addAllowedLogSource("com.android.bluetooth")
-                .addAllowedLogSource(DeviceAtomTestCase.DEVICE_SIDE_TEST_PACKAGE);
+      return StatsdConfig.newBuilder()
+          .setId(CONFIG_ID)
+          .addAllowedLogSource("AID_SYSTEM")
+          .addAllowedLogSource("AID_BLUETOOTH")
+          // TODO(b/134091167): Fix bluetooth source name issue in Auto platform.
+          .addAllowedLogSource("com.android.bluetooth")
+          .addAllowedLogSource("AID_LMKD")
+          .addAllowedLogSource("AID_RADIO")
+          .addAllowedLogSource("AID_ROOT")
+          .addAllowedLogSource("AID_STATSD")
+          .addAllowedLogSource(DeviceAtomTestCase.DEVICE_SIDE_TEST_PACKAGE)
+          .addDefaultPullPackages("AID_RADIO")
+          .addDefaultPullPackages("AID_SYSTEM")
+          .addWhitelistedAtomIds(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER);
     }
 
     protected void createAndUploadConfig(int atomTag) throws Exception {
@@ -239,12 +307,22 @@ public class AtomTestCase extends BaseTestCase {
     }
 
     /**
+     *  Gets a List of sorted ConfigMetricsReports from ConfigMetricsReportList.
+     */
+    protected List<ConfigMetricsReport> getSortedConfigMetricsReports(
+            ConfigMetricsReportList configMetricsReportList) {
+        return configMetricsReportList.getReportsList().stream()
+                .sorted(Comparator.comparing(ConfigMetricsReport::getCurrentReportWallClockNanos))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Extracts and sorts the EventMetricData from the given ConfigMetricsReportList (which must
      * contain a single report).
      */
     protected List<EventMetricData> getEventMetricDataList(ConfigMetricsReportList reportList)
             throws Exception {
-        assertTrue("Expected one report", reportList.getReportsCount() == 1);
+        assertThat(reportList.getReportsCount()).isEqualTo(1);
         ConfigMetricsReport report = reportList.getReports(0);
 
         List<EventMetricData> data = new ArrayList<>();
@@ -261,18 +339,29 @@ public class AtomTestCase extends BaseTestCase {
     }
 
     protected List<Atom> getGaugeMetricDataList() throws Exception {
+        return getGaugeMetricDataList(/*checkTimestampTruncated=*/false);
+    }
+
+    protected List<Atom> getGaugeMetricDataList(boolean checkTimestampTruncated) throws Exception {
         ConfigMetricsReportList reportList = getReportList();
-        assertTrue("Expected one report.", reportList.getReportsCount() == 1);
+        assertThat(reportList.getReportsCount()).isEqualTo(1);
+
         // only config
         ConfigMetricsReport report = reportList.getReports(0);
-        assertEquals("Expected one metric in the report.", 1, report.getMetricsCount());
+        assertThat(report.getMetricsCount()).isEqualTo(1);
 
         List<Atom> data = new ArrayList<>();
         for (GaugeMetricData gaugeMetricData :
                 report.getMetrics(0).getGaugeMetrics().getDataList()) {
-            assertTrue("Expected one bucket.", gaugeMetricData.getBucketInfoCount() == 1);
-            for (Atom atom : gaugeMetricData.getBucketInfo(0).getAtomList()) {
+            assertThat(gaugeMetricData.getBucketInfoCount()).isEqualTo(1);
+            GaugeBucketInfo bucketInfo = gaugeMetricData.getBucketInfo(0);
+            for (Atom atom : bucketInfo.getAtomList()) {
                 data.add(atom);
+            }
+            if (checkTimestampTruncated) {
+                for (long timestampNs: bucketInfo.getElapsedTimestampNanosList()) {
+                    assertTimestampIsTruncated(timestampNs);
+                }
             }
         }
 
@@ -289,7 +378,7 @@ public class AtomTestCase extends BaseTestCase {
      */
     protected List<DurationMetricData> getDurationMetricDataList() throws Exception {
         ConfigMetricsReportList reportList = getReportList();
-        assertTrue("Expected one report", reportList.getReportsCount() == 1);
+        assertThat(reportList.getReportsCount()).isEqualTo(1);
         ConfigMetricsReport report = reportList.getReports(0);
 
         List<DurationMetricData> data = new ArrayList<>();
@@ -310,7 +399,7 @@ public class AtomTestCase extends BaseTestCase {
      */
     protected List<CountMetricData> getCountMetricDataList() throws Exception {
         ConfigMetricsReportList reportList = getReportList();
-        assertTrue("Expected one report", reportList.getReportsCount() == 1);
+        assertThat(reportList.getReportsCount()).isEqualTo(1);
         ConfigMetricsReport report = reportList.getReports(0);
 
         List<CountMetricData> data = new ArrayList<>();
@@ -331,7 +420,7 @@ public class AtomTestCase extends BaseTestCase {
      */
     protected List<ValueMetricData> getValueMetricDataList() throws Exception {
         ConfigMetricsReportList reportList = getReportList();
-        assertTrue("Expected one report", reportList.getReportsCount() == 1);
+        assertThat(reportList.getReportsCount()).isEqualTo(1);
         ConfigMetricsReport report = reportList.getReports(0);
 
         List<ValueMetricData> data = new ArrayList<>();
@@ -348,14 +437,14 @@ public class AtomTestCase extends BaseTestCase {
 
     protected StatsLogReport getStatsLogReport() throws Exception {
         ConfigMetricsReport report = getConfigMetricsReport();
-        assertTrue(report.hasUidMap());
-        assertEquals(1, report.getMetricsCount());
+        assertThat(report.hasUidMap()).isTrue();
+        assertThat(report.getMetricsCount()).isEqualTo(1);
         return report.getMetrics(0);
     }
 
     protected ConfigMetricsReport getConfigMetricsReport() throws Exception {
         ConfigMetricsReportList reportList = getReportList();
-        assertEquals(1, reportList.getReportsCount());
+        assertThat(reportList.getReportsCount()).isEqualTo(1);
         return reportList.getReports(0);
     }
 
@@ -451,6 +540,30 @@ public class AtomTestCase extends BaseTestCase {
             }
             LogUtil.CLog.d("Got procstats:\n ");
             for (ProcessStatsPackageProto processStatsProto : processStatsProtoList) {
+                LogUtil.CLog.d(processStatsProto.toString());
+            }
+            return processStatsProtoList;
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            LogUtil.CLog.e("Failed to dump procstats proto");
+            throw (e);
+        }
+    }
+
+    /*
+     * Get all processes' procstats statsd data in proto
+     */
+    protected List<android.service.procstats.ProcessStatsProto> getAllProcStatsProtoForStatsd()
+            throws Exception {
+        try {
+            android.service.procstats.ProcessStatsSectionProto sectionProto = getDump(
+                    android.service.procstats.ProcessStatsSectionProto.parser(),
+                    String.join(" ", DUMP_PROCSTATS_CMD,
+                            "--statsd"));
+            List<android.service.procstats.ProcessStatsProto> processStatsProtoList
+                    = sectionProto.getProcessStatsList();
+            LogUtil.CLog.d("Got procstats:\n ");
+            for (android.service.procstats.ProcessStatsProto processStatsProto
+                    : processStatsProtoList) {
                 LogUtil.CLog.d(processStatsProto.toString());
             }
             return processStatsProtoList;
@@ -613,7 +726,7 @@ public class AtomTestCase extends BaseTestCase {
             int wait, Function<Atom, Integer> getStateFromAtom) {
         // Sometimes, there are more events than there are states.
         // Eg: When the screen turns off, it may go into OFF and then DOZE immediately.
-        assertTrue("Too few states found (" + data.size() + ")", data.size() >= stateSets.size());
+        assertWithMessage("Too few states found").that(data.size()).isAtLeast(stateSets.size());
         int stateSetIndex = 0; // Tracks which state set we expect the data to be in.
         for (int dataIndex = 0; dataIndex < data.size(); dataIndex++) {
             Atom atom = data.get(dataIndex).getAtom();
@@ -630,19 +743,18 @@ public class AtomTestCase extends BaseTestCase {
                 LogUtil.CLog.i("Assert that the following atom at dataIndex=" + dataIndex + " is"
                         + " in stateSetIndex " + stateSetIndex + ":\n"
                         + data.get(dataIndex).getAtom().toString());
-                assertTrue("Missed first state", dataIndex != 0); // should not be on first data
-                assertTrue("Too many states (" + (stateSetIndex + 1) + ")",
-                        stateSetIndex < stateSets.size());
-                assertTrue("Is in wrong state (" + state + ")",
-                        stateSets.get(stateSetIndex).contains(state));
+                assertWithMessage("Missed first state").that(dataIndex).isNotEqualTo(0);
+                assertWithMessage("Too many states").that(stateSetIndex)
+                    .isLessThan(stateSets.size());
+                assertWithMessage(String.format("Is in wrong state (%d)", state))
+                    .that(stateSets.get(stateSetIndex)).contains(state);
                 if (wait > 0) {
                     assertTimeDiffBetween(data.get(dataIndex - 1), data.get(dataIndex),
                             wait / 2, wait * 5);
                 }
             }
         }
-        assertTrue("Too few states (" + (stateSetIndex + 1) + ")",
-                stateSetIndex == stateSets.size() - 1);
+        assertWithMessage("Too few states").that(stateSetIndex).isEqualTo(stateSets.size() - 1);
     }
 
     /**
@@ -888,8 +1000,8 @@ public class AtomTestCase extends BaseTestCase {
     public static void assertTimeDiffBetween(EventMetricData d0, EventMetricData d1,
             int minDiffMs, int maxDiffMs) {
         long diffMs = (d1.getElapsedTimestampNanos() - d0.getElapsedTimestampNanos()) / 1_000_000;
-        assertTrue("Illegal time difference (" + diffMs + "ms)", minDiffMs <= diffMs);
-        assertTrue("Illegal time difference (" + diffMs + "ms)", diffMs <= maxDiffMs);
+        assertWithMessage("Illegal time difference")
+            .that(diffMs).isIn(Range.closed((long) minDiffMs, (long) maxDiffMs));
     }
 
     protected String getCurrentLogcatDate() throws Exception {
@@ -904,16 +1016,10 @@ public class AtomTestCase extends BaseTestCase {
                 "logcat -v threadtime -t '%s' -d %s", date, logcatParams));
     }
 
-    /**
-     * Pulled atoms should have a better way of constructing the config.
-     * Remove this config when that happens.
-     */
+    // TODO: Remove this and migrate all usages to createConfigBuilder()
     protected StatsdConfig.Builder getPulledConfig() {
-        return StatsdConfig.newBuilder().setId(CONFIG_ID)
-                .addAllowedLogSource("AID_SYSTEM")
-                .addAllowedLogSource(DeviceAtomTestCase.DEVICE_SIDE_TEST_PACKAGE);
+        return createConfigBuilder();
     }
-
     /**
      * Determines if the device has the given feature.
      * Prints a warning if its value differs from requiredAnswer.
@@ -941,5 +1047,111 @@ public class AtomTestCase extends BaseTestCase {
 
     protected void turnOffAirplaneMode() throws Exception {
         getDevice().executeShellCommand("cmd connectivity airplane-mode disable");
+    }
+
+    /**
+     * Returns a list of fields and values for {@code className} from {@link TelephonyDebugService}
+     * output.
+     *
+     * <p>Telephony dumpsys output does not support proto at the moment. This method provides
+     * limited support for parsing its output. Specifically, it does not support arrays or
+     * multi-line values.
+     */
+    private List<Map<String, String>> getTelephonyDumpEntries(String className) throws Exception {
+        // Matches any line with indentation, except for lines with only spaces
+        Pattern indentPattern = Pattern.compile("^(\\s*)[^ ].*$");
+        // Matches pattern for class, e.g. "    Phone:"
+        Pattern classNamePattern = Pattern.compile("^(\\s*)" + Pattern.quote(className) + ":.*$");
+        // Matches pattern for key-value pairs, e.g. "     mPhoneId=1"
+        Pattern keyValuePattern = Pattern.compile("^(\\s*)([a-zA-Z]+[a-zA-Z0-9_]*)\\=(.+)$");
+        String response =
+                getDevice().executeShellCommand("dumpsys activity service TelephonyDebugService");
+        Queue<String> responseLines = new LinkedList<>(Arrays.asList(response.split("[\\r\\n]+")));
+
+        List<Map<String, String>> results = new ArrayList<>();
+        while (responseLines.peek() != null) {
+            Matcher matcher = classNamePattern.matcher(responseLines.poll());
+            if (matcher.matches()) {
+                final int classIndentLevel = matcher.group(1).length();
+                final Map<String, String> instanceEntries = new HashMap<>();
+                while (responseLines.peek() != null) {
+                    // Skip blank lines
+                    matcher = indentPattern.matcher(responseLines.peek());
+                    if (responseLines.peek().length() == 0 || !matcher.matches()) {
+                        responseLines.poll();
+                        continue;
+                    }
+                    // Finish (without consuming the line) if already parsed past this instance
+                    final int indentLevel = matcher.group(1).length();
+                    if (indentLevel <= classIndentLevel) {
+                        break;
+                    }
+                    // Parse key-value pair if it belongs to the instance directly
+                    matcher = keyValuePattern.matcher(responseLines.poll());
+                    if (indentLevel == classIndentLevel + 1 && matcher.matches()) {
+                        instanceEntries.put(matcher.group(2), matcher.group(3));
+                    }
+                }
+                results.add(instanceEntries);
+            }
+        }
+        return results;
+    }
+
+    protected int getActiveSimSlotCount() throws Exception {
+        List<Map<String, String>> slots = getTelephonyDumpEntries("UiccSlot");
+        long count = slots.stream().filter(slot -> "true".equals(slot.get("mActive"))).count();
+        return Math.toIntExact(count);
+    }
+
+    /**
+     * Returns the upper bound of active SIM profile count.
+     *
+     * <p>The value is an upper bound as eSIMs without profiles are also counted in.
+     */
+    protected int getActiveSimCountUpperBound() throws Exception {
+        List<Map<String, String>> slots = getTelephonyDumpEntries("UiccSlot");
+        long count = slots.stream().filter(slot ->
+                "true".equals(slot.get("mActive"))
+                && "CARDSTATE_PRESENT".equals(slot.get("mCardState"))).count();
+        return Math.toIntExact(count);
+    }
+
+    /**
+     * Returns the upper bound of active eSIM profile count.
+     *
+     * <p>The value is an upper bound as eSIMs without profiles are also counted in.
+     */
+    protected int getActiveEsimCountUpperBound() throws Exception {
+        List<Map<String, String>> slots = getTelephonyDumpEntries("UiccSlot");
+        long count = slots.stream().filter(slot ->
+                "true".equals(slot.get("mActive"))
+                && "CARDSTATE_PRESENT".equals(slot.get("mCardState"))
+                && "true".equals(slot.get("mIsEuicc"))).count();
+        return Math.toIntExact(count);
+    }
+
+    protected boolean hasGsmPhone() throws Exception {
+        // Not using log entries or ServiceState in the dump since they may or may not be present,
+        // which can make the test flaky
+        return getTelephonyDumpEntries("Phone").stream()
+                .anyMatch(phone ->
+                        String.format("%d", PHONE_TYPE_GSM).equals(phone.get("getPhoneType()")));
+    }
+
+    protected boolean hasCdmaPhone() throws Exception {
+        // Not using log entries or ServiceState in the dump due to the same reason as hasGsmPhone()
+        return getTelephonyDumpEntries("Phone").stream()
+                .anyMatch(phone ->
+                        String.format("%d", PHONE_TYPE_CDMA).equals(phone.get("getPhoneType()"))
+                        || String.format("%d", PHONE_TYPE_CDMA_LTE)
+                                .equals(phone.get("getPhoneType()")));
+    }
+
+    // Checks that a timestamp has been truncated to be a multiple of 5 min
+    protected void assertTimestampIsTruncated(long timestampNs) {
+        long fiveMinutesInNs = NS_PER_SEC * 5 * 60;
+        assertWithMessage("Timestamp is not truncated")
+                .that(timestampNs % fiveMinutesInNs).isEqualTo(0);
     }
 }

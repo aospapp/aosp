@@ -55,35 +55,22 @@ def FormatVndkPath(pattern, bitness, version=""):
     Returns:
         A string, the formatted path.
     """
-    return pattern.format(
-        LIB=("lib64" if str(bitness) == "64" else "lib"),
-        VER=("-" + version if version else ""))
+    return pattern.format(LIB=("lib64" if str(bitness) == "64" else "lib"),
+                          VER=version)
 
 
-def GetVndkCoreDirectory(bitness, version):
-    """Returns the path to VNDK-core directory on device.
-
-    Args:
-        bitness: A string or an integer, 32 or 64.
-        version: A string, the VNDK version.
-
-    Returns:
-        A string, the path to VNDK-core directory.
-    """
-    return FormatVndkPath("/system/{LIB}/vndk{VER}", bitness, version)
-
-
-def GetVndkSpDirectory(bitness, version):
-    """Returns the path to VNDK-SP directory on device.
+def GetVndkDirectory(bitness, version):
+    """Returns the path to VNDK directory on device.
 
     Args:
         bitness: A string or an integer, 32 or 64.
         version: A string, the VNDK version.
 
     Returns:
-        A string, the path to VNDK-SP directory.
+        A string, the path to VNDK directory.
     """
-    return FormatVndkPath("/system/{LIB}/vndk-sp{VER}", bitness, version)
+    return FormatVndkPath("/apex/com.android.vndk.v{VER}/{LIB}",
+                          bitness, version)
 
 
 def GetVndkExtDirectories(bitness):

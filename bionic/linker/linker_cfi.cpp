@@ -30,7 +30,7 @@
 
 #include "linker_debug.h"
 #include "linker_globals.h"
-#include "private/bionic_page.h"
+#include "platform/bionic/page.h"
 
 #include <sys/mman.h>
 #include <sys/prctl.h>
@@ -56,6 +56,7 @@ class ShadowWrite {
         reinterpret_cast<char*>(mmap(nullptr, aligned_end - aligned_start, PROT_READ | PROT_WRITE,
                                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
     CHECK(tmp_start != MAP_FAILED);
+    mprotect(aligned_start, aligned_end - aligned_start, PROT_READ);
     memcpy(tmp_start, aligned_start, shadow_start - aligned_start);
     memcpy(tmp_start + (shadow_end - aligned_start), shadow_end, aligned_end - shadow_end);
   }
@@ -142,8 +143,7 @@ static soinfo* find_libdl(soinfo* solist) {
 
 static uintptr_t soinfo_find_symbol(soinfo* si, const char* s) {
   SymbolName name(s);
-  const ElfW(Sym) * sym;
-  if (si->find_symbol_by_name(name, nullptr, &sym) && sym) {
+  if (const ElfW(Sym)* sym = si->find_symbol_by_name(name, nullptr)) {
     return si->resolve_symbol_address(sym);
   }
   return 0;
@@ -155,7 +155,7 @@ uintptr_t soinfo_find_cfi_check(soinfo* si) {
 
 uintptr_t CFIShadowWriter::MapShadow() {
   void* p =
-      mmap(nullptr, kShadowSize, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+      mmap(nullptr, kShadowSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
   CHECK(p != MAP_FAILED);
   return reinterpret_cast<uintptr_t>(p);
 }

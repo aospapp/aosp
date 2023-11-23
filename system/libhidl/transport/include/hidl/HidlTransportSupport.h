@@ -84,6 +84,13 @@ status_t handleTransportPoll(int fd);
 bool setMinSchedulerPolicy(const sp<::android::hidl::base::V1_0::IBase>& service,
                            int policy, int priority);
 
+struct SchedPrio {
+    int sched_policy;
+    int prio;
+};
+
+SchedPrio getMinSchedulerPolicy(const sp<::android::hidl::base::V1_0::IBase>& service);
+
 /**
  * Sets whether or not this object should request security contexts to be populatd for incoming
  * calls (e.g. with getCallingSid).
@@ -95,6 +102,12 @@ bool setMinSchedulerPolicy(const sp<::android::hidl::base::V1_0::IBase>& service
  * @param requesting whether or not to request sid (default is false)
  */
 bool setRequestingSid(const sp<::android::hidl::base::V1_0::IBase>& service, bool requesting);
+
+/**
+ * Says whether or not this service is requesting a SID. If this was set after the service was
+ * sent to another process, then it will not take effect.
+ */
+bool getRequestingSid(const sp<::android::hidl::base::V1_0::IBase>& service);
 
 /**
  * Returns whether two interfaces represent the same interface. References to interfaces in the same

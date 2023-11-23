@@ -134,38 +134,4 @@ public abstract class BaseGameQualificationMetricCollector extends BaseDeviceMet
         // Do nothing.
     }
 
-
-    // Finalize all other methods in the interface to prevent override.  Feel free to make
-    // modification if necessary, but ensure that hasError() will return true when Exception is
-    // thrown.
-
-    @Override
-    public final void testModuleStarted(IInvocationContext moduleContext) {
-        super.testModuleStarted(moduleContext);
-    }
-
-    @Override
-    public final void testModuleEnded() {
-        super.testModuleEnded();
-    }
-
-    @Override
-    public final void testRunStarted(String runName, int testCount, int attemptNumber) {
-        super.testRunStarted(runName, testCount , attemptNumber);
-    }
-
-    @Override
-    public final void testRunEnded(long elapsedTimeMillis, Map<String, String> runMetrics) {
-        super.testRunEnded(elapsedTimeMillis, runMetrics);
-    }
-
-    @Override
-    public final void testEnded(TestDescription test, Map<String, String> testMetrics) {
-        super.testEnded(test, testMetrics);
-    }
-
-    @Override
-    public final void testEnded(TestDescription test, long endTime, Map<String, String> testMetrics) {
-        super.testEnded(test, endTime, testMetrics);
-    }
 }

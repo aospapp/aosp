@@ -1,4 +1,0 @@
-# DO NOT DELETE: OWNERS is intended to be empty as module owner and bug component are defined
-# in parent directory. This file is needed as a placeholder for verification purpose as we
-# need to tell the difference between "no owner is specified for this module" vs "explicitly
-# defer to parent OWNERS file"

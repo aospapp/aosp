@@ -18,6 +18,8 @@
 #define IORAP_BINDER_IIORAP_IMPL_H
 
 #include "binder/iiorap_def.h"
+#include "binder/package_change_observer.h"
+#include "binder/package_manager_remote.h"
 #include "common/macros.h"
 
 #include "com/google/android/startop/iorap/BnIorap.h"
@@ -45,6 +47,9 @@ public:
   static bool Start(std::shared_ptr<iorap::manager::EventManager> event_manager);
   static constexpr const char* getServiceName() { return "iorapd"; };
 
+  virtual ::android::status_t dump(int fd,
+                                   const ::android::Vector<::android::String16>& args) override;
+
 // Join all parameter declarations by splitting each parameter with a comma.
 // Types are used fully.
 #define IIORAP_IMPL_ARGS(...) \
@@ -65,7 +70,6 @@ private:
 
   std::unique_ptr<Impl> impl_;
 };
-
 }
 }
 

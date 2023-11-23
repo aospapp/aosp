@@ -68,6 +68,14 @@ struct TypeInfo {
   std::shared_ptr<Aspect> nullable_array;
 };
 
+std::string ConstantValueDecorator(const AidlTypeSpecifier& type, const std::string& raw_value) {
+  if (type.GetName() == "long" && !type.IsArray()) {
+    return raw_value + "L";
+  }
+
+  return raw_value;
+};
+
 static std::function<void(const CodeGeneratorContext& c)> StandardRead(const std::string& name) {
   return [name](const CodeGeneratorContext& c) {
     c.writer << name << "(" << c.parcel << ", " << c.var << ")";
@@ -112,7 +120,6 @@ TypeInfo InterfaceTypeInfo(const AidlInterface& type) {
           TypeInfo::Aspect{
               .cpp_name = "std::shared_ptr<" + clazz + ">",
               .value_is_cheap = false,
-              // TODO(b/111445392): these should be non-null
               .read_func = StandardRead(clazz + "::readFromParcel"),
               .write_func = StandardWrite(clazz + "::writeToParcel"),
           },
@@ -128,21 +135,15 @@ TypeInfo InterfaceTypeInfo(const AidlInterface& type) {
 }
 
 TypeInfo ParcelableTypeInfo(const AidlParcelable& type) {
-  const std::string clazz = NdkFullClassName(type, cpp::ClassNames::BASE);
+  const std::string clazz = NdkFullClassName(type, cpp::ClassNames::RAW);
 
   return TypeInfo{
       .raw =
           TypeInfo::Aspect{
               .cpp_name = clazz,
               .value_is_cheap = false,
-              .read_func =
-                  [](const CodeGeneratorContext& c) {
-                    c.writer << "(" << c.var << ")->readFromParcel(" << c.parcel << ")";
-                  },
-              .write_func =
-                  [](const CodeGeneratorContext& c) {
-                    c.writer << "(" << c.var << ").writeToParcel(" << c.parcel << ")";
-                  },
+              .read_func = StandardRead("::ndk::AParcel_readParcelable"),
+              .write_func = StandardWrite("::ndk::AParcel_writeParcelable"),
           },
       .array = std::shared_ptr<TypeInfo::Aspect>(new TypeInfo::Aspect{
           .cpp_name = "std::vector<" + clazz + ">",
@@ -150,12 +151,87 @@ TypeInfo ParcelableTypeInfo(const AidlParcelable& type) {
           .read_func = StandardRead("::ndk::AParcel_readVector"),
           .write_func = StandardWrite("::ndk::AParcel_writeVector"),
       }),
-      .nullable = nullptr,
+      .nullable = std::shared_ptr<TypeInfo::Aspect>(new TypeInfo::Aspect{
+          .cpp_name = "std::optional<" + clazz + ">",
+          .value_is_cheap = false,
+          .read_func = StandardRead("::ndk::AParcel_readNullableParcelable"),
+          .write_func = StandardWrite("::ndk::AParcel_writeNullableParcelable"),
+      }),
       .nullable_array = nullptr,
   };
 }
 
-// map from AIDL built-in type name to the corresponding Ndk type name
+TypeInfo EnumDeclarationTypeInfo(const AidlEnumDeclaration& enum_decl) {
+  const std::string clazz = NdkFullClassName(enum_decl, cpp::ClassNames::RAW);
+
+  static map<std::string, std::string> kAParcelTypeNameMap = {
+      {"byte", "Byte"},
+      {"int", "Int32"},
+      {"long", "Int64"},
+  };
+  auto aparcel_name_it = kAParcelTypeNameMap.find(enum_decl.GetBackingType().GetName());
+  CHECK(aparcel_name_it != kAParcelTypeNameMap.end());
+  const std::string aparcel_name = aparcel_name_it->second;
+
+  const std::string backing_type_name =
+      NdkNameOf(AidlTypenames(), enum_decl.GetBackingType(), StorageMode::STACK);
+
+  return TypeInfo{
+      .raw = TypeInfo::Aspect{
+          .cpp_name = clazz,
+          .value_is_cheap = true,
+          .read_func =
+              [aparcel_name, backing_type_name](const CodeGeneratorContext& c) {
+                c.writer << "AParcel_read" << aparcel_name << "(" << c.parcel
+                         << ", reinterpret_cast<" << backing_type_name << "*>(" << c.var << "))";
+              },
+          .write_func =
+              [aparcel_name, backing_type_name](const CodeGeneratorContext& c) {
+                c.writer << "AParcel_write" << aparcel_name << "(" << c.parcel << ", static_cast<"
+                         << backing_type_name << ">(" << c.var << "))";
+              },
+      },
+      .array = std::shared_ptr<TypeInfo::Aspect>(new TypeInfo::Aspect{
+          .cpp_name = "std::vector<" + clazz + ">",
+          .value_is_cheap = false,
+          .read_func =
+              [aparcel_name, backing_type_name](const CodeGeneratorContext& c) {
+                c.writer << "AParcel_read" << aparcel_name << "Array(" << c.parcel
+                         << ", static_cast<void*>(" << c.var
+                         << "), ndk::AParcel_stdVectorAllocator<" << backing_type_name << ">)";
+              },
+          .write_func =
+              [aparcel_name, backing_type_name](const CodeGeneratorContext& c) {
+                c.writer << "AParcel_write" << aparcel_name << "Array(" << c.parcel
+                         << ", reinterpret_cast<const " << backing_type_name << "*>(" << c.var
+                         << ".data()), " << c.var << ".size())";
+              },
+      }),
+      .nullable = nullptr,
+      .nullable_array = std::shared_ptr<TypeInfo::Aspect>(new TypeInfo::Aspect{
+          .cpp_name = "std::optional<std::vector<" + clazz + ">>",
+          .value_is_cheap = false,
+          .read_func =
+              [aparcel_name, backing_type_name](const CodeGeneratorContext& c) {
+                c.writer << "AParcel_read" << aparcel_name << "Array(" << c.parcel
+                         << ", static_cast<void*>(" << c.var
+                         << "), ndk::AParcel_nullableStdVectorAllocator<" << backing_type_name
+                         << ">)";
+              },
+          .write_func =
+              [aparcel_name, backing_type_name](const CodeGeneratorContext& c) {
+                // If the var exists, use writeArray with data() and size().
+                // Otherwise, use nullptr and -1.
+                c.writer << "AParcel_write" << aparcel_name << "Array(" << c.parcel << ", ("
+                         << c.var << " ? reinterpret_cast<const " << backing_type_name << "*>("
+                         << c.var << "->data()) : nullptr)"
+                         << ", (" << c.var << " ? " << c.var << "->size() : -1))";
+              },
+      }),
+  };
+}
+
+// map from AIDL built-in type name to the corresponding Ndk type info
 static map<std::string, TypeInfo> kNdkTypeInfoMap = {
     {"void", TypeInfo{{"void", true, nullptr, nullptr}, nullptr, nullptr, nullptr}},
     {"boolean", PrimitiveType("bool", "Bool")},
@@ -193,8 +269,7 @@ static map<std::string, TypeInfo> kNdkTypeInfoMap = {
              .write_func = StandardWrite("::ndk::AParcel_writeVector"),
          }),
      }},
-    // TODO(b/111445392) {"List", ""},
-    // TODO(b/111445392) {"Map", ""},
+    // TODO(b/136048684) {"Map", ""},
     {"IBinder",
      TypeInfo{
          .raw =
@@ -213,7 +288,6 @@ static map<std::string, TypeInfo> kNdkTypeInfoMap = {
          }),
          .nullable_array = nullptr,
      }},
-    // TODO(b/111445392) {"FileDescriptor", ""},
     {"ParcelFileDescriptor",
      TypeInfo{
          .raw =
@@ -223,7 +297,12 @@ static map<std::string, TypeInfo> kNdkTypeInfoMap = {
                  .read_func = StandardRead("::ndk::AParcel_readRequiredParcelFileDescriptor"),
                  .write_func = StandardRead("::ndk::AParcel_writeRequiredParcelFileDescriptor"),
              },
-         .array = nullptr,
+         .array = std::shared_ptr<TypeInfo::Aspect>(new TypeInfo::Aspect{
+             .cpp_name = "std::vector<::ndk::ScopedFileDescriptor>",
+             .value_is_cheap = false,
+             .read_func = StandardRead("::ndk::AParcel_readVector"),
+             .write_func = StandardWrite("::ndk::AParcel_writeVector"),
+         }),
          .nullable = std::shared_ptr<TypeInfo::Aspect>(new TypeInfo::Aspect{
              .cpp_name = "::ndk::ScopedFileDescriptor",
              .value_is_cheap = false,
@@ -232,18 +311,35 @@ static map<std::string, TypeInfo> kNdkTypeInfoMap = {
          }),
          .nullable_array = nullptr,
      }},
-    // TODO(b/111445392) {"CharSequence", ""},
 };
 
 static TypeInfo::Aspect GetTypeAspect(const AidlTypenames& types, const AidlTypeSpecifier& aidl) {
   CHECK(aidl.IsResolved()) << aidl.ToString();
-
-  const string aidl_name = aidl.GetName();
-
-  // TODO(b/112664205): this is okay for some types
-  AIDL_FATAL_IF(aidl.IsGeneric(), aidl) << aidl.ToString();
+  auto& aidl_name = aidl.GetName();
 
   TypeInfo info;
+
+  // TODO(b/136048684): For now, List<T> is converted to T[].(Both are using vector<T>)
+  if (aidl_name == "List") {
+    AIDL_FATAL_IF(!aidl.IsGeneric(), aidl) << "List must be generic type.";
+    AIDL_FATAL_IF(aidl.GetTypeParameters().size() != 1, aidl)
+        << "List can accept only one type parameter.";
+    auto& type_param = aidl.GetTypeParameters()[0];
+    // TODO(b/136048684) AIDL doesn't support nested type parameter yet.
+    AIDL_FATAL_IF(type_param->IsGeneric(), aidl) << "AIDL doesn't support nested type parameter";
+
+    AidlTypeSpecifier array_type =
+        AidlTypeSpecifier(AIDL_LOCATION_HERE, type_param->GetUnresolvedName(), true /* isArray */,
+                          nullptr /* type_params */, aidl.GetComments());
+    if (!(array_type.Resolve(types) && array_type.CheckValid(types))) {
+      AIDL_FATAL(aidl) << "The type parameter is wrong.";
+    }
+    return GetTypeAspect(types, array_type);
+  }
+
+  // All generic types should be handled above.
+  AIDL_FATAL_IF(aidl.IsGeneric(), aidl);
+
   if (AidlTypenames::IsBuiltinTypename(aidl_name)) {
     auto it = kNdkTypeInfoMap.find(aidl_name);
     CHECK(it != kNdkTypeInfoMap.end());
@@ -252,10 +348,13 @@ static TypeInfo::Aspect GetTypeAspect(const AidlTypenames& types, const AidlType
     const AidlDefinedType* type = types.TryGetDefinedType(aidl_name);
     AIDL_FATAL_IF(type == nullptr, aidl_name) << "Unrecognized type.";
 
-    if (type->AsInterface() != nullptr) {
-      info = InterfaceTypeInfo(*type->AsInterface());
-    } else if (type->AsParcelable() != nullptr) {
-      info = ParcelableTypeInfo(*type->AsParcelable());
+    if (const AidlInterface* intf = type->AsInterface(); intf != nullptr) {
+      info = InterfaceTypeInfo(*intf);
+    } else if (const AidlParcelable* parcelable = type->AsParcelable(); parcelable != nullptr) {
+      info = ParcelableTypeInfo(*parcelable);
+    } else if (const AidlEnumDeclaration* enum_decl = type->AsEnumDeclaration();
+               enum_decl != nullptr) {
+      info = EnumDeclarationTypeInfo(*enum_decl);
     } else {
       AIDL_FATAL(aidl_name) << "Unrecognized type";
     }

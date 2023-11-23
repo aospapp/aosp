@@ -57,12 +57,11 @@ class BaselineTest : DriverTest() {
                 ReferencesHidden: test.pkg.Foo#method(test.pkg.Hidden1, test.pkg.Hidden2) parameter #1:
                     Class test.pkg.Hidden2 is hidden but was referenced (as parameter type) from public parameter hidden2 in test.pkg.Foo.method(test.pkg.Hidden1 hidden1, test.pkg.Hidden2 hidden2)
             """,
-            updateBaseline = false,
             // Commented out above:
-            warnings = """
+            expectedIssues = """
                 src/test/pkg/Foo.java:9: error: Class test.pkg.Hidden2 is hidden but was referenced (as return type) from public method test.pkg.Foo.getHidden2() [ReferencesHidden]
             """,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -151,8 +150,7 @@ class BaselineTest : DriverTest() {
                     field public test.pkg.Hidden2 hidden2;
                   }
                 }
-                """,
-            checkDoclava1 = false
+                """
         )
     }
 
@@ -168,17 +166,19 @@ class BaselineTest : DriverTest() {
                 ARG_API_LINT
             ),
             baseline = """
+            """,
+            updateBaseline = """
                 // Baseline format: 1.0
                 PairedRegistration: android.pkg.RegistrationMethods#registerUnpaired2Callback(Runnable):
                     Found registerUnpaired2Callback but not unregisterUnpaired2Callback in android.pkg.RegistrationMethods
             """,
-            updateBaseline = true,
-            warnings = "",
-            sourceFiles = *arrayOf(
+            expectedIssues = "",
+            sourceFiles = arrayOf(
                 java(
                     """
                     package android.pkg;
                     import android.annotation.TestApi;
+                    import androidx.annotation.Nullable;
 
                     public class RegistrationMethods {
                         // Here we have 3 sets of correct registrations: both register and unregister are
@@ -194,27 +194,27 @@ class BaselineTest : DriverTest() {
                         // the test API does see the full set of methods even if they're left out of the
                         // signature files and baselines.
 
-                        public void registerOk1Callback(Runnable r) { }
-                        public void unregisterOk1Callback(Runnable r) { }
+                        public void registerOk1Callback(@Nullable Runnable r) { }
+                        public void unregisterOk1Callback(@Nullable Runnable r) { }
 
                         /** @hide */
                         @TestApi
-                        public void registerOk2Callback(Runnable r) { }
+                        public void registerOk2Callback(@Nullable Runnable r) { }
                         /** @hide */
                         @TestApi
-                        public void unregisterOk2Callback(Runnable r) { }
+                        public void unregisterOk2Callback(@Nullable Runnable r) { }
 
                         // In the Test API, both methods are present
-                        public void registerOk3Callback(Runnable r) { }
+                        public void registerOk3Callback(@Nullable Runnable r) { }
                         /** @hide */
                         @TestApi
-                        public void unregisterOk3Callback(Runnable r) { }
+                        public void unregisterOk3Callback(@Nullable Runnable r) { }
 
-                        public void registerUnpaired1Callback(Runnable r) { }
+                        public void registerUnpaired1Callback(@Nullable Runnable r) { }
 
                         /** @hide */
                         @TestApi
-                        public void registerUnpaired2Callback(Runnable r) { }
+                        public void registerUnpaired2Callback(@Nullable Runnable r) { }
                     }
                     """
                 ),
@@ -229,8 +229,7 @@ class BaselineTest : DriverTest() {
                     method public void unregisterOk3Callback(java.lang.Runnable);
                   }
                 }
-                """,
-            checkDoclava1 = false
+                """
         )
     }
 
@@ -259,7 +258,6 @@ class BaselineTest : DriverTest() {
                 ReferencesHidden: test.pkg.Foo#hidden2:
                     Class test.pkg.Hidden2 is hidden but was referenced (as field type) from public field test.pkg.Foo.hidden2
             """,
-            updateBaseline = false,
             mergeBaseline = """
                 // Baseline format: 1.0
                 BothPackageInfoAndHtml: test/visible/package-info.java:
@@ -271,7 +269,7 @@ class BaselineTest : DriverTest() {
                 ReferencesHidden: test.pkg.Foo#hidden2:
                     Class test.pkg.Hidden2 is hidden but was referenced (as field type) from public field test.pkg.Foo.hidden2
             """,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -297,8 +295,7 @@ class BaselineTest : DriverTest() {
                     }
                     """
                 )
-            ),
-            checkDoclava1 = false
+            )
         )
     }
 }

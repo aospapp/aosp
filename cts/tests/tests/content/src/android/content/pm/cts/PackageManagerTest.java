@@ -33,9 +33,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
 import android.content.Intent;
@@ -103,8 +103,8 @@ public class PackageManagerTest {
     private static final String PERMISSIONGROUP_NAME = "android.permission-group.COST_MONEY";
     private static final String PERMISSION_TREE_ROOT =
             "android.content.cts.permission.TEST_DYNAMIC";
-    // There are 11 activities/activity-alias in AndroidManifest
-    private static final int NUM_OF_ACTIVITIES_IN_MANIFEST = 11;
+    // Number of activities/activity-alias in AndroidManifest
+    private static final int NUM_OF_ACTIVITIES_IN_MANIFEST = 12;
 
     private static final String SHIM_APEX_PACKAGE_NAME = "com.android.apex.cts.shim";
 
@@ -461,7 +461,15 @@ public class PackageManagerTest {
         assertNotNull(mPackageManager
                 .getActivityIcon(new ComponentName(PACKAGE_NAME, ACTIVITY_NAME)));
         assertNotNull(mPackageManager.getActivityIcon(new Intent(MAIN_ACTION_NAME)));
+
         assertNotNull(mPackageManager.getDefaultActivityIcon());
+        assertTrue(mPackageManager.isDefaultApplicationIcon(
+                mPackageManager.getDefaultActivityIcon()));
+        assertTrue(mPackageManager.isDefaultApplicationIcon(mPackageManager.getDefaultActivityIcon()
+                .getConstantState().newDrawable()));
+
+        assertFalse(mPackageManager.isDefaultApplicationIcon(mPackageManager.getActivityIcon(
+                new ComponentName(PACKAGE_NAME, ACTIVITY_NAME))));
 
         // getDrawable is called by ComponentInfo.loadIcon() which called by getActivityIcon()
         // method of PackageMaganer. Here is just assurance for its functionality.
@@ -871,7 +879,7 @@ public class PackageManagerTest {
             return;
         }
         PackageInfo packageInfo = mPackageManager.getPackageInfo(SHIM_APEX_PACKAGE_NAME,
-                PackageManager.MATCH_APEX);
+                PackageManager.MATCH_APEX | PackageManager.MATCH_FACTORY_ONLY);
         assertShimApexInfoIsCorrect(packageInfo);
     }
 
@@ -924,7 +932,7 @@ public class PackageManagerTest {
             return;
         }
         List<PackageInfo> installedPackages = mPackageManager.getInstalledPackages(
-                PackageManager.MATCH_APEX);
+                PackageManager.MATCH_APEX | PackageManager.MATCH_FACTORY_ONLY);
         List<PackageInfo> shimApex = installedPackages.stream().filter(
                 packageInfo -> packageInfo.packageName.equals(SHIM_APEX_PACKAGE_NAME)).collect(
                 Collectors.toList());
@@ -972,6 +980,19 @@ public class PackageManagerTest {
         assertWithMessage("Shim apex wasn't supposed to be found").that(shimApex).isEmpty();
     }
 
+    @Test
+    public void testGetApplicationInfo_ApexSupported_MatchesApex() throws Exception {
+        assumeTrue("Device doesn't support updating APEX", isUpdatingApexSupported());
+
+        ApplicationInfo ai = mPackageManager.getApplicationInfo(
+                SHIM_APEX_PACKAGE_NAME, PackageManager.MATCH_APEX);
+        assertThat(ai.sourceDir).isEqualTo("/system/apex/com.android.apex.cts.shim.apex");
+        assertThat(ai.publicSourceDir).isEqualTo(ai.sourceDir);
+        assertThat(ai.flags & ApplicationInfo.FLAG_SYSTEM).isEqualTo(ApplicationInfo.FLAG_SYSTEM);
+        assertThat(ai.flags & ApplicationInfo.FLAG_INSTALLED)
+                .isEqualTo(ApplicationInfo.FLAG_INSTALLED);
+    }
+
     private boolean isUpdatingApexSupported() {
         return SystemProperties.getBoolean("ro.apex.updatable", false);
     }
@@ -982,6 +1003,8 @@ public class PackageManagerTest {
         assertThat(packageInfo.isApex).isTrue();
         assertThat(packageInfo.applicationInfo.sourceDir).isEqualTo(
                 "/system/apex/com.android.apex.cts.shim.apex");
+        assertThat(packageInfo.applicationInfo.publicSourceDir)
+                .isEqualTo(packageInfo.applicationInfo.sourceDir);
         // Verify that legacy mechanism for handling signatures is supported.
         Signature[] pastSigningCertificates =
                 packageInfo.signingInfo.getSigningCertificateHistory();

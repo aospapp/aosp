@@ -15,6 +15,8 @@
 #   limitations under the License.
 
 import time
+import random
+import re
 
 from acts.utils import rand_ascii_str
 from acts.test_utils.tel.tel_subscription_utils import \
@@ -46,7 +48,9 @@ from acts.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
 from acts.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
 from acts.test_utils.tel.tel_test_utils import get_service_state_by_adb
 from acts.test_utils.tel.tel_test_utils import wait_for_state
-
+from acts.test_utils.tel.tel_test_utils import get_mobile_data_usage
+from acts.test_utils.tel.tel_test_utils import get_wifi_usage
+from acts.test_utils.tel.tel_test_utils import check_is_wifi_connected
 
 def wifi_tethering_cleanup(log, provider, client_list):
     """Clean up steps for WiFi Tethering.
@@ -495,3 +499,104 @@ def change_data_sim_and_verify_data(log, ad, sim_slot):
         ad.log.error("No Internet access after changing Data SIM.")
         return False
     return True
+
+def browsing_test(log, ad, wifi_ssid=None, pass_threshold_in_mb = 1.0):
+    """ Ramdomly browse 6 among 23 selected web sites. The idle time is used to
+    simulate visit duration and normally distributed with the mean 35 seconds
+    and std dev 15 seconds, which means 95% of visit duration will be between
+    5 and 65 seconds. DUT will enter suspend mode when idle time is greater than
+    35 seconds.
+
+    Args:
+        log: log object.
+        ad: android object.
+        pass_threshold_in_mb: minimum traffic of browsing 6 web sites in MB for
+            test pass
+
+    Returns:
+        True if the total traffic of Chrome for browsing 6 web sites is greater
+        than pass_threshold_in_mb. Otherwise False.
+    """
+    web_sites = [
+        "http://tw.yahoo.com",
+        "http://24h.pchome.com.tw",
+        "http://www.mobile01.com",
+        "https://www.android.com/phones/",
+        "http://www.books.com.tw",
+        "http://www.udn.com.tw",
+        "http://news.baidu.com",
+        "http://www.google.com",
+        "http://www.cnn.com",
+        "http://www.nytimes.com",
+        "http://www.amazon.com",
+        "http://www.wikipedia.com",
+        "http://www.ebay.com",
+        "http://www.youtube.com",
+        "http://espn.go.com",
+        "http://www.sueddeutsche.de",
+        "http://www.bild.de",
+        "http://www.welt.de",
+        "http://www.lefigaro.fr",
+        "http://www.accuweather.com",
+        "https://www.flickr.com",
+        "http://world.taobao.com",
+        "http://www.theguardian.com"]
+
+    wifi_connected = False
+    if wifi_ssid and check_is_wifi_connected(ad.log, ad, wifi_ssid):
+        wifi_connected = True
+        usage_level_at_start = get_wifi_usage(ad, apk="com.android.chrome")
+    else:
+        usage_level_at_start = get_mobile_data_usage(ad, apk="com.android.chrome")
+
+    for web_site in random.sample(web_sites, 6):
+        ad.log.info("Browsing %s..." % web_site)
+        ad.adb.shell(
+            "am start -a android.intent.action.VIEW -d %s --es "
+            "com.android.browser.application_id com.android.browser" % web_site)
+
+        idle_time = round(random.normalvariate(35, 15))
+        if idle_time < 2:
+            idle_time = 2
+        elif idle_time > 90:
+            idle_time = 90
+
+        ad.log.info(
+            "Idle time before browsing next web site: %s sec." % idle_time)
+
+        if idle_time > 35:
+            time.sleep(35)
+            rest_idle_time = idle_time-35
+            if rest_idle_time < 3:
+                rest_idle_time = 3
+            ad.log.info("Let device go to sleep for %s sec." % rest_idle_time)
+            ad.droid.wakeLockRelease()
+            ad.droid.goToSleepNow()
+            time.sleep(rest_idle_time)
+            ad.log.info("Wake up device.")
+            ad.droid.wakeLockAcquireBright()
+            ad.droid.wakeUpNow()
+            time.sleep(3)
+        else:
+            time.sleep(idle_time)
+
+    if wifi_connected:
+        usage_level = get_wifi_usage(ad, apk="com.android.chrome")
+    else:
+        usage_level = get_mobile_data_usage(ad, apk="com.android.chrome")
+
+    try:
+        usage = round((usage_level - usage_level_at_start)/1024/1024, 2)
+        if usage < pass_threshold_in_mb:
+            ad.log.error(
+                "Usage of browsing '%s MB' is smaller than %s " % (
+                    usage, pass_threshold_in_mb))
+            return False
+        else:
+            ad.log.info("Usage of browsing: %s MB" % usage)
+            return True
+    except Exception as e:
+        ad.log.error(e)
+        usage = "unknown"
+        ad.log.info("Usage of browsing: %s MB" % usage)
+        return False

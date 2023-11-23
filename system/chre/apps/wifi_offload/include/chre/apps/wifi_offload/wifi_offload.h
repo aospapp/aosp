@@ -17,8 +17,8 @@
 #ifndef CHRE_WIFI_OFFLOAD_WIFI_OFFLOAD_H_
 #define CHRE_WIFI_OFFLOAD_WIFI_OFFLOAD_H_
 
-#include <cinttypes>
 #include <chre/wifi.h>
+#include <cinttypes>
 
 #ifdef BUILD_FOR_CHRE_WIFI_OFFLOAD
 #include <chre/event.h>

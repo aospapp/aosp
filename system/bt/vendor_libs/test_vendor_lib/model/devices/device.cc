@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "device"
-
 #include <vector>
 
 #include "device.h"
@@ -34,35 +32,46 @@ void Device::RegisterPhyLayer(std::shared_ptr<PhyLayer> phy) {
   phy_layers_[phy->GetType()].push_back(phy);
 }
 
-void Device::UnregisterPhyLayer(std::shared_ptr<PhyLayer> phy) {
+void Device::UnregisterPhyLayers() {
   for (auto phy_pair : phy_layers_) {
     auto phy_list = std::get<1>(phy_pair);
-    for (size_t i = 0; i < phy_list.size(); i++) {
-      if (phy == phy_list[i]) {
-        phy_list.erase(phy_list.begin() + i);
-      }
+    for (auto phy : phy_list) {
+      phy->Unregister();
     }
   }
 }
 
-bool Device::IsAdvertisementAvailable(std::chrono::milliseconds scan_time) const {
-  if (advertising_interval_ms_ == std::chrono::milliseconds(0)) return false;
-
-  std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-
-  std::chrono::steady_clock::time_point last_interval =
-      ((now - time_stamp_) / advertising_interval_ms_) * advertising_interval_ms_ + time_stamp_;
-
-  std::chrono::steady_clock::time_point next_interval = last_interval + advertising_interval_ms_;
-
-  return ((now + scan_time) >= next_interval);
+void Device::UnregisterPhyLayer(Phy::Type phy_type, uint32_t factory_id) {
+  for (const auto phy_layer : phy_layers_[phy_type]) {
+    if (phy_layer->IsFactoryId(factory_id)) {
+      phy_layer->Unregister();
+      phy_layers_[phy_type].remove(phy_layer);
+    }
+  }
 }
 
-void Device::SendLinkLayerPacket(std::shared_ptr<packets::LinkLayerPacketBuilder> to_send, Phy::Type phy_type) {
-  auto phy_list = phy_layers_[phy_type];
-  for (auto phy : phy_list) {
+bool Device::IsAdvertisementAvailable() const {
+  return (advertising_interval_ms_ > std::chrono::milliseconds(0)) &&
+         (std::chrono::steady_clock::now() >= last_advertisement_ + advertising_interval_ms_);
+}
+
+void Device::SendLinkLayerPacket(
+    std::shared_ptr<model::packets::LinkLayerPacketBuilder> to_send,
+    Phy::Type phy_type) {
+  for (auto phy : phy_layers_[phy_type]) {
     phy->Send(to_send);
   }
+}
+
+void Device::SendLinkLayerPacket(model::packets::LinkLayerPacketView to_send,
+                                 Phy::Type phy_type) {
+  for (auto phy : phy_layers_[phy_type]) {
+    phy->Send(to_send);
+  }
+}
+
+void Device::SetAddress(Address) {
+  LOG_INFO("%s does not implement %s", GetTypeString().c_str(), __func__);
 }
 
 }  // namespace test_vendor_lib

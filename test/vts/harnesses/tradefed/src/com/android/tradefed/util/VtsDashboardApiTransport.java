@@ -31,13 +31,12 @@ import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.gson.Gson;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**

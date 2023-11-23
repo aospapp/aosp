@@ -31,13 +31,13 @@ android_test_helper_app {
         "testng",
         "androidx.legacy_legacy-support-v4",
     ],
-    sdk_version: "test_current",
     min_sdk_version: "27",
     // tag this module as a cts test artifact
     test_suites: [
         "arcts",
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
+    platform_apis: true,
 }

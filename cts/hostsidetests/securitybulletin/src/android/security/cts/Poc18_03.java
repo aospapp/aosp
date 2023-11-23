@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,21 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc18_03 extends SecurityTestCase {
 
-  /**
-   *  b/71389378
-   */
-  @SecurityTest(minPatchLevel = "2018-03")
-  public void testPocCVE_2017_13253() throws Exception {
-    String output = AdbUtils.runPoc("CVE-2017-13253", getDevice());
-    assertNotMatchesMultiLine("OVERFLOW DETECTED",output);
-  }
+    /**
+     * b/71389378
+     */
+    @Test
+    @SecurityTest(minPatchLevel = "2018-03")
+    public void testPocCVE_2017_13253() throws Exception {
+        AdbUtils.runPocAssertExitStatusNotVulnerable("CVE-2017-13253", getDevice(), 300);
+    }
 }

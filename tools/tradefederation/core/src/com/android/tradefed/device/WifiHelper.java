@@ -16,7 +16,9 @@
 package com.android.tradefed.device;
 
 import com.android.ddmlib.MultiLineReceiver;
+import com.android.tradefed.error.HarnessRuntimeException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.DeviceErrorIdentifier;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
@@ -118,8 +120,11 @@ public class WifiHelper implements IWifiHelper {
                 // Installed successfully; good to go.
                 return;
             } else {
-                throw new RuntimeException(String.format(
-                        "Unable to install WifiUtil utility: %s", error));
+                throw new HarnessRuntimeException(
+                        String.format(
+                                "Unable to install WifiUtil utility: %s on %s",
+                                error, mDevice.getSerialNumber()),
+                        DeviceErrorIdentifier.APK_INSTALLATION_FAILED);
             }
         } catch (IOException e) {
             throw new RuntimeException(String.format(
@@ -461,7 +466,6 @@ public class WifiHelper implements IWifiHelper {
         }
         if (!asBool(runWifiUtil("connectToNetwork", "ssid", ssid, "psk", psk, "urlToCheck",
                 urlToCheck, "scan_ssid", Boolean.toString(scanSsid)))) {
-            CLog.e("Failed to connect to " + ssid);
             return false;
         }
         return true;
@@ -473,7 +477,6 @@ public class WifiHelper implements IWifiHelper {
     @Override
     public boolean disconnectFromNetwork() throws DeviceNotAvailableException {
         if (!asBool(runWifiUtil("disconnectFromNetwork"))) {
-            CLog.e("Failed to disconnect");
             return false;
         }
         if (!disableWifi()) {
@@ -524,7 +527,11 @@ public class WifiHelper implements IWifiHelper {
         WifiUtilOutput parser = new WifiUtilOutput();
         mDevice.executeShellCommand(cmd, parser, WIFIUTIL_CMD_TIMEOUT_MINUTES, TimeUnit.MINUTES, 0);
         if (parser.getError() != null) {
-            CLog.e(parser.getError());
+            String errorMessage =
+                    String.format(
+                            "Failed to %s due to: '%s'. See logcat for details.",
+                            method, parser.getError());
+            CLog.e(errorMessage);
         }
         return parser.getResult();
     }

@@ -32,6 +32,7 @@ import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.telephony.TelephonyManager;
 import android.test.InstrumentationTestCase;
@@ -45,6 +46,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Scanner;
@@ -74,7 +76,8 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     private static final int TIMEOUT_MILLIS = 15000;
 
     private static final String CHECK_CONNECTIVITY_URL = "http://www.265.com/";
-    private static final String CHECK_CALLBACK_URL = CHECK_CONNECTIVITY_URL;
+    private static final int HOST_RESOLUTION_RETRIES = 4;
+    private static final int HOST_RESOLUTION_INTERVAL_MS = 500;
 
     private static final int NETWORK_TAG = 0xf00d;
     private static final long THRESHOLD_BYTES = 2 * 1024 * 1024;  // 2 MB
@@ -281,11 +284,27 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             isDefault = false;
         }
 
+        // The test host only has IPv4. So on a dual-stack network where IPv6 connects before IPv4,
+        // we need to wait until IPv4 is available or the test will spuriously fail.
+        private void waitForHostResolution(Network network) {
+            for (int i = 0; i < HOST_RESOLUTION_RETRIES; i++) {
+                try {
+                    network.getAllByName(mUrl.getHost());
+                    return;
+                } catch (UnknownHostException e) {
+                    SystemClock.sleep(HOST_RESOLUTION_INTERVAL_MS);
+                }
+            }
+            fail(String.format("%s could not be resolved on network %s (%d attempts %dms apart)",
+                  mUrl.getHost(), network, HOST_RESOLUTION_RETRIES, HOST_RESOLUTION_INTERVAL_MS));
+        }
+
         @Override
         public void onAvailable(Network network) {
             try {
                 mStartTime = System.currentTimeMillis() - mTolerance;
                 isDefault = network.equals(mCm.getActiveNetwork());
+                waitForHostResolution(network);
                 exerciseRemoteHost(network, mUrl);
                 mEndTime = System.currentTimeMillis() + mTolerance;
                 success = true;
@@ -418,7 +437,12 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     @AppModeFull
     public void testAppSummary() throws Exception {
         for (int i = 0; i < mNetworkInterfacesToTest.length; ++i) {
-            if (!shouldTestThisNetworkType(i, MINUTE/2)) {
+            // Use tolerance value that large enough to make sure stats of at
+            // least one bucket is included. However, this is possible that
+            // the test will see data of different app but with the same UID
+            // that created before testing.
+            // TODO: Consider query stats before testing and use the difference to verify.
+            if (!shouldTestThisNetworkType(i, MINUTE * 120)) {
                 continue;
             }
             setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "allow");

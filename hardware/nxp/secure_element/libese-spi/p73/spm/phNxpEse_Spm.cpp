@@ -298,7 +298,7 @@ ESESTATUS phNxpEse_SPM_DisablePwrControl(unsigned long arg) {
 ESESTATUS phNxpEse_SPM_GetState(spm_state_t* current_state) {
   int32_t ret = -1;
   ESESTATUS status = ESESTATUS_SUCCESS;
-  spm_state_t ese_current_state;
+  spm_state_t ese_current_state = SPM_STATE_INVALID;
 
   if (current_state == NULL) {
     ALOGE("%s : failed Invalid argument", __FUNCTION__);

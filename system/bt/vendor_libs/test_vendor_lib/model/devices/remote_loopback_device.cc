@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "remote_loopback_device"
-
 #include "remote_loopback_device.h"
 
 #include "model/setup/device_boutique.h"
-
-#include "osi/include/log.h"
-#include "packets/link_layer/link_layer_packet_builder.h"
-#include "packets/link_layer/link_layer_packet_view.h"
+#include "os/log.h"
 
 using std::vector;
 
 namespace test_vendor_lib {
 
-using packets::LinkLayerPacketBuilder;
-using packets::LinkLayerPacketView;
-using packets::PageResponseBuilder;
+using model::packets::LinkLayerPacketBuilder;
+using model::packets::LinkLayerPacketView;
+using model::packets::PageResponseBuilder;
 
-bool RemoteLoopbackDevice::registered_ = DeviceBoutique::Register(LOG_TAG, &RemoteLoopbackDevice::Create);
+bool RemoteLoopbackDevice::registered_ = DeviceBoutique::Register("remote_loopback", &RemoteLoopbackDevice::Create);
 
 RemoteLoopbackDevice::RemoteLoopbackDevice() {}
 
@@ -47,27 +42,23 @@ void RemoteLoopbackDevice::Initialize(const std::vector<std::string>& args) {
   if (Address::FromString(args[1], addr)) properties_.SetAddress(addr);
 }
 
-void RemoteLoopbackDevice::IncomingPacket(LinkLayerPacketView packet) {
+void RemoteLoopbackDevice::IncomingPacket(
+    model::packets::LinkLayerPacketView packet) {
   // TODO: Check sender?
   // TODO: Handle other packet types
   Phy::Type phy_type = Phy::Type::BR_EDR;
 
-  Link::PacketType type = packet.GetType();
+  model::packets::PacketType type = packet.GetType();
   switch (type) {
-    case Link::PacketType::PAGE:
-      SendLinkLayerPacket(LinkLayerPacketBuilder::WrapPageResponse(
-                              PageResponseBuilder::Create(true), packet.GetSourceAddress(), packet.GetSourceAddress()),
-                          Phy::Type::BR_EDR);
+    case model::packets::PacketType::PAGE:
+      SendLinkLayerPacket(
+          PageResponseBuilder::Create(packet.GetSourceAddress(),
+                                      packet.GetSourceAddress(), true),
+          Phy::Type::BR_EDR);
       break;
     default: {
-      ALOGW("Resend = %d", static_cast<int>(packet.size()));
-      std::shared_ptr<std::vector<uint8_t>> extracted_packet = std::make_shared<std::vector<uint8_t>>();
-      extracted_packet->reserve(packet.size());
-      for (const auto byte : packet) {
-        extracted_packet->push_back(byte);
-      }
-
-      SendLinkLayerPacket(LinkLayerPacketBuilder::ReWrap(extracted_packet), phy_type);
+      LOG_WARN("Resend = %d", static_cast<int>(packet.size()));
+      SendLinkLayerPacket(packet, phy_type);
     }
   }
 }

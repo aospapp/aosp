@@ -15,9 +15,16 @@
  */
 package org.apache.harmony.tests.javax.net.ssl;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContextSpi;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSessionContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -28,18 +35,20 @@ import java.security.KeyManagementException;
 
 import java.security.KeyStore;
 import java.security.SecureRandom;
-import java.security.Security;
-
-import junit.framework.TestCase;
 
 import org.apache.harmony.xnet.tests.support.SSLContextSpiImpl;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public class SSLContextSpiTest extends TestCase {
+@RunWith(JUnit4.class)
+public class SSLContextSpiTest {
 
     /**
      * javax.net.ssl.SSLContextSpi#SSLContextSpi()
      */
-    public void test_Constructor() {
+    @Test
+    public void constructor() {
         try {
             SSLContextSpiImpl ssl = new SSLContextSpiImpl();
             assertTrue(ssl instanceof SSLContextSpi);
@@ -52,7 +61,8 @@ public class SSLContextSpiTest extends TestCase {
      * javax.net.ssl.SSLContextSpi#engineCreateSSLEngine()
      * Verify exception when SSLContextSpi object wasn't initialiazed.
      */
-    public void test_engineCreateSSLEngine_01() {
+    @Test
+    public void engineCreateSSLEngine_01() {
         SSLContextSpiImpl ssl = new SSLContextSpiImpl();
         try {
             SSLEngine sleng = ssl.engineCreateSSLEngine();
@@ -70,7 +80,8 @@ public class SSLContextSpiTest extends TestCase {
      * javax.net.ssl.SSLContextSpi#engineCreateSSLEngine(String host, int port)
      * Verify exception when SSLContextSpi object wasn't initialiazed.
      */
-    public void test_engineCreateSSLEngine_02() {
+    @Test
+    public void engineCreateSSLEngine_02() {
         int[] invalid_port = {Integer.MIN_VALUE, -65535, -1, 65536, Integer.MAX_VALUE};
         SSLContextSpiImpl ssl = new SSLContextSpiImpl();
         try {
@@ -101,7 +112,8 @@ public class SSLContextSpiTest extends TestCase {
      * SSLContextSpi#engineGetSocketFactory()
      * Verify exception when SSLContextSpi object wasn't initialiazed.
      */
-    public void test_commonTest_01() {
+    @Test
+    public void commonTest_01() {
         SSLContextSpiImpl ssl = new SSLContextSpiImpl();
 
         try {
@@ -152,34 +164,19 @@ public class SSLContextSpiTest extends TestCase {
     /**
      * SSLContextSpi#engineInit(KeyManager[] km, TrustManager[] tm, SecureRandom sr)
      */
-    public void test_engineInit() {
+    @Test
+    public void engineInit() throws Exception {
         SSLContextSpiImpl ssl = new SSLContextSpiImpl();
-        String defaultAlgorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
+        KeyManager[] km = getKeyManagers();
+        TrustManager[] tm = getTrustManagers();
+        SecureRandom sr = getSecureRandom();
+        ssl.engineInit(km, tm, sr);
+
         try {
-            KeyManagerFactory kmf = KeyManagerFactory.getInstance(defaultAlgorithm);
-            char[] pass = "password".toCharArray();
-            kmf.init(null, pass);
-            KeyManager[] km = kmf.getKeyManagers();
-            defaultAlgorithm = Security.getProperty("ssl.TrustManagerFactory.algorithm");
-            TrustManagerFactory trustMF = TrustManagerFactory.getInstance(defaultAlgorithm);
-            KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-            ks.load(null, null);
-            trustMF.init(ks);
-            TrustManager[] tm = trustMF.getTrustManagers();
-            SecureRandom sr = SecureRandom.getInstance("SHA1PRNG");
-            try {
-                ssl.engineInit(km, tm, sr);
-            } catch (KeyManagementException kme) {
-                fail(kme + " was throw for engineInit method");
-            }
-            try {
-                ssl.engineInit(km, tm, null);
-                fail("KeyManagementException wasn't thrown");
-            } catch (KeyManagementException kme) {
-                //expected
-            }
-        } catch (Exception ex) {
-            fail(ex + " unexpected exception");
+            ssl.engineInit(km, tm, null);
+            fail("KeyManagementException wasn't thrown");
+        } catch (KeyManagementException kme) {
+            //expected
         }
     }
 
@@ -191,39 +188,77 @@ public class SSLContextSpiTest extends TestCase {
      * SSLContextSpi#engineGetServerSocketFactory()
      * SSLContextSpi#engineGetSocketFactory()
      */
-    public void test_commonTest_02() {
+    @Test
+    public void commonTest_02() throws Exception {
         SSLContextSpiImpl ssl = new SSLContextSpiImpl();
-        String defaultAlgorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
-        try {
-            KeyManagerFactory kmf = KeyManagerFactory.getInstance(defaultAlgorithm);
-            char[] pass = "password".toCharArray();
-            kmf.init(null, pass);
-            KeyManager[] km = kmf.getKeyManagers();
-            defaultAlgorithm = Security.getProperty("ssl.TrustManagerFactory.algorithm");
-            TrustManagerFactory trustMF = TrustManagerFactory.getInstance(defaultAlgorithm);
-            KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-            ks.load(null, null);
-            trustMF.init(ks);
-            TrustManager[] tm = trustMF.getTrustManagers();
-            SecureRandom sr = SecureRandom.getInstance("SHA1PRNG");
-            ssl.engineInit(km, tm, sr);
-        } catch (Exception ex) {
-            fail(ex + " unexpected exception");
-        }
+        ssl.engineInit(getKeyManagers(), getTrustManagers(), getSecureRandom());
 
-        try {
-            assertNotNull("Subtest_01: Object is NULL", ssl.engineCreateSSLEngine());
-            SSLEngine sleng = ssl.engineCreateSSLEngine("localhost", 1080);
-            assertNotNull("Subtest_02: Object is NULL", sleng);
-            assertEquals(sleng.getPeerPort(), 1080);
-            assertEquals(sleng.getPeerHost(), "localhost");
-            assertNull("Subtest_03: Object not NULL", ssl.engineGetClientSessionContext());
-            assertNull("Subtest_04: Object not NULL", ssl.engineGetServerSessionContext());
-            assertNull("Subtest_05: Object not NULL", ssl.engineGetServerSocketFactory());
-            assertNull("Subtest_06: Object not NULL", ssl.engineGetSocketFactory());
-        } catch (Exception e) {
-            fail("Unexpected exception " + e);
+        assertNotNull("Subtest_01: Object is NULL", ssl.engineCreateSSLEngine());
+        SSLEngine sleng = ssl.engineCreateSSLEngine("localhost", 1080);
+        assertNotNull("Subtest_02: Object is NULL", sleng);
+        assertEquals(sleng.getPeerPort(), 1080);
+        assertEquals(sleng.getPeerHost(), "localhost");
+        assertNull("Subtest_03: Object not NULL", ssl.engineGetClientSessionContext());
+        assertNull("Subtest_04: Object not NULL", ssl.engineGetServerSessionContext());
+        assertNull("Subtest_05: Object not NULL", ssl.engineGetServerSocketFactory());
+        assertNull("Subtest_06: Object not NULL", ssl.engineGetSocketFactory());
+    }
+
+    private static class SpiWithSocketFactory extends SSLContextSpiImpl {
+        @Override
+        public SSLSocketFactory engineGetSocketFactory() {
+            super.engineGetSocketFactory();
+            return (SSLSocketFactory) SSLSocketFactory.getDefault();
         }
     }
 
+    /**
+     * Tests the default implementations of SSLContextSpi.engineGetDefaultSSLParameters()
+     * and SSLContextSpi.engineGetSupportedSSLParameters().  Requires a subclass which
+     * returns non-null from engineGetSocketFactory() for the base class to work.
+     *
+     * Verifies the returned SSLParameters for consistency.
+     */
+    @Test
+    public void getSslParameters() throws Exception {
+        SpiWithSocketFactory spi = new SpiWithSocketFactory();
+        spi.engineInit(getKeyManagers(), getTrustManagers(), getSecureRandom());
+
+        SSLParameters defaultParams = spi.engineGetDefaultSSLParameters();
+        assertNotNull(defaultParams);
+        String[] protocols = defaultParams.getProtocols();
+        assertNotNull(protocols);
+        assertTrue(protocols.length > 0);
+        String[] cipherSuites = defaultParams.getCipherSuites();
+        assertNotNull(cipherSuites);
+        assertTrue(cipherSuites.length > 0);
+
+        SSLParameters supportedParams = spi.engineGetSupportedSSLParameters();
+        assertNotNull(supportedParams);
+        protocols = supportedParams.getProtocols();
+        assertNotNull(protocols);
+        assertTrue(protocols.length > 0);
+        cipherSuites = supportedParams.getCipherSuites();
+        assertNotNull(cipherSuites);
+        assertTrue(cipherSuites.length > 0);
+    }
+
+    private SecureRandom getSecureRandom() throws Exception {
+        return SecureRandom.getInstance("SHA1PRNG");
+    }
+
+    private TrustManager[] getTrustManagers() throws Exception {
+        TrustManagerFactory tmf = TrustManagerFactory
+            .getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+        tmf.init(ks);
+        return tmf.getTrustManagers();
+    }
+
+    private KeyManager[] getKeyManagers() throws Exception {
+        KeyManagerFactory kmf = KeyManagerFactory
+            .getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(null, "password".toCharArray());
+        return kmf.getKeyManagers();
+    }
 }

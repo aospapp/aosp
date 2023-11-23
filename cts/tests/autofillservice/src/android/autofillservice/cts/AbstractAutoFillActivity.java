@@ -173,4 +173,11 @@ public abstract class AbstractAutoFillActivity extends Activity {
         }
         super.finish();
     }
+
+    /**
+     * Clears focus from input fields.
+     */
+    public void clearFocus() {
+        throw new UnsupportedOperationException("Not implemented by " + getClass());
+    }
 }

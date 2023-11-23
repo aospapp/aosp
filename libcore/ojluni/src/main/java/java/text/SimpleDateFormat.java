@@ -56,8 +56,10 @@ import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
 import java.util.SimpleTimeZone;
+import java.util.SortedMap;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -1911,12 +1913,16 @@ public class SimpleDateFormat extends DateFormat {
     private int matchString(String text, int start, int field,
                             Map<String,Integer> data, CalendarBuilder calb) {
         if (data != null) {
-            // BEGIN Android-removed: SortedMap instance lookup optimization in matchString().
+            // TODO: make this default when it's in the spec.
+            // BEGIN Android-changed: SortedMap instance lookup optimization in matchString().
             // RI returns not the longest match as matchString(String[]) does. http://b/119913354
             /*
-            // TODO: make this default when it's in the spec.
             if (data instanceof SortedMap) {
                 for (String name : data.keySet()) {
+            */
+            if (data instanceof NavigableMap && ((NavigableMap) data).comparator() == null) {
+                for (String name : ((NavigableMap<String, Integer>) data).descendingKeySet()) {
+            // END Android-changed: SortedMap instance lookup optimization in matchString().
                     if (text.regionMatches(true, start, name, 0, name.length())) {
                         calb.set(field, data.get(name));
                         return start + name.length();
@@ -1924,8 +1930,6 @@ public class SimpleDateFormat extends DateFormat {
                 }
                 return -start;
             }
-            */
-            // END Android-removed: SortedMap instance lookup optimization in matchString().
 
             String bestMatch = null;
 

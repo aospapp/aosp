@@ -30,4 +30,8 @@ cc_library {
 sh_binary_host {
     name: "mksquashfsimage.sh",
     src: "mksquashfsimage.sh",
+    required: [
+        "img2simg",
+        "mksquashfs",
+    ],
 }

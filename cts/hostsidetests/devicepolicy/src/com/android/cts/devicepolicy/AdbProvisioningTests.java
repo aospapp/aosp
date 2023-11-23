@@ -19,6 +19,7 @@ import static com.android.cts.devicepolicy.DeviceAndProfileOwnerTest.ADMIN_RECEI
 import static com.android.cts.devicepolicy.DeviceAndProfileOwnerTest.DEVICE_ADMIN_APK;
 import static com.android.cts.devicepolicy.DeviceAndProfileOwnerTest.DEVICE_ADMIN_PKG;
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
+import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
 import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -26,19 +27,21 @@ import java.io.FileNotFoundException;
 
 import android.stats.devicepolicy.EventId;
 
+import org.junit.Test;
+
 public class AdbProvisioningTests extends BaseDevicePolicyTest {
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    public void setUp() throws Exception {
         if (!mHasFeature) {
             return;
         }
+        super.setUp();
         installAppAsUser(DEVICE_ADMIN_APK, mPrimaryUserId);
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (!mHasFeature) {
             return;
         }
@@ -46,8 +49,9 @@ public class AdbProvisioningTests extends BaseDevicePolicyTest {
         getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
     }
 
+    @Test
     public void testAdbDeviceOwnerLogged() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
             return;
         }
         assertMetricsLogged(getDevice(), () -> {
@@ -60,8 +64,9 @@ public class AdbProvisioningTests extends BaseDevicePolicyTest {
                     .build());
     }
 
+    @Test
     public void testAdbProfileOwnerLogged() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
             return;
         }
         assertMetricsLogged(getDevice(), () -> {

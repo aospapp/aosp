@@ -18,6 +18,7 @@ package com.android.tradefed.build;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -77,7 +78,8 @@ public class StubBuildProvider implements IBuildProvider {
             return null;
         }
         if (mThrowError) {
-            throw new BuildRetrievalError("stub failed to get build.");
+            throw new BuildRetrievalError(
+                    "stub failed to get build.", InfraErrorIdentifier.ARTIFACT_NOT_FOUND);
         }
         CLog.d("skipping build provider step");
         BuildInfo stubBuild = new BuildInfo(mBuildId, mBuildTargetName);
@@ -94,14 +96,6 @@ public class StubBuildProvider implements IBuildProvider {
             stubBuild.addBuildAttribute(attributeEntry.getKey(), attributeEntry.getValue());
         }
         return stubBuild;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void buildNotTested(IBuildInfo info) {
-        // ignore
     }
 
     /**

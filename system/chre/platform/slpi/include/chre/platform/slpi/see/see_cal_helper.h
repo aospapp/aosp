@@ -48,7 +48,7 @@ class SeeCalHelper : public NonCopyable {
    * @param output Location to store sample with calibration applied (can be
    *               same as input)
    */
-  void applyCalibration(SensorType sensorType, const float input[3],
+  void applyCalibration(uint8_t sensorType, const float input[3],
                         float output[3]) const;
 
   /**
@@ -63,19 +63,34 @@ class SeeCalHelper : public NonCopyable {
    *
    * @return true if calibration data is successfully stored, false otherwise
    */
-  bool getBias(
-      SensorType sensorType, struct chreSensorThreeAxisData *biasData) const;
+  bool getBias(uint8_t sensorType,
+               struct chreSensorThreeAxisData *biasData) const;
+
+  /**
+   * @return Whether calibration updates are enabled for the given SUID.
+   */
+  bool areCalUpdatesEnabled(const sns_std_suid &suid) const;
+
+  /**
+   * Configures calibration updates for the given SUID.
+   *
+   * @param suid The cached SUID of a calibration sensor
+   * @param enable Whether to enable or disable updates
+   * @param helper SeeHelper used to configure updates
+   * @return true if updates were successfully configured
+   */
+  bool configureCalUpdates(const sns_std_suid &suid, bool enable,
+                           SeeHelper &helper);
 
   /**
    * Get the cached SUID of a calibration sensor that corresponds to the
    * specified sensorType.
    *
-   * @param sensorType The sensor type of the calibration sensor.
+   * @param sensorType The sensor type of the calibration sensor
    *
-   * @return A constant reference to the calibration sensor's SUID if present.
-   *         Otherwise, a reference to sns_suid_sensor_init_zero is returned.
+   * @return If found, a valid pointer to the SUID. Otherwise, nullptr.
    */
-  const sns_std_suid& getCalSuidFromSensorType(SensorType sensorType) const;
+  const sns_std_suid *getCalSuidFromSensorType(uint8_t sensorType) const;
 
   /**
    * Uses the supplied SeeHelper instance to register for updates to all
@@ -88,7 +103,7 @@ class SeeCalHelper : public NonCopyable {
    *
    * @return true if all SEE calibration sensors were successfully registered
    */
-  bool registerForCalibrationUpdates(SeeHelper& seeHelper);
+  bool registerForCalibrationUpdates(SeeHelper &seeHelper);
 
   /**
    * Updates the cached calibration data used in subsequent calls to
@@ -107,16 +122,19 @@ class SeeCalHelper : public NonCopyable {
    *
    * @see CHRE_SENSOR_ACCURACY
    */
-  void updateCalibration(const sns_std_suid& suid, bool hasBias, float bias[3],
+  void updateCalibration(const sns_std_suid &suid, bool hasBias, float bias[3],
                          bool hasScale, float scale[3], bool hasMatrix,
                          float matrix[9], uint8_t accuracy, uint64_t timestamp);
 
   /**
    * @param suid SUID of the calibration sensor
+   * @param sensorType A non-null pointer that will contain the sensor type
+   *     corresponding to the given SUID, if found.
    *
-   * @return the SensorType corresponding to this physical sensor
+   * @return true if a sensor type was found for the given SUID.
    */
-  SensorType getSensorTypeFromSuid(const sns_std_suid& suid) const;
+  bool getSensorTypeFromSuid(const sns_std_suid &suid,
+                             uint8_t *sensorType) const;
 
  private:
   //! A struct to store a sensor's calibration data
@@ -135,19 +153,22 @@ class SeeCalHelper : public NonCopyable {
   struct SeeCalInfo {
     Optional<sns_std_suid> suid;
     SeeCalData cal;
+    bool enabled = false;
   };
 
   //! The list of SEE cal sensors supported.
   enum class SeeCalSensor : size_t {
+#ifdef CHRE_ENABLE_ACCEL_CAL
     AccelCal,
+#endif  // CHRE_ENABLE_ACCEL_CAL
     GyroCal,
     MagCal,
     NumCalSensors,
   };
 
   //! A convenience constant.
-  static constexpr size_t kNumSeeCalSensors = static_cast<size_t>(
-      SeeCalSensor::NumCalSensors);
+  static constexpr size_t kNumSeeCalSensors =
+      static_cast<size_t>(SeeCalSensor::NumCalSensors);
 
   //! Protects access to calibration data, which may be used in multiple threads
   mutable Mutex mMutex;
@@ -156,13 +177,13 @@ class SeeCalHelper : public NonCopyable {
   SeeCalInfo mCalInfo[kNumSeeCalSensors] = {};
 
   //! Map SensorType to associated index in mCalInfo
-  static size_t getCalIndexFromSensorType(SensorType sensorType);
+  static size_t getCalIndexFromSensorType(uint8_t sensorType);
 
   //! Map index in mCalInfo to SEE sensor data type string
   static const char *getDataTypeForCalSensorIndex(size_t calSensorIndex);
 
   //! Map SUID to associated index in mCalInfo
-  size_t getCalIndexFromSuid(const sns_std_suid& suid) const;
+  size_t getCalIndexFromSuid(const sns_std_suid &suid) const;
 };
 
 }  // namespace chre

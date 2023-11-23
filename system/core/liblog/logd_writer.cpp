@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <endian.h>
+#include "logd_writer.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -31,101 +32,61 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <cutils/sockets.h>
 #include <private/android_filesystem_config.h>
 #include <private/android_logger.h>
 
-#include "config_write.h"
-#include "log_portability.h"
 #include "logger.h"
 #include "uio.h"
 
-/* branchless on many architectures. */
-#define min(x, y) ((y) ^ (((x) ^ (y)) & -((x) < (y))))
+static atomic_int logd_socket;
 
-static int logdAvailable(log_id_t LogId);
-static int logdOpen();
-static void logdClose();
-static int logdWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, size_t nr);
-
-struct android_log_transport_write logdLoggerWrite = {
-    .node = {&logdLoggerWrite.node, &logdLoggerWrite.node},
-    .context.sock = -EBADF,
-    .name = "logd",
-    .available = logdAvailable,
-    .open = logdOpen,
-    .close = logdClose,
-    .write = logdWrite,
-};
-
-/* log_init_lock assumed */
-static int logdOpen() {
-  int i, ret = 0;
-
-  i = atomic_load(&logdLoggerWrite.context.sock);
-  if (i < 0) {
-    int sock = TEMP_FAILURE_RETRY(socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
-    if (sock < 0) {
-      ret = -errno;
-    } else {
-      struct sockaddr_un un;
-      memset(&un, 0, sizeof(struct sockaddr_un));
-      un.sun_family = AF_UNIX;
-      strcpy(un.sun_path, "/dev/socket/logdw");
-
-      if (TEMP_FAILURE_RETRY(connect(sock, (struct sockaddr*)&un, sizeof(struct sockaddr_un))) <
-          0) {
-        ret = -errno;
-        switch (ret) {
-          case -ENOTCONN:
-          case -ECONNREFUSED:
-          case -ENOENT:
-            i = atomic_exchange(&logdLoggerWrite.context.sock, ret);
-            [[fallthrough]];
-          default:
-            break;
-        }
-        close(sock);
-      } else {
-        ret = atomic_exchange(&logdLoggerWrite.context.sock, sock);
-        if ((ret >= 0) && (ret != sock)) {
-          close(ret);
-        }
-        ret = 0;
-      }
-    }
-  }
-
-  return ret;
+// Note that it is safe to call connect() multiple times on DGRAM Unix domain sockets, so this
+// function is used to reconnect to logd without requiring a new socket.
+static void LogdConnect() {
+  sockaddr_un un = {};
+  un.sun_family = AF_UNIX;
+  strcpy(un.sun_path, "/dev/socket/logdw");
+  TEMP_FAILURE_RETRY(connect(logd_socket, reinterpret_cast<sockaddr*>(&un), sizeof(sockaddr_un)));
 }
 
-static void __logdClose(int negative_errno) {
-  int sock = atomic_exchange(&logdLoggerWrite.context.sock, negative_errno);
-  if (sock >= 0) {
-    close(sock);
+// logd_socket should only be opened once.  If we see that logd_socket is uninitialized, we create a
+// new socket and attempt to exchange it into the atomic logd_socket.  If the compare/exchange was
+// successful, then that will be the socket used for the duration of the program, otherwise a
+// different thread has already opened and written the socket to the atomic, so close the new socket
+// and return.
+static void GetSocket() {
+  if (logd_socket != 0) {
+    return;
   }
+
+  int new_socket =
+      TEMP_FAILURE_RETRY(socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
+  if (new_socket <= 0) {
+    return;
+  }
+
+  int uninitialized_value = 0;
+  if (!logd_socket.compare_exchange_strong(uninitialized_value, new_socket)) {
+    close(new_socket);
+    return;
+  }
+
+  LogdConnect();
 }
 
-static void logdClose() {
-  __logdClose(-EBADF);
+// This is the one exception to the above.  Zygote uses this to clean up open FD's after fork() and
+// before specialization.  It is single threaded at this point and therefore this function is
+// explicitly not thread safe.  It sets logd_socket to 0, so future logs will be safely initialized
+// whenever they happen.
+void LogdClose() {
+  if (logd_socket > 0) {
+    close(logd_socket);
+  }
+  logd_socket = 0;
 }
 
-static int logdAvailable(log_id_t logId) {
-  if (logId >= LOG_ID_MAX || logId == LOG_ID_KERNEL) {
-    return -EINVAL;
-  }
-  if (atomic_load(&logdLoggerWrite.context.sock) < 0) {
-    if (access("/dev/socket/logdw", W_OK) == 0) {
-      return 0;
-    }
-    return -EBADF;
-  }
-  return 1;
-}
-
-static int logdWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, size_t nr) {
+int LogdWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, size_t nr) {
   ssize_t ret;
-  int sock;
   static const unsigned headerLength = 1;
   struct iovec newVec[nr + headerLength];
   android_log_header_t header;
@@ -133,18 +94,14 @@ static int logdWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, siz
   static atomic_int dropped;
   static atomic_int droppedSecurity;
 
-  sock = atomic_load(&logdLoggerWrite.context.sock);
-  if (sock < 0) switch (sock) {
-      case -ENOTCONN:
-      case -ECONNREFUSED:
-      case -ENOENT:
-        break;
-      default:
-        return -EBADF;
-    }
+  GetSocket();
+
+  if (logd_socket <= 0) {
+    return -EBADF;
+  }
 
   /* logd, after initialization and priv drop */
-  if (__android_log_uid() == AID_LOGD) {
+  if (getuid() == AID_LOGD) {
     /*
      * ignore log messages we send to ourself (logd).
      * Such log messages are often generated by libraries we depend on
@@ -153,24 +110,6 @@ static int logdWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, siz
     return 0;
   }
 
-  /*
-   *  struct {
-   *      // what we provide to socket
-   *      android_log_header_t header;
-   *      // caller provides
-   *      union {
-   *          struct {
-   *              char     prio;
-   *              char     payload[];
-   *          } string;
-   *          struct {
-   *              uint32_t tag
-   *              char     payload[];
-   *          } binary;
-   *      };
-   *  };
-   */
-
   header.tid = gettid();
   header.realtime.tv_sec = ts->tv_sec;
   header.realtime.tv_nsec = ts->tv_nsec;
@@ -178,41 +117,39 @@ static int logdWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, siz
   newVec[0].iov_base = (unsigned char*)&header;
   newVec[0].iov_len = sizeof(header);
 
-  if (sock >= 0) {
-    int32_t snapshot = atomic_exchange_explicit(&droppedSecurity, 0, memory_order_relaxed);
-    if (snapshot) {
-      android_log_event_int_t buffer;
+  int32_t snapshot = atomic_exchange_explicit(&droppedSecurity, 0, memory_order_relaxed);
+  if (snapshot) {
+    android_log_event_int_t buffer;
 
-      header.id = LOG_ID_SECURITY;
-      buffer.header.tag = htole32(LIBLOG_LOG_TAG);
-      buffer.payload.type = EVENT_TYPE_INT;
-      buffer.payload.data = htole32(snapshot);
+    header.id = LOG_ID_SECURITY;
+    buffer.header.tag = LIBLOG_LOG_TAG;
+    buffer.payload.type = EVENT_TYPE_INT;
+    buffer.payload.data = snapshot;
 
-      newVec[headerLength].iov_base = &buffer;
-      newVec[headerLength].iov_len = sizeof(buffer);
+    newVec[headerLength].iov_base = &buffer;
+    newVec[headerLength].iov_len = sizeof(buffer);
 
-      ret = TEMP_FAILURE_RETRY(writev(sock, newVec, 2));
-      if (ret != (ssize_t)(sizeof(header) + sizeof(buffer))) {
-        atomic_fetch_add_explicit(&droppedSecurity, snapshot, memory_order_relaxed);
-      }
+    ret = TEMP_FAILURE_RETRY(writev(logd_socket, newVec, 2));
+    if (ret != (ssize_t)(sizeof(header) + sizeof(buffer))) {
+      atomic_fetch_add_explicit(&droppedSecurity, snapshot, memory_order_relaxed);
     }
-    snapshot = atomic_exchange_explicit(&dropped, 0, memory_order_relaxed);
-    if (snapshot && __android_log_is_loggable_len(ANDROID_LOG_INFO, "liblog", strlen("liblog"),
-                                                  ANDROID_LOG_VERBOSE)) {
-      android_log_event_int_t buffer;
+  }
+  snapshot = atomic_exchange_explicit(&dropped, 0, memory_order_relaxed);
+  if (snapshot && __android_log_is_loggable_len(ANDROID_LOG_INFO, "liblog", strlen("liblog"),
+                                                ANDROID_LOG_VERBOSE)) {
+    android_log_event_int_t buffer;
 
-      header.id = LOG_ID_EVENTS;
-      buffer.header.tag = htole32(LIBLOG_LOG_TAG);
-      buffer.payload.type = EVENT_TYPE_INT;
-      buffer.payload.data = htole32(snapshot);
+    header.id = LOG_ID_EVENTS;
+    buffer.header.tag = LIBLOG_LOG_TAG;
+    buffer.payload.type = EVENT_TYPE_INT;
+    buffer.payload.data = snapshot;
 
-      newVec[headerLength].iov_base = &buffer;
-      newVec[headerLength].iov_len = sizeof(buffer);
+    newVec[headerLength].iov_base = &buffer;
+    newVec[headerLength].iov_len = sizeof(buffer);
 
-      ret = TEMP_FAILURE_RETRY(writev(sock, newVec, 2));
-      if (ret != (ssize_t)(sizeof(header) + sizeof(buffer))) {
-        atomic_fetch_add_explicit(&dropped, snapshot, memory_order_relaxed);
-      }
+    ret = TEMP_FAILURE_RETRY(writev(logd_socket, newVec, 2));
+    if (ret != (ssize_t)(sizeof(header) + sizeof(buffer))) {
+      atomic_fetch_add_explicit(&dropped, snapshot, memory_order_relaxed);
     }
   }
 
@@ -231,49 +168,23 @@ static int logdWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, siz
     }
   }
 
-  /*
-   * The write below could be lost, but will never block.
-   *
-   * ENOTCONN occurs if logd has died.
-   * ENOENT occurs if logd is not running and socket is missing.
-   * ECONNREFUSED occurs if we can not reconnect to logd.
-   * EAGAIN occurs if logd is overloaded.
-   */
-  if (sock < 0) {
-    ret = sock;
-  } else {
-    ret = TEMP_FAILURE_RETRY(writev(sock, newVec, i));
-    if (ret < 0) {
-      ret = -errno;
-    }
+  // The write below could be lost, but will never block.
+  // EAGAIN occurs if logd is overloaded, other errors indicate that something went wrong with
+  // the connection, so we reset it and try again.
+  ret = TEMP_FAILURE_RETRY(writev(logd_socket, newVec, i));
+  if (ret < 0 && errno != EAGAIN) {
+    LogdConnect();
+
+    ret = TEMP_FAILURE_RETRY(writev(logd_socket, newVec, i));
   }
-  switch (ret) {
-    case -ENOTCONN:
-    case -ECONNREFUSED:
-    case -ENOENT:
-      if (__android_log_trylock()) {
-        return ret; /* in a signal handler? try again when less stressed */
-      }
-      __logdClose(ret);
-      ret = logdOpen();
-      __android_log_unlock();
 
-      if (ret < 0) {
-        return ret;
-      }
-
-      ret = TEMP_FAILURE_RETRY(writev(atomic_load(&logdLoggerWrite.context.sock), newVec, i));
-      if (ret < 0) {
-        ret = -errno;
-      }
-      [[fallthrough]];
-    default:
-      break;
+  if (ret < 0) {
+    ret = -errno;
   }
 
   if (ret > (ssize_t)sizeof(header)) {
     ret -= sizeof(header);
-  } else if (ret == -EAGAIN) {
+  } else if (ret < 0) {
     atomic_fetch_add_explicit(&dropped, 1, memory_order_relaxed);
     if (logId == LOG_ID_SECURITY) {
       atomic_fetch_add_explicit(&droppedSecurity, 1, memory_order_relaxed);

@@ -106,6 +106,45 @@ void memcpy_to_u8_from_i16(uint8_t *dst, const int16_t *src, size_t count);
 void memcpy_to_u8_from_float(uint8_t *dst, const float *src, size_t count);
 
 /**
+ * Copy samples from signed fixed-point packed 24 bit Q0.23 to unsigned 8-bit offset by 0x80.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to copy
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ * The conversion is done by truncation, without dithering, so it loses resolution.
+ */
+void memcpy_to_u8_from_p24(uint8_t *dst, const uint8_t *src, size_t count);
+
+/**
+ * Copy samples from signed 32-bit fixed-point Q0.31 to unsigned 8-bit offset by 0x80.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to copy
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ * The conversion is done by truncation, without dithering, so it loses resolution.
+ */
+void memcpy_to_u8_from_i32(uint8_t *dst, const int32_t *src, size_t count);
+
+/**
+ * Copy samples from signed fixed-point 32-bit Q8.23 to unsigned 8-bit offset by 0x80.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to copy
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ * The conversion is done by truncation, without dithering, so it loses resolution.
+ */
+void memcpy_to_u8_from_q8_23(uint8_t *dst, const int32_t *src, size_t count);
+
+/**
  * Shrink and copy samples from signed 32-bit fixed-point Q0.31 to signed 16-bit Q0.15.
  *
  *  \param dst     Destination buffer
@@ -814,6 +853,25 @@ static inline uint8_t clamp8_from_float(float f)
 }
 
 /**
+ * Convert a signed fixed-point 32-bit Q8.23 value to uint8_t [0, 0xff]
+ * with clamping.
+ *
+ * Values outside the range [-0x800000, 0x7fffff] are clamped to that range.
+ */
+static inline uint8_t clamp8_from_q8_23(int32_t ival)
+{
+    static const int32_t limpos = 0x7fffff;
+    static const int32_t limneg = -0x800000;
+    if (ival < limneg) {
+        return 0;
+    } else if (ival > limpos) {
+        return 0xff;
+    } else {
+        return (ival >> 16) + 0x80;
+    }
+}
+
+/**
  * Convert a single-precision floating point value to a Q0.23 integer value, stored in a
  * 32 bit signed integer (technically stored as Q8.23, but clamped to Q0.23).
  *
@@ -982,7 +1040,7 @@ static inline float float_from_u4_12(uint16_t uval)
 static inline uint32_t u4_28_from_float(float f)
 {
     static const float scale = (float)(1 << 28);
-    static const float limpos = 0xffffffffUL / scale;
+    static const float limpos = ((float) 0xffffffffUL) / scale;
 
     if (f <= 0.) {
         return 0;

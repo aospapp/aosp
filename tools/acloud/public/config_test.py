@@ -20,6 +20,8 @@ import os
 import tempfile
 import mock
 
+import six
+
 # pylint: disable=no-name-in-module,import-error
 from acloud import errors
 from acloud.internal.proto import internal_config_pb2
@@ -44,6 +46,7 @@ orientation: "portrait"
 resolution: "1200x1200x1200x1200"
 client_id: "fake_client_id"
 client_secret: "fake_client_secret"
+extra_args_ssh_tunnel: "fake_extra_args_ssh_tunnel"
 metadata_variable {
     key: "metadata_1"
     value: "metadata_value_1"
@@ -132,8 +135,9 @@ common_hw_property_map {
         self.assertEqual(cfg.resolution, "1200x1200x1200x1200")
         self.assertEqual(cfg.client_id, "fake_client_id")
         self.assertEqual(cfg.client_secret, "fake_client_secret")
+        self.assertEqual(cfg.extra_args_ssh_tunnel, "fake_extra_args_ssh_tunnel")
         self.assertEqual(
-            {key: val for key, val in cfg.metadata_variable.iteritems()},
+            {key: val for key, val in six.iteritems(cfg.metadata_variable)},
             {"metadata_1": "metadata_value_1"})
         self.assertEqual(cfg.hw_property,
                          "cpu:3,resolution:1080x1920,dpi:480,memory:4g,"
@@ -205,22 +209,22 @@ common_hw_property_map {
         self.assertEqual(cfg.default_usr_cfg.network, "default")
         self.assertEqual({
             key: val
-            for key, val in cfg.default_usr_cfg.metadata_variable.iteritems()
+            for key, val in six.iteritems(cfg.default_usr_cfg.metadata_variable)
         }, {
             "metadata_1": "metadata_value_1",
             "metadata_2": "metadata_value_2"
         })
         self.assertEqual(
-            {key: val for key, val in cfg.device_resolution_map.iteritems()},
+            {key: val for key, val in six.iteritems(cfg.device_resolution_map)},
             {"nexus5": "1080x1920x32x480"})
         device_resolution = {
             key: val
-            for key, val in cfg.device_default_orientation_map.iteritems()
+            for key, val in six.iteritems(cfg.device_default_orientation_map)
         }
         self.assertEqual(device_resolution, {"nexus5": "portrait"})
         valid_branch_and_min_build_id = {
             key: val
-            for key, val in cfg.valid_branch_and_min_build_id.iteritems()
+            for key, val in six.iteritems(cfg.valid_branch_and_min_build_id)
         }
         self.assertEqual(valid_branch_and_min_build_id, {"aosp-master": 0})
         self.assertEqual(cfg.default_usr_cfg.stable_host_image_name,
@@ -246,7 +250,7 @@ common_hw_property_map {
 
         # hw property
         self.assertEqual(
-            {key: val for key, val in cfg.common_hw_property_map.iteritems()},
+            {key: val for key, val in six.iteritems(cfg.common_hw_property_map)},
             {"phone": "cpu:2,resolution:1080x1920,dpi:420,memory:4g,disk:8g"})
 
     def testLoadConfigFails(self):

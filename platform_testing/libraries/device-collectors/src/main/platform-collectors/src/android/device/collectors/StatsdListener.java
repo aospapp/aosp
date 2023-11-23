@@ -21,11 +21,14 @@ import android.content.Context;
 import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.SystemClock;
 import android.util.Log;
+import android.util.StatsLog;
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
 
 import com.android.internal.os.StatsdConfigProto.StatsdConfig;
+import com.android.os.AtomsProto.Atom;
 import com.android.os.StatsLog.ConfigMetricsReportList;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -43,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -50,8 +54,8 @@ import java.util.stream.Collectors;
 public class StatsdListener extends BaseMetricListener {
     private static final String LOG_TAG = StatsdListener.class.getSimpleName();
 
-    // TODO(harrytczhang): Add option and support for per-test collection.
-    static final String OPTION_CONFIGS_TEST_RUN = "statsd-configs-per-run";
+    static final String OPTION_CONFIGS_RUN_LEVEL = "statsd-configs-run-level";
+    static final String OPTION_CONFIGS_TEST_LEVEL = "statsd-configs-test-level";
 
     // Sub-directory within the test APK's assets/ directory to look for configs.
     static final String CONFIG_SUB_DIRECTORY = "statsd-configs";
@@ -61,39 +65,103 @@ public class StatsdListener extends BaseMetricListener {
     // Parent directory for all statsd reports.
     static final String REPORT_PATH_ROOT = "statsd-reports";
     // Sub-directory for test run reports.
-    static final String REPORT_PATH_TEST_RUN = "test-run";
+    static final String REPORT_PATH_RUN_LEVEL = "run-level";
+    // Sub-directory for test-level reports.
+    static final String REPORT_PATH_TEST_LEVEL = "test-level";
+    // Suffix template for test-level metric report files.
+    static final String TEST_SUFFIX_TEMPLATE = "_%s-%d";
 
-    // Configs used for tests and test runs, respectively.
-    private Map<String, StatsdConfig> mTestRunConfigs = new HashMap<String, StatsdConfig>();
+    // Common prefix for the metric key pointing to the report path.
+    static final String REPORT_KEY_PREFIX = "statsd-";
+    // Common prefix for the metric file.
+    static final String REPORT_FILENAME_PREFIX = "statsd-";
+
+    // Labels used to signify test events to statsd with the AppBreadcrumbReported atom.
+    static final int RUN_EVENT_LABEL = 7;
+    static final int TEST_EVENT_LABEL = 11;
+    // A short delay after pushing the AppBreadcrumbReported event so that metrics can be dumped.
+    static final long METRIC_PULL_DELAY = TimeUnit.SECONDS.toMillis(1);
+
+    // Configs used for the test run and each test, respectively.
+    private Map<String, StatsdConfig> mRunLevelConfigs = new HashMap<String, StatsdConfig>();
+    private Map<String, StatsdConfig> mTestLevelConfigs = new HashMap<String, StatsdConfig>();
 
     // Map to associate config names with their config Ids.
-    private Map<String, Long> mTestRunConfigIds = new HashMap<String, Long>();
+    private Map<String, Long> mRunLevelConfigIds = new HashMap<String, Long>();
+    private Map<String, Long> mTestLevelConfigIds = new HashMap<String, Long>();
+
+    // "Counter" for test iterations, keyed by the display name of each test's description.
+    private Map<String, Integer> mTestIterations = new HashMap<String, Integer>();
 
     // Cached stats manager instance.
     private StatsManager mStatsManager;
 
-    /** Registers the test run configs with {@link StatsManager} before the test run starts. */
+    /** Register the test run configs with {@link StatsManager} before the test run starts. */
     @Override
     public void onTestRunStart(DataRecord runData, Description description) {
         // The argument parsing has to be performed here as the instrumentation has not yet been
         // registered when the constructor of this class is called.
-        mTestRunConfigs.putAll(getConfigsFromOption(OPTION_CONFIGS_TEST_RUN));
+        mRunLevelConfigs.putAll(getConfigsFromOption(OPTION_CONFIGS_RUN_LEVEL));
+        mTestLevelConfigs.putAll(getConfigsFromOption(OPTION_CONFIGS_TEST_LEVEL));
 
-        mTestRunConfigIds = registerConfigsWithStatsManager(mTestRunConfigs);
+        mRunLevelConfigIds = registerConfigsWithStatsManager(mRunLevelConfigs);
+
+        if (!logStart(RUN_EVENT_LABEL)) {
+            Log.w(LOG_TAG, "Failed to log a test run start event. Metrics might be incomplete.");
+        }
     }
 
     /**
-     * Dumps the test run stats reports to the test run subdirectory after the test run ends.
+     * Dump the test run stats reports to the test run subdirectory after the test run ends.
      *
      * <p>Dumps the stats regardless of whether all the tests pass.
      */
     @Override
     public void onTestRunEnd(DataRecord runData, Result result) {
+        if (!logStop(RUN_EVENT_LABEL)) {
+            Log.w(LOG_TAG, "Failed to log a test run end event. Metrics might be incomplete.");
+        }
+        SystemClock.sleep(METRIC_PULL_DELAY);
+
         Map<String, File> configReports =
                 pullReportsAndRemoveConfigs(
-                        mTestRunConfigIds, Paths.get(REPORT_PATH_ROOT, REPORT_PATH_TEST_RUN));
+                        mRunLevelConfigIds, Paths.get(REPORT_PATH_ROOT, REPORT_PATH_RUN_LEVEL), "");
         for (String configName : configReports.keySet()) {
-            runData.addFileMetric(configName, configReports.get(configName));
+            runData.addFileMetric(REPORT_KEY_PREFIX + configName, configReports.get(configName));
+        }
+    }
+
+    /** Register the test-level configs with {@link StatsManager} before each test starts. */
+    @Override
+    public void onTestStart(DataRecord testData, Description description) {
+        mTestIterations.computeIfPresent(description.getDisplayName(), (name, count) -> count + 1);
+        mTestIterations.computeIfAbsent(description.getDisplayName(), name -> 1);
+        mTestLevelConfigIds = registerConfigsWithStatsManager(mTestLevelConfigs);
+
+        if (!logStart(TEST_EVENT_LABEL)) {
+            Log.w(LOG_TAG, "Failed to log a test start event. Metrics might be incomplete.");
+        }
+    }
+
+    /**
+     * Dump the test-level stats reports to the test-specific subdirectory after the test ends.
+     *
+     * <p>Dumps the stats regardless of whether the test passes.
+     */
+    @Override
+    public void onTestEnd(DataRecord testData, Description description) {
+        if (!logStop(TEST_EVENT_LABEL)) {
+            Log.w(LOG_TAG, "Failed to log a test end event. Metrics might be incomplete.");
+        }
+        SystemClock.sleep(METRIC_PULL_DELAY);
+
+        Map<String, File> configReports =
+                pullReportsAndRemoveConfigs(
+                        mTestLevelConfigIds,
+                        Paths.get(REPORT_PATH_ROOT, REPORT_PATH_TEST_LEVEL),
+                        getTestSuffix(description));
+        for (String configName : configReports.keySet()) {
+            testData.addFileMetric(REPORT_KEY_PREFIX + configName, configReports.get(configName));
         }
     }
 
@@ -111,6 +179,7 @@ public class StatsdListener extends BaseMetricListener {
             long configId = getUniqueIdForConfig(configs.get(configName));
             StatsdConfig newConfig = configs.get(configName).toBuilder().setId(configId).build();
             try {
+                Log.i(LOG_TAG, String.format("Adding config %s with ID %d.", configName, configId));
                 addStatsConfig(configId, newConfig.toByteArray());
                 configIds.put(configName, configId);
             } catch (StatsUnavailableException e) {
@@ -133,10 +202,12 @@ public class StatsdListener extends BaseMetricListener {
      * @param configIds Map of (config name, config Id)
      * @param directory relative directory on external storage to dump the report in. Each report
      *     will be named after its config.
+     * @param suffix a suffix to append to the metric report file name, used to differentiate
+     *     between tests and left empty for the test run.
      * @return Map of (config name, config report file)
      */
     private Map<String, File> pullReportsAndRemoveConfigs(
-            final Map<String, Long> configIds, Path directory) {
+            final Map<String, Long> configIds, Path directory, String suffix) {
         File externalStorage = Environment.getExternalStorageDirectory();
         File saveDirectory = new File(externalStorage, directory.toString());
         if (!saveDirectory.isDirectory()) {
@@ -148,10 +219,25 @@ public class StatsdListener extends BaseMetricListener {
             // Dump the metric report to external storage.
             ConfigMetricsReportList reportList;
             try {
+                Log.i(
+                        LOG_TAG,
+                        String.format(
+                                "Pulling metrics for config %s with ID %d.",
+                                configName, configIds.get(configName)));
                 reportList =
                         ConfigMetricsReportList.parseFrom(
                                 getStatsReports(configIds.get(configName)));
-                File reportFile = new File(saveDirectory, configName + PROTO_EXTENSION);
+                Log.i(
+                        LOG_TAG,
+                        String.format(
+                                "Found %d metric %s from config %s.",
+                                reportList.getReportsCount(),
+                                reportList.getReportsCount() == 1 ? "report" : "reports",
+                                configName));
+                File reportFile =
+                        new File(
+                                saveDirectory,
+                                REPORT_FILENAME_PREFIX + configName + suffix + PROTO_EXTENSION);
                 writeToFile(reportFile, reportList.toByteArray());
                 savedConfigFiles.put(configName, reportFile);
             } catch (StatsUnavailableException e) {
@@ -177,6 +263,11 @@ public class StatsdListener extends BaseMetricListener {
 
             // Remove the statsd config.
             try {
+                Log.i(
+                        LOG_TAG,
+                        String.format(
+                                "Removing config %s with ID %d.",
+                                configName, configIds.get(configName)));
                 removeStatsConfig(configIds.get(configName));
             } catch (StatsUnavailableException e) {
                 Log.e(
@@ -222,6 +313,25 @@ public class StatsdListener extends BaseMetricListener {
                                     .getSystemService(Context.STATS_MANAGER);
         }
         return mStatsManager;
+    }
+
+    /** Get the suffix for a test + iteration combination to differentiate it from other files. */
+    @VisibleForTesting
+    String getTestSuffix(Description description) {
+        return String.format(
+                TEST_SUFFIX_TEMPLATE,
+                formatDescription(description),
+                mTestIterations.get(description.getDisplayName()));
+    }
+
+    /** Format a JUnit {@link Description} to a desired string format. */
+    @VisibleForTesting
+    String formatDescription(Description description) {
+        // Use String.valueOf() to guard agaist a null class name. This normally should not happen
+        // but the Description class does not explicitly guarantee it.
+        String className = String.valueOf(description.getClassName());
+        String methodName = description.getMethodName();
+        return methodName == null ? className : String.join("#", className, methodName);
     }
 
     /**
@@ -309,11 +419,11 @@ public class StatsdListener extends BaseMetricListener {
             final AssetManager manager, String optionName, String configName) {
         try (InputStream configStream = openConfigWithAssetManager(manager, configName)) {
             try {
-                return StatsdConfig.parseFrom(configStream);
+                return fixPermissions(StatsdConfig.parseFrom(configStream));
             } catch (IOException e) {
                 throw new RuntimeException(
                         String.format(
-                                "Cannot parse profile %s in option %s.", configName, optionName),
+                                "Cannot parse config %s in option %s.", configName, optionName),
                         e);
             }
         } catch (IOException e) {
@@ -346,5 +456,40 @@ public class StatsdListener extends BaseMetricListener {
                                 Function.identity(),
                                 configName ->
                                         parseConfigFromName(manager, optionName, configName)));
+    }
+
+    /**
+     * Log a "start" AppBreadcrumbReported event to statsd. Wraps a static method for testing.
+     *
+     * @hide
+     */
+    @VisibleForTesting
+    protected boolean logStart(int label) {
+        return StatsLog.logStart(label);
+    }
+
+    /**
+     * Log a "stop" AppBreadcrumbReported event to statsd. Wraps a static method for testing.
+     *
+     * @hide
+     */
+    @VisibleForTesting
+    protected boolean logStop(int label) {
+        return StatsLog.logStop(label);
+    }
+
+    /**
+     * Add a few permission-related options to the statsd config.
+     *
+     * <p>This is related to some new permission restrictions in RVC.
+     */
+    private StatsdConfig fixPermissions(StatsdConfig config) {
+        StatsdConfig.Builder builder = config.toBuilder();
+        // Allow system power stats to be pulled.
+        builder.addDefaultPullPackages("AID_SYSTEM");
+        // Gauge metrics rely on AppBreadcrumbReported as metric dump triggers.
+        builder.addWhitelistedAtomIds(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER);
+
+        return builder.build();
     }
 }

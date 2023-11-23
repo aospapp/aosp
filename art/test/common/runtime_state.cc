@@ -19,6 +19,7 @@
 #include <android-base/logging.h>
 #include <android-base/macros.h>
 
+#include "art_field.h"
 #include "art_method-inl.h"
 #include "base/enums.h"
 #include "common_throws.h"
@@ -29,12 +30,15 @@
 #include "jit/profiling_info.h"
 #include "jni/jni_internal.h"
 #include "mirror/class-inl.h"
+#include "mirror/class.h"
 #include "nativehelper/ScopedUtfChars.h"
+#include "oat.h"
 #include "oat_file.h"
 #include "oat_quick_method_header.h"
 #include "profile/profile_compilation_info.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
+#include "scoped_thread_state_change.h"
 #include "thread-current-inl.h"
 
 namespace art {
@@ -64,6 +68,24 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_hasOatFile(JNIEnv* env, jclass c
   const DexFile& dex_file = klass->GetDexFile();
   const OatDexFile* oat_dex_file = dex_file.GetOatDexFile();
   return (oat_dex_file != nullptr) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_Main_getCompilerFilter(JNIEnv* env,
+                                                                 jclass caller ATTRIBUTE_UNUSED,
+                                                                 jclass cls) {
+  ScopedObjectAccess soa(env);
+
+  ObjPtr<mirror::Class> klass = soa.Decode<mirror::Class>(cls);
+  const DexFile& dex_file = klass->GetDexFile();
+  const OatDexFile* oat_dex_file = dex_file.GetOatDexFile();
+  if (oat_dex_file == nullptr) {
+    return nullptr;
+  }
+
+  std::string filter =
+      CompilerFilter::NameOfFilter(oat_dex_file->GetOatFile()->GetCompilerFilter());
+  return soa.AddLocalReference<jobject>(
+      mirror::String::AllocFromModifiedUtf8(soa.Self(), filter.c_str()));
 }
 
 // public static native boolean runtimeIsSoftFail();
@@ -157,7 +179,8 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_isAotCompiled(JNIEnv* env,
   }
   const void* actual_code = method->GetEntryPointFromQuickCompiledCodePtrSize(kRuntimePointerSize);
   bool interpreter =
-      Runtime::Current()->GetClassLinker()->ShouldUseInterpreterEntrypoint(method, actual_code);
+      Runtime::Current()->GetClassLinker()->ShouldUseInterpreterEntrypoint(method, actual_code) ||
+      (actual_code == interpreter::GetNterpEntryPoint());
   return !interpreter;
 }
 
@@ -218,13 +241,27 @@ static void ForceJitCompiled(Thread* self, ArtMethod* method) REQUIRES(!Locks::m
       ThrowIllegalStateException(msg.c_str());
       return;
     }
-    // We force initialization of the declaring class to make sure the method doesn't keep
-    // the resolution stub as entrypoint.
+    // We force visible initialization of the declaring class to make sure the method
+    // doesn't keep the resolution stub as entrypoint.
     StackHandleScope<1> hs(self);
     Handle<mirror::Class> h_klass(hs.NewHandle(method->GetDeclaringClass()));
-    if (!Runtime::Current()->GetClassLinker()->EnsureInitialized(self, h_klass, true, true)) {
+    ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+    if (!class_linker->EnsureInitialized(self, h_klass, true, true)) {
       self->AssertPendingException();
       return;
+    }
+    if (UNLIKELY(!h_klass->IsInitialized())) {
+      // Must be initializing in this thread.
+      CHECK_EQ(h_klass->GetStatus(), ClassStatus::kInitializing);
+      CHECK_EQ(h_klass->GetClinitThreadId(), self->GetTid());
+      std::string msg(method->PrettyMethod());
+      msg += ": is not safe to jit because the class is being initialized in this thread!";
+      ThrowIllegalStateException(msg.c_str());
+      return;
+    }
+    if (!h_klass->IsVisiblyInitialized()) {
+      ScopedThreadSuspension sts(self, ThreadState::kNative);
+      class_linker->MakeInitializedClassesVisiblyInitialized(self, /*wait=*/ true);
     }
   }
   jit::Jit* jit = GetJitIfEnabled();
@@ -235,18 +272,22 @@ static void ForceJitCompiled(Thread* self, ArtMethod* method) REQUIRES(!Locks::m
   while (true) {
     if (native && code_cache->ContainsMethod(method)) {
       break;
-    } else if (code_cache->WillExecuteJitCode(method)) {
-      break;
     } else {
       // Sleep to yield to the compiler thread.
       usleep(1000);
       ScopedObjectAccess soa(self);
-      if (!native) {
+      if (!native && jit->GetCodeCache()->CanAllocateProfilingInfo()) {
         // Make sure there is a profiling info, required by the compiler.
         ProfilingInfo::Create(self, method, /* retry_allocation */ true);
       }
-      // Will either ensure it's compiled or do the compilation itself.
-      jit->CompileMethod(method, self, /*baseline=*/ false, /*osr=*/ false);
+      // Will either ensure it's compiled or do the compilation itself. We do
+      // this before checking if we will execute JIT code to make sure the
+      // method is compiled 'optimized' and not baseline (tests expect optimized
+      // compilation).
+      jit->CompileMethod(method, self, /*baseline=*/ false, /*osr=*/ false, /*prejit=*/ false);
+      if (code_cache->WillExecuteJitCode(method)) {
+        break;
+      }
     }
   }
 }
@@ -365,17 +406,6 @@ extern "C" JNIEXPORT jint JNICALL Java_Main_getJitThreshold(JNIEnv*, jclass) {
   return (jit != nullptr) ? jit->HotMethodThreshold() : 0;
 }
 
-extern "C" JNIEXPORT void JNICALL Java_Main_transitionJitFromZygote(JNIEnv*, jclass) {
-  jit::Jit* jit = Runtime::Current()->GetJit();
-  if (jit == nullptr) {
-    return;
-  }
-  // Mimic the transition behavior a zygote fork would have.
-  jit->PreZygoteFork();
-  jit->GetCodeCache()->PostForkChildAction(/*is_system_server=*/ false, /*is_zygote=*/ false);
-  jit->PostForkChildAction(/*is_system_server=*/ false, /*is_zygote=*/ false);
-}
-
 extern "C" JNIEXPORT void JNICALL Java_Main_deoptimizeBootImage(JNIEnv*, jclass) {
   ScopedSuspendAll ssa(__FUNCTION__);
   Runtime::Current()->DeoptimizeBootImage();
@@ -387,6 +417,18 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_isDebuggable(JNIEnv*, jclass) {
 
 extern "C" JNIEXPORT void JNICALL Java_Main_setTargetSdkVersion(JNIEnv*, jclass, jint version) {
   Runtime::Current()->SetTargetSdkVersion(static_cast<uint32_t>(version));
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_Main_genericFieldOffset(JNIEnv* env, jclass, jobject fld) {
+  jfieldID fid = env->FromReflectedField(fld);
+  ScopedObjectAccess soa(env);
+  ArtField* af = jni::DecodeArtField(fid);
+  return af->GetOffset().Int32Value();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_Main_isObsoleteObject(JNIEnv* env, jclass, jclass c) {
+  ScopedObjectAccess soa(env);
+  return soa.Decode<mirror::Class>(c)->IsObsoleteObject();
 }
 
 }  // namespace art

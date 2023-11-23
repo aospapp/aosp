@@ -28,13 +28,23 @@ bootstrap_go_package {
         "aidl_interface.go",
         "properties.go",
     ],
+    testSrcs: [
+        "aidl_test.go",
+    ],
     pluginFor: ["soong_build"],
+}
+
+aidl_interfaces_metadata {
+    name: "aidl_metadata_json",
+    visibility: ["//system/tools/aidl:__subpackages__"],
 }
 
 // These configurations are inherited by all aidl-gen modules
 
 cc_defaults {
     name: "aidl-cpp-module-defaults",
+    // TODO(b/31559095): remove when host bionic is available
+    defaults: ["libbinder_ndk_host_user"],
     cflags: [
         "-Wall",
         "-Werror",
@@ -48,16 +58,25 @@ java_defaults {
 
 // Tests
 
-// Copy of test-piece-1 as test only. Creating a separate library because 'vendor_available' is
-// contagious.
-aidl_interface {
-    name: "test-vendor",
-    local_include_dir: "tests_1",
-    vendor_available: true,
+filegroup {
+    name: "aidl-test-filegroup",
     srcs: [
         "tests_1/some_package/IFoo.aidl",
         "tests_1/some_package/Thing.aidl",
         "tests_1/some_package/sub_package/*.aidl",
+    ],
+}
+
+// Copy of test-piece-1 as test only. Creating a separate library because 'vendor_available' is
+// contagious.
+aidl_interface {
+    name: "test-variants",
+    unstable: true,
+    local_include_dir: "tests_1",
+    vendor_available: true,
+    host_supported: true,
+    srcs: [
+        ":aidl-test-filegroup",
     ],
 }
 
@@ -67,10 +86,13 @@ aidl_interface {
     srcs: [
         "tests_1/some_package/IFoo.aidl",
         "tests_1/some_package/Thing.aidl",
-        "tests_1/some_package/sub_package/*.aidl",
+        "tests_1/some_package/sub_package/*.aidl", // testing glob w/o filegroup
     ],
-    api_dir: "api/test-piece-1",
-    versions: ["1"],
+    versions: [
+        "1",
+        "2",
+        "3",
+    ],
 }
 
 aidl_interface {
@@ -83,7 +105,6 @@ aidl_interface {
     imports: [
         "test-piece-1",
     ],
-    api_dir: "api/test-piece-2",
     versions: ["1"],
 }
 
@@ -96,7 +117,6 @@ aidl_interface {
     imports: [
         "test-piece-2",
     ],
-    api_dir: "api/test-piece-3",
     versions: ["1"],
 }
 
@@ -109,7 +129,6 @@ aidl_interface {
     imports: [
         "test-piece-1",
     ],
-    api_dir: "api/test-piece-4",
     versions: ["1"],
 }
 
@@ -121,5 +140,8 @@ aidl_interface {
     imports: [
         "test-piece-2",
     ],
-    versions: ["1", "2"],
+    versions: [
+        "1",
+        "2",
+    ],
 }

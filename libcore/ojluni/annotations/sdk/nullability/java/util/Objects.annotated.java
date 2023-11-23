@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -54,6 +54,10 @@ public static <T> int compare(@libcore.util.NullFromTypeParam T a, @libcore.util
 public static boolean isNull(@libcore.util.Nullable java.lang.Object obj) { throw new RuntimeException("Stub!"); }
 
 public static boolean nonNull(@libcore.util.Nullable java.lang.Object obj) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <T> T requireNonNullElse(@libcore.util.Nullable T obj, @libcore.util.NonNull T defaultObj) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <T> T requireNonNullElseGet(@libcore.util.Nullable T obj, @libcore.util.NonNull java.util.function.Supplier<? extends @libcore.util.NonNull T> supplier) { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public static <T> T requireNonNull(@libcore.util.Nullable T obj, @libcore.util.NonNull java.util.function.Supplier<@libcore.util.NonNull java.lang.String> messageSupplier) { throw new RuntimeException("Stub!"); }
 }

@@ -60,7 +60,7 @@ public class ManagedFileContentProvider extends ContentProvider {
                 COLUMN_METADATA
             };
 
-    private static String TAG = "ManagedFileContentProvider";
+    private static final String TAG = "ManagedFileContentProvider";
     private static MimeTypeMap sMimeMap = MimeTypeMap.getSingleton();
 
     private Map<Uri, ContentValues> mFileTracker = new HashMap<>();

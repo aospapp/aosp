@@ -92,16 +92,18 @@ Enum::EnumField::EnumField(const string& k, const string& v)
     : key(k),
       value(v) {}
 
-Enum::Enum(const string& name, const string& base_type)
-    : enum_name_(name), underlying_type_(base_type) {}
-
-Enum::Enum(const string& name) : Enum(name, "") {}
+Enum::Enum(const string& name, const string& base_type, bool is_class)
+    : enum_name_(name), underlying_type_(base_type), is_class_(is_class) {}
 
 void Enum::Write(CodeWriter* to) const {
+  to->Write("enum ");
+  if (is_class_) {
+    to->Write("class ");
+  }
   if (underlying_type_.empty()) {
-    to->Write("enum %s {\n", enum_name_.c_str());
+    to->Write("%s {\n", enum_name_.c_str());
   } else {
-    to->Write("enum %s : %s {\n", enum_name_.c_str(), underlying_type_.c_str());
+    to->Write("%s : %s {\n", enum_name_.c_str(), underlying_type_.c_str());
   }
   to->Indent();
   for (const auto& field : fields_) {
@@ -260,6 +262,10 @@ ConstructorImpl::ConstructorImpl(const string& class_name,
       : class_name_(class_name),
         arguments_(std::move(arg_list)),
         initializer_list_(initializer_list) {}
+
+StatementBlock* ConstructorImpl::GetStatementBlock() {
+  return &body_;
+}
 
 void ConstructorImpl::Write(CodeWriter* to) const {
   to->Write("%s::%s", class_name_.c_str(), class_name_.c_str());

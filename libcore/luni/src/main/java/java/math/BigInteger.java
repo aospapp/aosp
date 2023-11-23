@@ -885,6 +885,26 @@ public class BigInteger extends Number
      * @throws NullPointerException if {@code value == null}.
      */
     @NonNull public BigInteger gcd(@NonNull BigInteger value) {
+        // First optimize the case in which the two arguments have very different
+        // length.
+        int thisLen = bitLength();
+        int valueLen = value.bitLength();
+        final int gcdDirectRatio = 16;
+        if (thisLen > gcdDirectRatio * valueLen) {
+            // A division-based step reduces the length of this by a factor of at
+            // least gcdDirectRatio, thus ensuring that a division-based step will
+            // easily pay for itself.
+            if (value.signum() == 0) {
+                return this.abs();
+            }
+            return value.gcd(this.mod(value.abs()));
+        } else if (valueLen > gcdDirectRatio * thisLen) {
+            if (signum() == 0) {
+                return value.abs();
+            }
+            return this.gcd(value.mod(this.abs()));
+        }
+
         return new BigInteger(BigInt.gcd(getBigInt(), value.getBigInt()));
     }
 

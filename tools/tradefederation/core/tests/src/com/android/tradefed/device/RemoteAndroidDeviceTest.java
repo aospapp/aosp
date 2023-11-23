@@ -56,6 +56,11 @@ public class RemoteAndroidDeviceTest {
         protected IRunUtil getRunUtil() {
             return mMockRunUtil;
         }
+
+        @Override
+        public String getSerialNumber() {
+            return MOCK_DEVICE_SERIAL;
+        }
     }
 
     @Before
@@ -158,8 +163,13 @@ public class RemoteAndroidDeviceTest {
 
     @Test
     public void testCheckSerial_invalid() {
-        mMockIDevice = EasyMock.createMock(IDevice.class);
-        EasyMock.expect(mMockIDevice.getSerialNumber()).andReturn("wrongserial").anyTimes();
+        mTestDevice =
+                new TestableRemoteAndroidDevice() {
+                    @Override
+                    public String getSerialNumber() {
+                        return "wrongserial";
+                    }
+                };
         try {
             mTestDevice.getHostName();
         } catch (RuntimeException e) {
@@ -172,8 +182,13 @@ public class RemoteAndroidDeviceTest {
     /** Reject placeholder style device */
     @Test
     public void testCheckSerial_placeholder() {
-        mMockIDevice = EasyMock.createMock(IDevice.class);
-        EasyMock.expect(mMockIDevice.getSerialNumber()).andReturn("gce-device:3").anyTimes();
+        mTestDevice =
+                new TestableRemoteAndroidDevice() {
+                    @Override
+                    public String getSerialNumber() {
+                        return "gce-device:3";
+                    }
+                };
         try {
             mTestDevice.getHostName();
         } catch (RuntimeException e) {

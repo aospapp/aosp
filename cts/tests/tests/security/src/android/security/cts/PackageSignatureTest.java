@@ -52,9 +52,11 @@ public class PackageSignatureTest extends AndroidTestCase {
         PackageManager packageManager = mContext.getPackageManager();
         List<PackageInfo> allPackageInfos = packageManager.getInstalledPackages(
                 PackageManager.GET_UNINSTALLED_PACKAGES |
-                PackageManager.GET_SIGNATURES);
+                PackageManager.GET_SIGNATURES |
+                PackageManager.MATCH_APEX);
         for (PackageInfo packageInfo : allPackageInfos) {
             String packageName = packageInfo.packageName;
+            Log.v(TAG, "Scanning " + packageName);
             if (packageName != null && !isWhitelistedPackage(packageName)) {
                 for (Signature signature : packageInfo.signatures) {
                     if (wellKnownSignatures.contains(signature)) {
@@ -68,6 +70,14 @@ public class PackageSignatureTest extends AndroidTestCase {
                 badPackages.isEmpty());
     }
 
+    /**
+     * Returns the well-known dev-key signatures, e.g. to detect cases where devices under test are
+     * using modules that have been signed using dev keys; Google will supply modules that have been
+     * signed with production keys in all cases.
+     *
+     * <p>See {@link #writeSignature(String, String)} for instructions for how to create the raw
+     * .bin files when adding entries to this list.
+     */
     private Set<Signature> getWellKnownSignatures() throws NotFoundException, IOException {
         Set<Signature> wellKnownSignatures = new HashSet<Signature>();
         wellKnownSignatures.add(getSignature(R.raw.sig_media));
@@ -80,6 +90,23 @@ public class PackageSignatureTest extends AndroidTestCase {
         wellKnownSignatures.add(getSignature(R.raw.sig_devkeys_platform));
         wellKnownSignatures.add(getSignature(R.raw.sig_devkeys_shared));
         wellKnownSignatures.add(getSignature(R.raw.sig_devkeys_networkstack));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_android_conscrypt));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_android_media));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_android_media_swcodec));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_android_resolv));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_android_runtime_debug));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_android_runtime_release));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_android_tzdata));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_google_android_conscrypt));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_google_android_media));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_google_android_media_swcodec));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_google_android_resolv));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_google_android_runtime_debug));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_google_android_runtime_release));
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_google_android_tzdata2));
+        // The following keys are no longer in use by modules, but it won't negatively affect tests
+        // to include their signatures here too.
+        wellKnownSignatures.add(getSignature(R.raw.sig_com_google_android_tzdata));
         return wellKnownSignatures;
     }
 
@@ -117,6 +144,8 @@ public class PackageSignatureTest extends AndroidTestCase {
             // Test package to verify upgrades to privileged applications
             "com.android.cts.priv.ctsshim",
             "com.android.cts.ctsshim",
+            // Test APEX used in CTS tests.
+            "com.android.apex.cts.shim",
 
             // Oom Catcher package to prevent tests from ooming device.
             "com.android.cts.oomcatcher"

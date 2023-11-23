@@ -28,7 +28,7 @@
 #   --add-gnu-debuglink
 #   --keep-mini-debug-info
 #   --keep-symbols
-#   --use-gnu-strip
+#   --keep-symbols-and-debug-frame
 #   --remove-build-id
 
 set -o pipefail
@@ -39,80 +39,59 @@ usage() {
     cat <<EOF
 Usage: strip.sh [options] -k symbols -i in-file -o out-file -d deps-file
 Options:
-        --add-gnu-debuglink     Add a gnu-debuglink section to out-file
-        --keep-mini-debug-info  Keep compressed debug info in out-file
-        --keep-symbols          Keep symbols in out-file
-        --use-gnu-strip         Use strip/objcopy instead of llvm-{strip,objcopy}
-        --remove-build-id       Remove the gnu build-id section in out-file
+        --add-gnu-debuglink             Add a gnu-debuglink section to out-file
+        --keep-mini-debug-info          Keep compressed debug info in out-file
+        --keep-symbols                  Keep symbols in out-file
+        --keep-symbols-and-debug-frame  Keep symbols and .debug_frame in out-file
+        --remove-build-id               Remove the gnu build-id section in out-file
 EOF
     exit 1
 }
 
-# Without --use-gnu-strip, GNU strip is replaced with llvm-strip to work around
-# old GNU strip bug on lld output files, b/80093681.
-# Similary, calls to objcopy are replaced with llvm-objcopy,
-# with some exceptions.
-
 do_strip() {
-    # ${CROSS_COMPILE}strip --strip-all does not strip .ARM.attributes,
+    # GNU strip --strip-all does not strip .ARM.attributes,
     # so we tell llvm-strip to keep it too.
-    if [ -z "${use_gnu_strip}" ]; then
-        "${CLANG_BIN}/llvm-strip" --strip-all -keep-section=.ARM.attributes "${infile}" -o "${outfile}.tmp"
-    else
-        "${CROSS_COMPILE}strip" --strip-all "${infile}" -o "${outfile}.tmp"
-    fi
+    "${CLANG_BIN}/llvm-strip" --strip-all --keep-section=.ARM.attributes "${infile}" -o "${outfile}.tmp"
+}
+
+do_strip_keep_symbols_and_debug_frame() {
+    REMOVE_SECTIONS=`"${CLANG_BIN}/llvm-readelf" -S "${infile}" | awk '/.debug_/ {if ($2 != ".debug_frame") {print "--remove-section " $2}}' | xargs`
+    "${CLANG_BIN}/llvm-objcopy" "${infile}" "${outfile}.tmp" ${REMOVE_SECTIONS}
 }
 
 do_strip_keep_symbols() {
-    REMOVE_SECTIONS=`"${CROSS_COMPILE}readelf" -S "${infile}" | awk '/.debug_/ {print "--remove-section " $2}' | xargs`
-    if [ -z "${use_gnu_strip}" ]; then
-        "${CLANG_BIN}/llvm-objcopy" "${infile}" "${outfile}.tmp" ${REMOVE_SECTIONS}
-    else
-        "${CROSS_COMPILE}objcopy" "${infile}" "${outfile}.tmp" ${REMOVE_SECTIONS}
-    fi
+    REMOVE_SECTIONS=`"${CLANG_BIN}/llvm-readelf" -S "${infile}" | awk '/.debug_/ {print "--remove-section " $2}' | xargs`
+    "${CLANG_BIN}/llvm-objcopy" "${infile}" "${outfile}.tmp" ${REMOVE_SECTIONS}
 }
 
 do_strip_keep_symbol_list() {
-    if [ -z "${use_gnu_strip}" ]; then
-        echo "do_strip_keep_symbol_list does not work with llvm-objcopy"
-        echo "http://b/131631155"
-        usage
-    fi
-
     echo "${symbols_to_keep}" | tr ',' '\n' > "${outfile}.symbolList"
-    KEEP_SYMBOLS="-w --strip-unneeded-symbol=* --keep-symbols="
-    KEEP_SYMBOLS+="${outfile}.symbolList"
 
-    "${CROSS_COMPILE}objcopy" "${infile}" "${outfile}.tmp" ${KEEP_SYMBOLS}
+    KEEP_SYMBOLS="--strip-unneeded-symbol=* --keep-symbols="
+    KEEP_SYMBOLS+="${outfile}.symbolList"
+    "${CROSS_COMPILE}objcopy" -w "${infile}" "${outfile}.tmp" ${KEEP_SYMBOLS}
 }
 
 do_strip_keep_mini_debug_info() {
     rm -f "${outfile}.dynsyms" "${outfile}.funcsyms" "${outfile}.keep_symbols" "${outfile}.debug" "${outfile}.mini_debuginfo" "${outfile}.mini_debuginfo.xz"
     local fail=
-    if [ -z "${use_gnu_strip}" ]; then
-        "${CLANG_BIN}/llvm-strip" --strip-all -keep-section=.ARM.attributes -remove-section=.comment "${infile}" -o "${outfile}.tmp" || fail=true
-    else
-        "${CROSS_COMPILE}strip" --strip-all -R .comment "${infile}" -o "${outfile}.tmp" || fail=true
-    fi
+    "${CLANG_BIN}/llvm-strip" --strip-all --keep-section=.ARM.attributes --remove-section=.comment "${infile}" -o "${outfile}.tmp" || fail=true
+
     if [ -z $fail ]; then
-        # Current prebult llvm-objcopy does not support the following flags:
-        #    --only-keep-debug --rename-section --keep-symbols
-        # For the following use cases, ${CROSS_COMPILE}objcopy does fine with lld linked files,
-        # except the --add-section flag.
+        # Current prebult llvm-objcopy does not support --only-keep-debug flag,
+        # and cannot process object files that are produced with the flag. Use
+        # GNU objcopy instead for now. (b/141010852)
         "${CROSS_COMPILE}objcopy" --only-keep-debug "${infile}" "${outfile}.debug"
-        "${CROSS_COMPILE}nm" -D "${infile}" --format=posix --defined-only 2> /dev/null | awk '{ print $1 }' | sort >"${outfile}.dynsyms"
-        "${CROSS_COMPILE}nm" "${infile}" --format=posix --defined-only | awk '{ if ($2 == "T" || $2 == "t" || $2 == "D") print $1 }' | sort > "${outfile}.funcsyms"
+        "${CLANG_BIN}/llvm-nm" -D "${infile}" --format=posix --defined-only 2> /dev/null | awk '{ print $1 }' | sort >"${outfile}.dynsyms"
+        "${CLANG_BIN}/llvm-nm" "${infile}" --format=posix --defined-only | awk '{ if ($2 == "T" || $2 == "t" || $2 == "D") print $1 }' | sort > "${outfile}.funcsyms"
         comm -13 "${outfile}.dynsyms" "${outfile}.funcsyms" > "${outfile}.keep_symbols"
         echo >> "${outfile}.keep_symbols" # Ensure that the keep_symbols file is not empty.
         "${CROSS_COMPILE}objcopy" --rename-section .debug_frame=saved_debug_frame "${outfile}.debug" "${outfile}.mini_debuginfo"
         "${CROSS_COMPILE}objcopy" -S --remove-section .gdb_index --remove-section .comment --keep-symbols="${outfile}.keep_symbols" "${outfile}.mini_debuginfo"
         "${CROSS_COMPILE}objcopy" --rename-section saved_debug_frame=.debug_frame "${outfile}.mini_debuginfo"
         "${XZ}" "${outfile}.mini_debuginfo"
-        if [ -z "${use_gnu_strip}" ]; then
-            "${CLANG_BIN}/llvm-objcopy" --add-section .gnu_debugdata="${outfile}.mini_debuginfo.xz" "${outfile}.tmp"
-        else
-            "${CROSS_COMPILE}objcopy" --add-section .gnu_debugdata="${outfile}.mini_debuginfo.xz" "${outfile}.tmp"
-        fi
+
+        "${CLANG_BIN}/llvm-objcopy" --add-section .gnu_debugdata="${outfile}.mini_debuginfo.xz" "${outfile}.tmp"
         rm -f "${outfile}.dynsyms" "${outfile}.funcsyms" "${outfile}.keep_symbols" "${outfile}.debug" "${outfile}.mini_debuginfo" "${outfile}.mini_debuginfo.xz"
     else
         cp -f "${infile}" "${outfile}.tmp"
@@ -120,19 +99,11 @@ do_strip_keep_mini_debug_info() {
 }
 
 do_add_gnu_debuglink() {
-    if [ -z "${use_gnu_strip}" ]; then
-        "${CLANG_BIN}/llvm-objcopy" --add-gnu-debuglink="${infile}" "${outfile}.tmp"
-    else
-        "${CROSS_COMPILE}objcopy" --add-gnu-debuglink="${infile}" "${outfile}.tmp"
-    fi
+    "${CLANG_BIN}/llvm-objcopy" --add-gnu-debuglink="${infile}" "${outfile}.tmp"
 }
 
 do_remove_build_id() {
-    if [ -z "${use_gnu_strip}" ]; then
-        "${CLANG_BIN}/llvm-strip" -remove-section=.note.gnu.build-id "${outfile}.tmp" -o "${outfile}.tmp.no-build-id"
-    else
-        "${CROSS_COMPILE}strip" --remove-section=.note.gnu.build-id "${outfile}.tmp" -o "${outfile}.tmp.no-build-id"
-    fi
+    "${CLANG_BIN}/llvm-strip" --remove-section=.note.gnu.build-id "${outfile}.tmp" -o "${outfile}.tmp.no-build-id"
     rm -f "${outfile}.tmp"
     mv "${outfile}.tmp.no-build-id" "${outfile}.tmp"
 }
@@ -148,8 +119,8 @@ while getopts $OPTSTRING opt; do
                 add-gnu-debuglink) add_gnu_debuglink=true ;;
                 keep-mini-debug-info) keep_mini_debug_info=true ;;
                 keep-symbols) keep_symbols=true ;;
+                keep-symbols-and-debug-frame) keep_symbols_and_debug_frame=true ;;
                 remove-build-id) remove_build_id=true ;;
-                use-gnu-strip) use_gnu_strip=true ;;
                 *) echo "Unknown option --${OPTARG}"; usage ;;
             esac;;
         ?) usage ;;
@@ -177,6 +148,16 @@ if [ ! -z "${keep_symbols}" -a ! -z "${keep_mini_debug_info}" ]; then
     usage
 fi
 
+if [ ! -z "${keep_symbols}" -a ! -z "${keep_symbols_and_debug_frame}" ]; then
+    echo "--keep-symbols and --keep-symbols-and-debug-frame cannot be used together"
+    usage
+fi
+
+if [ ! -z "${keep_mini_debug_info}" -a ! -z "${keep_symbols_and_debug_frame}" ]; then
+    echo "--keep-symbols-mini-debug-info and --keep-symbols-and-debug-frame cannot be used together"
+    usage
+fi
+
 if [ ! -z "${symbols_to_keep}" -a ! -z "${keep_symbols}" ]; then
     echo "--keep-symbols and -k cannot be used together"
     usage
@@ -195,6 +176,8 @@ elif [ ! -z "${symbols_to_keep}" ]; then
     do_strip_keep_symbol_list
 elif [ ! -z "${keep_mini_debug_info}" ]; then
     do_strip_keep_mini_debug_info
+elif [ ! -z "${keep_symbols_and_debug_frame}" ]; then
+    do_strip_keep_symbols_and_debug_frame
 else
     do_strip
 fi
@@ -210,18 +193,13 @@ fi
 rm -f "${outfile}"
 mv "${outfile}.tmp" "${outfile}"
 
-if [ -z "${use_gnu_strip}" ]; then
-  USED_STRIP_OBJCOPY="${CLANG_BIN}/llvm-strip ${CLANG_BIN}/llvm-objcopy"
-else
-  USED_STRIP_OBJCOPY="${CROSS_COMPILE}strip"
-fi
-
 cat <<EOF > "${depsfile}"
 ${outfile}: \
   ${infile} \
-  ${CROSS_COMPILE}nm \
   ${CROSS_COMPILE}objcopy \
-  ${CROSS_COMPILE}readelf \
-  ${USED_STRIP_OBJCOPY}
+  ${CLANG_BIN}/llvm-nm \
+  ${CLANG_BIN}/llvm-objcopy \
+  ${CLANG_BIN}/llvm-readelf \
+  ${CLANG_BIN}/llvm-strip
 
 EOF

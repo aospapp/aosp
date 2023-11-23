@@ -344,10 +344,12 @@ public class UsageReportingTest extends ActivityManagerTestBase {
         mUsageStatsManager.reportUsageStart(activity1, TOKEN_0);
         assertAppOrTokenUsed(mFullToken0, true);
 
-        // Send the device to sleep to get onStop called for the token reporting activities.
-        mUiDevice.sleep();
-        Thread.sleep(1000);
-        assertAppOrTokenUsed(mFullToken0, false);
+        // Send the device to keyguard to get onStop called for the token reporting activities.
+        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
+            lockScreenSession.gotoKeyguard();
+            Thread.sleep(1000);
+            assertAppOrTokenUsed(mFullToken0, false);
+        }
     }
 
     private void assertAppOrTokenUsed(String entity, boolean expected) throws Exception {

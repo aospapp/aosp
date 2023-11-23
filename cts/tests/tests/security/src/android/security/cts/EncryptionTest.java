@@ -16,6 +16,7 @@
 
 package android.security.cts;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.PropertyUtil;
 
 import android.platform.test.annotations.AppModeFull;
@@ -64,10 +65,10 @@ public class EncryptionTest extends AndroidTestCase {
     private void handleEncryptedDevice() {
         if ("file".equals(PropertyUtil.getProperty("ro.crypto.type"))) {
             Log.d(TAG, "Device is encrypted with file-based encryption.");
-            // TODO(b/111311698): If we're able to determine if the hardware
-            //     has AES instructions, confirm that AES, and only AES,
-            //     is in use.  If the hardware does not have AES instructions,
-            //     confirm that either AES or Adiantum is in use.
+            // Note: this test doesn't check whether the requirements for
+            // encryption algorithms are met, since apps don't have a way to
+            // query this information.  Instead, it's tested in
+            // CtsNativeEncryptionTestCases.
             return;
         }
         if (PropertyUtil.getFirstApiLevel() < MIN_FBE_REQUIRED_API_LEVEL) {
@@ -80,6 +81,7 @@ public class EncryptionTest extends AndroidTestCase {
     // "getprop", used by PropertyUtil.getProperty(), is not executable
     // to instant apps
     @AppModeFull
+    @CddTest(requirement="9.9.2/C-0-1,C-0-2,C-0-3")
     public void testEncryption() throws Exception {
         if ("encrypted".equals(PropertyUtil.getProperty("ro.crypto.state"))) {
             handleEncryptedDevice();

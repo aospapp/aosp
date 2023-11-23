@@ -38,12 +38,12 @@ public class KeyIdentifier {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public KeyIdentifier(java.security.PublicKey pubKey) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getIdentifier() {
         throw new RuntimeException("Stub!");
     }
@@ -64,5 +64,5 @@ public class KeyIdentifier {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private byte[] octetString;
+    @android.compat.annotation.UnsupportedAppUsage private byte[] octetString;
 }

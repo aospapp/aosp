@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="component" value="framework"/>
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true"/>
@@ -37,6 +38,8 @@
         <option name="test-file-name" value="CtsDeviceTranslucentTestApp.apk" />
         <option name="test-file-name" value="CtsDeviceTranslucentTestApp26.apk" />
         <option name="test-file-name" value="CtsMockInputMethod.apk" />
+        <option name="test-file-name" value="CtsDeviceServicesTestShareUidAppA.apk" />
+        <option name="test-file-name" value="CtsDeviceServicesTestShareUidAppB.apk" />
     </target_preparer>
     <!-- Some older apk cannot be installed as instant, so we force them full mode -->
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -44,6 +47,13 @@
         <option name="force-install-mode" value="FULL"/>
         <option name="test-file-name" value="CtsDragAndDropTargetAppSdk23.apk"/>
         <option name="test-file-name" value="CtsDeviceAlertWindowTestAppSdk25.apk"/>
+    </target_preparer>
+    <!-- Necessary for Automotive devices - no-op for other Android verticals -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command"
+                value="settings put secure android.car.ENABLE_INITIAL_NOTICE_SCREEN_TO_USER 0" />
+        <option name="teardown-command"
+                value="settings put secure android.car.ENABLE_INITIAL_NOTICE_SCREEN_TO_USER 1" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="android.server.wm.cts"/>

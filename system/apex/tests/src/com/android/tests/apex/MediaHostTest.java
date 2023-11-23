@@ -20,14 +20,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.IManagedTestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.util.CommandResult;
 
-import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,18 +44,8 @@ public class MediaHostTest extends ApexE2EBaseHostTest {
     private static final int DEFAULT_EXTRACTOR_PLUGIN_COUNT = 10;
     private static final String MEDIA_APEX_PATH = "/apex/com.android.media";
 
-    /**
-     * Tests that if Apex package can be staged, activated and uninstalled successfully.
-     */
-    @Test
-    public void testStageActivateUninstallApexPackage()
-                                throws DeviceNotAvailableException, IOException {
-        doTestStageActivateUninstallApexPackage();
-    }
-
     @Override
     public void additionalCheck() {
-        assertTrue(((IManagedTestDevice) getDevice()).getMonitor().waitForBootComplete(60000));
         checkMediaExtractor();
     }
 

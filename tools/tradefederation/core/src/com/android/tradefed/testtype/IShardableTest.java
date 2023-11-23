@@ -16,6 +16,7 @@
 package com.android.tradefed.testtype;
 
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 
 import java.util.Collection;
 
@@ -44,7 +45,7 @@ public interface IShardableTest extends IRemoteTest {
 
     /**
      * Alternative version of {@link #split()} which also provides the shardCount that is attempted
-     * to be run. This is useful for some test runner that cannot arbitrarly decide sometimes.
+     * to be run. This is useful for some test runner that cannot arbitrarily decide sometimes.
      *
      * @param shardCountHint the attempted shard count.
      * @return a collection of subtests to be executed separately or <code>null</code> if test is
@@ -52,5 +53,22 @@ public interface IShardableTest extends IRemoteTest {
      */
     public default Collection<IRemoteTest> split(int shardCountHint) {
         return split();
+    }
+
+    /**
+     * Alternative version of {@link #split(int)} which also provides a {@link TestInformation}
+     * which contains early info from the parent creating the shards. It is useful if things like
+     * device or build information need to be accessed during sharding.
+     *
+     * @param shardCountHint the attempted shard count.
+     * @param testInfo The parent {@link TestInformation}
+     * @return a collection of subtests to be executed separately or <code>null</code> if test is
+     *     not currently shardable
+     */
+    public default Collection<IRemoteTest> split(Integer shardCountHint, TestInformation testInfo) {
+        if (shardCountHint == null) {
+            return split();
+        }
+        return split(shardCountHint);
     }
 }

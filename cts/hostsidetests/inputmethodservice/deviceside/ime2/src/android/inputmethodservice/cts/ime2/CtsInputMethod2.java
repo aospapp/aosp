@@ -17,15 +17,15 @@
 package android.inputmethodservice.cts.ime2;
 
 import android.inputmethodservice.cts.ime.CtsBaseInputMethod;
+import android.inputmethodservice.cts.ime.Watermark;
 import android.view.View;
 
 /**
  * Implementation of test IME 2.
  */
 public final class CtsInputMethod2 extends CtsBaseInputMethod {
-
     @Override
     public View onCreateInputView() {
-        return getLayoutInflater().inflate(R.layout.input_view, null /* root */);
+        return createInputViewInternal(Watermark.IME2);
     }
 }

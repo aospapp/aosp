@@ -16,6 +16,8 @@
 
 #include "binder/iiorap_impl.h"
 #include "common/debug.h"
+#include "common/loggers.h"
+#include "db/models.h"
 #include "manager/event_manager.h"
 
 #include <android-base/logging.h>
@@ -27,27 +29,6 @@
 
 static constexpr const char* kServiceName = iorap::binder::IIorapImpl::getServiceName();
 
-// Log to both Stderr and Logd for convenience when running this from the command line.
-class StderrAndLogdLogger {
- public:
-  explicit StderrAndLogdLogger(android::base::LogId default_log_id = android::base::MAIN)
-    : logd_(default_log_id) {
-  }
-
-  void operator()(::android::base::LogId id,
-                  ::android::base::LogSeverity sev,
-                  const char* tag,
-                  const char* file,
-                  unsigned int line,
-                  const char* message) {
-    logd_(id, sev, tag, file, line, message);
-    StderrLogger(id, sev, tag, file, line, message);
-  }
-
- private:
-  ::android::base::LogdLogger logd_;
-};
-
 int main(int /*argc*/, char** argv) {
   if (android::base::GetBoolProperty("iorapd.log.verbose", iorap::kIsDebugBuild)) {
     // Show verbose logs if the property is enabled or if we are a debug build.
@@ -55,23 +36,35 @@ int main(int /*argc*/, char** argv) {
   }
 
   // Logs go to system logcat.
-  android::base::InitLogging(argv, StderrAndLogdLogger{android::base::SYSTEM});
+  android::base::InitLogging(argv, iorap::common::StderrAndLogdLogger{android::base::SYSTEM});
 
+  LOG(INFO) << kServiceName << " (the prefetchening) firing up";
   {
-    android::ScopedTrace trace_main{ATRACE_TAG_PACKAGE_MANAGER, "main"};
-    LOG(INFO) << kServiceName << " (the prefetchening) firing up";
+    android::ScopedTrace trace_db_init{ATRACE_TAG_ACTIVITY_MANAGER, "IorapNativeService::db_init"};
+    iorap::db::SchemaModel db_schema =
+        iorap::db::SchemaModel::GetOrCreate(
+            android::base::GetProperty("iorapd.db.location",
+                                       "/data/misc/iorapd/sqlite.db"));
+    db_schema.MarkSingleton();
+  }
 
-    android::ScopedTrace trace_start{ATRACE_TAG_PACKAGE_MANAGER, "IorapNativeService::start"};
+  std::shared_ptr<iorap::manager::EventManager> event_manager;
+  {
+    android::ScopedTrace trace_start{ATRACE_TAG_ACTIVITY_MANAGER, "IorapNativeService::start"};
 
     // TODO: use fruit for this DI.
-    auto /*std::shared_ptr<EventManager>*/ event_manager =
+    event_manager =
         iorap::manager::EventManager::Create();
-    if (!iorap::binder::IIorapImpl::Start(std::move(event_manager))) {
+    if (!iorap::binder::IIorapImpl::Start(event_manager)) {
       LOG(ERROR) << "Unable to start IorapNativeService";
       exit(1);
     }
   }
 
+  // This must be logged after all other initialization has finished.
+  LOG(INFO) << kServiceName << " (the prefetchening) readied up";
+
+  event_manager->Join();  // TODO: shutdown somewhere?
   // Block until something else shuts down the binder service.
   android::IPCThreadState::self()->joinThreadPool();
   LOG(INFO) << kServiceName << " shutting down";

@@ -29,7 +29,7 @@ package java.net;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 class PlainSocketImpl extends java.net.AbstractPlainSocketImpl {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     PlainSocketImpl() {
         throw new RuntimeException("Stub!");
     }

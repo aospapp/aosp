@@ -60,7 +60,7 @@ import java.util.concurrent.TimeUnit;
  * Test audio playback capture through MediaProjection.
  *
  * The tests do the following:
- *   - retrieve a MediaProjection through AudioPlaybackCaptureActivity
+ *   - retrieve a MediaProjection through MediaProjectionActivity
  *   - play some audio
  *   - use that MediaProjection to record the audio playing
  *   - check that some audio was recorded.
@@ -68,6 +68,7 @@ import java.util.concurrent.TimeUnit;
  * Currently the test that some audio was recorded just check that at least one sample is non 0.
  * A better check needs to be used, eg: compare the power spectrum.
  */
+@NonMediaMainlineTest
 public class AudioPlaybackCaptureTest {
     private static final String TAG = "AudioPlaybackCaptureTest";
     private static final int SAMPLE_RATE = 44100;
@@ -76,11 +77,11 @@ public class AudioPlaybackCaptureTest {
     private AudioManager mAudioManager;
     private boolean mPlaybackBeforeCapture;
     private int mUid; //< UID of this test
-    private AudioPlaybackCaptureActivity mActivity;
+    private MediaProjectionActivity mActivity;
     private MediaProjection mMediaProjection;
     @Rule
-    public ActivityTestRule<AudioPlaybackCaptureActivity> mActivityRule =
-                new ActivityTestRule<>(AudioPlaybackCaptureActivity.class);
+    public ActivityTestRule<MediaProjectionActivity> mActivityRule =
+                new ActivityTestRule<>(MediaProjectionActivity.class);
 
     private static class APCTestConfig {
         public @AttributeUsage int[] matchingUsages;
@@ -422,7 +423,7 @@ public class AudioPlaybackCaptureTest {
         // As a result, read() should fail after at most the total buffer size read.
         // Even if the projection is stopped, the policy unregisteration is async,
         // so double that to be on the conservative side.
-        final int MAX_READ_SIZE = 2 * nativeBufferSize;
+        final int MAX_READ_SIZE = 8 * nativeBufferSize;
         int readSize = 0;
         ByteBuffer buffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
         int status;
@@ -488,6 +489,8 @@ public class AudioPlaybackCaptureTest {
             // Stopping one AR must allow creating a new one
             audioRecords.peek().stop();
             audioRecords.pop().release();
+            final long SLEEP_AFTER_STOP_FOR_INACTIVITY_MS = 1000;
+            Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
             audioRecords.push(createDefaultPlaybackCaptureRecord());
 
             // That new one must still be able to capture

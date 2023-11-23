@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,20 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc16_12 extends SecurityTestCase {
 
     //Criticals
     /**
      *  b/31796940
      */
+    @Test
     @SecurityTest(minPatchLevel = "2016-12")
     public void testPocCVE_2016_8406() throws Exception {
         assertNotKernelPointer(() -> {

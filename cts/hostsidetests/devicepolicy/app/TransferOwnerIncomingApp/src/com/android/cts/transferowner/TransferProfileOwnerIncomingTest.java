@@ -36,8 +36,12 @@ public class TransferProfileOwnerIncomingTest extends DeviceAndProfileOwnerTrans
         assertTrue(mDevicePolicyManager.getCameraDisabled(mIncomingComponentName));
         assertTrue(mDevicePolicyManager.getCrossProfileCallerIdDisabled(mIncomingComponentName));
         assertEquals(
+                DevicePolicyManager.PASSWORD_QUALITY_NUMERIC,
+                mDevicePolicyManager.getPasswordQuality(mIncomingComponentName));
+        assertEquals(
                 passwordLength,
                 mDevicePolicyManager.getPasswordMinimumLength(mIncomingComponentName));
+
 
         DevicePolicyManager targetParentProfileInstance =
                 mDevicePolicyManager.getParentProfileInstance(mIncomingComponentName);

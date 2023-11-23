@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef NETDUTILS_NETWORKCONSTANTS_H_
-#define NETDUTILS_NETWORKCONSTANTS_H_
+#pragma once
 
 namespace android {
 namespace netdutils {
@@ -26,7 +25,8 @@ constexpr int IPV4_ADDR_BITS = 32;
 constexpr int IPV6_ADDR_LEN = 16;
 constexpr int IPV6_ADDR_BITS = 128;
 
+// Referred from SHA256_DIGEST_LENGTH in boringssl
+constexpr size_t SHA256_SIZE = 32;
+
 }  // namespace netdutils
 }  // namespace android
-
-#endif  // NETDUTILS_NETWORKCONSTANTS_H_

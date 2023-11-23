@@ -17,6 +17,7 @@
 #ifndef CHRE_PLATFORM_HOST_LINK_H_
 #define CHRE_PLATFORM_HOST_LINK_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "chre/target_platform/host_link_base.h"
@@ -31,8 +32,7 @@ typedef HostMessage MessageToHost;
  * Abstracts the platform-specific communications link between CHRE and the host
  * processor
  */
-class HostLink : public HostLinkBase,
-                 public NonCopyable {
+class HostLink : public HostLinkBase, public NonCopyable {
  public:
   /**
    * Flush (or purge) any messages sent by the given app ID that are currently
@@ -55,6 +55,16 @@ class HostLink : public HostLinkBase,
    * @return true if the message was successfully queued
    */
   bool sendMessage(const MessageToHost *message);
+
+  /**
+   * Enqueues a log message to be sent to the host.
+   *
+   * @param logMessage Pointer to a buffer that has the log message. Note that
+   * the message might be encoded
+   *
+   * @param logMessageSize length of the log message buffer
+   */
+  void sendLogMessage(const char *logMessage, size_t logMessageSize);
 };
 
 }  // namespace chre

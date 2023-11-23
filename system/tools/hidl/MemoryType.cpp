@@ -23,7 +23,7 @@
 
 namespace android {
 
-MemoryType::MemoryType(Scope* parent) : Type(parent) {}
+MemoryType::MemoryType(Scope* parent) : Type(parent, "memory") {}
 
 std::string MemoryType::getCppType(StorageMode mode,
                                    bool specifyNamespaces) const {
@@ -49,6 +49,92 @@ std::string MemoryType::typeName() const {
 
 std::string MemoryType::getVtsType() const {
     return "TYPE_HIDL_MEMORY";
+}
+
+std::string MemoryType::getJavaType(bool /* forInitializer */) const {
+    return "android.os.HidlMemory";
+}
+
+std::string MemoryType::getJavaSuffix() const {
+    return "HidlMemory";
+}
+
+void MemoryType::emitJavaFieldInitializer(
+        Formatter &out, const std::string &fieldName) const {
+    const std::string fieldDeclaration = getJavaType(false) + " " + fieldName;
+    emitJavaFieldDefaultInitialValue(out, fieldDeclaration);
+}
+
+void MemoryType::emitJavaFieldDefaultInitialValue(
+        Formatter &out, const std::string &declaredFieldName) const {
+    out << declaredFieldName
+        << " = null;\n";
+}
+
+void MemoryType::emitJavaFieldReaderWriter(Formatter& out,
+                                           size_t /* depth */,
+                                           const std::string& parcelName,
+                                           const std::string& blobName,
+                                           const std::string& fieldName,
+                                           const std::string& offset,
+                                           bool isReader) const {
+    if (isReader) {
+        out << "try {\n";
+        out.indent();
+        out << fieldName
+            << " = "
+            << parcelName
+            << ".readEmbeddedHidlMemory(\n";
+
+        out << blobName << ".getFieldHandle(" << offset << "),\n"
+            << blobName << ".handle(),\n"
+            << offset
+            << ").dup();\n";
+        out.unindent();
+        out << "} catch (java.io.IOException e) {\n";
+        out.indent();
+        out << "throw new RuntimeException(e);\n";
+        out.unindent();
+        out << "}\n";
+
+        return;
+    }
+
+    out << blobName
+        << ".putHidlMemory("
+        << offset
+        << ", "
+        << fieldName
+        << ");\n";
+}
+
+void MemoryType::emitJavaReaderWriter(Formatter& out,
+                                      const std::string& parcelObj,
+                                      const std::string& argName,
+                                      bool isReader) const {
+    if (isReader) {
+        // The weird-looking lambda code below is intended to replace an
+        // IOException with a RuntimeException within an expression context.
+        out << "((java.util.function.Function<android.os.HwParcel, android.os.HidlMemory>)"
+               " _parcel -> {\n";
+        out.indent();
+        out << "try {\n";
+        out.indent();
+        out << "return _parcel.readHidlMemory().dup();\n";
+        out.unindent();
+        out << "} catch (java.io.IOException e) {\n";
+        out.indent();
+        out << "throw new RuntimeException(e);\n";
+        out.unindent();
+        out << "}\n";
+        out.unindent();
+        out << "}).apply(" << parcelObj << ");\n";
+    } else {
+        out << parcelObj
+            << ".writeHidlMemory("
+            << argName
+            << ");\n";
+    }
 }
 
 void MemoryType::emitReaderWriter(
@@ -146,7 +232,7 @@ bool MemoryType::isMemory() const {
 }
 
 bool MemoryType::deepIsJavaCompatible(std::unordered_set<const Type*>* /* visited */) const {
-    return false;
+    return true;
 }
 
 static HidlTypeAssertion assertion("hidl_memory", 40 /* size */);

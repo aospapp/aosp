@@ -24,7 +24,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 279744 (0x444c0)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=PL, O=Unizeto Technologies S.A., OU=Certum Certification Authority, CN=Certum Trusted Network CA
         Validity
             Not Before: Oct 22 12:07:37 2008 GMT
@@ -32,7 +32,7 @@ Certificate:
         Subject: C=PL, O=Unizeto Technologies S.A., OU=Certum Certification Authority, CN=Certum Trusted Network CA
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:e3:fb:7d:a3:72:ba:c2:f0:c9:14:87:f5:6b:01:
                     4e:e1:6e:40:07:ba:6d:27:5d:7f:f7:5b:2d:b3:5a:

@@ -207,8 +207,6 @@ public class UserRestrictions {
                 }
             }
             return result;
-        } else if (mode == PolicyTransparencyTestListActivity.MODE_COMP) {
-            return Arrays.asList(UserManager.DISALLOW_REMOVE_MANAGED_PROFILE);
         } else if (mode == PolicyTransparencyTestListActivity.MODE_MANAGED_PROFILE) {
             return ALSO_VALID_FOR_MANAGED_PROFILE_POLICY_TRANSPARENCY;
         } else if (mode == PolicyTransparencyTestListActivity.MODE_MANAGED_USER) {

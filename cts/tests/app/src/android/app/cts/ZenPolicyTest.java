@@ -32,6 +32,7 @@ public class ZenPolicyTest extends Assert {
                 .allowAlarms(true)
                 .allowCalls(ZenPolicy.PEOPLE_TYPE_NONE)
                 .allowMessages(ZenPolicy.PEOPLE_TYPE_STARRED)
+                .allowConversations(ZenPolicy.CONVERSATION_SENDERS_ANYONE)
                 .showInNotificationList(false);
         ZenPolicy policy = builder.build();
 
@@ -205,6 +206,33 @@ public class ZenPolicyTest extends Assert {
     }
 
     @Test
+    public void testConversations() {
+        ZenPolicy.Builder builder = new ZenPolicy.Builder();
+        ZenPolicy policy = builder.allowConversations(ZenPolicy.CONVERSATION_SENDERS_NONE).build();
+        assertEquals(ZenPolicy.CONVERSATION_SENDERS_NONE, policy.getPriorityConversationSenders());
+        assertEquals(ZenPolicy.STATE_DISALLOW, policy.getPriorityCategoryConversations());
+        assertAllPriorityCategoriesUnsetExcept(policy,
+                NotificationManager.Policy.PRIORITY_CATEGORY_CONVERSATIONS);
+        assertAllVisualEffectsUnset(policy);
+
+        policy = builder.allowConversations(ZenPolicy.CONVERSATION_SENDERS_ANYONE).build();
+        assertEquals(ZenPolicy.CONVERSATION_SENDERS_ANYONE,
+                policy.getPriorityConversationSenders());
+        assertEquals(ZenPolicy.STATE_ALLOW, policy.getPriorityCategoryConversations());
+        assertAllPriorityCategoriesUnsetExcept(policy,
+                NotificationManager.Policy.PRIORITY_CATEGORY_CONVERSATIONS);
+        assertAllVisualEffectsUnset(policy);
+
+        policy = builder.allowConversations(ZenPolicy.CONVERSATION_SENDERS_IMPORTANT).build();
+        assertEquals(ZenPolicy.CONVERSATION_SENDERS_IMPORTANT,
+                policy.getPriorityConversationSenders());
+        assertEquals(ZenPolicy.STATE_ALLOW, policy.getPriorityCategoryConversations());
+        assertAllPriorityCategoriesUnsetExcept(policy,
+                NotificationManager.Policy.PRIORITY_CATEGORY_CONVERSATIONS);
+        assertAllVisualEffectsUnset(policy);
+    }
+
+    @Test
     public void testFullScreenIntent() {
         ZenPolicy.Builder builder = new ZenPolicy.Builder();
         ZenPolicy policy = builder.showFullScreenIntent(true).build();
@@ -331,6 +359,9 @@ public class ZenPolicyTest extends Assert {
         assertEquals(ZenPolicy.STATE_DISALLOW, policy.getPriorityCategoryCalls());
         assertEquals(ZenPolicy.PEOPLE_TYPE_NONE, policy.getPriorityCallSenders());
         assertEquals(ZenPolicy.STATE_DISALLOW, policy.getPriorityCategoryRepeatCallers());
+        assertEquals(ZenPolicy.STATE_DISALLOW, policy.getPriorityCategoryConversations());
+        assertEquals(ZenPolicy.CONVERSATION_SENDERS_NONE,
+                policy.getPriorityConversationSenders());
         assertAllVisualEffectsUnset(policy);
     }
 
@@ -349,6 +380,9 @@ public class ZenPolicyTest extends Assert {
         assertEquals(ZenPolicy.STATE_ALLOW, policy.getPriorityCategoryCalls());
         assertEquals(ZenPolicy.PEOPLE_TYPE_ANYONE, policy.getPriorityCallSenders());
         assertEquals(ZenPolicy.STATE_ALLOW, policy.getPriorityCategoryRepeatCallers());
+        assertEquals(ZenPolicy.STATE_ALLOW, policy.getPriorityCategoryConversations());
+        assertEquals(ZenPolicy.CONVERSATION_SENDERS_ANYONE,
+                policy.getPriorityConversationSenders());
         assertAllVisualEffectsUnset(policy);
     }
 
@@ -413,6 +447,10 @@ public class ZenPolicyTest extends Assert {
 
         if (except != NotificationManager.Policy.PRIORITY_CATEGORY_SYSTEM) {
             assertEquals(ZenPolicy.STATE_UNSET, policy.getPriorityCategorySystem());
+        }
+
+        if (except != NotificationManager.Policy.PRIORITY_CATEGORY_CONVERSATIONS) {
+            assertEquals(ZenPolicy.STATE_UNSET, policy.getPriorityCategoryConversations());
         }
     }
 

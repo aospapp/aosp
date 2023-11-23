@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <sys/cdefs.h>
+#include <system/audio-base.h>
 
 /** \cond */
 __BEGIN_DECLS
@@ -78,6 +79,27 @@ sf_count_t sf_readf_int(SNDFILE *handle, int *ptr, sf_count_t desired);
 sf_count_t sf_writef_short(SNDFILE *handle, const int16_t *ptr, sf_count_t desired);
 sf_count_t sf_writef_float(SNDFILE *handle, const float *ptr, sf_count_t desired);
 sf_count_t sf_writef_int(SNDFILE *handle, const int *ptr, sf_count_t desired);
+
+/**
+ * Map SF_FORMAT to PCM format
+ */
+static inline audio_format_t SF_format_to_audio_format (int format) {
+    // Ignore FORMAT_WAV bit
+    switch (format & (~SF_FORMAT_WAV)) {
+    case SF_FORMAT_PCM_16:
+        return AUDIO_FORMAT_PCM_16_BIT;
+    case SF_FORMAT_PCM_U8:
+        return AUDIO_FORMAT_PCM_8_BIT;
+    case SF_FORMAT_FLOAT:
+        return AUDIO_FORMAT_PCM_FLOAT;
+    case SF_FORMAT_PCM_32:
+        return AUDIO_FORMAT_PCM_32_BIT;
+    case SF_FORMAT_PCM_24:
+        return AUDIO_FORMAT_PCM_24_BIT_PACKED;
+    default:
+        return AUDIO_FORMAT_INVALID;
+    }
+}
 
 /** \cond */
 __END_DECLS

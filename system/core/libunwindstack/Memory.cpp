@@ -32,6 +32,14 @@
 #include <unwindstack/Memory.h>
 
 #include "Check.h"
+#include "MemoryBuffer.h"
+#include "MemoryCache.h"
+#include "MemoryFileAtOffset.h"
+#include "MemoryLocal.h"
+#include "MemoryOffline.h"
+#include "MemoryOfflineBuffer.h"
+#include "MemoryRange.h"
+#include "MemoryRemote.h"
 
 namespace unwindstack {
 
@@ -168,6 +176,16 @@ bool Memory::ReadString(uint64_t addr, std::string* string, uint64_t max_read) {
   return false;
 }
 
+std::unique_ptr<Memory> Memory::CreateFileMemory(const std::string& path, uint64_t offset) {
+  auto memory = std::make_unique<MemoryFileAtOffset>();
+
+  if (memory->Init(path, offset)) {
+    return memory;
+  }
+
+  return nullptr;
+}
+
 std::shared_ptr<Memory> Memory::CreateProcessMemory(pid_t pid) {
   if (pid == getpid()) {
     return std::shared_ptr<Memory>(new MemoryLocal());
@@ -182,13 +200,18 @@ std::shared_ptr<Memory> Memory::CreateProcessMemoryCached(pid_t pid) {
   return std::shared_ptr<Memory>(new MemoryCache(new MemoryRemote(pid)));
 }
 
+std::shared_ptr<Memory> Memory::CreateOfflineMemory(const uint8_t* data, uint64_t start,
+                                                    uint64_t end) {
+  return std::shared_ptr<Memory>(new MemoryOfflineBuffer(data, start, end));
+}
+
 size_t MemoryBuffer::Read(uint64_t addr, void* dst, size_t size) {
-  if (addr >= raw_.size()) {
+  if (addr >= size_) {
     return 0;
   }
 
-  size_t bytes_left = raw_.size() - static_cast<size_t>(addr);
-  const unsigned char* actual_base = static_cast<const unsigned char*>(raw_.data()) + addr;
+  size_t bytes_left = size_ - static_cast<size_t>(addr);
+  const unsigned char* actual_base = static_cast<const unsigned char*>(raw_) + addr;
   size_t actual_len = std::min(bytes_left, size);
 
   memcpy(dst, actual_base, actual_len);
@@ -196,7 +219,7 @@ size_t MemoryBuffer::Read(uint64_t addr, void* dst, size_t size) {
 }
 
 uint8_t* MemoryBuffer::GetPtr(size_t offset) {
-  if (offset < raw_.size()) {
+  if (offset < size_) {
     return &raw_[offset];
   }
   return nullptr;

@@ -34,7 +34,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             78:58:5f:2e:ad:2c:19:4b:e3:37:07:35:34:13:28:b5:96:d4:65:93
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 1 G3
         Validity
             Not Before: Jan 12 17:27:44 2012 GMT
@@ -42,7 +42,7 @@ Certificate:
         Subject: C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 1 G3
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:a0:be:50:10:8e:e9:f2:6c:40:b4:04:9c:85:b9:
                     31:ca:dc:2d:e4:11:a9:04:3c:1b:55:c1:e7:58:30:

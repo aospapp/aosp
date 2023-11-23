@@ -23,28 +23,32 @@ from setuptools.command import test
 import sys
 
 install_requires = [
+    'backoff',
     # Future needs to have a newer version that contains urllib.
     'future>=0.16.0',
-    # mock-1.0.1 is the last version compatible with setuptools <17.1,
-    # which is what comes with Ubuntu 14.04 LTS.
-    'mock<=1.0.1',
+    # Latest version of mock (4.0.0b) causes a number of compatibility issues with ACTS unit tests
+    # b/148695846, b/148814743
+    'mock==3.0.5',
     'numpy',
     'pyserial',
     'pyyaml>=5.1',
+    'tzlocal',
     'shellescape>=3.4.1',
     'protobuf',
     'retry',
     'requests',
-    'roman',
     'scapy',
     'pylibftdi',
     'xlsxwriter',
-    # TODO(markdr): b/113719194: Remove this module
-    'colorama',
-    'mobly'
+    'mobly>=1.10.0',
+    'grpcio',
+    'Monsoon',
+    # paramiko-ng is needed vs paramiko as currently paramiko does not support
+    # ed25519 ssh keys, which is what Fuchsia uses.
+    'paramiko-ng',
 ]
 
-if sys.version_info < (3,):
+if sys.version_info < (3, ):
     install_requires.append('enum34')
     install_requires.append('statistics')
     # "futures" is needed for py2 compatibility and it only works in 2.7
@@ -57,16 +61,20 @@ class PyTest(test.test):
     """Class used to execute unit tests using PyTest. This allows us to execute
     unit tests without having to install the package.
     """
-
     def finalize_options(self):
         test.test.finalize_options(self)
         self.test_args = ['-x', "tests"]
         self.test_suite = True
 
     def run_tests(self):
-        import pytest
-        errno = pytest.main(self.test_args)
-        sys.exit(errno)
+        test_path = os.path.join(os.path.dirname(__file__),
+                                 '../tests/meta/ActsUnitTest.py')
+        result = subprocess.Popen('python3 %s' % test_path,
+                                  stdout=sys.stdout,
+                                  stderr=sys.stderr,
+                                  shell=True)
+        result.communicate()
+        sys.exit(result.returncode)
 
 
 class ActsInstallDependencies(cmd.Command):
@@ -93,8 +101,8 @@ class ActsInstallDependencies(cmd.Command):
 
         for package in required_packages:
             self.announce('Installing %s...' % package, log.INFO)
-            subprocess.check_call(
-                install_args + ['-v', '--no-cache-dir', package])
+            subprocess.check_call(install_args +
+                                  ['-v', '--no-cache-dir', package])
 
         self.announce('Dependencies installed.')
 
@@ -142,9 +150,8 @@ class ActsUninstall(cmd.Command):
         try:
             import acts as acts_module
         except ImportError:
-            self.announce(
-                'Acts is not installed, nothing to uninstall.',
-                level=log.ERROR)
+            self.announce('Acts is not installed, nothing to uninstall.',
+                          level=log.ERROR)
             return
 
         while acts_module:
@@ -160,32 +167,36 @@ class ActsUninstall(cmd.Command):
 
 def main():
     framework_dir = os.path.dirname(os.path.realpath(__file__))
-    scripts = [os.path.join(framework_dir, 'acts', 'bin', 'act.py'),
-               os.path.join(framework_dir, 'acts', 'bin', 'monsoon.py')]
+    scripts = [
+        os.path.join(framework_dir, 'acts', 'bin', 'act.py'),
+        os.path.join(framework_dir, 'acts', 'bin', 'monsoon.py')
+    ]
 
-    setuptools.setup(
-        name='acts',
-        version='0.9',
-        description='Android Comms Test Suite',
-        license='Apache2.0',
-        packages=setuptools.find_packages(),
-        include_package_data=False,
-        tests_require=['pytest'],
-        install_requires=install_requires,
-        scripts=scripts,
-        cmdclass={
-            'test': PyTest,
-            'install_deps': ActsInstallDependencies,
-            'uninstall': ActsUninstall
-        },
-        url="http://www.android.com/")
+    setuptools.setup(name='acts',
+                     version='0.9',
+                     description='Android Comms Test Suite',
+                     license='Apache2.0',
+                     packages=setuptools.find_packages(),
+                     include_package_data=False,
+                     tests_require=['pytest'],
+                     install_requires=install_requires,
+                     scripts=scripts,
+                     cmdclass={
+                         'test': PyTest,
+                         'install_deps': ActsInstallDependencies,
+                         'uninstall': ActsUninstall
+                     },
+                     url="http://www.android.com/")
 
     if {'-u', '--uninstall', 'uninstall'}.intersection(sys.argv):
-        act_path = '/usr/local/bin/act.py'
-        if os.path.islink(act_path):
-            os.unlink(act_path)
-        elif os.path.exists(act_path):
-            os.remove(act_path)
+        installed_scripts = [
+            '/usr/local/bin/act.py', '/usr/local/bin/monsoon.py'
+        ]
+        for act_file in installed_scripts:
+            if os.path.islink(act_file):
+                os.unlink(act_file)
+            elif os.path.exists(act_file):
+                os.remove(act_file)
 
 
 if __name__ == '__main__':

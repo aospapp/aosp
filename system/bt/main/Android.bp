@@ -1,20 +1,59 @@
-
 // Bluetooth main HW module / shared library for target
 // ========================================================
-cc_library_shared {
-    name: "libbluetooth",
-    defaults: ["fluoride_defaults"],
-    header_libs: ["libbluetooth_headers"],
-    export_header_lib_headers: ["libbluetooth_headers"],
+filegroup {
+    name: "LibBluetoothSources",
     srcs: [
-        // platform specific
         "bte_conf.cc",
         "bte_init.cc",
         "bte_init_cpp_logging.cc",
         "bte_logmsg.cc",
         "bte_main.cc",
         "stack_config.cc",
+    ]
+}
+
+cc_library_static {
+    name: "libbte",
+    defaults: ["fluoride_defaults"],
+    srcs: [
+        ":LibBluetoothSources",
+        ":LibBluetoothShimSources",
     ],
+    include_dirs: [
+        "system/bt",
+        "system/bt/gd",
+        "system/bt/bta/include",
+        "system/bt/bta/sys",
+        "system/bt/bta/dm",
+        "system/bt/btcore/include",
+        "system/bt/internal_include",
+        "system/bt/stack/include",
+        "system/bt/stack/l2cap",
+        "system/bt/stack/a2dp",
+        "system/bt/stack/btm",
+        "system/bt/stack/avdt",
+        "system/bt/udrv/include",
+        "system/bt/btif/include",
+        "system/bt/btif/co",
+        "system/bt/hci/include",
+        "system/bt/vnd/include",
+        "system/bt/embdrv/sbc/encoder/include",
+        "system/bt/embdrv/sbc/decoder/include",
+        "system/bt/utils/include",
+        "system/security/keystore/include",
+        "hardware/interfaces/keymaster/4.0/support/include",
+    ],
+    generated_headers: [
+        "BluetoothGeneratedPackets_h",
+    ],
+    host_supported: true,
+}
+
+cc_library_shared {
+    name: "libbluetooth",
+    defaults: ["fluoride_defaults"],
+    header_libs: ["libbluetooth_headers"],
+    export_header_lib_headers: ["libbluetooth_headers"],
     include_dirs: [
         "system/bt",
         "system/bt/bta/include",
@@ -41,15 +80,14 @@ cc_library_shared {
     logtags: ["../EventLogTags.logtags"],
     shared_libs: [
         "android.hardware.bluetooth@1.0",
+        "android.hardware.bluetooth@1.1",
         "android.hardware.bluetooth.a2dp@1.0",
         "android.hardware.bluetooth.audio@2.0",
-        "libaudioclient",
+        "libaaudio",
         "libcutils",
         "libdl",
         "libfmq",
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "liblog",
         "libprocessgroup",
         "libprotobuf-cpp-lite",
@@ -57,19 +95,15 @@ cc_library_shared {
         "libtinyxml2",
         "libz",
         "libcrypto",
-        "android.hardware.keymaster@4.0",
-        "android.hardware.keymaster@3.0",
-        "libkeymaster4support",
-        "libkeystore_aidl",
-        "libkeystore_binder",
-        "libkeystore_parcelables",
     ],
     static_libs: [
+        "libbte",
         "libbt-sbc-decoder",
         "libbt-sbc-encoder",
         "libFraunhoferAAC",
         "libg722codec",
         "libudrv-uipc",
+        "libbluetooth_gd", // Gabeldorsche
     ],
     whole_static_libs: [
         "libbt-bta",
@@ -108,15 +142,13 @@ cc_library_static {
     defaults: ["fluoride_defaults"],
 
     srcs: [
-        "bte_conf.cc",
-        "bte_init.cc",
-        "bte_init_cpp_logging.cc",
-        "bte_logmsg.cc",
-        "bte_main.cc",
-        "stack_config.cc",
+        ":LibBluetoothSources",
+        ":LibBluetoothShimSources",
     ],
+    host_supported: true,
     include_dirs: [
         "system/bt",
+        "system/bt/gd",
         "system/bt/bta/include",
         "system/bt/btcore/include",
         "system/bt/btif/include",
@@ -125,7 +157,13 @@ cc_library_static {
         "system/bt/stack/include",
         "system/bt/utils/include",
     ],
+    generated_headers: [
+        "BluetoothGeneratedPackets_h",
+    ],
     cflags: [
         "-DBUILDCFG",
+    ],
+    whole_static_libs: [
+        "libbluetooth_gd", // Gabeldorsche
     ],
 }

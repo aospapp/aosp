@@ -16,6 +16,7 @@
 
 import logging
 import os
+import re
 import shutil
 import time
 
@@ -44,13 +45,12 @@ DEFAULT_TIMEOUT = 10
 SHORT_TIMEOUT = 30
 ROAMING_TIMEOUT = 30
 WIFI_CONNECTION_TIMEOUT_DEFAULT = 30
-WIFI_ABNORMAL_CONNECTION_TIME = 10
 # Speed of light in m/s.
 SPEED_OF_LIGHT = 299792458
 
 DEFAULT_PING_ADDR = "https://www.google.com/robots.txt"
 
-roaming_attn = {
+ROAMING_ATTN = {
         "AP1_on_AP2_off": [
             0,
             0,
@@ -74,30 +74,58 @@ roaming_attn = {
 
 class WifiEnums():
 
-    SSID_KEY = "SSID"
+    SSID_KEY = "SSID" # Used for Wifi & SoftAp
     SSID_PATTERN_KEY = "ssidPattern"
     NETID_KEY = "network_id"
-    BSSID_KEY = "BSSID"
+    BSSID_KEY = "BSSID" # Used for Wifi & SoftAp
     BSSID_PATTERN_KEY = "bssidPattern"
-    PWD_KEY = "password"
+    PWD_KEY = "password" # Used for Wifi & SoftAp
     frequency_key = "frequency"
-    APBAND_KEY = "apBand"
-    HIDDEN_KEY = "hiddenSSID"
+    HIDDEN_KEY = "hiddenSSID" # Used for Wifi & SoftAp
     IS_APP_INTERACTION_REQUIRED = "isAppInteractionRequired"
     IS_USER_INTERACTION_REQUIRED = "isUserInteractionRequired"
-    IS_METERED = "isMetered"
+    IS_SUGGESTION_METERED = "isMetered"
     PRIORITY = "priority"
-    SECURITY = "security"
+    SECURITY = "security" # Used for Wifi & SoftAp
 
-    WIFI_CONFIG_APBAND_2G = 0
-    WIFI_CONFIG_APBAND_5G = 1
-    WIFI_CONFIG_APBAND_AUTO = -1
+    # Used for SoftAp
+    AP_BAND_KEY = "apBand"
+    AP_CHANNEL_KEY = "apChannel"
+    AP_MAXCLIENTS_KEY = "MaxNumberOfClients"
+    AP_SHUTDOWNTIMEOUT_KEY = "ShutdownTimeoutMillis"
+    AP_SHUTDOWNTIMEOUTENABLE_KEY = "AutoShutdownEnabled"
+    AP_CLIENTCONTROL_KEY = "ClientControlByUserEnabled"
+    AP_ALLOWEDLIST_KEY = "AllowedClientList"
+    AP_BLOCKEDLIST_KEY = "BlockedClientList"
+
+    WIFI_CONFIG_SOFTAP_BAND_2G = 1
+    WIFI_CONFIG_SOFTAP_BAND_5G = 2
+    WIFI_CONFIG_SOFTAP_BAND_2G_5G = 3
+    WIFI_CONFIG_SOFTAP_BAND_6G = 4
+    WIFI_CONFIG_SOFTAP_BAND_2G_6G = 5
+    WIFI_CONFIG_SOFTAP_BAND_5G_6G = 6
+    WIFI_CONFIG_SOFTAP_BAND_ANY = 7
+
+    # DO NOT USE IT for new test case! Replaced by WIFI_CONFIG_SOFTAP_BAND_
+    WIFI_CONFIG_APBAND_2G = WIFI_CONFIG_SOFTAP_BAND_2G
+    WIFI_CONFIG_APBAND_5G = WIFI_CONFIG_SOFTAP_BAND_5G
+    WIFI_CONFIG_APBAND_AUTO = WIFI_CONFIG_SOFTAP_BAND_2G_5G
+
+    WIFI_CONFIG_APBAND_2G_OLD = 0
+    WIFI_CONFIG_APBAND_5G_OLD = 1
+    WIFI_CONFIG_APBAND_AUTO_OLD = -1
 
     WIFI_WPS_INFO_PBC = 0
     WIFI_WPS_INFO_DISPLAY = 1
     WIFI_WPS_INFO_KEYPAD = 2
     WIFI_WPS_INFO_LABEL = 3
     WIFI_WPS_INFO_INVALID = 4
+
+    class SoftApSecurityType():
+        OPEN = "NONE"
+        WPA2 = "WPA2_PSK"
+        WPA3_SAE_TRANSITION = "WPA3_SAE_TRANSITION"
+        WPA3_SAE = "WPA3_SAE"
 
     class CountryCode():
         CHINA = "CN"
@@ -148,6 +176,7 @@ class WifiEnums():
         FQDN = "FQDN"
         FRIENDLY_NAME = "providerFriendlyName"
         ROAMING_IDS = "roamingConsortiumIds"
+        OCSP = "ocsp"
     # End of Macros for EAP
 
     # Macros for wifi p2p.
@@ -639,6 +668,7 @@ def _wifi_toggle_state(ad, new_state=None):
     ad.ed.clear_all_events()
     # Setting wifi state.
     ad.droid.wifiToggleState(new_state)
+    time.sleep(2)
     fail_msg = "Failed to set Wi-Fi state to %s on %s." % (new_state,
                                                            ad.serial)
     try:
@@ -760,10 +790,23 @@ def wifi_test_device_init(ad):
     ad.log.info("wpa_supplicant log change status: %s", output)
     utils.sync_device_time(ad)
     ad.droid.telephonyToggleDataConnection(False)
-    # TODO(angli): need to verify the country code was actually set. No generic
-    # way to check right now.
-    ad.adb.shell("halutil -country %s" % WifiEnums.CountryCode.US)
+    set_wifi_country_code(ad, WifiEnums.CountryCode.US)
     utils.set_ambient_display(ad, False)
+
+def set_wifi_country_code(ad, country_code):
+    """Sets the wifi country code on the device.
+
+    Args:
+        ad: An AndroidDevice object.
+        country_code: 2 letter ISO country code
+
+    Raises:
+        An RpcException if unable to set the country code.
+    """
+    try:
+        ad.adb.shell("cmd wifi force-country-code enabled %s" % country_code)
+    except ad.adb.AdbError as e:
+        ad.droid.wifiSetCountryCode(WifiEnums.CountryCode.US)
 
 
 def start_wifi_connection_scan(ad):
@@ -907,7 +950,7 @@ def start_wifi_tethering(ad, ssid, password, band=None, hidden=None):
     if password:
         config[WifiEnums.PWD_KEY] = password
     if band:
-        config[WifiEnums.APBAND_KEY] = band
+        config[WifiEnums.AP_BAND_KEY] = band
     if hidden:
       config[WifiEnums.HIDDEN_KEY] = hidden
     asserts.assert_true(
@@ -927,20 +970,121 @@ def start_wifi_tethering(ad, ssid, password, band=None, hidden=None):
         ad.droid.wifiStopTrackingTetherStateChange()
 
 
-def save_wifi_soft_ap_config(ad, wifi_config, band=None, hidden=None):
-    """ Save a soft ap configuration """
+def save_wifi_soft_ap_config(ad, wifi_config, band=None, hidden=None,
+                             security=None, password=None,
+                             channel=None, max_clients=None,
+                             shutdown_timeout_enable=None,
+                             shutdown_timeout_millis=None,
+                             client_control_enable=None,
+                             allowedList=None, blockedList=None):
+    """ Save a soft ap configuration and verified
+    Args:
+        ad: android_device to set soft ap configuration.
+        wifi_config: a soft ap configuration object, at least include SSID.
+        band: specifies the band for the soft ap.
+        hidden: specifies the soft ap need to broadcast its SSID or not.
+        security: specifies the security type for the soft ap.
+        password: specifies the password for the soft ap.
+        channel: specifies the channel for the soft ap.
+        max_clients: specifies the maximum connected client number.
+        shutdown_timeout_enable: specifies the auto shut down enable or not.
+        shutdown_timeout_millis: specifies the shut down timeout value.
+        client_control_enable: specifies the client control enable or not.
+        allowedList: specifies allowed clients list.
+        blockedList: specifies blocked clients list.
+    """
+    if security and password:
+       wifi_config[WifiEnums.SECURITY] = security
+       wifi_config[WifiEnums.PWD_KEY] = password
     if band:
-        wifi_config[WifiEnums.APBAND_KEY] = band
+        wifi_config[WifiEnums.AP_BAND_KEY] = band
     if hidden:
         wifi_config[WifiEnums.HIDDEN_KEY] = hidden
+    if channel and band:
+        wifi_config[WifiEnums.AP_BAND_KEY] = band
+        wifi_config[WifiEnums.AP_CHANNEL_KEY] = channel
+    if max_clients:
+        wifi_config[WifiEnums.AP_MAXCLIENTS_KEY] = max_clients
+    if shutdown_timeout_enable:
+        wifi_config[
+            WifiEnums.AP_SHUTDOWNTIMEOUTENABLE_KEY] = shutdown_timeout_enable
+    if shutdown_timeout_millis:
+        wifi_config[
+            WifiEnums.AP_SHUTDOWNTIMEOUT_KEY] = shutdown_timeout_millis
+    if client_control_enable:
+        wifi_config[WifiEnums.AP_CLIENTCONTROL_KEY] = client_control_enable
+    if allowedList:
+        wifi_config[WifiEnums.AP_ALLOWEDLIST_KEY] = allowedList
+    if blockedList:
+        wifi_config[WifiEnums.AP_BLOCKEDLIST_KEY] = blockedList
+
+    if WifiEnums.AP_CHANNEL_KEY in wifi_config and wifi_config[
+        WifiEnums.AP_CHANNEL_KEY] == 0:
+        del wifi_config[WifiEnums.AP_CHANNEL_KEY]
+
+    if WifiEnums.SECURITY in wifi_config and wifi_config[
+        WifiEnums.SECURITY] == WifiEnums.SoftApSecurityType.OPEN:
+        del wifi_config[WifiEnums.SECURITY]
+        del wifi_config[WifiEnums.PWD_KEY]
+
     asserts.assert_true(ad.droid.wifiSetWifiApConfiguration(wifi_config),
                         "Failed to set WifiAp Configuration")
 
     wifi_ap = ad.droid.wifiGetApConfiguration()
     asserts.assert_true(
         wifi_ap[WifiEnums.SSID_KEY] == wifi_config[WifiEnums.SSID_KEY],
-        "Hotspot SSID doesn't match with expected SSID")
+        "Hotspot SSID doesn't match")
+    if WifiEnums.SECURITY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.SECURITY] == wifi_config[WifiEnums.SECURITY],
+            "Hotspot Security doesn't match")
+    if WifiEnums.PWD_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.PWD_KEY] == wifi_config[WifiEnums.PWD_KEY],
+            "Hotspot Password doesn't match")
 
+    if WifiEnums.HIDDEN_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.HIDDEN_KEY] == wifi_config[WifiEnums.HIDDEN_KEY],
+            "Hotspot hidden setting doesn't match")
+
+    if WifiEnums.AP_BAND_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.AP_BAND_KEY] == wifi_config[WifiEnums.AP_BAND_KEY],
+            "Hotspot Band doesn't match")
+    if WifiEnums.AP_CHANNEL_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.AP_CHANNEL_KEY] == wifi_config[
+            WifiEnums.AP_CHANNEL_KEY], "Hotspot Channel doesn't match")
+    if WifiEnums.AP_MAXCLIENTS_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.AP_MAXCLIENTS_KEY] == wifi_config[
+            WifiEnums.AP_MAXCLIENTS_KEY], "Hotspot Max Clients doesn't match")
+    if WifiEnums.AP_SHUTDOWNTIMEOUTENABLE_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.AP_SHUTDOWNTIMEOUTENABLE_KEY] == wifi_config[
+            WifiEnums.AP_SHUTDOWNTIMEOUTENABLE_KEY],
+            "Hotspot ShutDown feature flag doesn't match")
+    if WifiEnums.AP_SHUTDOWNTIMEOUT_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.AP_SHUTDOWNTIMEOUT_KEY] == wifi_config[
+            WifiEnums.AP_SHUTDOWNTIMEOUT_KEY],
+            "Hotspot ShutDown timeout setting doesn't match")
+    if WifiEnums.AP_CLIENTCONTROL_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.AP_CLIENTCONTROL_KEY] == wifi_config[
+            WifiEnums.AP_CLIENTCONTROL_KEY],
+            "Hotspot Client control flag doesn't match")
+    if WifiEnums.AP_ALLOWEDLIST_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.AP_ALLOWEDLIST_KEY] == wifi_config[
+            WifiEnums.AP_ALLOWEDLIST_KEY],
+            "Hotspot Allowed List doesn't match")
+    if WifiEnums.AP_BLOCKEDLIST_KEY in wifi_config:
+        asserts.assert_true(
+            wifi_ap[WifiEnums.AP_BLOCKEDLIST_KEY] == wifi_config[
+            WifiEnums.AP_BLOCKEDLIST_KEY],
+            "Hotspot Blocked List doesn't match")
 
 def start_wifi_tethering_saved_config(ad):
     """ Turn on wifi hotspot with a config that is already saved """
@@ -958,7 +1102,6 @@ def start_wifi_tethering_saved_config(ad):
 
 def stop_wifi_tethering(ad):
     """Stops wifi tethering on an android_device.
-
     Args:
         ad: android_device to stop wifi tethering on.
     """
@@ -1013,7 +1156,7 @@ def toggle_wifi_and_wait_for_reconnection(ad,
         num_of_tries=num_of_tries)
 
 
-def _toggle_wifi_and_wait_for_reconnection(ad, network, num_of_tries=1):
+def _toggle_wifi_and_wait_for_reconnection(ad, network, num_of_tries=3):
     """Toggle wifi state and then wait for Android device to reconnect to
     the provided wifi network.
 
@@ -1166,9 +1309,7 @@ def _wait_for_connect_event(ad, ssid=None, id=None, tries=1):
     if id is None and ssid is None:
         for i in range(tries):
             try:
-                start = time.time()
                 conn_result = ad.ed.pop_event(wifi_constants.WIFI_CONNECTED, 30)
-                _assert_connection_time(start)
                 break
             except Empty:
                 pass
@@ -1176,25 +1317,16 @@ def _wait_for_connect_event(ad, ssid=None, id=None, tries=1):
     # If ssid or network id is specified, wait for specific connect event.
         for i in range(tries):
             try:
-                start = time.time()
                 conn_result = ad.ed.pop_event(wifi_constants.WIFI_CONNECTED, 30)
                 if id and conn_result['data'][WifiEnums.NETID_KEY] == id:
-                    _assert_connection_time(start)
                     break
                 elif ssid and conn_result['data'][WifiEnums.SSID_KEY] == ssid:
-                    _assert_connection_time(start)
                     break
             except Empty:
                 pass
 
     return conn_result
 
-def _assert_connection_time(start):
-    duration = time.time() - start
-    asserts.assert_true(
-        duration < WIFI_ABNORMAL_CONNECTION_TIME,
-        "Took " + str(duration) + "s to connect to network, " +
-        " expected " + str(WIFI_ABNORMAL_CONNECTION_TIME))
 
 def wait_for_disconnect(ad, timeout=10):
     """Wait for a disconnect event within the specified timeout.
@@ -1232,7 +1364,7 @@ def ensure_no_disconnect(ad, duration=10):
 
 
 def connect_to_wifi_network(ad, network, assert_on_fail=True,
-        check_connectivity=True):
+        check_connectivity=True, hidden=False):
     """Connection logic for open and psk wifi networks.
 
     Args:
@@ -1240,9 +1372,14 @@ def connect_to_wifi_network(ad, network, assert_on_fail=True,
         network: network info of the network to connect to
         assert_on_fail: If true, errors from wifi_connect will raise
                         test failure signals.
+        hidden: Is the Wifi network hidden.
     """
-    start_wifi_connection_scan_and_ensure_network_found(
-        ad, network[WifiEnums.SSID_KEY])
+    if hidden:
+        start_wifi_connection_scan_and_ensure_network_not_found(
+            ad, network[WifiEnums.SSID_KEY])
+    else:
+        start_wifi_connection_scan_and_ensure_network_found(
+            ad, network[WifiEnums.SSID_KEY])
     wifi_connect(ad,
                  network,
                  num_of_tries=3,
@@ -1335,9 +1472,6 @@ def _wifi_connect(ad, network, num_of_tries=1, check_connectivity=True):
                              ad.serial)
         ad.log.info("Connected to Wi-Fi network %s.", actual_ssid)
 
-        # Wait for data connection to stabilize.
-        time.sleep(5)
-
         if check_connectivity:
             internet = validate_connection(ad, DEFAULT_PING_ADDR)
             if not internet:
@@ -1412,9 +1546,6 @@ def _wifi_connect_by_id(ad, network_id, num_of_tries=1):
         ad.log.info("Connected to Wi-Fi network %s with %d network id.",
                      expected_ssid, network_id)
 
-        # Wait for data connection to stabilize.
-        time.sleep(5)
-
         internet = validate_connection(ad, DEFAULT_PING_ADDR)
         if not internet:
             raise signals.TestFailure("Failed to connect to internet on %s" %
@@ -1429,6 +1560,7 @@ def _wifi_connect_by_id(ad, network_id, num_of_tries=1):
                                   " id %d" % network_id)
     finally:
         ad.droid.wifiStopTrackingStateChange()
+
 
 def wifi_connect_using_network_request(ad, network, network_specifier,
                                        num_of_tries=3, assert_on_fail=True):
@@ -1641,9 +1773,6 @@ def _wifi_passpoint_connect(ad, passpoint_network, num_of_tries=1):
                              "Connected to the wrong network on %s." % ad.serial)
         ad.log.info("Connected to Wi-Fi passpoint network %s.", actual_ssid)
 
-        # Wait for data connection to stabilize.
-        time.sleep(5)
-
         internet = validate_connection(ad, DEFAULT_PING_ADDR)
         if not internet:
             raise signals.TestFailure("Failed to connect to internet on %s" %
@@ -1771,18 +1900,35 @@ def convert_pem_key_to_pkcs8(in_file, out_file):
     utils.exe_cmd(cmd)
 
 
-def validate_connection(ad, ping_addr=DEFAULT_PING_ADDR):
+def validate_connection(ad, ping_addr=DEFAULT_PING_ADDR, wait_time=15,
+                        ping_gateway=True):
     """Validate internet connection by pinging the address provided.
 
     Args:
         ad: android_device object.
         ping_addr: address on internet for pinging.
+        wait_time: wait for some time before validating connection
 
     Returns:
         ping output if successful, NULL otherwise.
     """
-    ping = ad.droid.httpPing(ping_addr)
-    ad.log.info("Http ping result: %s.", ping)
+    # wait_time to allow for DHCP to complete.
+    for i in range(wait_time):
+        if ad.droid.connectivityNetworkIsConnected():
+            break
+        time.sleep(1)
+    ping = False
+    try:
+        ping = ad.droid.httpPing(ping_addr)
+        ad.log.info("Http ping result: %s.", ping)
+    except:
+        pass
+    if not ping and ping_gateway:
+        ad.log.info("Http ping failed. Pinging default gateway")
+        gw = ad.droid.connectivityGetIPv4DefaultGateway()
+        result = ad.adb.shell("ping -c 6 {}".format(gw))
+        ad.log.info("Default gateway ping result: %s" % result)
+        ping = False if "100% packet loss" in result else True
     return ping
 
 
@@ -1938,12 +2084,13 @@ def group_attenuators(attenuators):
     return [attn0, attn1]
 
 
-def set_attns(attenuator, attn_val_name):
+def set_attns(attenuator, attn_val_name, roaming_attn=ROAMING_ATTN):
     """Sets attenuation values on attenuators used in this test.
 
     Args:
         attenuator: The attenuator object.
         attn_val_name: Name of the attenuation value pair to use.
+        roaming_attn: Dictionary specifying the attenuation params.
     """
     logging.info("Set attenuation values to %s", roaming_attn[attn_val_name])
     try:
@@ -1956,8 +2103,40 @@ def set_attns(attenuator, attn_val_name):
                        attn_val_name)
         raise
 
+def set_attns_steps(attenuators,
+                    atten_val_name,
+                    roaming_attn=ROAMING_ATTN,
+                    steps=10,
+                    wait_time=12):
+    """Set attenuation values on attenuators used in this test. It will change
+    the attenuation values linearly from current value to target value step by
+    step.
 
-def trigger_roaming_and_validate(dut, attenuator, attn_val_name, expected_con):
+    Args:
+        attenuators: The list of attenuator objects that you want to change
+                     their attenuation value.
+        atten_val_name: Name of the attenuation value pair to use.
+        roaming_attn: Dictionary specifying the attenuation params.
+        steps: Number of attenuator changes to reach the target value.
+        wait_time: Sleep time for each change of attenuator.
+    """
+    logging.info("Set attenuation values to %s in %d step(s)",
+            roaming_attn[atten_val_name], steps)
+    start_atten = [attenuator.get_atten() for attenuator in attenuators]
+    target_atten = roaming_attn[atten_val_name]
+    for current_step in range(steps):
+        progress = (current_step + 1) / steps
+        for i, attenuator in enumerate(attenuators):
+            amount_since_start = (target_atten[i] - start_atten[i]) * progress
+            attenuator.set_atten(round(start_atten[i] + amount_since_start))
+        time.sleep(wait_time)
+
+
+def trigger_roaming_and_validate(dut,
+                                 attenuator,
+                                 attn_val_name,
+                                 expected_con,
+                                 roaming_attn=ROAMING_ATTN):
     """Sets attenuators to trigger roaming and validate the DUT connected
     to the BSSID expected.
 
@@ -1965,14 +2144,13 @@ def trigger_roaming_and_validate(dut, attenuator, attn_val_name, expected_con):
         attenuator: The attenuator object.
         attn_val_name: Name of the attenuation value pair to use.
         expected_con: The network information of the expected network.
+        roaming_attn: Dictionary specifying the attenaution params.
     """
     expected_con = {
         WifiEnums.SSID_KEY: expected_con[WifiEnums.SSID_KEY],
         WifiEnums.BSSID_KEY: expected_con["bssid"],
     }
-    set_attns(attenuator, attn_val_name)
-    logging.info("Wait %ss for roaming to finish.", ROAMING_TIMEOUT)
-    time.sleep(ROAMING_TIMEOUT)
+    set_attns_steps(attenuator, attn_val_name, roaming_attn)
 
     verify_wifi_connection_info(dut, expected_con)
     expected_bssid = expected_con[WifiEnums.BSSID_KEY]
@@ -1992,7 +2170,6 @@ def create_softap_config():
     }
     return config
 
-
 def start_softap_and_verify(ad, band):
     """Bring-up softap and verify AP mode and in scan results.
 
@@ -2002,6 +2179,13 @@ def start_softap_and_verify(ad, band):
     Returns: dict, the softAP config.
 
     """
+    # Register before start the test.
+    callbackId = ad.dut.droid.registerSoftApCallback()
+    # Check softap info value is default
+    frequency, bandwdith = get_current_softap_info(ad.dut, callbackId, True)
+    asserts.assert_true(frequency == 0, "Softap frequency is not reset")
+    asserts.assert_true(bandwdith == 0, "Softap bandwdith is not reset")
+
     config = create_softap_config()
     start_wifi_tethering(ad.dut,
                          config[WifiEnums.SSID_KEY],
@@ -2010,8 +2194,131 @@ def start_softap_and_verify(ad, band):
                          "SoftAp is not reported as running")
     start_wifi_connection_scan_and_ensure_network_found(ad.dut_client,
         config[WifiEnums.SSID_KEY])
+
+    # Check softap info can get from callback succeed and assert value should be
+    # valid.
+    frequency, bandwdith = get_current_softap_info(ad.dut, callbackId, True)
+    asserts.assert_true(frequency > 0, "Softap frequency is not valid")
+    asserts.assert_true(bandwdith > 0, "Softap bandwdith is not valid")
+    # Unregister callback
+    ad.dut.droid.unregisterSoftApCallback(callbackId)
+
     return config
 
+def wait_for_expected_number_of_softap_clients(ad, callbackId,
+        expected_num_of_softap_clients):
+    """Wait for the number of softap clients to be updated as expected.
+    Args:
+        callbackId: Id of the callback associated with registering.
+        expected_num_of_softap_clients: expected number of softap clients.
+    """
+    eventStr = wifi_constants.SOFTAP_CALLBACK_EVENT + str(
+            callbackId) + wifi_constants.SOFTAP_NUMBER_CLIENTS_CHANGED
+    clientData = ad.ed.pop_event(eventStr, SHORT_TIMEOUT)['data']
+    clientCount = clientData[wifi_constants.SOFTAP_NUMBER_CLIENTS_CALLBACK_KEY]
+    clientMacAddresses = clientData[wifi_constants.SOFTAP_CLIENTS_MACS_CALLBACK_KEY]
+    asserts.assert_equal(clientCount, expected_num_of_softap_clients,
+            "The number of softap clients doesn't match the expected number")
+    asserts.assert_equal(len(clientMacAddresses), expected_num_of_softap_clients,
+                         "The number of mac addresses doesn't match the expected number")
+    for macAddress in clientMacAddresses:
+        asserts.assert_true(checkMacAddress(macAddress), "An invalid mac address was returned")
+
+def checkMacAddress(input):
+    """Validate whether a string is a valid mac address or not.
+
+    Args:
+        input: The string to validate.
+
+    Returns: True/False, returns true for a valid mac address and false otherwise.
+    """
+    macValidationRegex = "[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$"
+    if re.match(macValidationRegex, input.lower()):
+        return True
+    return False
+
+def wait_for_expected_softap_state(ad, callbackId, expected_softap_state):
+    """Wait for the expected softap state change.
+    Args:
+        callbackId: Id of the callback associated with registering.
+        expected_softap_state: The expected softap state.
+    """
+    eventStr = wifi_constants.SOFTAP_CALLBACK_EVENT + str(
+            callbackId) + wifi_constants.SOFTAP_STATE_CHANGED
+    asserts.assert_equal(ad.ed.pop_event(eventStr,
+            SHORT_TIMEOUT)['data'][wifi_constants.
+            SOFTAP_STATE_CHANGE_CALLBACK_KEY],
+            expected_softap_state,
+            "Softap state doesn't match with expected state")
+
+def get_current_number_of_softap_clients(ad, callbackId):
+    """pop up all of softap client updated event from queue.
+    Args:
+        callbackId: Id of the callback associated with registering.
+
+    Returns:
+        If exist aleast callback, returns last updated number_of_softap_clients.
+        Returns None when no any match callback event in queue.
+    """
+    eventStr = wifi_constants.SOFTAP_CALLBACK_EVENT + str(
+            callbackId) + wifi_constants.SOFTAP_NUMBER_CLIENTS_CHANGED
+    events = ad.ed.pop_all(eventStr)
+    for event in events:
+        num_of_clients = event['data'][wifi_constants.
+                SOFTAP_NUMBER_CLIENTS_CALLBACK_KEY]
+    if len(events) == 0:
+        return None
+    return num_of_clients
+
+def get_current_softap_info(ad, callbackId, least_one):
+    """pop up all of softap info changed event from queue.
+    Args:
+        callbackId: Id of the callback associated with registering.
+        least_one: Wait for the info callback event before pop all.
+    Returns:
+        Returns last updated information of softap.
+    """
+    eventStr = wifi_constants.SOFTAP_CALLBACK_EVENT + str(
+            callbackId) + wifi_constants.SOFTAP_INFO_CHANGED
+    ad.log.info("softap info dump from eventStr %s",
+                eventStr)
+    frequency = 0
+    bandwidth = 0
+    if (least_one):
+        event = ad.ed.pop_event(eventStr, SHORT_TIMEOUT)
+        frequency = event['data'][wifi_constants.
+                SOFTAP_INFO_FREQUENCY_CALLBACK_KEY]
+        bandwidth = event['data'][wifi_constants.
+                SOFTAP_INFO_BANDWIDTH_CALLBACK_KEY]
+        ad.log.info("softap info updated, frequency is %s, bandwidth is %s",
+            frequency, bandwidth)
+
+    events = ad.ed.pop_all(eventStr)
+    for event in events:
+        frequency = event['data'][wifi_constants.
+                SOFTAP_INFO_FREQUENCY_CALLBACK_KEY]
+        bandwidth = event['data'][wifi_constants.
+                SOFTAP_INFO_BANDWIDTH_CALLBACK_KEY]
+    ad.log.info("softap info, frequency is %s, bandwidth is %s",
+            frequency, bandwidth)
+    return frequency, bandwidth
+
+
+
+def get_ssrdumps(ad, test_name=""):
+    """Pulls dumps in the ssrdump dir
+    Args:
+        ad: android device object.
+        test_name: test case name
+    """
+    logs = ad.get_file_names("/data/vendor/ssrdump/")
+    if logs:
+        ad.log.info("Pulling ssrdumps %s", logs)
+        log_path = os.path.join(ad.log_path, test_name,
+                                "SSRDUMP_%s" % ad.serial)
+        os.makedirs(log_path, exist_ok=True)
+        ad.pull_files(logs, log_path)
+    ad.adb.shell("find /data/vendor/ssrdump/ -type f -delete")
 
 def start_pcap(pcap, wifi_band, test_name):
     """Start packet capture in monitor mode.
@@ -2027,7 +2334,7 @@ def start_pcap(pcap, wifi_band, test_name):
     """
     log_dir = os.path.join(
         context.get_current_context().get_full_output_path(), 'PacketCapture')
-    utils.create_dir(log_dir)
+    os.makedirs(log_dir, exist_ok=True)
     if wifi_band == 'dual':
         bands = [BAND_2G, BAND_5G]
     else:
@@ -2057,30 +2364,33 @@ def stop_pcap(pcap, procs, test_status=None):
     if test_status:
         shutil.rmtree(os.path.dirname(fname))
 
-def verify_mac_not_found_in_pcap(mac, packets):
+def verify_mac_not_found_in_pcap(ad, mac, packets):
     """Verify that a mac address is not found in the captured packets.
 
     Args:
+        ad: android device object
         mac: string representation of the mac address
         packets: packets obtained by rdpcap(pcap_fname)
     """
     for pkt in packets:
         logging.debug("Packet Summary = %s", pkt.summary())
         if mac in pkt.summary():
-            asserts.fail("Caught Factory MAC: %s in packet sniffer."
-                         "Packet = %s" % (mac, pkt.show()))
+            asserts.fail("Device %s caught Factory MAC: %s in packet sniffer."
+                         "Packet = %s" % (ad.serial, mac, pkt.show()))
 
-def verify_mac_is_found_in_pcap(mac, packets):
+def verify_mac_is_found_in_pcap(ad, mac, packets):
     """Verify that a mac address is found in the captured packets.
 
     Args:
+        ad: android device object
         mac: string representation of the mac address
         packets: packets obtained by rdpcap(pcap_fname)
     """
     for pkt in packets:
         if mac in pkt.summary():
             return
-    asserts.fail("Did not find MAC = %s in packet sniffer." % mac)
+    asserts.fail("Did not find MAC = %s in packet sniffer."
+                 "for device %s" % (mac, ad.serial))
 
 def start_cnss_diags(ads):
     for ad in ads:
@@ -2130,7 +2440,7 @@ def get_cnss_diag_log(ad, test_name=""):
     if logs:
         ad.log.info("Pulling cnss_diag logs %s", logs)
         log_path = os.path.join(ad.device_log_path, "CNSS_DIAG_%s" % ad.serial)
-        utils.create_dir(log_path)
+        os.makedirs(log_path, exist_ok=True)
         ad.pull_files(logs, log_path)
 
 
@@ -2262,3 +2572,11 @@ def turn_ap_on(test, AP):
     if not hostapd_5g.is_alive():
         hostapd_5g.start(hostapd_5g.config)
         logging.debug('Turned WLAN1 AP%d on' % AP)
+
+
+def turn_location_off_and_scan_toggle_off(ad):
+    """Turns off wifi location scans."""
+    utils.set_location_service(ad, False)
+    ad.droid.wifiScannerToggleAlwaysAvailable(False)
+    msg = "Failed to turn off location service's scan."
+    asserts.assert_true(not ad.droid.wifiScannerIsAlwaysAvailable(), msg)

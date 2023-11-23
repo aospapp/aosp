@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "test_command_handler"
-
 #include "test_command_handler.h"
 #include "device_boutique.h"
 #include "phy.h"
@@ -24,12 +22,11 @@
 
 #include <stdlib.h>
 
-#include <base/logging.h>
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/values.h"
 
-#include "osi/include/log.h"
+#include "os/log.h"
 #include "osi/include/osi.h"
 
 using std::vector;
@@ -47,6 +44,7 @@ TestCommandHandler::TestCommandHandler(TestModel& test_model) : model_(test_mode
   SET_HANDLER("add_device_to_phy", AddDeviceToPhy);
   SET_HANDLER("del_device_from_phy", DelDeviceFromPhy);
   SET_HANDLER("list", List);
+  SET_HANDLER("set_device_address", SetDeviceAddress);
   SET_HANDLER("set_timer_period", SetTimerPeriod);
   SET_HANDLER("start_timer", StartTimer);
   SET_HANDLER("stop_timer", StopTimer);
@@ -59,29 +57,29 @@ void TestCommandHandler::AddDefaults() {
   AddPhy({"BR_EDR"});
 
   // Add the controller to the Phys
-  AddDeviceToPhy({"0", "0"});
-  AddDeviceToPhy({"0", "1"});
+  AddDeviceToPhy({"1", "1"});
+  AddDeviceToPhy({"1", "2"});
 
   // Add default test devices and add the devices to the phys
   // Add({"beacon", "be:ac:10:00:00:01", "1000"});
-  // AddDeviceToPhy({"1", "0"});
+  // AddDeviceToPhy({"2", "1"});
 
   // Add({"keyboard", "cc:1c:eb:0a:12:d1", "500"});
-  // AddDeviceToPhy({"2", "0"});
-
-  // Add({"classic", "c1:a5:51:c0:00:01", "22"});
   // AddDeviceToPhy({"3", "1"});
 
+  // Add({"classic", "c1:a5:51:c0:00:01", "22"});
+  // AddDeviceToPhy({"4", "2"});
+
   // Add({"car_kit", "ca:12:1c:17:00:01", "238"});
-  // AddDeviceToPhy({"4", "1"});
+  // AddDeviceToPhy({"5", "2"});
 
   // Add({"sniffer", "ca:12:1c:17:00:01"});
-  // AddDeviceToPhy({"5", "1"});
+  // AddDeviceToPhy({"6", "2"});
 
   // Add({"sniffer", "3c:5a:b4:04:05:06"});
-  // AddDeviceToPhy({"1", "1"});
+  // AddDeviceToPhy({"7", "2"});
   // Add({"remote_loopback_device", "10:0d:00:ba:c1:06"});
-  // AddDeviceToPhy({"2", "1"});
+  // AddDeviceToPhy({"8", "2"});
   List({});
 
   SetTimerPeriod({"10"});
@@ -113,11 +111,11 @@ void TestCommandHandler::Add(const vector<std::string>& args) {
   if (new_dev == NULL) {
     response_string_ = "TestCommandHandler 'add' " + args[0] + " failed!";
     send_response_(response_string_);
-    LOG_WARN(LOG_TAG, "%s", response_string_.c_str());
+    LOG_WARN("%s", response_string_.c_str());
     return;
   }
 
-  LOG_INFO(LOG_TAG, "Add %s", new_dev->ToString().c_str());
+  LOG_INFO("Add %s", new_dev->ToString().c_str());
   size_t dev_index = model_.Add(new_dev);
   response_string_ = std::to_string(dev_index) + std::string(":") + new_dev->ToString();
   send_response_(response_string_);
@@ -160,11 +158,9 @@ void TestCommandHandler::Del(const vector<std::string>& args) {
 
 void TestCommandHandler::AddPhy(const vector<std::string>& args) {
   if (args[0] == "LOW_ENERGY") {
-    std::shared_ptr<PhyLayerFactory> new_phy = std::make_shared<PhyLayerFactory>(Phy::Type::LOW_ENERGY);
-    model_.AddPhy(new_phy);
+    model_.AddPhy(Phy::Type::LOW_ENERGY);
   } else if (args[0] == "BR_EDR") {
-    std::shared_ptr<PhyLayerFactory> new_phy = std::make_shared<PhyLayerFactory>(Phy::Type::BR_EDR);
-    model_.AddPhy(new_phy);
+    model_.AddPhy(Phy::Type::BR_EDR);
   } else {
     response_string_ = "TestCommandHandler 'add_phy' with unrecognized type " + args[0];
     send_response_(response_string_);
@@ -211,15 +207,31 @@ void TestCommandHandler::DelDeviceFromPhy(const vector<std::string>& args) {
 
 void TestCommandHandler::List(const vector<std::string>& args) {
   if (args.size() > 0) {
-    LOG_INFO(LOG_TAG, "Unused args: arg[0] = %s", args[0].c_str());
+    LOG_INFO("Unused args: arg[0] = %s", args[0].c_str());
     return;
   }
   send_response_(model_.List());
 }
 
+void TestCommandHandler::SetDeviceAddress(const vector<std::string>& args) {
+  if (args.size() != 2) {
+    response_string_ = "TestCommandHandler 'set_device_address' takes two arguments";
+    send_response_(response_string_);
+    return;
+  }
+  size_t device_id = std::stoi(args[0]);
+  Address device_address;
+  Address::FromString(args[1], device_address);
+  model_.SetDeviceAddress(device_id, device_address);
+  response_string_ = "set_device_address " + args[0];
+  response_string_ += " ";
+  response_string_ += args[1];
+  send_response_(response_string_);
+}
+
 void TestCommandHandler::SetTimerPeriod(const vector<std::string>& args) {
   if (args.size() != 1) {
-    LOG_INFO(LOG_TAG, "SetTimerPeriod takes 1 argument");
+    LOG_INFO("SetTimerPeriod takes 1 argument");
   }
   size_t period = std::stoi(args[0]);
   model_.SetTimerPeriod(std::chrono::milliseconds(period));
@@ -227,14 +239,14 @@ void TestCommandHandler::SetTimerPeriod(const vector<std::string>& args) {
 
 void TestCommandHandler::StartTimer(const vector<std::string>& args) {
   if (args.size() > 0) {
-    LOG_INFO(LOG_TAG, "Unused args: arg[0] = %s", args[0].c_str());
+    LOG_INFO("Unused args: arg[0] = %s", args[0].c_str());
   }
   model_.StartTimer();
 }
 
 void TestCommandHandler::StopTimer(const vector<std::string>& args) {
   if (args.size() > 0) {
-    LOG_INFO(LOG_TAG, "Unused args: arg[0] = %s", args[0].c_str());
+    LOG_INFO("Unused args: arg[0] = %s", args[0].c_str());
   }
   model_.StopTimer();
 }

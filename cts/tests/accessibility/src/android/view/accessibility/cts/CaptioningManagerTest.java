@@ -16,6 +16,12 @@
 
 package android.view.accessibility.cts;
 
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.anyFloat;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;
@@ -23,13 +29,19 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.app.UiAutomation;
 import android.os.ParcelFileDescriptor;
-import android.test.InstrumentationTestCase;
 import android.view.accessibility.CaptioningManager;
 import android.view.accessibility.CaptioningManager.CaptionStyle;
 import android.view.accessibility.CaptioningManager.CaptioningChangeListener;
 
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 
 import java.io.FileInputStream;
@@ -40,15 +52,19 @@ import java.util.Locale;
 /**
  * Tests whether the CaptioningManager APIs are functional.
  */
-public class CaptioningManagerTest extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public class CaptioningManagerTest {
+
+    @Rule
+    public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
     private static final int LISTENER_TIMEOUT = 3000;
     private CaptioningManager mManager;
     private UiAutomation mUiAutomation;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() throws Exception {
         mManager = getInstrumentation().getTargetContext().getSystemService(
                 CaptioningManager.class);
 
@@ -60,6 +76,7 @@ public class CaptioningManagerTest extends InstrumentationTestCase {
     /**
      * Tests whether a client can observe changes in caption properties.
      */
+    @Test
     public void testChangeListener() {
         putSecureSetting("accessibility_captioning_enabled","0");
         putSecureSetting("accessibility_captioning_preset", "1");
@@ -97,16 +114,18 @@ public class CaptioningManagerTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testProperties() {
         putSecureSetting("accessibility_captioning_font_scale", "2.0");
         putSecureSetting("accessibility_captioning_locale", "ja_JP");
         putSecureSetting("accessibility_captioning_enabled", "1");
 
-        assertEquals("Test runner set font scale to 2.0", 2.0f, mManager.getFontScale());
+        assertEquals("Test runner set font scale to 2.0", 2.0f, mManager.getFontScale(), 0f);
         assertEquals("Test runner set locale to Japanese", Locale.JAPAN, mManager.getLocale());
         assertEquals("Test runner set enabled to true", true, mManager.isEnabled());
     }
 
+    @Test
     public void testUserStyle() {
         putSecureSetting("accessibility_captioning_preset", "-1");
         putSecureSetting("accessibility_captioning_foreground_color", "511");

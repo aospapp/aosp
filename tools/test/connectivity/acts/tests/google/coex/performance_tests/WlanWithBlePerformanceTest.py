@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+import itertools
 import time
 
 from acts.test_utils.bt.bt_gatt_utils import close_gatt_client
@@ -32,9 +33,15 @@ class WlanWithBlePerformanceTest(CoexPerformanceBaseTest):
 
     def __init__(self, controllers):
         super().__init__(controllers)
-
-    def setup_class(self):
-        super().setup_class()
+        req_params = [
+            # A dict containing:
+            #     protocol: A list containing TCP/UDP. Ex: protocol: ['tcp'].
+            #     stream: A list containing ul/dl. Ex: stream: ['ul']
+            'standalone_params'
+        ]
+        self.unpack_userparams(req_params)
+        self.tests = self.generate_test_cases(['start_stop_ble_scan',
+                                               'ble_gatt_connection'])
 
     def setup_test(self):
         super().setup_test()
@@ -120,12 +127,12 @@ class WlanWithBlePerformanceTest(CoexPerformanceBaseTest):
             True if successful, False otherwise.
         """
         start_time = time.time()
-        while((time.time()) < (start_time + self.iperf["duration"])):
+        while(time.time()) < (start_time + self.iperf["duration"]):
             self.pri_ad.droid.bluetoothEnableBLE()
-            gatt_server_cb = \
-                self.sec_ad.droid.gattServerCreateGattServerCallback()
-            gatt_server = \
-                self.sec_ad.droid.gattServerOpenGattServer(gatt_server_cb)
+            gatt_server_cb = (
+                self.sec_ad.droid.gattServerCreateGattServerCallback())
+            gatt_server = (
+                self.sec_ad.droid.gattServerOpenGattServer(gatt_server_cb))
             self.gatt_server_list.append(gatt_server)
             try:
                 bluetooth_gatt, gatt_callback, adv_callback = (
@@ -137,174 +144,27 @@ class WlanWithBlePerformanceTest(CoexPerformanceBaseTest):
                 return False
             self.adv_instances.append(adv_callback)
             return self._orchestrate_gatt_disconnection(bluetooth_gatt,
-                                                    gatt_callback)
+                                                        gatt_callback)
 
-    def ble_start_stop_scan_with_iperf(self):
+    def start_stop_ble_scan(self):
         tasks = [(self.ble_start_stop_scan, ()),
                  (self.run_iperf_and_get_result, ())]
-        if not self.set_attenuation_and_run_iperf(tasks):
-            return False
-        return self.teardown_result()
+        return self.set_attenuation_and_run_iperf(tasks)
 
-    def ble_gatt_connection_with_iperf(self):
+    def ble_gatt_connection(self):
         tasks = [(self.initiate_ble_gatt_connection, ()),
                  (self.run_iperf_and_get_result, ())]
-        if not self.set_attenuation_and_run_iperf(tasks):
-            return False
-        return self.teardown_result()
+        return self.set_attenuation_and_run_iperf(tasks)
 
-    def test_performance_ble_scan_tcp_ul(self):
-        """Test performance with ble scan.
+    def generate_test_cases(self, test_types):
+        test_cases = []
+        for protocol, stream, test_type in itertools.product(
+                self.standalone_params['protocol'],
+                self.standalone_params['stream'], test_types):
+            test_name = 'test_performance_with_{}_{}_{}'.format(
+                test_type, protocol, stream)
 
-        This test is to start TCP-uplink traffic between host machine and
-        android device and test the wlan throughput when performing ble scan.
-
-        Steps:
-        1. Start TCP-uplink traffic.
-        2. Start and stop BLE scan.
-
-        Returns:
-            True if pass, False otherwise.
-
-        Test Id: Bt_CoEx_Kpi_021
-        """
-        if not self.ble_start_stop_scan_with_iperf():
-            return False
-        return True
-
-    def test_performance_ble_scan_tcp_dl(self):
-        """Test performance with ble scan.
-
-        This test is to start TCP-downlink traffic between host machine and
-        android device and test the wlan throughput when performing ble scan.
-
-        Steps:
-        1. Start TCP-downlink traffic.
-        2. Start and stop BLE scan.
-
-        Returns:
-            True if pass, False otherwise.
-
-        Test Id: Bt_CoEx_Kpi_022
-        """
-        if not self.ble_start_stop_scan_with_iperf():
-            return False
-        return True
-
-    def test_performance_ble_scan_udp_ul(self):
-        """Test performance with ble scan.
-
-        This test is to start UDP-uplink traffic between host machine and
-        android device and test the wlan throughput when performing ble scan.
-
-        Steps:
-        1. Start UDP-uplink traffic.
-        2. Start and stop BLE scan.
-
-        Returns:
-            True if pass, False otherwise.
-
-        Test Id: Bt_CoEx_Kpi_023
-        """
-        if not self.ble_start_stop_scan_with_iperf():
-            return False
-        return True
-
-    def test_performance_ble_scan_udp_dl(self):
-        """Test performance with ble scan.
-
-        This test is to start UDP-downlink traffic between host machine and
-        android device and test the wlan throughput when performing ble scan.
-
-        Steps:
-        1. Start UDP-uplink traffic.
-        2. Start and stop BLE scan.
-
-        Returns:
-            True if pass, False otherwise.
-
-        Test Id: Bt_CoEx_Kpi_024
-        """
-        if not self.ble_start_stop_scan_with_iperf():
-            return False
-        return True
-
-    def test_performance_ble_connect_tcp_ul(self):
-        """Test performance with ble gatt connection.
-
-        This test is to start TCP-uplink traffic between host machine and
-        android device and test the wlan throughput when ble gatt connection
-        is established.
-
-        Steps:
-        1. Start TCP-uplink traffic.
-        2. Initiate gatt connection.
-
-        Returns:
-            True if pass, False otherwise.
-
-        Test Id: Bt_CoEx_Kpi_025
-        """
-        if not self.ble_gatt_connection_with_iperf():
-            return False
-        return True
-
-    def test_performance_ble_connect_tcp_dl(self):
-        """Test performance with ble gatt connection.
-
-        This test is to start TCP-downlink traffic between host machine and
-        android device and test the wlan throughput when ble gatt connection
-        is established.
-
-        Steps:
-        1. Start TCP-downlink traffic.
-        2. Initiate gatt connection.
-
-        Returns:
-            True if pass, False otherwise.
-
-        Test Id: Bt_CoEx_Kpi_026
-        """
-        if not self.ble_gatt_connection_with_iperf():
-            return False
-        return True
-
-    def test_performance_ble_connect_udp_ul(self):
-        """Test performance with ble gatt connection.
-
-        This test is to start UDP-uplink traffic between host machine and
-        android device and test the wlan throughput when ble gatt connection
-        is established.
-
-        Steps:
-        1. Start UDP-uplink traffic.
-        2. Initiate gatt connection.
-
-        Returns:
-            True if pass, False otherwise.
-
-        Test Id: Bt_CoEx_Kpi_027
-        """
-        if not self.ble_gatt_connection_with_iperf():
-            return False
-        return True
-
-    def test_performance_ble_connect_udp_dl(self):
-        """Test performance with ble gatt connection.
-
-        This test is to start UDP-downlink traffic between host machine and
-        android device and test the wlan throughput when ble gatt connection
-        is established.
-
-        Steps:
-        1. Start UDP-downlink traffic.
-        2. Initiate gatt connection.
-
-        Returns:
-            True if pass, False otherwise.
-
-        Test Id: Bt_CoEx_Kpi_028
-        """
-        if not self.ble_gatt_connection_with_iperf():
-            return False
-        return True
+            test_function = getattr(self, test_type)
+            setattr(self, test_name, test_function)
+            test_cases.append(test_name)
+        return test_cases

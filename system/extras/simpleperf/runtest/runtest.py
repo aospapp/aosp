@@ -348,9 +348,6 @@ class DeviceRunner(Runner):
     perf_path = 'simpleperf32' if target.endswith('32') else 'simpleperf'
     super(DeviceRunner, self).__init__(target, self.tmpdir + perf_path)
     self._download(os.environ['OUT'] + '/system/xbin/' + perf_path, self.tmpdir)
-    lib = 'lib' if self.is32 else 'lib64'
-    self._download(os.environ['OUT'] + '/system/' + lib + '/libsimpleperf_inplace_sampler.so',
-                   self.tmpdir)
 
   def _call(self, args, output_file=None):
     output_fh = None
@@ -571,16 +568,8 @@ def test_with_runner(runner, tests):
       print('Skip test %s on %s' % (test.test_name, runner.target))
       continue
     runner.record(test.executable_name, 'perf.data', additional_options = test.record_options)
-    if runner.sampler == 'inplace-sampler':
-      # TODO: fix this when inplace-sampler actually works.
-      runner.report('perf.data', 'perf.report')
-      symbols = report_analyzer._read_report_file('perf.report', runner.use_callgraph)
-      result = False
-      if len(symbols) == 1 and symbols[0].name.find('FakeFunction()') != -1:
-        result = True
-    else:
-      runner.report('perf.data', 'perf.report', additional_options = test.report_options)
-      result = report_analyzer.check_report_file(test, 'perf.report', runner.use_callgraph)
+    runner.report('perf.data', 'perf.report', additional_options = test.report_options)
+    result = report_analyzer.check_report_file(test, 'perf.report', runner.use_callgraph)
     str = 'test %s on %s ' % (test.test_name, runner.target)
     if runner.use_callgraph:
       str += 'with call graph '
@@ -611,7 +600,7 @@ def runtest(target_options, use_callgraph_options, sampler_options, selected_tes
 def main():
   target_options = ['host64', 'host32', 'device64', 'device32']
   use_callgraph_options = [False, True]
-  sampler_options = ['cpu-cycles', 'inplace-sampler']
+  sampler_options = ['cpu-cycles']
   selected_tests = None
   i = 1
   while i < len(sys.argv):
@@ -623,10 +612,6 @@ def main():
       use_callgraph_options = [False]
     elif sys.argv[i] == '--callgraph':
       use_callgraph_options = [True]
-    elif sys.argv[i] == '--no-inplace-sampler':
-      sampler_options = ['cpu-cycles']
-    elif sys.argv[i] == '--inplace-sampler':
-      sampler_options = ['inplace-sampler']
     elif sys.argv[i] == '--test':
       if i < len(sys.argv):
         i += 1

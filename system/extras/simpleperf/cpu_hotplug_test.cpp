@@ -257,7 +257,8 @@ TEST(cpu_offline, offline_while_recording) {
       cur_time = std::chrono::steady_clock::now();
     }
 
-    std::unique_ptr<EventFd> event_fd = EventFd::OpenEventFile(attr, -1, test_cpu, nullptr, false);
+    std::unique_ptr<EventFd> event_fd =
+        EventFd::OpenEventFile(attr, -1, test_cpu, nullptr, event_type_modifier->name, false);
     if (event_fd == nullptr) {
       // Failed to open because the test_cpu is offline.
       continue;
@@ -313,7 +314,8 @@ TEST(cpu_offline, offline_while_ioctl_enable) {
       cur_time = std::chrono::steady_clock::now();
 
     }
-    std::unique_ptr<EventFd> event_fd = EventFd::OpenEventFile(attr, -1, test_cpu, nullptr, false);
+    std::unique_ptr<EventFd> event_fd =
+        EventFd::OpenEventFile(attr, -1, test_cpu, nullptr, event_type_modifier->name, false);
     if (event_fd == nullptr) {
       // Failed to open because the test_cpu is offline.
       continue;
@@ -396,10 +398,11 @@ TEST(cpu_offline, offline_while_user_process_profiling) {
       cur_time = std::chrono::steady_clock::now();
     }
     // Test if the cpu pmu is still usable.
-    ASSERT_TRUE(EventFd::OpenEventFile(attr, 0, -1, nullptr, true) != nullptr);
+    ASSERT_TRUE(EventFd::OpenEventFile(attr, 0, -1, nullptr, event_type_modifier->name, true) !=
+                nullptr);
 
-    std::unique_ptr<EventFd> event_fd = EventFd::OpenEventFile(attr, cpu_spin_arg.tid,
-                                                               test_cpu, nullptr, false);
+    std::unique_ptr<EventFd> event_fd = EventFd::OpenEventFile(
+        attr, cpu_spin_arg.tid, test_cpu, nullptr, event_type_modifier->name, false);
     if (event_fd == nullptr) {
       // Failed to open because the test_cpu is offline.
       continue;
@@ -420,7 +423,8 @@ TEST(cpu_offline, offline_while_user_process_profiling) {
   cpu_spin_thread.join();
   // Check if the cpu-cycle event is still available on test_cpu.
   if (SetCpuOnline(test_cpu, true)) {
-    ASSERT_TRUE(EventFd::OpenEventFile(attr, -1, test_cpu, nullptr, true) != nullptr);
+    ASSERT_TRUE(EventFd::OpenEventFile(attr, -1, test_cpu, nullptr, event_type_modifier->name,
+                                       true) != nullptr);
   }
 }
 
@@ -448,13 +452,15 @@ TEST(cpu_offline, offline_while_recording_on_another_cpu) {
     if (!SetCpuOnline(test_cpu, true)) {
       break;
     }
-    std::unique_ptr<EventFd> event_fd = EventFd::OpenEventFile(attr, getpid(), record_cpu, nullptr);
+    std::unique_ptr<EventFd> event_fd =
+        EventFd::OpenEventFile(attr, getpid(), record_cpu, nullptr, event_type_modifier->name);
     ASSERT_TRUE(event_fd != nullptr);
     if (!SetCpuOnline(test_cpu, false)) {
       break;
     }
     event_fd = nullptr;
-    event_fd = EventFd::OpenEventFile(attr, getpid(), record_cpu, nullptr);
+    event_fd =
+        EventFd::OpenEventFile(attr, getpid(), record_cpu, nullptr, event_type_modifier->name);
     ASSERT_TRUE(event_fd != nullptr);
   }
 }

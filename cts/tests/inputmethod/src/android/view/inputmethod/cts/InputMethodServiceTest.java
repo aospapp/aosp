@@ -18,6 +18,8 @@ package android.view.inputmethod.cts;
 
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN;
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
+import static android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.expectImeInvisible;
+import static android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.expectImeVisible;
 import static android.view.inputmethod.cts.util.TestUtils.getOnMainSync;
 import static android.view.inputmethod.cts.util.TestUtils.runOnMainSync;
 import static android.view.inputmethod.cts.util.TestUtils.waitOnMainUntil;
@@ -26,6 +28,7 @@ import static com.android.cts.mockime.ImeEventStreamTestUtils.EventFilterMode.CH
 import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEventWithKeyValue;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
 
 import static org.junit.Assert.assertEquals;
@@ -40,6 +43,7 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.View;
 import android.view.inputmethod.CursorAnchorInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
@@ -48,11 +52,12 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.TestActivity;
 import android.view.inputmethod.cts.util.TestUtils;
+import android.view.inputmethod.cts.util.UnlockScreenRule;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.cts.mockime.ImeCommand;
@@ -62,6 +67,7 @@ import com.android.cts.mockime.ImeSettings;
 import com.android.cts.mockime.MockImeSession;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -80,6 +86,9 @@ import java.util.function.Predicate;
 public class InputMethodServiceTest extends EndToEndImeTestBase {
     private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
     private static final long EXPECTED_TIMEOUT = TimeUnit.SECONDS.toMillis(2);
+
+    @Rule
+    public final UnlockScreenRule mUnlockScreenRule = new UnlockScreenRule();
 
     private Instrumentation mInstrumentation;
 
@@ -116,9 +125,27 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
         });
     }
 
+    @Test
+    public void verifyLayoutInflaterContext() throws Exception {
+        try (MockImeSession imeSession = MockImeSession.create(
+                InstrumentationRegistry.getInstrumentation().getContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder())) {
+            final ImeEventStream stream = imeSession.openEventStream();
+
+            createTestActivity(SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+            expectEvent(stream, event -> "onStartInputView".equals(event.getEventName()), TIMEOUT);
+
+            final ImeCommand command = imeSession.verifyLayoutInflaterContext();
+            assertTrue("InputMethodService.getLayoutInflater().getContext() must be equal to"
+                    + " InputMethodService.this",
+                    expectCommand(stream, command, TIMEOUT).getReturnBooleanValue());
+        }
+    }
+
     private void verifyImeConsumesBackButton(int backDisposition) throws Exception {
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder())) {
             final ImeEventStream stream = imeSession.openEventStream();
@@ -170,7 +197,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
     @Test
     public void testRequestHideSelf() throws Exception {
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder())) {
             final ImeEventStream stream = imeSession.openEventStream();
@@ -178,16 +205,22 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
             createTestActivity(SOFT_INPUT_STATE_ALWAYS_VISIBLE);
             expectEvent(stream, event -> "onStartInputView".equals(event.getEventName()), TIMEOUT);
 
+            expectImeVisible(TIMEOUT);
+
             imeSession.callRequestHideSelf(0);
             expectEvent(stream, event -> "hideSoftInput".equals(event.getEventName()), TIMEOUT);
             expectEvent(stream, event -> "onFinishInputView".equals(event.getEventName()), TIMEOUT);
+            expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                    View.GONE, TIMEOUT);
+
+            expectImeInvisible(TIMEOUT);
         }
     }
 
     @Test
     public void testRequestShowSelf() throws Exception {
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder())) {
             final ImeEventStream stream = imeSession.openEventStream();
@@ -196,9 +229,15 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
             notExpectEvent(
                     stream, event -> "onStartInputView".equals(event.getEventName()), TIMEOUT);
 
+            expectImeInvisible(TIMEOUT);
+
             imeSession.callRequestShowSelf(0);
             expectEvent(stream, event -> "showSoftInput".equals(event.getEventName()), TIMEOUT);
             expectEvent(stream, event -> "onStartInputView".equals(event.getEventName()), TIMEOUT);
+            expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                    View.VISIBLE, TIMEOUT);
+
+            expectImeVisible(TIMEOUT);
         }
     }
 
@@ -232,7 +271,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
     @Test
     public void testSendDownUpKeyEvents() throws Exception {
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder())) {
             final ImeEventStream stream = imeSession.openEventStream();
@@ -301,7 +340,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
     @Test
     public void testOnUpdateCursorAnchorInfo() throws Exception {
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder())) {
             final String marker =

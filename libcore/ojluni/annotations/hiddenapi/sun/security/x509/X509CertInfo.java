@@ -25,19 +25,15 @@
 
 package sun.security.x509;
 
-import java.security.cert.*;
-import java.util.*;
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class X509CertInfo implements sun.security.x509.CertAttrSet<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CertInfo() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CertInfo(byte[] cert) throws java.security.cert.CertificateParsingException {
         throw new RuntimeException("Stub!");
     }
@@ -80,7 +76,7 @@ public class X509CertInfo implements sun.security.x509.CertAttrSet<java.lang.Str
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void set(java.lang.String name, java.lang.Object val)
             throws java.security.cert.CertificateException, java.io.IOException {
         throw new RuntimeException("Stub!");
@@ -91,7 +87,7 @@ public class X509CertInfo implements sun.security.x509.CertAttrSet<java.lang.Str
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.Object get(java.lang.String name)
             throws java.security.cert.CertificateException, java.io.IOException {
         throw new RuntimeException("Stub!");

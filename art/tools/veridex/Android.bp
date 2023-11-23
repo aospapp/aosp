@@ -24,7 +24,10 @@ cc_binary {
         "resolver.cc",
         "veridex.cc",
     ],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     static_libs: [
         "libdexfile",
         "libartbase",
@@ -42,4 +45,11 @@ cc_binary {
             enabled: true,
         },
     },
+}
+
+// Expose the appcompat.sh script for use by the build.
+sh_binary_host {
+    name: "veridex-appcompat",
+    src: "appcompat.sh",
+    filename_from_src: true,
 }

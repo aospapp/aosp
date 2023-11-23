@@ -16,6 +16,7 @@
 
 aidl_interface {
     name: "pixelpowerstats_provider_aidl_interface",
+    unstable: true,
     srcs: [
         "android/vendor/powerstats/IPixelPowerStatsProvider.aidl",
         "android/vendor/powerstats/IPixelPowerStatsCallback.aidl",

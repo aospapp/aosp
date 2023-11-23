@@ -38,7 +38,7 @@ typedef struct {
   uint16_t round;
 } tCMAC_CB;
 
-tCMAC_CB cmac_cb;
+thread_local tCMAC_CB cmac_cb;
 
 /* Rb for AES-128 as block cipher, LSB as [0] */
 Octet16 const_Rb{0x87, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -180,7 +180,8 @@ static void cmac_generate_subkey(const Octet16& key) {
  *  length - length of the input in byte.
  */
 Octet16 aes_cmac(const Octet16& key, const uint8_t* input, uint16_t length) {
-  uint16_t len, diff;
+  uint32_t len;
+  uint16_t diff;
   /* n is number of rounds */
   uint16_t n = (length + OCTET16_LEN - 1) / OCTET16_LEN;
 

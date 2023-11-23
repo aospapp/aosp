@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.cts.bitstreams.MediaBitstreams;
@@ -80,6 +81,35 @@ public class MediaBitstreamsDeviceSideTest {
         boolean debug = Boolean.parseBoolean(debugStr);
         if (debug && !Debug.isDebuggerConnected()) {
             Debug.waitForDebugger();
+        }
+    }
+
+    private static void fixFormat(MediaFormat format, String path) {
+        // TODO(b/137684344): Revisit so that we can get this information from
+        //                    the bitstream or the extractor.
+        if (path.indexOf("/10bit/") < 0) {
+            return;
+        }
+        String mime = format.getString(MediaFormat.KEY_MIME);
+        int profile = -1, level = -1;
+        if (mime.equals(MediaFormat.MIMETYPE_VIDEO_VP9)) {
+            profile = CodecProfileLevel.VP9Profile2;
+            level = CodecProfileLevel.VP9Level1;
+        } else if (mime.equals(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
+            profile = CodecProfileLevel.HEVCProfileMain10;
+            level = CodecProfileLevel.HEVCMainTierLevel1;
+        } else if (mime.equals(MediaFormat.MIMETYPE_VIDEO_AV1)) {
+            profile = CodecProfileLevel.AV1ProfileMain10;
+            level = CodecProfileLevel.AV1Level2;
+        } else {
+            return;
+        }
+
+        if (!format.containsKey(MediaFormat.KEY_PROFILE)) {
+            format.setInteger(MediaFormat.KEY_PROFILE, profile);
+        }
+        if (!format.containsKey(MediaFormat.KEY_LEVEL)) {
+            format.setInteger(MediaFormat.KEY_LEVEL, level);
         }
     }
 
@@ -166,6 +196,7 @@ public class MediaBitstreamsDeviceSideTest {
                 MediaFormat format = parseTrackFormat(formatStr);
                 String mime = format.getString(MediaFormat.KEY_MIME);
                 String[] decoders = MediaUtils.getDecoderNamesForMime(mime);
+                fixFormat(format, path);
 
                 ps.println(path);
                 ps.println(decoders.length);
@@ -225,6 +256,7 @@ public class MediaBitstreamsDeviceSideTest {
             try {
                 ex.setDataSource(path);
                 MediaFormat format = ex.getTrackFormat(0);
+                fixFormat(format, path);
                 boolean[] vendors = new boolean[] {false, true};
                 for (boolean v : vendors) {
                     for (String name : MediaUtils.getDecoderNames(v, format)) {

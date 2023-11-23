@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "security_manager"
-
 #include "security_manager.h"
 
-#include "base/logging.h"
+#include "os/log.h"
 
 using std::vector;
 
@@ -46,7 +44,8 @@ uint16_t SecurityManager::ReadKey(const Address& addr) const {
   return key_store_.count(addr.ToString());
 }
 
-uint16_t SecurityManager::WriteKey(const Address& addr, const std::vector<uint8_t>& key) {
+uint16_t SecurityManager::WriteKey(const Address& addr,
+                                   const std::array<uint8_t, 16>& key) {
   if (key_store_.size() >= max_keys_) {
     return 0;
   }
@@ -54,8 +53,9 @@ uint16_t SecurityManager::WriteKey(const Address& addr, const std::vector<uint8_
   return 1;
 }
 
-const std::vector<uint8_t>& SecurityManager::GetKey(const Address& addr) const {
-  CHECK(ReadKey(addr)) << "No such key";
+const std::array<uint8_t, 16>& SecurityManager::GetKey(
+    const Address& addr) const {
+  ASSERT_LOG(ReadKey(addr), "No such key");
   return key_store_.at(addr.ToString());
 }
 
@@ -83,7 +83,7 @@ Address SecurityManager::GetAuthenticationAddress() {
 
 void SecurityManager::SetPeerIoCapability(const Address& addr, uint8_t io_capability, uint8_t oob_present_flag,
                                           uint8_t authentication_requirements) {
-  CHECK_EQ(addr, peer_address_);
+  ASSERT(addr == peer_address_);
   peer_capabilities_valid_ = true;
   if (io_capability <= static_cast<uint8_t>(IoCapabilityType::NO_INPUT_NO_OUTPUT)) {
     peer_io_capability_ = static_cast<IoCapabilityType>(io_capability);
@@ -102,12 +102,12 @@ void SecurityManager::SetPeerIoCapability(const Address& addr, uint8_t io_capabi
 
 void SecurityManager::SetLocalIoCapability(const Address& peer, uint8_t io_capability, uint8_t oob_present_flag,
                                            uint8_t authentication_requirements) {
-  CHECK_EQ(peer, peer_address_);
-  CHECK(io_capability <= static_cast<uint8_t>(IoCapabilityType::NO_INPUT_NO_OUTPUT))
-      << "io_capability = " << io_capability;
-  CHECK(oob_present_flag <= 1) << "oob_present_flag = " << oob_present_flag;
-  CHECK(authentication_requirements <= static_cast<uint8_t>(AuthenticationType::GENERAL_BONDING_MITM))
-      << "authentication_requirements = " << authentication_requirements;
+  ASSERT(peer == peer_address_);
+  ASSERT_LOG(io_capability <= static_cast<uint8_t>(IoCapabilityType::NO_INPUT_NO_OUTPUT), "io_capability = %d",
+             static_cast<int>(io_capability));
+  ASSERT_LOG(oob_present_flag <= 1, "oob_present_flag = %hhx ", oob_present_flag);
+  ASSERT_LOG(authentication_requirements <= static_cast<uint8_t>(AuthenticationType::GENERAL_BONDING_MITM),
+             "authentication_requirements = %d", static_cast<int>(authentication_requirements));
   host_io_capability_ = static_cast<IoCapabilityType>(io_capability);
   host_oob_present_flag_ = (oob_present_flag == 1);
   host_authentication_requirements_ = static_cast<AuthenticationType>(authentication_requirements);
@@ -132,7 +132,53 @@ PairingType SecurityManager::GetSimplePairingType() {
   if (!(peer_requires_mitm || host_requires_mitm)) {
     return PairingType::AUTO_CONFIRMATION;
   }
-  return PairingType::INVALID;
+  LOG_INFO("%s: host does%s require peer does%s require MITM",
+           peer_address_.ToString().c_str(), host_requires_mitm ? "" : "n't",
+           peer_requires_mitm ? "" : "n't");
+  switch (peer_io_capability_) {
+    case IoCapabilityType::DISPLAY_ONLY:
+      switch (host_io_capability_) {
+        case IoCapabilityType::DISPLAY_ONLY:
+        case IoCapabilityType::DISPLAY_YES_NO:
+          return PairingType::AUTO_CONFIRMATION;
+        case IoCapabilityType::KEYBOARD_ONLY:
+          return PairingType::INPUT_PIN;
+        case IoCapabilityType::NO_INPUT_NO_OUTPUT:
+          return PairingType::AUTO_CONFIRMATION;
+        default:
+          return PairingType::INVALID;
+      }
+    case IoCapabilityType::DISPLAY_YES_NO:
+      switch (host_io_capability_) {
+        case IoCapabilityType::DISPLAY_ONLY:
+          return PairingType::AUTO_CONFIRMATION;
+        case IoCapabilityType::DISPLAY_YES_NO:
+          return PairingType::DISPLAY_AND_CONFIRM;
+        case IoCapabilityType::KEYBOARD_ONLY:
+          return PairingType::DISPLAY_PIN;
+        case IoCapabilityType::NO_INPUT_NO_OUTPUT:
+          return PairingType::AUTO_CONFIRMATION;
+        default:
+          return PairingType::INVALID;
+      }
+    case IoCapabilityType::KEYBOARD_ONLY:
+      switch (host_io_capability_) {
+        case IoCapabilityType::DISPLAY_ONLY:
+          return PairingType::DISPLAY_PIN;
+        case IoCapabilityType::DISPLAY_YES_NO:
+          return PairingType::DISPLAY_PIN;
+        case IoCapabilityType::KEYBOARD_ONLY:
+          return PairingType::INPUT_PIN;
+        case IoCapabilityType::NO_INPUT_NO_OUTPUT:
+          return PairingType::AUTO_CONFIRMATION;
+        default:
+          return PairingType::INVALID;
+      }
+    case IoCapabilityType::NO_INPUT_NO_OUTPUT:
+      return PairingType::AUTO_CONFIRMATION;
+    default:
+      return PairingType::INVALID;
+  }
 }
 
 }  // namespace test_vendor_lib

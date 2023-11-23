@@ -21,11 +21,14 @@ import static android.telecom.cts.TestUtils.waitOnAllHandlers;
 
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
+import android.Manifest;
 import android.app.role.RoleManager;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -49,6 +52,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockServices {
+    public static final String EXTRA_NETWORK_IDENTIFIED_EMERGENCY_CALL = "identifiedEmergencyCall";
     private static final String TAG = ThirdPartyCallScreeningServiceTest.class.getSimpleName();
     private static final String TEST_APP_NAME = "CTSCSTest";
     private static final String TEST_APP_PACKAGE = "android.telecom.cts.screeningtestapp";
@@ -57,10 +61,14 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
                     + "android.telecom.cts.screeningtestapp.CtsCallScreeningService";
     private static final int ASYNC_TIMEOUT = 10000;
     private static final String ROLE_CALL_SCREENING = RoleManager.ROLE_CALL_SCREENING;
+    private static final Uri TEST_OUTGOING_NUMBER = Uri.fromParts("tel", "6505551212", null);
 
     private ICallScreeningControl mCallScreeningControl;
     private RoleManager mRoleManager;
     private String mPreviousCallScreeningPackage;
+    private PackageManager mPackageManager;
+    private Uri mContactUri;
+    private ContentResolver mContentResolver;
 
     @Override
     protected void setUp() throws Exception {
@@ -69,12 +77,15 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
             return;
         }
         mRoleManager = (RoleManager) mContext.getSystemService(Context.ROLE_SERVICE);
+        mPackageManager = mContext.getPackageManager();
+        revokeReadContactPermission();
         setupControlBinder();
         setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
         rememberPreviousCallScreeningApp();
         // Ensure CTS app holds the call screening role.
         addRoleHolder(ROLE_CALL_SCREENING,
                 CtsCallScreeningService.class.getPackage().getName());
+        mContentResolver = getInstrumentation().getTargetContext().getContentResolver();
     }
 
     @Override
@@ -109,10 +120,10 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
 
         // Tell the test app to block the call.
         mCallScreeningControl.setCallResponse(true /* shouldDisallowCall */,
-                true /* shouldRejectCall */, false /* shouldSilenceCall */, false /* shouldSkipCallLog */,
-                true /* shouldSkipNotification */);
+                true /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, true /* shouldSkipNotification */);
 
-        addIncomingAndVerifyBlocked();
+        addIncomingAndVerifyBlocked(false /* addContact */);
     }
 
     /**
@@ -129,10 +140,10 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
 
         // Tell the test app to block the call; also try to skip logging the call.
         mCallScreeningControl.setCallResponse(true /* shouldDisallowCall */,
-                true /* shouldRejectCall */, false /* shouldSilenceCall */, true /* shouldSkipCallLog */,
-                true /* shouldSkipNotification */);
+                true /* shouldRejectCall */, false /* shouldSilenceCall */,
+                true /* shouldSkipCallLog */, true /* shouldSkipNotification */);
 
-        addIncomingAndVerifyBlocked();
+        addIncomingAndVerifyBlocked(false /* addContact */);
     }
 
     /**
@@ -169,28 +180,228 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
         addIncomingAndVerifyCallExtraForSilence(false);
     }
 
-    private Uri placeOutgoingCall() throws Exception {
+    public void testHasPermissionAndNoContactIncoming() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        grantReadContactPermission();
+        verifyPermission(true);
+        // Tell the test app to block the call.
+        mCallScreeningControl.setCallResponse(true /* shouldDisallowCall */,
+                true /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, true /* shouldSkipNotification */);
+        addIncomingAndVerifyBlocked(false /* addContact */);
+    }
+
+    public void testNoPermissionAndNoContactIncoming() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        verifyPermission(false);
+        // Tell the test app to block the call.
+        mCallScreeningControl.setCallResponse(true /* shouldDisallowCall */,
+                true /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, true /* shouldSkipNotification */);
+        addIncomingAndVerifyBlocked(false /* addContact */);
+    }
+
+    public void testHasPermissionAndHasContactIncoming() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        grantReadContactPermission();
+        verifyPermission(true);
+        mCallScreeningControl.setCallResponse(true /* shouldDisallowCall */,
+                true /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, true /* shouldSkipNotification */);
+        addIncomingAndVerifyBlocked(true /* addContact */);
+    }
+
+    public void testNoPermissionAndHasContactIncoming() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        verifyPermission(false);
+        mCallScreeningControl.setCallResponse(true /* shouldDisallowCall */,
+                true /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, true /* shouldSkipNotification */);
+        addIncomingAndVerifyAllowed(true /* addContact */);
+    }
+
+    public void testHasPermissionAndNoContactOutgoing() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        grantReadContactPermission();
+        verifyPermission(true);
+        placeOutgoingCall(false /* addContact */);
+        assertTrue(mCallScreeningControl.waitForBind());
+    }
+
+    public void testNoPermissionAndNoContactOutgoing() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        verifyPermission(false);
+        placeOutgoingCall(false /* addContact */);
+        assertTrue(mCallScreeningControl.waitForBind());
+    }
+
+    public void testHasPermissionAndHasContactOutgoing() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        grantReadContactPermission();
+        verifyPermission(true);
+        placeOutgoingCall(true /* addCountact */);
+        assertTrue(mCallScreeningControl.waitForBind());
+    }
+
+    public void testNoPermissionAndHasContactOutgoing() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        verifyPermission(false);
+        placeOutgoingCall(true /* addCountact */);
+        assertFalse(mCallScreeningControl.waitForBind());
+    }
+
+    public void testNoPostCallActivityWithoutRole() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        removeRoleHolder(ROLE_CALL_SCREENING, CtsCallScreeningService.class.getPackage().getName());
+        addIncomingAndVerifyAllowed(false);
+        assertFalse(mCallScreeningControl.waitForActivity());
+    }
+
+    public void testAllowCall() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        mCallScreeningControl.setCallResponse(false /* shouldDisallowCall */,
+                false /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, false /* shouldSkipNotification */);
+        addIncomingAndVerifyAllowed(false /* addContact */);
+        assertTrue(mCallScreeningControl.waitForActivity());
+    }
+
+    public void testNoPostCallActivityWhenBlocked() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        mCallScreeningControl.setCallResponse(true /* shouldDisallowCall */,
+                true /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, true /* shouldSkipNotification */);
+        addIncomingAndVerifyBlocked(false /* addContact */);
+        assertFalse(mCallScreeningControl.waitForActivity());
+    }
+
+    public void testNoPostCallActivityWhenAudioProcessing() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        mCallScreeningControl.setCallResponse(false /* shouldDisallowCall */,
+                false /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, false /* shouldSkipNotification */);
+        Uri testNumber = createRandomTestNumber();
+        Bundle extras = new Bundle();
+        extras.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS, testNumber);
+        mTelecomManager.addNewIncomingCall(TestUtils.TEST_PHONE_ACCOUNT_HANDLE, extras);
+
+        // Wait until the new incoming call is processed.
+        waitOnAllHandlers(getInstrumentation());
+
+        assertEquals(1, mInCallCallbacks.getService().getCallCount());
+        Call call = mInCallCallbacks.getService().getLastCall();
+        call.enterBackgroundAudioProcessing();
+
+        waitOnAllHandlers(getInstrumentation());
+        mInCallCallbacks.getService().disconnectAllCalls();
+        assertFalse(mCallScreeningControl.waitForActivity());
+    }
+
+    public void testNoPostCallActivityForOutgoingEmergencyCall() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        setupForEmergencyCalling(TEST_EMERGENCY_NUMBER);
+        Bundle extras = new Bundle();
+        extras.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, TEST_EMERGENCY_URI);
+        placeAndVerifyCall(extras);
+
+        // Wait until the new incoming call is processed.
+        waitOnAllHandlers(getInstrumentation());
+        mInCallCallbacks.getService().disconnectAllCalls();
+        assertFalse(mCallScreeningControl.waitForActivity());
+    }
+
+    public void testNoPostCallActivityForIncomingEmergencyCall() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+        setupForEmergencyCalling(TEST_EMERGENCY_NUMBER);
+        mCallScreeningControl.setCallResponse(false /* shouldDisallowCall */,
+                false /* shouldRejectCall */, false /* shouldSilenceCall */,
+                false /* shouldSkipCallLog */, false /* shouldSkipNotification */);
+        Bundle extras = new Bundle();
+        extras.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS, TEST_EMERGENCY_URI);
+        extras.putBoolean(EXTRA_NETWORK_IDENTIFIED_EMERGENCY_CALL, true);
+        mTelecomManager.addNewIncomingCall(TestUtils.TEST_PHONE_ACCOUNT_HANDLE, extras);
+
+        // Wait until the new incoming call is processed.
+        waitOnAllHandlers(getInstrumentation());
+        mInCallCallbacks.getService().disconnectAllCalls();
+
+        assertFalse(mCallScreeningControl.waitForActivity());
+    }
+
+    private void placeOutgoingCall(boolean addContact) throws Exception {
         // Setup content observer to notify us when we call log entry is added.
         CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
 
-        Uri phoneNumber = createRandomTestNumber();
+        Uri contactUri = null;
+        if (addContact) {
+            contactUri = TestUtils.insertContact(mContentResolver,
+                    TEST_OUTGOING_NUMBER.getSchemeSpecificPart());
+        }
         Bundle extras = new Bundle();
-        extras.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, phoneNumber);
+        extras.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, TEST_OUTGOING_NUMBER);
         // Create a new outgoing call.
         placeAndVerifyCall(extras);
+
+        if (addContact) {
+            assertEquals(1, TestUtils.deleteContact(mContentResolver, contactUri));
+        }
 
         mInCallCallbacks.getService().disconnectAllCalls();
         assertNumCalls(mInCallCallbacks.getService(), 0);
 
         // Wait for it to log.
         callLogEntryLatch.await(ASYNC_TIMEOUT, TimeUnit.MILLISECONDS);
-        return phoneNumber;
     }
 
-    private Uri addIncoming(boolean disconnectImmediately) throws Exception {
+    private Uri addIncoming(boolean disconnectImmediately, boolean addContact) throws Exception {
         // Add call through TelecomManager; we can't use the test methods since they assume a call
         // makes it through to the InCallService; this is blocked so it shouldn't.
         Uri testNumber = createRandomTestNumber();
+        if (addContact) {
+            mContactUri = TestUtils.insertContact(mContentResolver,
+                    testNumber.getSchemeSpecificPart());
+        }
 
         // Setup content observer to notify us when we call log entry is added.
         CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
@@ -213,11 +424,36 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
         return testNumber;
     }
 
-    private void addIncomingAndVerifyBlocked() throws Exception {
-        Uri testNumber = addIncoming(false);
+    private void addIncomingAndVerifyAllowed(boolean addContact) throws Exception {
+        Uri testNumber = addIncoming(true, addContact);
 
         // Query the latest entry into the call log.
-        Cursor callsCursor = mContext.getContentResolver().query(CallLog.Calls.CONTENT_URI, null,
+        Cursor callsCursor = mContentResolver.query(CallLog.Calls.CONTENT_URI, null,
+                null, null, CallLog.Calls._ID + " DESC limit 1;");
+        int numberIndex = callsCursor.getColumnIndex(CallLog.Calls.NUMBER);
+        int callTypeIndex = callsCursor.getColumnIndex(CallLog.Calls.TYPE);
+        int blockReasonIndex = callsCursor.getColumnIndex(CallLog.Calls.BLOCK_REASON);
+        if (callsCursor.moveToNext()) {
+            String number = callsCursor.getString(numberIndex);
+            int callType = callsCursor.getInt(callTypeIndex);
+            int blockReason = callsCursor.getInt(blockReasonIndex);
+            assertEquals(testNumber.getSchemeSpecificPart(), number);
+            assertEquals(CallLog.Calls.INCOMING_TYPE, callType);
+            assertEquals(CallLog.Calls.BLOCK_REASON_NOT_BLOCKED, blockReason);
+        } else {
+            fail("Call not logged");
+        }
+
+        if (addContact && mContactUri != null) {
+            assertEquals(1, TestUtils.deleteContact(mContentResolver, mContactUri));
+        }
+    }
+
+    private void addIncomingAndVerifyBlocked(boolean addContact) throws Exception {
+        Uri testNumber = addIncoming(false, addContact);
+
+        // Query the latest entry into the call log.
+        Cursor callsCursor = mContentResolver.query(CallLog.Calls.CONTENT_URI, null,
                 null, null, CallLog.Calls._ID + " DESC limit 1;");
         int numberIndex = callsCursor.getColumnIndex(CallLog.Calls.NUMBER);
         int callTypeIndex = callsCursor.getColumnIndex(CallLog.Calls.TYPE);
@@ -240,11 +476,15 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
         } else {
             fail("Blocked call was not logged.");
         }
+
+        if (addContact && mContactUri != null) {
+            assertEquals(1, TestUtils.deleteContact(mContentResolver, mContactUri));
+        }
     }
 
     private void addIncomingAndVerifyCallExtraForSilence(boolean expectedIsSilentRingingExtraSet)
             throws Exception {
-        Uri testNumber = addIncoming(false);
+        Uri testNumber = addIncoming(false, false);
 
         waitUntilConditionIsTrueOrTimeout(
                 new Condition() {
@@ -349,4 +589,26 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
         assertTrue(result);
     }
 
+    private void grantReadContactPermission() {
+        runWithShellPermissionIdentity(() -> {
+            if (mPackageManager != null) {
+                mPackageManager.grantRuntimePermission(TEST_APP_PACKAGE,
+                        Manifest.permission.READ_CONTACTS, mContext.getUser());
+            }});
+    }
+
+    private void revokeReadContactPermission() {
+        runWithShellPermissionIdentity(() -> {
+                if (mPackageManager != null) {
+                    mPackageManager.revokeRuntimePermission(TEST_APP_PACKAGE,
+                            Manifest.permission.READ_CONTACTS, mContext.getUser());
+                }});
+    }
+
+    private void verifyPermission(boolean hasPermission) {
+        assertEquals(hasPermission,
+                mPackageManager.checkPermission
+                        (Manifest.permission.READ_CONTACTS, TEST_APP_PACKAGE)
+                        == PackageManager.PERMISSION_GRANTED);
+    }
 }

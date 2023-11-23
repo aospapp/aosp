@@ -39,6 +39,9 @@ public class Components extends ComponentsBase {
     public static final ComponentName SECOND_NO_EMBEDDING_ACTIVITY =
             component("SecondActivityNoEmbedding");
 
+    public static final ComponentName TEST_ACTIVITY_WITH_SAME_AFFINITY_DIFFERENT_UID =
+            component("TestActivityWithSameAffinityDifferentUid");
+
     public static final ComponentName SECOND_LAUNCH_BROADCAST_RECEIVER =
             component("LaunchBroadcastReceiver");
     /** See AndroidManifest.xml. */

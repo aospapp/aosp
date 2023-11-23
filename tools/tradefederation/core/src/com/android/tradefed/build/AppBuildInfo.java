@@ -16,12 +16,6 @@
 
 package com.android.tradefed.build;
 
-import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
-
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * A {@link IBuildInfo} that represents an Android application and its test package(s).
  */
@@ -44,26 +38,5 @@ public class AppBuildInfo extends BuildInfo implements IAppBuildInfo {
      */
     public AppBuildInfo(BuildInfo buildToCopy) {
         super(buildToCopy);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<VersionedFile> getAppPackageFiles() {
-        List<VersionedFile> origList = getVersionedFiles(BuildInfoFileKey.PACKAGE_FILES);
-        List<VersionedFile> listCopy = new ArrayList<VersionedFile>();
-        if (origList != null) {
-            listCopy.addAll(origList);
-        }
-        return listCopy;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addAppPackageFile(File appPackageFile, String version) {
-        setFile(BuildInfoFileKey.PACKAGE_FILES, appPackageFile, version);
     }
 }

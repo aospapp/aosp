@@ -34,7 +34,6 @@ Android build, and start Android within the host instance.
        cheeps_compute_client.CheepsComputeClient
 """
 
-import getpass
 import logging
 
 from acloud import errors
@@ -42,7 +41,9 @@ from acloud.internal import constants
 from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import gcompute_client
 
+
 logger = logging.getLogger(__name__)
+
 
 class CheepsComputeClient(android_compute_client.AndroidComputeClient):
     """Client that manages Cheeps based Android Virtual Device.
@@ -62,23 +63,17 @@ class CheepsComputeClient(android_compute_client.AndroidComputeClient):
             raise errors.DeviceBootError("Betty failed to start")
 
     # pylint: disable=too-many-locals,arguments-differ
-    def CreateInstance(self, instance, image_name, image_project,
-                       build_id=None, avd_spec=None):
+    def CreateInstance(self, instance, image_name, image_project, avd_spec):
         """ Creates a cheeps instance in GCE.
 
         Args:
             instance: name of the VM
             image_name: the GCE image to use
             image_project: project the GCE image is in
-            build_id: (optional) the Android build id to use. To specify a
-                different betty image you should use a different image_name
             avd_spec: An AVDSpec instance.
         """
         metadata = self._metadata.copy()
         metadata[constants.INS_KEY_AVD_TYPE] = constants.TYPE_CHEEPS
-        if build_id:
-            metadata['android_build_id'] = build_id
-
         # Update metadata by avd_spec
         if avd_spec:
             metadata["cvd_01_x_res"] = avd_spec.hw_property[constants.HW_X_RES]
@@ -89,20 +84,15 @@ class CheepsComputeClient(android_compute_client.AndroidComputeClient):
                 avd_spec.hw_property[constants.HW_Y_RES],
                 avd_spec.hw_property[constants.HW_ALIAS_DPI]))
 
-        # Add per-instance ssh key
-        if self._ssh_public_key_path:
-            rsa = self._LoadSshPublicKey(self._ssh_public_key_path)
-            logger.info("ssh_public_key_path is specified in config: %s, "
-                        "will add the key to the instance.",
-                        self._ssh_public_key_path)
-            metadata["sshKeys"] = "%s:%s" % (getpass.getuser(), rsa)
-        else:
-            logger.warning("ssh_public_key_path is not specified in config, "
-                           "only project-wide key will be effective.")
+            if avd_spec.username:
+                metadata["user"] = avd_spec.username
+                metadata["password"] = avd_spec.password
 
-        # Add labels for giving the instances ability to be filter for
-        # acloud list/delete cmds.
-        labels = {constants.LABEL_CREATE_BY: getpass.getuser()}
+            if avd_spec.remote_image[constants.BUILD_ID]:
+                metadata['android_build_id'] = avd_spec.remote_image[constants.BUILD_ID]
+
+            if avd_spec.remote_image[constants.BUILD_TARGET]:
+                metadata['android_build_target'] = avd_spec.remote_image[constants.BUILD_TARGET]
 
         gcompute_client.ComputeClient.CreateInstance(
             self,
@@ -113,5 +103,4 @@ class CheepsComputeClient(android_compute_client.AndroidComputeClient):
             metadata=metadata,
             machine_type=self._machine_type,
             network=self._network,
-            zone=self._zone,
-            labels=labels)
+            zone=self._zone)

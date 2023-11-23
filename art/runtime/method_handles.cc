@@ -20,6 +20,7 @@
 
 #include "class_root.h"
 #include "common_dex_operations.h"
+#include "common_throws.h"
 #include "interpreter/shadow_frame-inl.h"
 #include "jvalue-inl.h"
 #include "mirror/class-inl.h"
@@ -418,6 +419,7 @@ static inline bool IsCallerTransformer(Handle<mirror::MethodType> callsite_type)
 static inline bool MethodHandleInvokeMethod(ArtMethod* called_method,
                                             Handle<mirror::MethodType> callsite_type,
                                             Handle<mirror::MethodType> target_type,
+                                            Handle<mirror::MethodType> nominal_type,
                                             Thread* self,
                                             ShadowFrame& shadow_frame,
                                             const InstructionOperands* const operands,
@@ -540,6 +542,11 @@ static inline bool MethodHandleInvokeMethod(ArtMethod* called_method,
 
     DCHECK(self->IsExceptionPending());
     return false;
+  }
+
+  if (nominal_type != nullptr) {
+    return ConvertReturnValue(nominal_type, target_type, result) &&
+        ConvertReturnValue(callsite_type, nominal_type, result);
   }
 
   return ConvertReturnValue(callsite_type, target_type, result);
@@ -685,7 +692,14 @@ ArtMethod* RefineTargetMethod(Thread* self,
     if (referrer_class == declaring_class) {
       return target_method;
     }
-    if (!declaring_class->IsInterface()) {
+    if (declaring_class->IsInterface()) {
+      if (target_method->IsAbstract()) {
+        std::string msg =
+            "Method " + target_method->PrettyMethod() + " is abstract interface method!";
+        ThrowIllegalAccessException(msg.c_str());
+        return nullptr;
+      }
+    } else {
       ObjPtr<mirror::Class> super_class = referrer_class->GetSuperClass();
       uint16_t vtable_index = target_method->GetMethodIndex();
       DCHECK(super_class != nullptr);
@@ -706,8 +720,9 @@ bool DoInvokePolymorphicMethod(Thread* self,
                                const InstructionOperands* const operands,
                                JValue* result)
   REQUIRES_SHARED(Locks::mutator_lock_) {
-  StackHandleScope<1> hs(self);
+  StackHandleScope<2> hs(self);
   Handle<mirror::MethodType> handle_type(hs.NewHandle(method_handle->GetMethodType()));
+  Handle<mirror::MethodType> nominal_handle_type(hs.NewHandle(method_handle->GetNominalType()));
   const mirror::MethodHandle::Kind handle_kind = method_handle->GetHandleKind();
   DCHECK(IsInvoke(handle_kind));
 
@@ -753,6 +768,7 @@ bool DoInvokePolymorphicMethod(Thread* self,
     return MethodHandleInvokeMethod(called_method,
                                     callsite_type,
                                     handle_type,
+                                    nominal_handle_type,
                                     self,
                                     shadow_frame,
                                     operands,

@@ -48,6 +48,15 @@ inline ::testing::AssertionResult isOk(binder_status_t t) {
   return ::testing::AssertionFailure() << "Status: " << t;
 }
 
+inline ::testing::AssertionResult ContainsSubstring(const std::string& s, const std::string& ss) {
+  if (s.find(ss) != std::string::npos) {
+    return ::testing::AssertionSuccess();
+  } else {
+    return ::testing::AssertionFailure()
+           << "String: '" << s << "' does not contain substring: " << ss;
+  }
+}
+
 #define EXPECT_OK(THING) EXPECT_TRUE(isOk(THING))
 #define ASSERT_OK(THING) ASSERT_TRUE(isOk(THING))
 
@@ -85,6 +94,7 @@ struct ThisShouldBeDestroyed {
 struct SampleData : ThisShouldBeDestroyed {
   static const char* kDescriptor;
   static const AIBinder_Class* kClass;
+  static const AIBinder_Class* kAnotherClassWithSameDescriptor;
 
   static const char* kAnotherDescriptor;
   static const AIBinder_Class* kAnotherClass;
@@ -161,3 +171,5 @@ class NdkBinderTest : public ::testing::Test {
 };
 
 JNIEnv* GetEnv();
+jobject callStaticJavaMethodForObject(JNIEnv* env, const std::string& clazz,
+                                      const std::string& method, const std::string& type);

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Common errors thrown when repo presubmit checks fail."""
+"""Common errors thrown when repo preupload checks fail."""
 
 from __future__ import print_function
 
@@ -54,6 +54,7 @@ class HookResult(object):
     def __bool__(self):
         return bool(self.error)
 
+    # pylint: disable=nonzero-method
     def __nonzero__(self):
         """Python 2/3 glue."""
         return self.__bool__()
@@ -63,12 +64,12 @@ class HookResult(object):
 
 
 class HookCommandResult(HookResult):
-    """A single hook result based on a CommandResult."""
+    """A single hook result based on a CompletedProcess."""
 
     def __init__(self, hook, project, commit, result, files=(),
                  fixup_func=None):
         HookResult.__init__(self, hook, project, commit,
-                            result.error if result.error else result.output,
+                            result.stderr if result.stderr else result.stdout,
                             files=files, fixup_func=fixup_func)
         self.result = result
 

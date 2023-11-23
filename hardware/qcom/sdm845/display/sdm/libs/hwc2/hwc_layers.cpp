@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, 2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright 2015 The Android Open Source Project
@@ -536,6 +536,12 @@ HWC2::Error HWCLayer::SetLayerZOrder(uint32_t z) {
   return HWC2::Error::None;
 }
 
+HWC2::Error HWCLayer::SetLayerColorTransform(const float *matrix) {
+  color_transform_matrix_set_ =
+      (std::memcmp(matrix, kIdentityMatrix, sizeof(kIdentityMatrix)) != 0);
+  return HWC2::Error::None;
+}
+
 HWC2::Error HWCLayer::SetLayerPerFrameMetadata(uint32_t num_elements,
                                                const PerFrameMetadataKey *keys,
                                                const float *metadata) {
@@ -693,6 +699,7 @@ LayerBufferFormat HWCLayer::GetSDMFormat(const int32_t &source, const int flags)
       format = kFormatYCrCb420PlanarStride16;
       break;
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+    case HAL_PIXEL_FORMAT_NV21_ZSL:
       format = kFormatYCrCb420SemiPlanar;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP:

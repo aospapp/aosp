@@ -25,24 +25,26 @@
 #include <hidl-util/StringHelper.h>
 #include <algorithm>
 #include <iostream>
+#include <string>
 #include <vector>
 
 namespace android {
 
-Scope::Scope(const char* localName, const FQName& fullName, const Location& location, Scope* parent)
+Scope::Scope(const std::string& localName, const FQName& fullName, const Location& location,
+             Scope* parent)
     : NamedType(localName, fullName, location, parent) {}
 Scope::~Scope(){}
 
 void Scope::addType(NamedType* type) {
     size_t index = mTypes.size();
     mTypes.push_back(type);
-    mTypeIndexByName[type->localName()] = index;
+    mTypeIndexByName[type->definedName()] = index;
 }
 
 status_t Scope::validateUniqueNames() const {
     for (const auto* type : mTypes) {
-        if (mTypes[mTypeIndexByName.at(type->localName())] != type) {
-            std::cerr << "ERROR: A type named '" << type->localName()
+        if (mTypes[mTypeIndexByName.at(type->definedName())] != type) {
+            std::cerr << "ERROR: A type named '" << type->definedName()
                       << "' is already declared in the scope at " << type->location() << std::endl;
             return UNKNOWN_ERROR;
         }
@@ -122,12 +124,13 @@ std::vector<const Type*> Scope::getDefinedTypes() const {
     return ret;
 }
 
-std::vector<const ConstantExpression*> Scope::getConstantExpressions() const {
-    std::vector<const ConstantExpression*> ret;
-    for (const auto* annotation : mAnnotations) {
-        const auto& retAnnotation = annotation->getConstantExpressions();
-        ret.insert(ret.end(), retAnnotation.begin(), retAnnotation.end());
-    }
+std::vector<const NamedType*> Scope::getSortedDefinedTypes() const {
+    std::vector<const NamedType*> ret;
+    ret.insert(ret.end(), mTypes.begin(), mTypes.end());
+
+    std::sort(ret.begin(), ret.end(), [](const NamedType* lhs, const NamedType* rhs) -> bool {
+        return lhs->location() < rhs->location();
+    });
     return ret;
 }
 
@@ -142,8 +145,14 @@ void Scope::topologicalReorder(const std::unordered_map<const Type*, size_t>& re
     std::sort(mTypes.begin(), mTypes.end(), less);
 
     for (size_t i = 0; i != mTypes.size(); ++i) {
-        mTypeIndexByName.at(mTypes[i]->localName()) = i;
+        mTypeIndexByName.at(mTypes[i]->definedName()) = i;
     }
+}
+
+void Scope::emitHidlDefinition(Formatter& out) const {
+    const std::vector<const NamedType*>& definedTypes = getSortedDefinedTypes();
+    out.join(definedTypes.begin(), definedTypes.end(), "\n",
+             [&](auto t) { t->emitHidlDefinition(out); });
 }
 
 void Scope::emitTypeDeclarations(Formatter& out) const {
@@ -218,10 +227,14 @@ void Scope::emitVtsTypeDeclarations(Formatter& out) const {
 
 bool Scope::deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const {
     for (const Type* type : mTypes) {
-        if (!type->isJavaCompatible(visited)) {
+        // Java compatibility focuses on types that are actually used by interfaces.
+        // Declarations of java-incompatible types are simply omitted from
+        // corresponding Java libraries.
+        if (type->isInterface() && !type->isJavaCompatible(visited)) {
             return false;
         }
     }
+
     return Type::deepIsJavaCompatible(visited);
 }
 

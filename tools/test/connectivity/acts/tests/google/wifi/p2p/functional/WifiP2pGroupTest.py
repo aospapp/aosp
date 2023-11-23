@@ -30,13 +30,13 @@ WPS_PBC = wp2putils.WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_PBC
 WPS_DISPLAY = wp2putils.WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_DISPLAY
 WPS_KEYPAD = wp2putils.WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_KEYPAD
 
+
 class WifiP2pGroupTest(WifiP2pBaseTest):
     """Tests for APIs in Android's WifiP2pManager class.
 
     Test Bed Requirement:
     * At least two Android devices
     """
-
     def __init__(self, controllers):
         WifiP2pBaseTest.__init__(self, controllers)
 
@@ -76,17 +76,22 @@ class WifiP2pGroupTest(WifiP2pBaseTest):
         gc_dut = self.dut2
         # Create a group
         wp2putils.p2p_create_group(go_dut)
-        go_dut.ed.pop_event(p2pconsts.CONNECTED_EVENT, p2pconsts.DEFAULT_TIMEOUT)
+        go_dut.ed.pop_event(p2pconsts.CONNECTED_EVENT,
+                            p2pconsts.DEFAULT_TIMEOUT)
         time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)
         # Request the connection
-        wp2putils.p2p_connect(gc_dut, go_dut, False, wps_type, True)
+        wp2putils.p2p_connect(gc_dut,
+                              go_dut,
+                              False,
+                              wps_type,
+                              p2p_connect_type=p2pconsts.P2P_CONNECT_JOIN)
 
-        wp2putils.p2p_connection_ping_test(gc_dut, p2pconsts.GO_IP_ADDRESS)
+        go_ip = wp2putils.p2p_go_ip(gc_dut)
+        wp2putils.p2p_connection_ping_test(gc_dut, go_ip)
         # trigger disconnect
         wp2putils.p2p_disconnect(go_dut)
         wp2putils.check_disconnect(gc_dut)
         time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)
-
 
     """Test Cases"""
     @test_tracker_info(uuid="c41f8293-5225-430d-917e-c294ddff7c2a")
@@ -113,17 +118,16 @@ class WifiP2pGroupTest(WifiP2pBaseTest):
         go_dut = self.dut1
         gc_dut = self.dut2
         # Create a group
-        wp2putils.p2p_create_group_with_config(go_dut,
-                                               self.network_name,
+        wp2putils.p2p_create_group_with_config(go_dut, self.network_name,
                                                self.passphrase,
                                                self.group_band)
         time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)
         # Request the connection. Since config is known, this is reconnection.
-        wp2putils.p2p_connect_with_config(gc_dut, go_dut,
-                                          self.network_name, self.passphrase,
-                                          self.group_band)
+        wp2putils.p2p_connect_with_config(gc_dut, go_dut, self.network_name,
+                                          self.passphrase, self.group_band)
 
-        wp2putils.p2p_connection_ping_test(gc_dut, p2pconsts.GO_IP_ADDRESS)
+        go_ip = wp2putils.p2p_go_ip(gc_dut)
+        wp2putils.p2p_connection_ping_test(gc_dut, go_ip)
         # trigger disconnect
         wp2putils.p2p_disconnect(go_dut)
         wp2putils.check_disconnect(gc_dut)

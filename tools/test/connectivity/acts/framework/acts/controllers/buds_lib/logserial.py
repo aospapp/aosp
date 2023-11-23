@@ -21,15 +21,15 @@ import subprocess
 import sys
 import time
 import uuid
+from logging import Logger
 from threading import Thread
 
 import serial
 from serial.tools import list_ports
 
-from acts import tracelogger
-from logging import Logger
+from acts.controllers.buds_lib import tako_trace_logger
 
-logging = tracelogger.TakoTraceLogger(Logger(__file__))
+logging = tako_trace_logger.TakoTraceLogger(Logger(__file__))
 
 RETRIES = 0
 

@@ -16,7 +16,6 @@
 <configuration description="Config for media module e2e test cases">
     <option name="test-suite-tag" value="media_e2e_tests" />
     <option name="test-suite-tag" value="apct" />
-
     <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer"/>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="jar" value="media_e2e_tests.jar" />

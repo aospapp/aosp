@@ -79,44 +79,44 @@ Let's connect an Android device and a host computer using a USB cable.
 
 For Linux users,
 
-`$ vts-tradefed`
+`$ vts10-tradefed`
 
-`> run vts`
+`> run vts10`
 
 For Windows users, please build on Linux. Then copy the following zip file to Windows and extract it.
 
-`out/host/linux-x86/vts/android-vts.zip`
+`out/host/linux-x86/vts10/android-vts10.zip`
 
 Launch the batch file in the extracted folder.
 
-`$ android-vts\tools\vts-tradefed_win.bat`
+`$ android-vts10\tools\vts10-tradefed_win.bat`
 
-`> run vts`
+`> run vts10`
 
 Example stdout:
 
 ```
 …
 …
-08-16 09:36:03 I/ResultReporter: Saved logs for device_logcat in .../out/host/linux-x86/vts/android-vts/logs/2016.08.16_09.17.13/device_logcat_7912321856562095748.zip
-08-16 09:36:03 I/ResultReporter: Saved logs for host_log in .../out/host/linux-x86/vts/android-vts/logs/2016.08.16_09.17.13/host_log_2775945280523850018.zip
+08-16 09:36:03 I/ResultReporter: Saved logs for device_logcat in .../out/host/linux-x86/vts10/android-vts10/logs/2016.08.16_09.17.13/device_logcat_7912321856562095748.zip
+08-16 09:36:03 I/ResultReporter: Saved logs for host_log in .../out/host/linux-x86/vts10/android-vts10/logs/2016.08.16_09.17.13/host_log_2775945280523850018.zip
 08-16 09:36:04 I/ResultReporter: Invocation finished in 18m 50s. PASSED: 18, FAILED: 0, NOT EXECUTED: 2, MODULES: 8 of 10
-08-16 09:36:04 I/ResultReporter: Test Result: .../out/host/linux-x86/vts/android-vts/results/2016.08.16_09.17.13/test_result.xml
-08-16 09:36:04 I/ResultReporter: Full Result: .../out/host/linux-x86/vts/android-vts/results/2016.08.16_09.17.13.zip
+08-16 09:36:04 I/ResultReporter: Test Result: .../out/host/linux-x86/vts10/android-vts10/results/2016.08.16_09.17.13/test_result.xml
+08-16 09:36:04 I/ResultReporter: Full Result: .../out/host/linux-x86/vts10/android-vts10/results/2016.08.16_09.17.13.zip
 ```
 
 ### 2.2. Test report for APFE (Android Partner Front-End)
 
 The uploadable report xml file can be found at
 
-`out/host/linux-x86/vts/android-vts/results/`
+`out/host/linux-x86/vts10/android-vts10/results/`
 
 After Android O release, you will be able to upload that xml file to [AFPE](https://partner.android.com)
 and obtain a certificate.
 
 ### 2.3. Check the test logs
 
-`$ vi out/host/linux-x86/vts/android-vts/logs/`
+`$ vi out/host/linux-x86/vts10/android-vts10/logs/`
 
 Then select a directory which captures the time stamp of your test run (e.g., 2016.08.16_09.17.13).
 
@@ -126,7 +126,7 @@ Then select `device_logcat_<timestamp>.zip` and device_logcat.txt in that zip fi
 
 ## 3. Run Options for Advanced Users
 
-### 3.1. List of VTS Plans
+### 3.1. List of VTS10 Plans
 
 Documented at [here](../tools/vts-tradefed/res/config/plans.md).
 

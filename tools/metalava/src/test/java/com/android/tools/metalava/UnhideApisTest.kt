@@ -34,7 +34,7 @@ class UnhideApisTest : DriverTest() {
                 ARG_ERROR,
                 "ReferencesHidden"
             ),
-            warnings = """
+            expectedIssues = """
             src/test/pkg/Foo.java:3: error: Class test.pkg.Hidden1 is not public but was referenced (as field type) from public field test.pkg.Foo.hidden1 [ReferencesHidden]
             src/test/pkg/Foo.java:4: error: Class test.pkg.Hidden2 is hidden but was referenced (as field type) from public field test.pkg.Foo.hidden2 [ReferencesHidden]
             src/test/pkg/Foo.java:5: error: Class test.pkg.Hidden1 is not public but was referenced (as parameter type) from public parameter hidden1 in test.pkg.Foo.method(test.pkg.Hidden1 hidden1, test.pkg.Hidden2 hidden2) [ReferencesHidden]
@@ -45,7 +45,7 @@ class UnhideApisTest : DriverTest() {
             src/test/pkg/Foo.java:8: error: Class test.pkg.Hidden1 is not public but was referenced (as return type) from public method test.pkg.Foo.getHidden1() [ReferencesHidden]
             src/test/pkg/Foo.java:9: error: Class test.pkg.Hidden2 is hidden but was referenced (as return type) from public method test.pkg.Foo.getHidden2() [ReferencesHidden]
             """,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -116,14 +116,14 @@ class UnhideApisTest : DriverTest() {
                 ARG_ERROR,
                 "ReferencesHidden"
             ),
-            warnings = """
+            expectedIssues = """
             src/test/pkg/Foo.java:4: error: Class test.pkg.Hidden2 is hidden but was referenced (as field type) from public field test.pkg.Foo.hidden2 [ReferencesHidden]
             src/test/pkg/Foo.java:5: error: Class test.pkg.Hidden2 is hidden but was referenced (as parameter type) from public parameter hidden2 in test.pkg.Foo.method(test.pkg.Hidden1 hidden1, test.pkg.Hidden2 hidden2) [ReferencesHidden]
             src/test/pkg/Foo.java:5: error: Class test.pkg.Hidden3 is hidden but was referenced (as exception) from public method test.pkg.Foo.method(test.pkg.Hidden1,test.pkg.Hidden2) [ReferencesHidden]
             src/test/pkg/Foo.java:7: error: Class test.pkg.Hidden2 is hidden but was referenced (as type parameter) from public method test.pkg.Foo.get(T) [ReferencesHidden]
             src/test/pkg/Foo.java:9: error: Class test.pkg.Hidden2 is hidden but was referenced (as return type) from public method test.pkg.Foo.getHidden2() [ReferencesHidden]
             """,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg;
@@ -183,8 +183,7 @@ class UnhideApisTest : DriverTest() {
     fun `Including private interfaces from types`() {
         check(
             extraArguments = arrayOf(ARG_ERROR, "ReferencesHidden"),
-            checkDoclava1 = true,
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java("""package test.pkg1; interface Interface1 { }"""),
                 java("""package test.pkg1; abstract class Class1 { }"""),
                 java("""package test.pkg1; abstract class Class2 { }"""),
@@ -215,7 +214,7 @@ class UnhideApisTest : DriverTest() {
             ),
 
             // TODO: Test annotations! (values, annotation classes, etc.)
-            warnings = """
+            expectedIssues = """
                     src/test/pkg1/Usage.java:7: error: Class test.pkg1.Class3 is not public but was referenced (as field type) from public field test.pkg1.Usage.myClass1 [ReferencesHidden]
                     src/test/pkg1/Usage.java:8: error: Class test.pkg1.Class4 is not public but was referenced (as field type argument class) from public field test.pkg1.Usage.myClass2 [ReferencesHidden]
                     src/test/pkg1/Usage.java:9: error: Class test.pkg1.Class5 is not public but was referenced (as field type argument class) from public field test.pkg1.Usage.myClass3 [ReferencesHidden]

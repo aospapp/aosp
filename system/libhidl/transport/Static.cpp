@@ -17,8 +17,8 @@
 // All static variables go here, to control initialization and
 // destruction order in the library.
 
-#include <InternalStatic.h>
 #include <hidl/Static.h>
+#include "InternalStatic.h"
 
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <utils/Mutex.h>

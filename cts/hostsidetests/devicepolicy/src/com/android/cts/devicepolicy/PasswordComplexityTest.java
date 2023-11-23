@@ -2,9 +2,13 @@ package com.android.cts.devicepolicy;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
 
+import static org.junit.Assert.fail;
+
 import android.stats.devicepolicy.EventId;
 
 import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
+
+import org.junit.Test;
 
 /** Host-side tests to run the CtsPasswordComplexity device-side tests. */
 public class PasswordComplexityTest extends BaseDevicePolicyTest {
@@ -16,7 +20,7 @@ public class PasswordComplexityTest extends BaseDevicePolicyTest {
     private int mCurrentUserId;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         if (!mHasSecureLockScreen) {
@@ -33,7 +37,7 @@ public class PasswordComplexityTest extends BaseDevicePolicyTest {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasSecureLockScreen) {
             getDevice().uninstallPackage(PKG);
         }
@@ -41,6 +45,7 @@ public class PasswordComplexityTest extends BaseDevicePolicyTest {
         super.tearDown();
     }
 
+    @Test
     public void testGetPasswordComplexity() throws Exception {
         if (!mHasSecureLockScreen) {
             return;
@@ -51,6 +56,6 @@ public class PasswordComplexityTest extends BaseDevicePolicyTest {
                 () -> runDeviceTestsAsUser(PKG, CLS, mCurrentUserId),
                 new DevicePolicyEventWrapper
                         .Builder(EventId.GET_USER_PASSWORD_COMPLEXITY_LEVEL_VALUE)
-                        .setStrings(PKG).build());
+                        .setStrings("notCalledFromParent", PKG).build());
     }
 }

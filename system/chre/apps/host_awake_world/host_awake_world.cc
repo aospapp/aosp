@@ -36,8 +36,7 @@ uint32_t gMessageTimerHandle;
 
 bool nanoappStart() {
   LOGI("Host awake world start");
-  gMessageTimerHandle = chreTimerSet(5000000 /* 5 ms */,
-                                     &gMessageTimerHandle,
+  gMessageTimerHandle = chreTimerSet(5000000 /* 5 ms */, &gMessageTimerHandle,
                                      false /* oneShot */);
   chreConfigureHostSleepStateEvents(true /* enable */);
 
@@ -57,8 +56,7 @@ void handleTimerEvent(const void *eventData) {
   }
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
   switch (eventType) {
     case CHRE_EVENT_TIMER:
@@ -84,8 +82,8 @@ void nanoappEnd() {
 }  // anonymous namespace
 }  // namespace chre
 
-#include "chre/util/nanoapp/app_id.h"
 #include "chre/platform/static_nanoapp_init.h"
+#include "chre/util/nanoapp/app_id.h"
 
 CHRE_STATIC_NANOAPP_INIT(HostAwakeWorld, chre::kHostAwakeWorldAppId, 0);
 #endif  // CHRE_NANOAPP_INTERNAL

@@ -36,10 +36,12 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.KeyguardControllerState;
+import com.android.tradefed.util.ProcessInfo;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
 
 import org.easymock.EasyMock;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,8 +52,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.InputStream;
+import java.net.URLConnection;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 
@@ -298,10 +302,11 @@ public class TestDeviceFuncTest implements IDeviceTest {
      */
     @Test
     public void testPull_nopermissions() throws IOException, DeviceNotAvailableException {
-        CLog.i("testPull_nopermissions");
-
-        // make sure the root path is valid
-        String externalStorePath =  mTestDevice.getMountPoint(IDevice.MNT_EXTERNAL_STORAGE);
+        Assume.assumeFalse(
+                "Skipping test since harness is running as root.",
+                "root".equals(System.getProperty("user.name")));
+        // Make sure the root path is valid
+        String externalStorePath = mTestDevice.getMountPoint(IDevice.MNT_EXTERNAL_STORAGE);
         assertNotNull(externalStorePath);
         String deviceFilePath = String.format("%s/%s", externalStorePath, "testPull_nopermissions");
         // first push a file so we have something to retrieve
@@ -607,6 +612,60 @@ public class TestDeviceFuncTest implements IDeviceTest {
         }
     }
 
+    private ProcessInfo waitForSystemServerProcess() throws DeviceNotAvailableException {
+        ProcessInfo systemServer = null;
+        for (int i = 0; i < 5; i++) {
+            systemServer = mTestDevice.getProcessByName("system_server");
+            if (systemServer != null) {
+                return systemServer;
+            }
+            RunUtil.getDefault().sleep(1000);
+        }
+        Log.i(LOG_TAG, "The system_server process fails to come up");
+        return null;
+    }
+
+    /** Test device soft-restart detection API. */
+    @Test
+    public void testDeviceSoftRestart() throws DeviceNotAvailableException {
+        Log.i(LOG_TAG, "testDeviceSoftRestartSince");
+
+        // Get system_server process info
+        ProcessInfo prev = mTestDevice.getProcessByName("system_server");
+        long deviceTimeMs = mTestDevice.getDeviceDate();
+        if (prev == null) {
+            Log.i(LOG_TAG, "System_server process does not exist. Abort testDeviceSoftRestart.");
+            return;
+        }
+        assertFalse(mTestDevice.deviceSoftRestartedSince(prev.getStartTime(), TimeUnit.SECONDS));
+        assertFalse(mTestDevice.deviceSoftRestarted(prev));
+        if (!mTestDevice.isAdbRoot()) {
+            mTestDevice.enableAdbRoot();
+        }
+        mTestDevice.executeShellCommand(String.format("kill %s", prev.getPid()));
+        RunUtil.getDefault().sleep(1000);
+        assertTrue(mTestDevice.deviceSoftRestartedSince(deviceTimeMs, TimeUnit.MILLISECONDS));
+        assertTrue(mTestDevice.deviceSoftRestarted(prev));
+        prev = waitForSystemServerProcess();
+        deviceTimeMs = mTestDevice.getDeviceDate();
+        mTestDevice.reboot();
+        if (!mTestDevice.isAdbRoot()) {
+            mTestDevice.enableAdbRoot();
+        }
+        assertFalse(mTestDevice.deviceSoftRestartedSince(deviceTimeMs, TimeUnit.MILLISECONDS));
+        assertFalse(mTestDevice.deviceSoftRestarted(prev));
+        // Restart system_server 10 seconds after reboot
+        RunUtil.getDefault().sleep(10000);
+        mTestDevice.executeShellCommand(
+                String.format("kill %s", mTestDevice.getProcessByName("system_server").getPid()));
+        RunUtil.getDefault().sleep(1000);
+        assertTrue(mTestDevice.deviceSoftRestartedSince(deviceTimeMs, TimeUnit.MILLISECONDS));
+        assertTrue(mTestDevice.deviceSoftRestarted(prev));
+        waitForSystemServerProcess();
+        assertTrue(mTestDevice.deviceSoftRestartedSince(deviceTimeMs, TimeUnit.MILLISECONDS));
+        assertTrue(mTestDevice.deviceSoftRestarted(prev));
+    }
+
     /**
      * Verify that {@link TestDevice#clearErrorDialogs()} can successfully clear an error dialog
      * from screen.
@@ -775,9 +834,9 @@ public class TestDeviceFuncTest implements IDeviceTest {
     /** Test that {@link TestDevice#getProperty(String)} works for volatile properties. */
     @Test
     public void testGetProperty_volatile() throws Exception {
-        getDevice().executeShellCommand("setprop prop.test 0");
+        getDevice().setProperty("prop.test", "0");
         assertEquals("0", getDevice().getProperty("prop.test"));
-        getDevice().executeShellCommand("setprop prop.test 1");
+        getDevice().setProperty("prop.test", "1");
         assertEquals("1", getDevice().getProperty("prop.test"));
     }
 
@@ -825,21 +884,19 @@ public class TestDeviceFuncTest implements IDeviceTest {
     /** Test for {@link TestDevice#listDisplayIds()}. */
     @Test
     public void testListDisplays() throws Exception {
-        Set<Integer> displays = mTestDevice.listDisplayIds();
+        Set<Long> displays = mTestDevice.listDisplayIds();
         assertEquals(1, displays.size());
     }
 
-    /** Test for {@link TestDevice#getScreenshot(int)}. */
+    /** Test for {@link TestDevice#getScreenshot(long)}. */
     @Test
     public void testScreenshot() throws Exception {
-        InputStreamSource screenshot = mTestDevice.getScreenshot(0);
+        InputStreamSource screenshot = mTestDevice.getScreenshot(0L);
         assertNotNull(screenshot);
-        File testFile = FileUtil.createTempFile("test-screenshot", ".testpng");
-        try {
-            FileUtil.writeToFile(screenshot.createInputStream(), testFile);
-            assertEquals("image/png", Files.probeContentType(testFile.toPath()));
+        try (InputStream stream = screenshot.createInputStream();
+                BufferedInputStream bs = new BufferedInputStream(stream)) {
+            assertEquals("image/png", URLConnection.guessContentTypeFromStream(bs));
         } finally {
-            FileUtil.deleteFile(testFile);
             StreamUtil.close(screenshot);
         }
     }

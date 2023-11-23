@@ -16,29 +16,46 @@
 
 package android.view.inputmethod.cts;
 
+import static android.view.WindowInsets.Type.ime;
+import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+import static android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.expectImeInvisible;
+import static android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.expectImeVisible;
 import static android.view.inputmethod.cts.util.TestUtils.getOnMainSync;
 import static android.view.inputmethod.cts.util.TestUtils.runOnMainSync;
 
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEventWithKeyValue;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.app.AlertDialog;
+import android.app.Instrumentation;
+import android.graphics.Color;
 import android.os.SystemClock;
+import android.support.test.uiautomator.UiObject2;
 import android.text.TextUtils;
 import android.util.Pair;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.WindowInsetsController;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethod;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.TestActivity;
+import android.view.inputmethod.cts.util.TestUtils;
+import android.view.inputmethod.cts.util.TestWebView;
+import android.view.inputmethod.cts.util.UnlockScreenRule;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.cts.mockime.ImeEvent;
@@ -46,6 +63,7 @@ import com.android.cts.mockime.ImeEventStream;
 import com.android.cts.mockime.ImeSettings;
 import com.android.cts.mockime.MockImeSession;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -58,8 +76,12 @@ import java.util.function.Predicate;
 public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
     private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
 
+    @Rule
+    public final UnlockScreenRule mUnlockScreenRule = new UnlockScreenRule();
+
     private static final String TEST_MARKER_PREFIX =
             "android.view.inputmethod.cts.KeyboardVisibilityControlTest";
+    private static final int NEW_KEYBOARD_HEIGHT = 400;
 
     private static String getTestMarker() {
         return TEST_MARKER_PREFIX + "/"  + SystemClock.elapsedRealtimeNanos();
@@ -135,7 +157,7 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
                 .getTargetContext().getSystemService(InputMethodManager.class);
 
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder())) {
             final ImeEventStream stream = imeSession.openEventStream();
@@ -145,6 +167,7 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
 
             expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
             notExpectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
+            expectImeInvisible(TIMEOUT);
 
             assertTrue("isActive() must return true if the View has IME focus",
                     getOnMainSync(() -> imm.isActive(editText)));
@@ -155,6 +178,9 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
 
             expectEvent(stream, showSoftInputMatcher(InputMethod.SHOW_EXPLICIT), TIMEOUT);
             expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
+            expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                    View.VISIBLE, TIMEOUT);
+            expectImeVisible(TIMEOUT);
 
             // Test hideSoftInputFromWindow() flow
             assertTrue("hideSoftInputFromWindow must success if the View has IME focus",
@@ -162,6 +188,9 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
 
             expectEvent(stream, hideSoftInputMatcher(), TIMEOUT);
             expectEvent(stream, onFinishInputViewMatcher(false), TIMEOUT);
+            expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                    View.GONE, TIMEOUT);
+            expectImeInvisible(TIMEOUT);
         }
     }
 
@@ -171,7 +200,7 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
                 .getTargetContext().getSystemService(InputMethodManager.class);
 
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder())) {
             final ImeEventStream stream = imeSession.openEventStream();
@@ -184,6 +213,7 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
 
             expectEvent(stream, editorMatcher("onStartInput", focusedMarker), TIMEOUT);
 
+            expectImeInvisible(TIMEOUT);
             assertFalse("isActive() must return false if the View does not have IME focus",
                     getOnMainSync(() -> imm.isActive(nonFocusedEditText)));
             assertFalse("showSoftInput must fail if the View does not have IME focus",
@@ -194,6 +224,7 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
                     getOnMainSync(() -> imm.hideSoftInputFromWindow(
                             nonFocusedEditText.getWindowToken(), 0)));
             notExpectEvent(stream, hideSoftInputMatcher(), TIMEOUT);
+            expectImeInvisible(TIMEOUT);
         }
     }
 
@@ -203,7 +234,7 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
                 .getTargetContext().getSystemService(InputMethodManager.class);
 
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder())) {
             final ImeEventStream stream = imeSession.openEventStream();
@@ -213,18 +244,169 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
 
             expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
             notExpectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
+            expectImeInvisible(TIMEOUT);
 
             // Test toggleSoftInputFromWindow() flow
             runOnMainSync(() -> imm.toggleSoftInputFromWindow(editText.getWindowToken(), 0, 0));
 
             expectEvent(stream.copy(), showSoftInputMatcher(InputMethod.SHOW_EXPLICIT), TIMEOUT);
             expectEvent(stream.copy(), editorMatcher("onStartInputView", marker), TIMEOUT);
+            expectImeVisible(TIMEOUT);
 
             // Calling toggleSoftInputFromWindow() must hide the IME.
             runOnMainSync(() -> imm.toggleSoftInputFromWindow(editText.getWindowToken(), 0, 0));
 
             expectEvent(stream, hideSoftInputMatcher(), TIMEOUT);
             expectEvent(stream, onFinishInputViewMatcher(false), TIMEOUT);
+            expectImeInvisible(TIMEOUT);
         }
+    }
+
+    @Test
+    public void testShowHideKeyboardOnWebView() throws Exception {
+        try (MockImeSession imeSession = MockImeSession.create(
+                InstrumentationRegistry.getInstrumentation().getContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder())) {
+            final ImeEventStream stream = imeSession.openEventStream();
+
+            final UiObject2 inputTextField = TestWebView.launchTestWebViewActivity(
+                    TimeUnit.SECONDS.toMillis(5));
+            assertNotNull("Editor must exists on WebView", inputTextField);
+
+            expectEvent(stream, event -> "onStartInput".equals(event.getEventName()), TIMEOUT);
+            notExpectEvent(stream, event -> "onStartInputView".equals(event.getEventName()),
+                    TIMEOUT);
+            expectImeInvisible(TIMEOUT);
+
+            inputTextField.click();
+            expectEvent(stream.copy(), showSoftInputMatcher(InputMethod.SHOW_EXPLICIT), TIMEOUT);
+            expectEvent(stream.copy(), event -> "onStartInputView".equals(event.getEventName()),
+                    TIMEOUT);
+            expectImeVisible(TIMEOUT);
+        }
+    }
+
+    @Test
+    public void testFloatingImeHideKeyboardAfterBackPressed() throws Exception {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        final InputMethodManager imm = instrumentation.getTargetContext().getSystemService(
+                InputMethodManager.class);
+
+        // Initial MockIme with floating IME settings.
+        try (MockImeSession imeSession = MockImeSession.create(
+                instrumentation.getContext(), instrumentation.getUiAutomation(),
+                getFloatingImeSettings(Color.BLACK))) {
+            final ImeEventStream stream = imeSession.openEventStream();
+            final String marker = getTestMarker();
+            final EditText editText = launchTestActivity(marker);
+
+            expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
+            notExpectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
+            expectImeInvisible(TIMEOUT);
+
+            assertTrue("isActive() must return true if the View has IME focus",
+                    getOnMainSync(() -> imm.isActive(editText)));
+
+            // Test showSoftInput() flow
+            assertTrue("showSoftInput must success if the View has IME focus",
+                    getOnMainSync(() -> imm.showSoftInput(editText, 0)));
+
+            expectEvent(stream, showSoftInputMatcher(InputMethod.SHOW_EXPLICIT), TIMEOUT);
+            expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
+            expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                    View.VISIBLE, TIMEOUT);
+            expectImeVisible(TIMEOUT);
+
+            // Pressing back key, expect soft-keyboard will become invisible.
+            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+            expectEvent(stream, hideSoftInputMatcher(), TIMEOUT);
+            expectEvent(stream, onFinishInputViewMatcher(false), TIMEOUT);
+            expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                    View.GONE, TIMEOUT);
+            expectImeInvisible(TIMEOUT);
+        }
+    }
+
+    @Test
+    public void testImeVisibilityWhenDismisingDialogWithImeFocused() throws Exception {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        final InputMethodManager imm = instrumentation.getTargetContext().getSystemService(
+                InputMethodManager.class);
+        try (MockImeSession imeSession = MockImeSession.create(
+                InstrumentationRegistry.getInstrumentation().getContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder().setInputViewHeight(NEW_KEYBOARD_HEIGHT))) {
+            final ImeEventStream stream = imeSession.openEventStream();
+            final TestActivity testActivity[] = new TestActivity[1];
+
+            // Launch a simple test activity
+            TestActivity.startSync(activity -> {
+                final LinearLayout layout = new LinearLayout(activity);
+                testActivity[0] = activity;
+                return layout;
+            });
+
+            // Launch a dialog
+            final String marker = getTestMarker();
+            final EditText editText[] = new EditText[1];
+            final AlertDialog dialog[] = new AlertDialog[1];
+            TestUtils.runOnMainSync(() -> {
+                editText[0] = new EditText(testActivity[0]);
+                editText[0].setHint("focused editText");
+                editText[0].setPrivateImeOptions(marker);
+                editText[0].requestFocus();
+                dialog[0] = new AlertDialog.Builder(testActivity[0])
+                        .setView(editText[0])
+                        .create();
+                final WindowInsetsController.OnControllableInsetsChangedListener listener =
+                        new WindowInsetsController.OnControllableInsetsChangedListener() {
+                            @Override
+                            public void onControllableInsetsChanged(
+                                    @NonNull WindowInsetsController controller, int typeMask) {
+                                if ((typeMask & ime()) != 0) {
+                                    editText[0].getWindowInsetsController()
+                                            .removeOnControllableInsetsChangedListener(this);
+                                    editText[0].getWindowInsetsController().show(ime());
+                                }
+                            }
+                        };
+                dialog[0].show();
+                editText[0].getWindowInsetsController().addOnControllableInsetsChangedListener(
+                        listener);
+            });
+            TestUtils.waitOnMainUntil(() -> dialog[0].isShowing(), TIMEOUT);
+
+            TestUtils.waitOnMainUntil(() -> editText[0].hasFocus(), TIMEOUT);
+            expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
+            expectEvent(stream, event -> "showSoftInput".equals(event.getEventName()), TIMEOUT);
+            expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
+            expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                    View.VISIBLE, TIMEOUT);
+            expectImeVisible(TIMEOUT);
+
+            // Hide keyboard and dismiss dialog.
+            TestUtils.runOnMainSync(() -> {
+                editText[0].getWindowInsetsController().hide(ime());
+                dialog[0].dismiss();
+            });
+
+            // Expect keyboard should hide successfully.
+            expectEvent(stream, hideSoftInputMatcher(), TIMEOUT);
+            expectEvent(stream, onFinishInputViewMatcher(false), TIMEOUT);
+            expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                    View.GONE, TIMEOUT);
+            expectImeInvisible(TIMEOUT);
+        }
+    }
+
+    private static ImeSettings.Builder getFloatingImeSettings(@ColorInt int navigationBarColor) {
+        final ImeSettings.Builder builder = new ImeSettings.Builder();
+        builder.setWindowFlags(0, FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        // As documented, Window#setNavigationBarColor() is actually ignored when the IME window
+        // does not have FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS.  We are calling setNavigationBarColor()
+        // to ensure it.
+        builder.setNavigationBarColor(navigationBarColor);
+        return builder;
     }
 }

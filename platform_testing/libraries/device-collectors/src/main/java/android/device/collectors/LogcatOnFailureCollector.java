@@ -108,7 +108,7 @@ public class LogcatOnFailureCollector extends BaseMetricListener {
                 int iteration = mTestIterations.get(description);
                 final String fileName =
                         String.format(
-                                "%s.%s%s%s.txt",
+                                "%s.%s%s%s-logcat-on-failure.txt",
                                 description.getClassName(),
                                 description.getMethodName(),
                                 iteration == 1 ? "" : (METRIC_SEP + String.valueOf(iteration)),

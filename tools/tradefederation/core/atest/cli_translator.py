@@ -23,6 +23,7 @@ import fnmatch
 import json
 import logging
 import os
+import re
 import sys
 import time
 
@@ -36,9 +37,12 @@ from metrics import metrics
 from metrics import metrics_utils
 from test_finders import module_finder
 
-TEST_MAPPING = 'TEST_MAPPING'
 FUZZY_FINDER = 'FUZZY'
+CACHE_FINDER = 'CACHE'
 
+# Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
+_COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
+_COMMENTS = frozenset(['//', '#'])
 
 #pylint: disable=no-self-use
 class CLITranslator(object):
@@ -57,14 +61,23 @@ class CLITranslator(object):
         3. If test files found, generate Build Targets and the Run Command.
     """
 
-    def __init__(self, module_info=None):
+    def __init__(self, module_info=None, print_cache_msg=True):
         """CLITranslator constructor
 
         Args:
             module_info: ModuleInfo class that has cached module-info.json.
+            print_cache_msg: Boolean whether printing clear cache message or not.
+                             True will print message while False won't print.
         """
         self.mod_info = module_info
+        self.enable_file_patterns = False
+        self.msg = ''
+        if print_cache_msg:
+            self.msg = ('(Test info has been cached for speeding up the next '
+                        'run, if test info need to be updated, please add -c '
+                        'to clean the old cache.)')
 
+    # pylint: disable=too-many-locals
     def _find_test_infos(self, test, tm_test_detail):
         """Return set of TestInfos based on a given test.
 
@@ -88,29 +101,34 @@ class CLITranslator(object):
             # test name, so the details can be set after test_info object
             # is created.
             try:
-                test_info = finder.find_method(finder.test_finder_instance,
-                                               test)
+                found_test_infos = finder.find_method(
+                    finder.test_finder_instance, test)
             except atest_error.TestDiscoveryException as e:
                 find_test_err_msg = e
-            if test_info:
-                if tm_test_detail:
-                    test_info.data[constants.TI_MODULE_ARG] = (
-                        tm_test_detail.options)
-                    test_info.from_test_mapping = True
-                    test_info.host = tm_test_detail.host
-                test_infos.add(test_info)
-                test_found = True
+            if found_test_infos:
                 finder_info = finder.finder_info
+                for test_info in found_test_infos:
+                    if tm_test_detail:
+                        test_info.data[constants.TI_MODULE_ARG] = (
+                            tm_test_detail.options)
+                        test_info.from_test_mapping = True
+                        test_info.host = tm_test_detail.host
+                    if finder_info != CACHE_FINDER:
+                        test_info.test_finder = finder_info
+                    test_infos.add(test_info)
+                test_found = True
                 print("Found '%s' as %s" % (
                     atest_utils.colorize(test, constants.GREEN),
                     finder_info))
+                if finder_info == CACHE_FINDER and test_infos:
+                    test_finders.append(list(test_infos)[0].test_finder)
                 test_finders.append(finder_info)
-                test_info_str = str(test_info)
+                test_info_str = ','.join([str(x) for x in found_test_infos])
                 break
         if not test_found:
             f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
             if f_results:
-                test_infos.add(f_results)
+                test_infos.update(f_results)
                 test_found = True
                 test_finders.append(FUZZY_FINDER)
         metrics.FindTestFinishEvent(
@@ -120,6 +138,12 @@ class CLITranslator(object):
             test_reference=test,
             test_finders=test_finders,
             test_info=test_info_str)
+        # Cache test_infos by default except running with TEST_MAPPING which may
+        # include customized flags and they are likely to mess up other
+        # non-test_mapping tests.
+        if test_infos and not tm_test_detail:
+            atest_utils.update_test_info_cache(test, test_infos)
+            print(self.msg)
         return test_infos
 
     def _fuzzy_search_and_msg(self, test, find_test_err_msg):
@@ -130,7 +154,7 @@ class CLITranslator(object):
             find_test_err_msg: A string of find test error message.
 
         Returns:
-            A TestInfos if found, otherwise None.
+            A list of TestInfos if found, otherwise None.
         """
         print('No test found for: %s' %
               atest_utils.colorize(test, constants.RED))
@@ -139,9 +163,10 @@ class CLITranslator(object):
         mod_finder = module_finder.ModuleFinder(self.mod_info)
         results = mod_finder.get_fuzzy_searching_results(test)
         if len(results) == 1 and self._confirm_running(results):
-            test_info = mod_finder.find_test_by_module_name(results[0])
-            if test_info:
-                return test_info
+            found_test_infos = mod_finder.find_test_by_module_name(results[0])
+            # found_test_infos is a list with at most 1 element.
+            if found_test_infos:
+                return found_test_infos
         elif len(results) > 1:
             self._print_fuzzy_searching_results(results)
         else:
@@ -204,6 +229,30 @@ class CLITranslator(object):
         for mod in results[:10]:
             atest_utils.colorful_print(mod, constants.GREEN)
 
+    def filter_comments(self, test_mapping_file):
+        """Remove comments in TEST_MAPPING file to valid format. Only '//' and
+        '#' are regarded as comments.
+
+        Args:
+            test_mapping_file: Path to a TEST_MAPPING file.
+
+        Returns:
+            Valid json string without comments.
+        """
+        def _replace(match):
+            """Replace comments if found matching the defined regular expression.
+
+            Args:
+                match: The matched regex pattern
+
+            Returns:
+                "" if it matches _COMMENTS, otherwise original string.
+            """
+            line = match.group(0).strip()
+            return "" if any(map(line.startswith, _COMMENTS)) else line
+        with open(test_mapping_file) as json_file:
+            return re.sub(_COMMENTS_RE, _replace, json_file.read())
+
     def _read_tests_in_test_mapping(self, test_mapping_file):
         """Read tests from a TEST_MAPPING file.
 
@@ -219,9 +268,7 @@ class CLITranslator(object):
         """
         all_tests = {}
         imports = []
-        test_mapping_dict = None
-        with open(test_mapping_file) as json_file:
-            test_mapping_dict = json.load(json_file)
+        test_mapping_dict = json.loads(self.filter_comments(test_mapping_file))
         for test_group_name, test_list in test_mapping_dict.items():
             if test_group_name == constants.TEST_MAPPING_IMPORTS:
                 for import_detail in test_list:
@@ -231,6 +278,10 @@ class CLITranslator(object):
                 grouped_tests = all_tests.setdefault(test_group_name, set())
                 tests = []
                 for test in test_list:
+                    if (self.enable_file_patterns and
+                            not test_mapping.is_match_file_patterns(
+                                test_mapping_file, test)):
+                        continue
                     test_mod_info = self.mod_info.name_to_module_info.get(
                         test['name'])
                     if not test_mod_info:
@@ -255,7 +306,7 @@ class CLITranslator(object):
                 grouped_tests.update(tests)
         return all_tests, imports
 
-    def _find_files(self, path, file_name=TEST_MAPPING):
+    def _find_files(self, path, file_name=constants.TEST_MAPPING):
         """Find all files with given name under the given path.
 
         Args:
@@ -302,11 +353,7 @@ class CLITranslator(object):
                 grouped_tests.update(test_list)
 
         tests = set(merged_all_tests.get(test_group, []))
-        # Postsubmit tests shall include all presubmit tests as well.
-        if test_group == constants.TEST_GROUP_POSTSUBMIT:
-            tests.update(merged_all_tests.get(
-                constants.TEST_GROUP_PRESUBMIT, set()))
-        elif test_group == constants.TEST_GROUP_ALL:
+        if test_group == constants.TEST_GROUP_ALL:
             for grouped_tests in merged_all_tests.values():
                 tests.update(grouped_tests)
         return tests, merged_all_tests, all_imports
@@ -315,7 +362,8 @@ class CLITranslator(object):
     # pylint: disable=too-many-locals
     def _find_tests_by_test_mapping(
             self, path='', test_group=constants.TEST_GROUP_PRESUBMIT,
-            file_name=TEST_MAPPING, include_subdirs=False, checked_files=None):
+            file_name=constants.TEST_MAPPING, include_subdirs=False,
+            checked_files=None):
         """Find tests defined in TEST_MAPPING in the given path.
 
         Args:
@@ -454,6 +502,8 @@ class CLITranslator(object):
         # Test details from TEST_MAPPING files
         test_details_list = None
         if atest_utils.is_test_mapping(args):
+            if args.enable_file_patterns:
+                self.enable_file_patterns = True
             tests, test_details_list = self._get_test_mapping_tests(args)
         atest_utils.colorful_print("\nFinding Tests...", constants.CYAN)
         logging.debug('Finding Tests: %s', tests)

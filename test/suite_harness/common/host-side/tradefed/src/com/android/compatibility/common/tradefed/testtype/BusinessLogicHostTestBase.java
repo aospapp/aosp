@@ -64,8 +64,9 @@ public class BusinessLogicHostTestBase extends BaseHostJUnit4Test {
         String testName = String.format("%s#%s", this.getClass().getName(), methodName);
         if (mBusinessLogic.hasLogicFor(testName)) {
             CLog.i("Applying business logic for test case: ", testName);
-            BusinessLogicExecutor executor = new BusinessLogicHostExecutor(getDevice(),
-                    getBuild(), this);
+            BusinessLogicExecutor executor =
+                    new BusinessLogicHostExecutor(
+                            getDevice(), getBuild(), this, mBusinessLogic.getRedactionRegexes());
             mBusinessLogic.applyLogicFor(testName, executor);
         }
     }

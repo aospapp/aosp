@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <charconv>
 #include <condition_variable>
 #include <mutex>
 #include <string>
@@ -26,6 +27,7 @@
 #include <android-base/macros.h>
 
 #include "adb.h"
+#include "adb_unique_fd.h"
 
 void close_stdin();
 
@@ -51,7 +53,7 @@ std::string perror_str(const char* msg);
 [[noreturn]] void error_exit(const char* fmt, ...) __attribute__((__format__(__printf__, 1, 2)));
 [[noreturn]] void perror_exit(const char* fmt, ...) __attribute__((__format__(__printf__, 1, 2)));
 
-bool set_file_block_mode(int fd, bool block);
+bool set_file_block_mode(borrowed_fd fd, bool block);
 
 // Given forward/reverse targets, returns true if they look sane. If an error is found, fills
 // |error| and returns false.
@@ -111,41 +113,17 @@ inline std::string_view StripTrailingNulls(std::string_view str) {
 // Base-10 stroll on a string_view.
 template <typename T>
 inline bool ParseUint(T* result, std::string_view str, std::string_view* remaining = nullptr) {
-    if (str.empty() || !isdigit(str[0])) {
+    T value;
+    const auto res = std::from_chars(str.begin(), str.end(), value);
+    if (res.ec != std::errc{}) {
         return false;
     }
-
-    T value = 0;
-    std::string_view::iterator it;
-    constexpr T max = std::numeric_limits<T>::max();
-    for (it = str.begin(); it != str.end() && isdigit(*it); ++it) {
-        if (value > max / 10) {
-            return false;
-        }
-
-        value *= 10;
-
-        T digit = *it - '0';
-        if (value > max - digit) {
-            return false;
-        }
-
-        value += digit;
+    if (res.ptr != str.end() && !remaining) {
+        return false;
+    }
+    if (remaining) {
+        *remaining = std::string_view(res.ptr, str.end() - res.ptr);
     }
     *result = value;
-    if (remaining) {
-        *remaining = str.substr(it - str.begin());
-    } else {
-      return it == str.end();
-    }
-
     return true;
-}
-
-inline bool ConsumePrefix(std::string_view* str, std::string_view prefix) {
-  if (str->starts_with(prefix)) {
-    str->remove_prefix(prefix.size());
-    return true;
-  }
-  return false;
 }

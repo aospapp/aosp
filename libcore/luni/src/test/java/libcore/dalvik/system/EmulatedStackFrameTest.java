@@ -113,6 +113,23 @@ public class EmulatedStackFrameTest extends TestCase {
         assertEquals("foo", reader.nextReference(String.class));
     }
 
+    public void testReaderWriter_assignableTypes() {
+        EmulatedStackFrame stackFrame = EmulatedStackFrame.create(
+            MethodType.methodType(Object.class, Object.class));
+
+        EmulatedStackFrame.StackFrameWriter writer = new EmulatedStackFrame.StackFrameWriter();
+        writer.attach(stackFrame);
+        writer.putNextReference(Boolean.TRUE, Object.class);
+        writer.makeReturnValueAccessor();
+        writer.putNextReference(Boolean.FALSE, Object.class);
+
+        EmulatedStackFrame.StackFrameReader reader = new EmulatedStackFrame.StackFrameReader();
+        reader.attach(stackFrame);
+        assertEquals(Boolean.TRUE, reader.nextReference(Object.class));
+        reader.makeReturnValueAccessor();
+        assertEquals(Boolean.FALSE, reader.nextReference(Object.class));
+    }
+
     public void testReaderWriter_wrongTypes() {
         EmulatedStackFrame stackFrame = EmulatedStackFrame.create(
                 MethodType.methodType(boolean.class, String.class));

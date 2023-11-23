@@ -149,7 +149,9 @@ void StreamBuilderHelper::createAndVerifyStream(bool *success) {
     ASSERT_LE(mActual.channelCount, 16); // TODO what is min/max?
 
     mActual.dataFormat = AAudioStream_getFormat(mStream);
-    ASSERT_EQ(AAUDIO_FORMAT_PCM_I16, mActual.dataFormat);
+    if (mRequested.dataFormat != AAUDIO_FORMAT_UNSPECIFIED) {
+        ASSERT_EQ(mRequested.dataFormat, mActual.dataFormat);
+    }
 
     mActual.perfMode = AAudioStream_getPerformanceMode(mStream);
     if (mRequested.perfMode != AAUDIO_PERFORMANCE_MODE_NONE
@@ -192,17 +194,20 @@ void StreamBuilderHelper::streamCommand(
     ASSERT_EQ(toState, state);
 }
 
-
 InputStreamBuilderHelper::InputStreamBuilderHelper(
-        aaudio_sharing_mode_t requestedSharingMode, aaudio_performance_mode_t requestedPerfMode)
+        aaudio_sharing_mode_t requestedSharingMode,
+        aaudio_performance_mode_t requestedPerfMode,
+        aaudio_format_t requestedFormat)
         : StreamBuilderHelper{AAUDIO_DIRECTION_INPUT,
-            48000, 1, AAUDIO_FORMAT_PCM_I16, requestedSharingMode, requestedPerfMode} {}
+            48000, 1, requestedFormat, requestedSharingMode, requestedPerfMode} {}
 
 
 OutputStreamBuilderHelper::OutputStreamBuilderHelper(
-        aaudio_sharing_mode_t requestedSharingMode, aaudio_performance_mode_t requestedPerfMode)
+        aaudio_sharing_mode_t requestedSharingMode,
+        aaudio_performance_mode_t requestedPerfMode,
+        aaudio_format_t requestedFormat)
         : StreamBuilderHelper{AAUDIO_DIRECTION_OUTPUT,
-            48000, 2, AAUDIO_FORMAT_PCM_I16, requestedSharingMode, requestedPerfMode} {}
+            48000, 2, requestedFormat, requestedSharingMode, requestedPerfMode} {}
 
 void OutputStreamBuilderHelper::initBuilder() {
     StreamBuilderHelper::initBuilder();
@@ -214,4 +219,52 @@ void OutputStreamBuilderHelper::createAndVerifyStream(bool *success) {
     if (*success) {
         ASSERT_GE(AAudioStream_getBufferCapacityInFrames(mStream), kBufferCapacityFrames);
     }
+}
+
+AAudioExtensions::AAudioExtensions()
+    : mMMapSupported(isPolicyEnabled(getMMapPolicyProperty()))
+    , mMMapExclusiveSupported(isPolicyEnabled(getIntegerProperty(
+            "aaudio.mmap_exclusive_policy", AAUDIO_POLICY_UNSPECIFIED))) {
+    loadLibrary();
+}
+
+int AAudioExtensions::getIntegerProperty(const char *name, int defaultValue) {
+    int result = defaultValue;
+    char valueText[PROP_VALUE_MAX] = {0};
+    if (__system_property_get(name, valueText) != 0) {
+        result = atoi(valueText);
+    }
+    return result;
+}
+
+// This should only be called once from the constructor.
+bool AAudioExtensions::loadLibrary() {
+    mLibHandle = dlopen(LIB_AAUDIO_NAME, 0);
+    if (mLibHandle == nullptr) {
+        //LOGI("%s() could not find " LIB_AAUDIO_NAME, __func__);
+        return false;
+    }
+
+    mAAudioStream_isMMap = (bool (*)(AAudioStream *stream))
+            dlsym(mLibHandle, FUNCTION_IS_MMAP);
+    if (mAAudioStream_isMMap == nullptr) {
+        //LOGI("%s() could not find " FUNCTION_IS_MMAP, __func__);
+        return false;
+    }
+
+    mAAudio_setMMapPolicy = (int32_t (*)(aaudio_policy_t policy))
+            dlsym(mLibHandle, FUNCTION_SET_MMAP_POLICY);
+    if (mAAudio_setMMapPolicy == nullptr) {
+        //LOGI("%s() could not find " FUNCTION_SET_MMAP_POLICY, __func__);
+        return false;
+    }
+
+    mAAudio_getMMapPolicy = (aaudio_policy_t (*)())
+            dlsym(mLibHandle, FUNCTION_GET_MMAP_POLICY);
+    if (mAAudio_getMMapPolicy == nullptr) {
+        //LOGI("%s() could not find " FUNCTION_GET_MMAP_POLICY, __func__);
+        return false;
+    }
+    mFunctionsLoaded = true;
+    return mFunctionsLoaded;
 }

@@ -26,8 +26,8 @@ cc_library {
     ],
     cflags: [
         "-Og",
-	"-Wall",
-	"-Werror",
+        "-Wall",
+        "-Werror",
     ],
 }
 
@@ -42,7 +42,6 @@ cc_defaults {
         "libutils",
     ],
     static_libs: [
-        "VtsHalHidlTargetTestBase",
         "VtsHalNetNetdTestUtils",
     ],
     cflags: [

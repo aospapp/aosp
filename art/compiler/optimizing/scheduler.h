@@ -21,6 +21,7 @@
 
 #include "base/scoped_arena_allocator.h"
 #include "base/scoped_arena_containers.h"
+#include "base/stl_util.h"
 #include "base/time_utils.h"
 #include "code_generator.h"
 #include "load_store_analysis.h"
@@ -168,6 +169,10 @@ class SchedulingNode : public DeletableArenaObject<kArenaAllocScheduler> {
   }
 
   void AddDataPredecessor(SchedulingNode* predecessor) {
+    // Check whether the predecessor has been added earlier.
+    if (HasDataDependency(predecessor)) {
+      return;
+    }
     data_predecessors_.push_back(predecessor);
     predecessor->num_unscheduled_successors_++;
   }
@@ -177,6 +182,12 @@ class SchedulingNode : public DeletableArenaObject<kArenaAllocScheduler> {
   }
 
   void AddOtherPredecessor(SchedulingNode* predecessor) {
+    // Check whether the predecessor has been added earlier.
+    // As an optimization of the scheduling graph, we don't need to create another dependency if
+    // there is a data dependency between scheduling nodes.
+    if (HasOtherDependency(predecessor) || HasDataDependency(predecessor)) {
+      return;
+    }
     other_predecessors_.push_back(predecessor);
     predecessor->num_unscheduled_successors_++;
   }
@@ -204,6 +215,14 @@ class SchedulingNode : public DeletableArenaObject<kArenaAllocScheduler> {
   void SetInternalLatency(uint32_t internal_latency) { internal_latency_ = internal_latency; }
   uint32_t GetCriticalPath() const { return critical_path_; }
   bool IsSchedulingBarrier() const { return is_scheduling_barrier_; }
+
+  bool HasDataDependency(const SchedulingNode* node) const {
+    return ContainsElement(data_predecessors_, node);
+  }
+
+  bool HasOtherDependency(const SchedulingNode* node) const {
+    return ContainsElement(other_predecessors_, node);
+  }
 
  private:
   // The latency of this node. It represents the latency between the moment the
@@ -246,18 +265,67 @@ class SchedulingNode : public DeletableArenaObject<kArenaAllocScheduler> {
 };
 
 /*
+ * Provide analysis of instruction dependencies (side effects) which are not in a form of explicit
+ * def-use data dependencies.
+ */
+class SideEffectDependencyAnalysis {
+ public:
+  explicit SideEffectDependencyAnalysis(const HeapLocationCollector* heap_location_collector)
+      : memory_dependency_analysis_(heap_location_collector) {}
+
+  bool HasSideEffectDependency(HInstruction* instr1, HInstruction* instr2) const {
+    if (memory_dependency_analysis_.HasMemoryDependency(instr1, instr2)) {
+      return true;
+    }
+
+    // Even if above memory dependency check has passed, it is still necessary to
+    // check dependencies between instructions that can throw and instructions
+    // that write to memory.
+    if (HasExceptionDependency(instr1, instr2)) {
+      return true;
+    }
+
+    return false;
+  }
+
+ private:
+  static bool HasExceptionDependency(const HInstruction* instr1, const HInstruction* instr2);
+  static bool HasReorderingDependency(const HInstruction* instr1, const HInstruction* instr2);
+
+  /*
+   * Memory dependency analysis of instructions based on their memory side effects
+   * and heap location information from the LCA pass if it is provided.
+   */
+  class MemoryDependencyAnalysis {
+   public:
+    explicit MemoryDependencyAnalysis(const HeapLocationCollector* heap_location_collector)
+        : heap_location_collector_(heap_location_collector) {}
+
+    bool HasMemoryDependency(HInstruction* instr1, HInstruction* instr2) const;
+
+   private:
+    bool ArrayAccessMayAlias(HInstruction* instr1, HInstruction* instr2) const;
+    bool FieldAccessMayAlias(const HInstruction* instr1, const HInstruction* instr2) const;
+    size_t ArrayAccessHeapLocation(HInstruction* instruction) const;
+    size_t FieldAccessHeapLocation(const HInstruction* instruction) const;
+
+    const HeapLocationCollector* const heap_location_collector_;
+  };
+
+  MemoryDependencyAnalysis memory_dependency_analysis_;
+};
+
+/*
  * Directed acyclic graph for scheduling.
  */
 class SchedulingGraph : public ValueObject {
  public:
-  SchedulingGraph(const HScheduler* scheduler,
-                  ScopedArenaAllocator* allocator,
+  SchedulingGraph(ScopedArenaAllocator* allocator,
                   const HeapLocationCollector* heap_location_collector)
-      : scheduler_(scheduler),
-        allocator_(allocator),
+      : allocator_(allocator),
         contains_scheduling_barrier_(false),
         nodes_map_(allocator_->Adapter(kArenaAllocScheduler)),
-        heap_location_collector_(heap_location_collector) {}
+        side_effect_dependency_analysis_(heap_location_collector) {}
 
   SchedulingNode* AddNode(HInstruction* instr, bool is_scheduling_barrier = false) {
     std::unique_ptr<SchedulingNode> node(
@@ -265,7 +333,7 @@ class SchedulingGraph : public ValueObject {
     SchedulingNode* result = node.get();
     nodes_map_.insert(std::make_pair(instr, std::move(node)));
     contains_scheduling_barrier_ |= is_scheduling_barrier;
-    AddDependencies(instr, is_scheduling_barrier);
+    AddDependencies(result, is_scheduling_barrier);
     return result;
   }
 
@@ -277,13 +345,6 @@ class SchedulingGraph : public ValueObject {
       return it->second.get();
     }
   }
-
-  bool IsSchedulingBarrier(const HInstruction* instruction) const;
-
-  bool HasImmediateDataDependency(const SchedulingNode* node, const SchedulingNode* other) const;
-  bool HasImmediateDataDependency(const HInstruction* node, const HInstruction* other) const;
-  bool HasImmediateOtherDependency(const SchedulingNode* node, const SchedulingNode* other) const;
-  bool HasImmediateOtherDependency(const HInstruction* node, const HInstruction* other) const;
 
   size_t Size() const {
     return nodes_map_.size();
@@ -302,26 +363,33 @@ class SchedulingGraph : public ValueObject {
   void AddOtherDependency(SchedulingNode* node, SchedulingNode* dependency) {
     AddDependency(node, dependency, /*is_data_dependency*/false);
   }
-  bool HasMemoryDependency(HInstruction* node, HInstruction* other) const;
-  bool HasExceptionDependency(const HInstruction* node, const HInstruction* other) const;
-  bool HasSideEffectDependency(HInstruction* node, HInstruction* other) const;
-  bool ArrayAccessMayAlias(HInstruction* node, HInstruction* other) const;
-  bool FieldAccessMayAlias(const HInstruction* node, const HInstruction* other) const;
-  size_t ArrayAccessHeapLocation(HInstruction* instruction) const;
-  size_t FieldAccessHeapLocation(HInstruction* obj, const FieldInfo* field) const;
 
-  // Add dependencies nodes for the given `HInstruction`: inputs, environments, and side-effects.
-  void AddDependencies(HInstruction* instruction, bool is_scheduling_barrier = false);
+  // Analyze whether the scheduling node has cross-iteration dependencies which mean it uses
+  // values defined on the previous iteration.
+  //
+  // Supported cases:
+  //
+  //   L:
+  //     v2 = loop_head_phi(v1)
+  //     instr1(v2)
+  //     v1 = instr2
+  //     goto L
+  //
+  // In such cases moving instr2 before instr1 creates intersecting live ranges
+  // of v1 and v2. As a result a separate register is needed to keep the value
+  // defined by instr2 which is only used on the next iteration.
+  // If instr2 is not moved, no additional register is needed. The register
+  // used by instr1 is reused.
+  // To prevent such a situation a "other" dependency between instr1 and instr2 must be set.
+  void AddCrossIterationDependencies(SchedulingNode* node);
 
-  const HScheduler* const scheduler_;
+  // Add dependencies nodes for the given `SchedulingNode`: inputs, environments, and side-effects.
+  void AddDependencies(SchedulingNode* node, bool is_scheduling_barrier = false);
 
   ScopedArenaAllocator* const allocator_;
-
   bool contains_scheduling_barrier_;
-
   ScopedArenaHashMap<const HInstruction*, std::unique_ptr<SchedulingNode>> nodes_map_;
-
-  const HeapLocationCollector* const heap_location_collector_;
+  SideEffectDependencyAnalysis side_effect_dependency_analysis_;
 };
 
 /*
@@ -476,10 +544,6 @@ class HScheduler {
  private:
   DISALLOW_COPY_AND_ASSIGN(HScheduler);
 };
-
-inline bool SchedulingGraph::IsSchedulingBarrier(const HInstruction* instruction) const {
-  return scheduler_->IsSchedulingBarrier(instruction);
-}
 
 class HInstructionScheduling : public HOptimization {
  public:

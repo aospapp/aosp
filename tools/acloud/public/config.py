@@ -46,6 +46,8 @@ TODO:
 import logging
 import os
 
+import six
+
 from google.protobuf import text_format
 
 # pylint: disable=no-name-in-module,import-error
@@ -55,11 +57,12 @@ from acloud.internal.proto import internal_config_pb2
 from acloud.internal.proto import user_config_pb2
 from acloud.create import create_args
 
+
+logger = logging.getLogger(__name__)
+
 _CONFIG_DATA_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "data")
 _DEFAULT_CONFIG_FILE = "acloud.config"
-
-logger = logging.getLogger(__name__)
 
 
 def GetDefaultConfigFile():
@@ -123,21 +126,21 @@ class AcloudConfig(object):
         self.storage_bucket_name = usr_cfg.storage_bucket_name
         self.metadata_variable = {
             key: val for key, val in
-            internal_cfg.default_usr_cfg.metadata_variable.iteritems()
+            six.iteritems(internal_cfg.default_usr_cfg.metadata_variable)
         }
         self.metadata_variable.update(usr_cfg.metadata_variable)
 
         self.device_resolution_map = {
             device: resolution for device, resolution in
-            internal_cfg.device_resolution_map.iteritems()
+            six.iteritems(internal_cfg.device_resolution_map)
         }
         self.device_default_orientation_map = {
             device: orientation for device, orientation in
-            internal_cfg.device_default_orientation_map.iteritems()
+            six.iteritems(internal_cfg.device_default_orientation_map)
         }
         self.no_project_access_msg_map = {
             project: msg for project, msg in
-            internal_cfg.no_project_access_msg_map.iteritems()
+            six.iteritems(internal_cfg.no_project_access_msg_map)
         }
         self.min_machine_size = internal_cfg.min_machine_size
         self.disk_image_name = internal_cfg.disk_image_name
@@ -147,11 +150,11 @@ class AcloudConfig(object):
         self.disk_raw_image_extension = internal_cfg.disk_raw_image_extension
         self.valid_branch_and_min_build_id = {
             branch: min_build_id for branch, min_build_id in
-            internal_cfg.valid_branch_and_min_build_id.iteritems()
+            six.iteritems(internal_cfg.valid_branch_and_min_build_id)
         }
         self.precreated_data_image_map = {
             size_gb: image_name for size_gb, image_name in
-            internal_cfg.precreated_data_image.iteritems()
+            six.iteritems(internal_cfg.precreated_data_image)
         }
         self.extra_data_disk_size_gb = (
             usr_cfg.extra_data_disk_size_gb or
@@ -199,6 +202,8 @@ class AcloudConfig(object):
             usr_cfg.stable_cheeps_host_image_project or
             internal_cfg.default_usr_cfg.stable_cheeps_host_image_project)
 
+        self.extra_args_ssh_tunnel = usr_cfg.extra_args_ssh_tunnel
+
         self.common_hw_property_map = internal_cfg.common_hw_property_map
         self.hw_property = usr_cfg.hw_property
 
@@ -206,7 +211,15 @@ class AcloudConfig(object):
         self.instance_name_pattern = (
             usr_cfg.instance_name_pattern or
             internal_cfg.default_usr_cfg.instance_name_pattern)
-
+        self.fetch_cvd_version = (
+            usr_cfg.fetch_cvd_version or
+            internal_cfg.default_usr_cfg.fetch_cvd_version)
+        if usr_cfg.HasField("enable_multi_stage") is not None:
+            self.enable_multi_stage = usr_cfg.enable_multi_stage
+        elif internal_cfg.default_usr_cfg.HasField("enable_multi_stage"):
+            self.enable_multi_stage = internal_cfg.default_usr_cfg.enable_multi_stage
+        else:
+            self.enable_multi_stage = False
 
         # Verify validity of configurations.
         self.Verify()
@@ -237,6 +250,8 @@ class AcloudConfig(object):
         if parsed_args.which in [create_args.CMD_CREATE, "create_cf"]:
             if parsed_args.network:
                 self.network = parsed_args.network
+            if parsed_args.multi_stage_launch is not None:
+                self.enable_multi_stage = parsed_args.multi_stage_launch
 
     def OverrideHwPropertyWithFlavor(self, flavor):
         """Override hw configuration values with flavor name.
@@ -262,6 +277,10 @@ class AcloudConfig(object):
                 "Supported extra_data_disk_size_gb options(gb): %s, "
                 "invalid value: %d" % (self.precreated_data_image_map.keys(),
                                        self.extra_data_disk_size_gb))
+
+    def SupportRemoteInstance(self):
+        """Return True if gcp project is provided in config."""
+        return True if self.project else False
 
 
 class AcloudConfigManager(object):

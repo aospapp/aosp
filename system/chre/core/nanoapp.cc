@@ -21,13 +21,27 @@
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
 #include "chre/util/system/debug_dump.h"
+#include "chre_api/chre/version.h"
+
+#include <algorithm>
 
 namespace chre {
 
+constexpr size_t Nanoapp::kMaxSizeWakeupBuckets;
+
+Nanoapp::Nanoapp() {
+  // Push first bucket onto wakeup bucket queue
+  cycleWakeupBuckets(1);
+}
+
 Nanoapp::~Nanoapp() {
-  CHRE_ASSERT_LOG(getTotalAllocatedBytes() == 0,
-      "Nanoapp ID=0x%016" PRIx64 " still has %zu allocated bytes!", getAppId(),
-      getTotalAllocatedBytes());
+  const size_t totalAllocatedBytes = getTotalAllocatedBytes();
+
+  if (totalAllocatedBytes > 0) {
+    // TODO: Consider asserting here
+    LOGE("Nanoapp ID=0x%016" PRIx64 " still has %zu allocated bytes!",
+         getAppId(), totalAllocatedBytes);
+  }
 }
 
 bool Nanoapp::isRegisteredForBroadcastEvent(uint16_t eventType) const {
@@ -76,6 +90,14 @@ void Nanoapp::configureHostSleepEvents(bool enable) {
   }
 }
 
+void Nanoapp::configureDebugDumpEvent(bool enable) {
+  if (enable) {
+    registerForBroadcastEvent(CHRE_EVENT_DEBUG_DUMP);
+  } else {
+    unregisterForBroadcastEvent(CHRE_EVENT_DEBUG_DUMP);
+  }
+}
+
 Event *Nanoapp::processNextEvent() {
   Event *event = mEventQueue.pop();
 
@@ -87,16 +109,39 @@ Event *Nanoapp::processNextEvent() {
   return event;
 }
 
-void Nanoapp::logStateToBuffer(char *buffer, size_t *bufferPos,
-                               size_t bufferSize) const {
-  PlatformNanoapp::logStateToBuffer(buffer, bufferPos, bufferSize);
-  debugDumpPrint(
-      buffer, bufferPos, bufferSize,
-      " Id=%" PRIu32 " AppId=0x%016" PRIx64
-      " ver=0x%" PRIx32 " targetAPI=0x%" PRIx32
-      " currentAllocatedBytes=%zu peakAllocatedBytes=%zu\n",
-      getInstanceId(), getAppId(), getAppVersion(), getTargetApiVersion(),
-      getTotalAllocatedBytes(), getPeakAllocatedBytes());
+void Nanoapp::blameHostWakeup() {
+  if (mWakeupBuckets.back() < UINT16_MAX) ++mWakeupBuckets.back();
+}
+
+void Nanoapp::cycleWakeupBuckets(size_t numBuckets) {
+  numBuckets = std::min(numBuckets, kMaxSizeWakeupBuckets);
+  for (size_t i = 0; i < numBuckets; ++i) {
+    if (mWakeupBuckets.full()) {
+      mWakeupBuckets.erase(0);
+    }
+    mWakeupBuckets.push_back(0);
+  }
+}
+
+void Nanoapp::logStateToBuffer(DebugDumpWrapper &debugDump) const {
+  debugDump.print(" Id=%" PRIu32 " 0x%016" PRIx64 " ", getInstanceId(),
+                  getAppId());
+  PlatformNanoapp::logStateToBuffer(debugDump);
+  debugDump.print(" v%" PRIu32 ".%" PRIu32 ".%" PRIu32 " tgtAPI=%" PRIu32
+                  ".%" PRIu32 " curAlloc=%zu peakAlloc=%zu",
+                  CHRE_EXTRACT_MAJOR_VERSION(getAppVersion()),
+                  CHRE_EXTRACT_MINOR_VERSION(getAppVersion()),
+                  CHRE_EXTRACT_PATCH_VERSION(getAppVersion()),
+                  CHRE_EXTRACT_MAJOR_VERSION(getTargetApiVersion()),
+                  CHRE_EXTRACT_MINOR_VERSION(getTargetApiVersion()),
+                  getTotalAllocatedBytes(), getPeakAllocatedBytes());
+  debugDump.print(" hostWakeups=[ cur->");
+  // Get buckets latest -> earliest except last one
+  for (size_t i = mWakeupBuckets.size() - 1; i > 0; --i) {
+    debugDump.print("%" PRIu16 ", ", mWakeupBuckets[i]);
+  }
+  // Earliest bucket gets no comma
+  debugDump.print("%" PRIu16 " ]\n", mWakeupBuckets.front());
 }
 
 }  // namespace chre

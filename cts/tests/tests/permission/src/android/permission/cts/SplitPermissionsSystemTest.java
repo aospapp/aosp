@@ -19,9 +19,11 @@ package android.permission.cts;
 import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+import static android.Manifest.permission.ACCESS_MEDIA_LOCATION;
 import static android.Manifest.permission.READ_CALL_LOG;
 import static android.Manifest.permission.READ_CONTACTS;
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
+import static android.Manifest.permission.READ_PHONE_STATE;
 import static android.Manifest.permission.WRITE_CALL_LOG;
 import static android.Manifest.permission.WRITE_CONTACTS;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
@@ -53,6 +55,10 @@ import java.util.Set;
 public class SplitPermissionsSystemTest {
 
     private static final int NO_TARGET = Build.VERSION_CODES.CUR_DEVELOPMENT + 1;
+
+    // Redefined here since it's only present in the system API surface.
+    private static final String READ_PRIVILEGED_PHONE_STATE =
+            "android.permission.READ_PRIVILEGED_PHONE_STATE";
 
     private List<SplitPermissionInfo> mSplitPermissions;
 
@@ -104,10 +110,16 @@ public class SplitPermissionsSystemTest {
                 case ACCESS_COARSE_LOCATION:
                     assertSplit(split, ACCESS_BACKGROUND_LOCATION, Build.VERSION_CODES.Q);
                     break;
+                case READ_EXTERNAL_STORAGE:
+                    assertSplit(split, ACCESS_MEDIA_LOCATION, Build.VERSION_CODES.Q);
+                    break;
+                case READ_PRIVILEGED_PHONE_STATE:
+                    assertSplit(split, READ_PHONE_STATE, NO_TARGET);
+                    break;
             }
         }
 
-        assertEquals(6, seenSplits.size());
+        assertEquals(8, seenSplits.size());
     }
 
     private void assertSplit(SplitPermissionInfo split, String permission, int targetSdk) {

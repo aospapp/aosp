@@ -30,7 +30,7 @@
 //! Sample Vendor ID for example nanoapps. The vendor ID portion is the 5 most
 //! significant bytes of the app ID. This vendor ID should not appear in
 //! production.
-#define CHRE_VENDOR_ID_EXAMPLE  UINT64_C(0x0123456789000000)
+#define CHRE_VENDOR_ID_EXAMPLE UINT64_C(0x0123456789000000)
 
 namespace chre {
 
@@ -65,6 +65,7 @@ constexpr uint64_t makeGoogleNanoappId(uint32_t appNumber) {
   return makeNanoappId(CHRE_VENDOR_ID_GOOGLE, appNumber);
 }
 
+// clang-format off
 constexpr uint64_t kHelloWorldAppId       = makeExampleNanoappId(1);
 constexpr uint64_t kMessageWorldAppId     = makeExampleNanoappId(2);
 constexpr uint64_t kTimerWorldAppId       = makeExampleNanoappId(3);
@@ -79,6 +80,10 @@ constexpr uint64_t kAshWorldAppId         = makeExampleNanoappId(11);
 constexpr uint64_t kAudioWorldAppId       = makeExampleNanoappId(12);
 constexpr uint64_t kHostAwakeWorldAppId   = makeExampleNanoappId(13);
 constexpr uint64_t kAudioStressTestAppId  = makeExampleNanoappId(14);
+constexpr uint64_t kPowerTestAppId        = makeExampleNanoappId(15);
+// 16 = Power Test TCM
+constexpr uint64_t kDebugDumpWorldAppId   = makeExampleNanoappId(17);
+// clang-format on
 
 }  // namespace chre
 

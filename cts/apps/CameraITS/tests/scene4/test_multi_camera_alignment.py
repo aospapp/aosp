@@ -19,19 +19,158 @@ import sys
 import cv2
 
 import its.caps
+import its.cv2image
 import its.device
 import its.image
 import its.objects
 
 import numpy as np
 
-ALIGN_TOL_MM = 4.0E-3  # mm
-ALIGN_TOL = 0.01  # multiplied by sensor diagonal to convert to pixels
-CHART_DISTANCE_CM = 22  # cm
+ALIGN_ATOL_MM = 10E-3  # mm
+ALIGN_RTOL = 0.01  # multiplied by sensor diagonal to convert to pixels
 CIRCLE_RTOL = 0.1
 GYRO_REFERENCE = 1
+LENS_FACING_BACK = 1  # 0: FRONT, 1: BACK, 2: EXTERNAL
+UNDEFINED_REFERENCE = 2
 NAME = os.path.basename(__file__).split('.')[0]
 TRANS_REF_MATRIX = np.array([0, 0, 0])
+
+
+def select_ids_to_test(ids, props, chart_distance):
+    """Determine the best 2 cameras to test for the rig used.
+
+    Cameras are pre-filtered to only include supportable cameras.
+    Supportable cameras are: YUV(RGB), RAW(Bayer)
+
+    Args:
+        ids:            unicode string; physical camera ids
+        props:          dict; physical camera properties dictionary
+        chart_distance: float; distance to chart in meters
+    Returns:
+        test_ids to be tested
+    """
+    chart_distance = abs(chart_distance)*100  # convert M to CM
+    test_ids = []
+    for i in ids:
+        sensor_size = props[i]['android.sensor.info.physicalSize']
+        focal_l = props[i]['android.lens.info.availableFocalLengths'][0]
+        diag = math.sqrt(sensor_size['height'] ** 2 +
+                         sensor_size['width'] ** 2)
+        fov = round(2 * math.degrees(math.atan(diag / (2 * focal_l))), 2)
+        print 'Camera: %s, FoV: %.2f, chart_distance: %.1fcm' % (
+                i, fov, chart_distance)
+        # determine best combo with rig used or recommend different rig
+        if its.cv2image.FOV_THRESH_TELE < fov < its.cv2image.FOV_THRESH_WFOV:
+            test_ids.append(i)  # RFoV camera
+        elif fov < its.cv2image.FOV_THRESH_SUPER_TELE:
+            print 'Skipping camera. Not appropriate multi-camera testing.'
+            continue  # super-TELE camera
+        elif (fov <= its.cv2image.FOV_THRESH_TELE and
+              np.isclose(chart_distance, its.cv2image.CHART_DISTANCE_RFOV, rtol=0.1)):
+            test_ids.append(i)  # TELE camera in RFoV rig
+        elif (fov >= its.cv2image.FOV_THRESH_WFOV and
+              np.isclose(chart_distance, its.cv2image.CHART_DISTANCE_WFOV, rtol=0.1)):
+            test_ids.append(i)  # WFoV camera in WFoV rig
+        else:
+            print 'Skipping camera. Not appropriate for test rig.'
+
+    e_msg = 'Error: started with 2+ cameras, reduced to <2. Wrong test rig?'
+    e_msg += '\ntest_ids: %s' % str(test_ids)
+    assert len(test_ids) >= 2, e_msg
+    return test_ids[0:2]
+
+
+def determine_valid_out_surfaces(cam, props, fmt, cap_camera_ids, sizes):
+    """Determine a valid output surfaces for captures.
+
+    Args:
+        cam:                obj; camera object
+        props:              dict; props for the physical cameras
+        fmt:                str; capture format ('yuv' or 'raw')
+        cap_camera_ids:     list; camera capture ids
+        sizes:              dict; valid physical sizes for the cap_camera_ids
+
+    Returns:
+        valid out_surfaces
+    """
+    valid_stream_combo = False
+
+    # try simultaneous capture
+    w, h = its.objects.get_available_output_sizes('yuv', props)[0]
+    out_surfaces = [{'format': 'yuv', 'width': w, 'height': h},
+                    {'format': fmt, 'physicalCamera': cap_camera_ids[0],
+                     'width': sizes[cap_camera_ids[0]][0],
+                     'height': sizes[cap_camera_ids[0]][1]},
+                    {'format': fmt, 'physicalCamera': cap_camera_ids[1],
+                     'width': sizes[cap_camera_ids[1]][0],
+                     'height': sizes[cap_camera_ids[1]][1]},]
+    valid_stream_combo = cam.is_stream_combination_supported(out_surfaces)
+
+    # try each camera individually
+    if not valid_stream_combo:
+        out_surfaces = []
+        for cap_id in cap_camera_ids:
+            out_surface = {'format': fmt, 'physicalCamera': cap_id,
+                           'width': sizes[cap_id][0],
+                           'height': sizes[cap_id][1]}
+            valid_stream_combo = cam.is_stream_combination_supported(out_surface)
+            if valid_stream_combo:
+                out_surfaces.append(out_surface)
+            else:
+                its.caps.skip_unless(valid_stream_combo)
+
+    return out_surfaces
+
+
+def take_images(cam, caps, props, fmt, cap_camera_ids, out_surfaces, debug):
+    """Do image captures.
+
+    Args:
+        cam:                obj; camera object
+        caps:               dict; capture results indexed by (fmt, id)
+        props:              dict; props for the physical cameras
+        fmt:                str; capture format ('yuv' or 'raw')
+        cap_camera_ids:     list; camera capture ids
+        out_surfaces:       list; valid output surfaces for caps
+        debug:              bool; determine if debug mode or not.
+
+    Returns:
+        caps                dict; capture information indexed by (fmt, cap_id)
+    """
+
+    print 'out_surfaces:', out_surfaces
+    if len(out_surfaces) == 3:  # do simultaneous capture
+        # Do 3A and get the values
+        s, e, _, _, fd = cam.do_3a(get_results=True, lock_ae=True,
+                                   lock_awb=True)
+        if fmt == 'raw':
+            e *= 2  # brighten RAW images
+
+        req = its.objects.manual_capture_request(s, e, fd)
+        _, caps[(fmt, cap_camera_ids[0])], caps[(fmt, cap_camera_ids[1])] = cam.do_capture(
+                req, out_surfaces)
+
+    else:  # step through cameras individually
+        for i, out_surface in enumerate(out_surfaces):
+            # Do 3A and get the values
+            s, e, _, _, fd = cam.do_3a(get_results=True,
+                                       lock_ae=True, lock_awb=True)
+            if fmt == 'raw':
+                e *= 2  # brighten RAW images
+
+            req = its.objects.manual_capture_request(s, e, fd)
+            caps[(fmt, cap_camera_ids[i])] = cam.do_capture(req, out_surface)
+
+    # save images if debug
+    if debug:
+        for i in [0, 1]:
+            img = its.image.convert_capture_to_rgb_image(
+                    caps[(fmt, cap_camera_ids[i])], props=props[cap_camera_ids[i]])
+            its.image.write_image(img, '%s_%s_%s.jpg' % (
+                    NAME, fmt, cap_camera_ids[i]))
+
+    return caps
+
 
 def convert_to_world_coordinates(x, y, r, t, k, z_w):
     """Convert x,y coordinates to world coordinates.
@@ -102,7 +241,7 @@ def find_circle(gray, name):
         gray:           numpy grayscale array with pixel values in [0,255].
         name:           string of file name.
     Returns:
-        circle:         (circle_center_x, circle_center_y, radius)
+        circle:         {'x': val, 'y': val, 'r': val}
     """
     size = gray.shape
     # otsu threshold to binarize the image
@@ -111,12 +250,12 @@ def find_circle(gray, name):
 
     # connected component
     cv2_version = cv2.__version__
-    if cv2_version.startswith('2.4.'):
-        contours, hierarchy = cv2.findContours(255-img_bw, cv2.RETR_TREE,
-                                               cv2.CHAIN_APPROX_SIMPLE)
-    elif cv2_version.startswith('3.2.'):
-        _, contours, hierarchy = cv2.findContours(255-img_bw, cv2.RETR_TREE,
-                                                  cv2.CHAIN_APPROX_SIMPLE)
+    if cv2_version.startswith('3.'): # OpenCV 3.x
+        _, contours, hierarchy = cv2.findContours(
+                255-img_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    else: # OpenCV 2.x and 4.x
+        contours, hierarchy = cv2.findContours(
+                255-img_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # Check each component and find the black circle
     min_cmpt = size[0] * size[1] * 0.005
@@ -132,9 +271,9 @@ def find_circle(gray, name):
                     or len(ct) < 15):
             continue
         # Check the shapes of current component and its parent
-        child_shape = component_shape(ct)
+        child_shape = its.cv2image.component_shape(ct)
         parent = hrch[3]
-        prt_shape = component_shape(contours[parent])
+        prt_shape = its.cv2image.component_shape(contours[parent])
         prt_area = cv2.contourArea(contours[parent])
         dist_x = abs(child_shape['ctx']-prt_shape['ctx'])
         dist_y = abs(child_shape['cty']-prt_shape['cty'])
@@ -143,7 +282,7 @@ def find_circle(gray, name):
         # 3. Child's width > 0.1*Image width
         # 4. Child's height > 0.1*Image height
         # 5. 0.25*Parent's area < Child's area < 0.45*Parent's area
-        # 6. Child is a black, and Parent is white
+        # 6. Child == 0, and Parent == 255
         # 7. Center of Child and center of parent should overlap
         if (prt_shape['width'] * 0.56 < child_shape['width']
                     < prt_shape['width'] * 0.76
@@ -176,36 +315,7 @@ def find_circle(gray, name):
         print 'More than one black circle was detected. Background of scene',
         print 'may be too complex.\n'
         assert num_circle == 1
-    return [circle_ctx, circle_cty, (circle_w+circle_h)/4.0]
-
-
-def component_shape(contour):
-    """Measure the shape of a connected component.
-
-    Args:
-        contour: return from cv2.findContours. A list of pixel coordinates of
-        the contour.
-
-    Returns:
-        The most left, right, top, bottom pixel location, height, width, and
-        the center pixel location of the contour.
-    """
-    shape = {'left': np.inf, 'right': 0, 'top': np.inf, 'bottom': 0,
-             'width': 0, 'height': 0, 'ctx': 0, 'cty': 0}
-    for pt in contour:
-        if pt[0][0] < shape['left']:
-            shape['left'] = pt[0][0]
-        if pt[0][0] > shape['right']:
-            shape['right'] = pt[0][0]
-        if pt[0][1] < shape['top']:
-            shape['top'] = pt[0][1]
-        if pt[0][1] > shape['bottom']:
-            shape['bottom'] = pt[0][1]
-    shape['width'] = shape['right'] - shape['left'] + 1
-    shape['height'] = shape['bottom'] - shape['top'] + 1
-    shape['ctx'] = (shape['left']+shape['right'])/2
-    shape['cty'] = (shape['top']+shape['bottom'])/2
-    return shape
+    return {'x': circle_ctx, 'y': circle_cty, 'r': (circle_w+circle_h)/4.0}
 
 
 def define_reference_camera(pose_reference, cam_reference):
@@ -225,6 +335,9 @@ def define_reference_camera(pose_reference, cam_reference):
         i_2nd = list(cam_reference.keys())[1]
     else:
         print 'pose_reference is CAMERA'
+        num_ref_cameras = len([v for v in cam_reference.itervalues() if v])
+        e_msg = 'Too many/few reference cameras: %s' % str(cam_reference)
+        assert num_ref_cameras == 1, e_msg
         i_ref = (k for (k, v) in cam_reference.iteritems() if v).next()
         i_2nd = (k for (k, v) in cam_reference.iteritems() if not v).next()
     return i_ref, i_2nd
@@ -247,70 +360,97 @@ def main():
     world coordinates.
 
     Reproject the world coordinates back to pixel coordinates and compare
-    against originals as a sanity check.
+    against originals as a validity check.
 
     Compare the circle sizes if the focal lengths of the cameras are
     different using
         android.lens.availableFocalLengths.
     """
-    chart_distance = CHART_DISTANCE_CM
+    chart_distance = its.cv2image.CHART_DISTANCE_RFOV
     for s in sys.argv[1:]:
         if s[:5] == 'dist=' and len(s) > 5:
             chart_distance = float(re.sub('cm', '', s[5:]))
             print 'Using chart distance: %.1fcm' % chart_distance
     chart_distance *= 1.0E-2
 
+    # capture images
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.read_3a(props) and
                              its.caps.per_frame_control(props) and
-                             its.caps.logical_multi_camera(props))
-
-        # Find physical camera IDs that support raw, and skip if less than 2
-        ids = its.caps.logical_multi_camera_physical_ids(props)
-        props_physical = {}
-        physical_ids = []
-        for i in ids:
-            prop = cam.get_camera_properties_by_id(i)
-            if its.caps.raw16(prop) and len(physical_ids) < 2:
-                physical_ids.append(i)
-                props_physical[i] = cam.get_camera_properties_by_id(i)
-
+                             its.caps.logical_multi_camera(props) and
+                             its.caps.backward_compatible(props))
         debug = its.caps.debug_mode()
-        avail_fls = props['android.lens.info.availableFocalLengths']
         pose_reference = props['android.lens.poseReference']
 
-        # Find highest resolution image and determine formats
+        # Convert chart_distance for lens facing back
+        if props['android.lens.facing'] == LENS_FACING_BACK:
+            # API spec defines +z is pointing out from screen
+            print 'lens facing BACK'
+            chart_distance *= -1
+
+        # find physical camera IDs
+        ids = its.caps.logical_multi_camera_physical_ids(props)
+        physical_props = {}
+        physical_ids = []
+        physical_raw_ids = []
+        for i in ids:
+            physical_props[i] = cam.get_camera_properties_by_id(i)
+            if physical_props[i]['android.lens.poseReference'] == UNDEFINED_REFERENCE:
+                continue
+            # find YUV+RGB capable physical cameras
+            if (its.caps.backward_compatible(physical_props[i]) and
+                        not its.caps.mono_camera(physical_props[i])):
+                physical_ids.append(i)
+            # find RAW+RGB capable physical cameras
+            if (its.caps.backward_compatible(physical_props[i]) and
+                        not its.caps.mono_camera(physical_props[i]) and
+                        its.caps.raw16(physical_props[i])):
+                physical_raw_ids.append(i)
+
+        # determine formats and select cameras
         fmts = ['yuv']
-        if len(physical_ids) == 2:
-            fmts.insert(0, 'raw')  # insert in first location in list
-        else:
-            physical_ids = ids[0:1]
+        if len(physical_raw_ids) >= 2:
+            fmts.insert(0, 'raw')  # add RAW to analysis if enough cameras
+            print 'Selecting RAW+RGB supported cameras'
+            physical_raw_ids = select_ids_to_test(physical_raw_ids,
+                                                  physical_props,
+                                                  chart_distance)
+        print 'Selecting YUV+RGB cameras'
+        its.caps.skip_unless(len(physical_ids) >= 2)
+        physical_ids = select_ids_to_test(physical_ids,
+                                          physical_props,
+                                          chart_distance)
 
-        w, h = its.objects.get_available_output_sizes('yuv', props)[0]
-
-        # do captures on 2 cameras
+        # do captures for valid formats
         caps = {}
         for i, fmt in enumerate(fmts):
-            out_surfaces = [{'format': 'yuv', 'width': w, 'height': h},
-                            {'format': fmt, 'physicalCamera': physical_ids[0]},
-                            {'format': fmt, 'physicalCamera': physical_ids[1]}]
+            physical_sizes = {}
 
-            out_surfaces_supported = cam.is_stream_combination_supported(out_surfaces)
-            its.caps.skip_unless(out_surfaces_supported)
-
-            # Do 3A and get the values
-            s, e, _, _, fd = cam.do_3a(get_results=True,
-                                       lock_ae=True, lock_awb=True)
+            capture_cam_ids = physical_ids
             if fmt == 'raw':
-                e_corrected = e * 2  # brighten RAW images
-            else:
-                e_corrected = e
-            print 'out_surfaces:', out_surfaces
-            req = its.objects.manual_capture_request(s, e_corrected, fd)
-            _, caps[(fmt, physical_ids[0])], caps[(fmt, physical_ids[1])] = cam.do_capture(
-                    req, out_surfaces);
+                capture_cam_ids = physical_raw_ids
 
+            for physical_id in capture_cam_ids:
+                configs = physical_props[physical_id]['android.scaler.streamConfigurationMap']\
+                                   ['availableStreamConfigurations']
+                if fmt == 'raw':
+                    fmt_codes = 0x20
+                    fmt_configs = [cfg for cfg in configs if cfg['format'] == fmt_codes]
+                else:
+                    fmt_codes = 0x23
+                    fmt_configs = [cfg for cfg in configs if cfg['format'] == fmt_codes]
+
+                out_configs = [cfg for cfg in fmt_configs if not cfg['input']]
+                out_sizes = [(cfg['width'], cfg['height']) for cfg in out_configs]
+                physical_sizes[physical_id] = max(out_sizes, key=lambda item: item[1])
+
+            out_surfaces = determine_valid_out_surfaces(
+                    cam, props, fmt, capture_cam_ids, physical_sizes)
+            caps = take_images(
+                    cam, caps, physical_props, fmt, capture_cam_ids, out_surfaces, debug)
+
+    # process images for correctness
     for j, fmt in enumerate(fmts):
         size = {}
         k = {}
@@ -320,11 +460,15 @@ def main():
         circle = {}
         fl = {}
         sensor_diag = {}
+        pixel_sizes = {}
+        capture_cam_ids = physical_ids
+        if fmt == 'raw':
+            capture_cam_ids = physical_raw_ids
         print '\nFormat:', fmt
-        for i in physical_ids:
+        for i in capture_cam_ids:
             # process image
             img = its.image.convert_capture_to_rgb_image(
-                    caps[(fmt, i)], props=props_physical[i])
+                    caps[(fmt, i)], props=physical_props[i])
             size[i] = (caps[fmt, i]['width'], caps[fmt, i]['height'])
 
             # save images if debug
@@ -341,7 +485,7 @@ def main():
                 img = img.astype(np.uint8)
 
             # load parameters for each physical camera
-            ical = props_physical[i]['android.lens.intrinsicCalibration']
+            ical = physical_props[i]['android.lens.intrinsicCalibration']
             assert len(ical) == 5, 'android.lens.instrisicCalibration incorrect.'
             k[i] = np.array([[ical[0], ical[4], ical[2]],
                              [0, ical[1], ical[3]],
@@ -350,13 +494,13 @@ def main():
                 print 'Camera %s' % i
                 print ' k:', k[i]
 
-            rotation = np.array(props_physical[i]['android.lens.poseRotation'])
+            rotation = np.array(physical_props[i]['android.lens.poseRotation'])
             if j == 0:
                 print ' rotation:', rotation
             assert len(rotation) == 4, 'poseRotation has wrong # of params.'
             r[i] = rotation_matrix(rotation)
 
-            t[i] = np.array(props_physical[i]['android.lens.poseTranslation'])
+            t[i] = np.array(physical_props[i]['android.lens.poseTranslation'])
             if j == 0:
                 print ' translation:', t[i]
             assert len(t[i]) == 3, 'poseTranslation has wrong # of params.'
@@ -378,9 +522,9 @@ def main():
                 print 't:', t[i]
                 print 'r:', r[i]
 
-            # Correct lens distortion to image (if available)
-            if its.caps.distortion_correction(props_physical[i]) and fmt == 'raw':
-                distort = np.array(props_physical[i]['android.lens.distortion'])
+            # Correct lens distortion to RAW image (if available)
+            if its.caps.distortion_correction(physical_props[i]) and fmt == 'raw':
+                distort = np.array(physical_props[i]['android.lens.distortion'])
                 assert len(distort) == 5, 'distortion has wrong # of params.'
                 cv2_distort = np.array([distort[0], distort[1],
                                         distort[3], distort[4],
@@ -395,26 +539,37 @@ def main():
             # Find the circles in grayscale image
             circle[i] = find_circle(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY),
                                     '%s_%s_gray_%s.jpg' % (NAME, fmt, i))
-            print "Circle radius ", i, ": ", circle[i][2]
+            print 'Circle %s radius: %.3f' % (i, circle[i]['r'])
 
             # Undo zoom to image (if applicable). Assume that the maximum
             # physical YUV image size is close to active array size.
             if fmt == 'yuv':
-                ar = props_physical[i]['android.sensor.info.activeArraySize']
-                arw = ar['right'] - ar['left']
-                arh = ar['bottom'] - ar['top']
-                cr = caps[(fmt, i)]['metadata']['android.scaler.cropRegion'];
+                yuv_w = caps[(fmt, i)]['width']
+                yuv_h = caps[(fmt, i)]['height']
+                print 'cap size: %d x %d' % (yuv_w, yuv_h)
+                cr = caps[(fmt, i)]['metadata']['android.scaler.cropRegion']
                 crw = cr['right'] - cr['left']
                 crh = cr['bottom'] - cr['top']
                 # Assume pixels remain square after zoom, so use same zoom
                 # ratios for x and y.
-                zoom_ratio = min(1.0 * arw / crw, 1.0 * arh / crh);
-                circle[i][0] = cr['left'] + circle[i][0] / zoom_ratio
-                circle[i][1] = cr['top'] + circle[i][1] / zoom_ratio
-                circle[i][2] = circle[i][2] / zoom_ratio
+                zoom_ratio = min(1.0 * yuv_w / crw, 1.0 * yuv_h / crh)
+                circle[i]['x'] = cr['left'] + circle[i]['x'] / zoom_ratio
+                circle[i]['y'] = cr['top'] + circle[i]['y'] / zoom_ratio
+                circle[i]['r'] = circle[i]['r'] / zoom_ratio
+                print ' Calculated zoom_ratio:', zoom_ratio
+                print ' Corrected circle X:', circle[i]['x']
+                print ' Corrected circle Y:', circle[i]['y']
+                print ' Corrected circle radius : %.3f'  % circle[i]['r']
 
-            # Find focal length & sensor size
-            fl[i] = props_physical[i]['android.lens.info.availableFocalLengths'][0]
+            # Find focal length and pixel & sensor size
+            fl[i] = physical_props[i]['android.lens.info.availableFocalLengths'][0]
+            ar = physical_props[i]['android.sensor.info.activeArraySize']
+            sensor_size = physical_props[i]['android.sensor.info.physicalSize']
+            pixel_size_w = sensor_size['width'] / (ar['right'] - ar['left'])
+            pixel_size_h = sensor_size['height'] / (ar['bottom'] - ar['top'])
+            print 'pixel size(um): %.2f x %.2f' % (
+                pixel_size_w*1E3, pixel_size_h*1E3)
+            pixel_sizes[i] = (pixel_size_w + pixel_size_h) / 2 * 1E3
             sensor_diag[i] = math.sqrt(size[i][0] ** 2 + size[i][1] ** 2)
 
         i_ref, i_2nd = define_reference_camera(pose_reference, cam_reference)
@@ -423,15 +578,12 @@ def main():
         # Convert circle centers to real world coordinates
         x_w = {}
         y_w = {}
-        if props['android.lens.facing']:
-            # API spec defines +z is pointing out from screen
-            print 'lens facing BACK'
-            chart_distance *= -1
         for i in [i_ref, i_2nd]:
             x_w[i], y_w[i] = convert_to_world_coordinates(
-                    circle[i][0], circle[i][1], r[i], t[i], k[i], chart_distance)
+                    circle[i]['x'], circle[i]['y'], r[i], t[i], k[i],
+                    chart_distance)
 
-        # Back convert to image coordinates for sanity check
+        # Back convert to image coordinates for round-trip check
         x_p = {}
         y_p = {}
         x_p[i_2nd], y_p[i_2nd] = convert_to_image_coordinates(
@@ -444,7 +596,7 @@ def main():
         # Summarize results
         for i in [i_ref, i_2nd]:
             print ' Camera: %s' % i
-            print ' x, y (pixels): %.1f, %.1f' % (circle[i][0], circle[i][1])
+            print ' x, y (pixels): %.1f, %.1f' % (circle[i]['x'], circle[i]['y'])
             print ' x_w, y_w (mm): %.2f, %.2f' % (x_w[i]*1.0E3, y_w[i]*1.0E3)
             print ' x_p, y_p (pixels): %.1f, %.1f' % (x_p[i], y_p[i])
 
@@ -453,31 +605,31 @@ def main():
                              np.array([x_w[i_2nd], y_w[i_2nd]]))
         print 'Center location err (mm): %.2f' % (err*1E3)
         msg = 'Center locations %s <-> %s too different!' % (i_ref, i_2nd)
-        msg += ' val=%.2fmm, THRESH=%.fmm' % (err*1E3, ALIGN_TOL_MM*1E3)
-        assert err < ALIGN_TOL, msg
+        msg += ' val=%.2fmm, THRESH=%.fmm' % (err*1E3, ALIGN_ATOL_MM*1E3)
+        assert err < ALIGN_ATOL_MM, msg
 
         # Check projections back into pixel space
         for i in [i_ref, i_2nd]:
-            err = np.linalg.norm(np.array([circle[i][0], circle[i][1]]) -
+            err = np.linalg.norm(np.array([circle[i]['x'], circle[i]['y']]) -
                                  np.array([x_p[i], y_p[i]]))
-            print 'Camera %s projection error (pixels): %.1f' % (i, err)
-            tol = ALIGN_TOL * sensor_diag[i]
+            print 'Camera %s projection error (pixels): %.2f' % (i, err)
+            tol = ALIGN_RTOL * sensor_diag[i]
             msg = 'Camera %s project locations too different!' % i
             msg += ' diff=%.2f, TOL=%.2f' % (err, tol)
             assert err < tol, msg
 
         # Check focal length and circle size if more than 1 focal length
-        if len(avail_fls) > 1:
+        if len(fl) > 1:
             print 'Circle radii (pixels); ref: %.1f, 2nd: %.1f' % (
-                    circle[i_ref][2], circle[i_2nd][2])
+                    circle[i_ref]['r'], circle[i_2nd]['r'])
             print 'Focal lengths (diopters); ref: %.2f, 2nd: %.2f' % (
                     fl[i_ref], fl[i_2nd])
-            print 'Sensor diagonals (pixels); ref: %.2f, 2nd: %.2f' % (
-                    sensor_diag[i_ref], sensor_diag[i_2nd])
+            print 'Pixel size (um); ref: %.2f, 2nd: %.2f' % (
+                    pixel_sizes[i_ref], pixel_sizes[i_2nd])
             msg = 'Circle size scales improperly! RTOL=%.1f' % CIRCLE_RTOL
-            msg += '\nMetric: radius/focal_length*sensor_diag should be equal.'
-            assert np.isclose(circle[i_ref][2]/fl[i_ref]*sensor_diag[i_ref],
-                              circle[i_2nd][2]/fl[i_2nd]*sensor_diag[i_2nd],
+            msg += '\nMetric: radius*pixel_size/focal_length should be equal.'
+            assert np.isclose(circle[i_ref]['r']*pixel_sizes[i_ref]/fl[i_ref],
+                              circle[i_2nd]['r']*pixel_sizes[i_2nd]/fl[i_2nd],
                               rtol=CIRCLE_RTOL), msg
 
 if __name__ == '__main__':

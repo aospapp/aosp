@@ -42,6 +42,7 @@ class String;
 
 class ArtField;
 class ArtMethod;
+class HandleScope;
 enum InvokeType : uint32_t;
 class OatQuickMethodHeader;
 class ScopedObjectAccessAlreadyRunnable;
@@ -49,7 +50,7 @@ class Thread;
 
 // Given the context of a calling Method, use its DexCache to resolve a type to a Class. If it
 // cannot be resolved, throw an error. If it can, use it to create an instance.
-template <bool kInstrumented>
+template <bool kInstrumented = true>
 ALWAYS_INLINE inline ObjPtr<mirror::Object> AllocObjectFromCode(ObjPtr<mirror::Class> klass,
                                                                 Thread* self,
                                                                 gc::AllocatorType allocator_type)
@@ -87,7 +88,7 @@ ALWAYS_INLINE inline ObjPtr<mirror::Class> CheckArrayAlloc(dex::TypeIndex type_i
 // it cannot be resolved, throw an error. If it can, use it to create an array.
 // When verification/compiler hasn't been able to verify access, optionally perform an access
 // check.
-template <bool kAccessCheck, bool kInstrumented>
+template <bool kAccessCheck, bool kInstrumented = true>
 ALWAYS_INLINE inline ObjPtr<mirror::Array> AllocArrayFromCode(dex::TypeIndex type_idx,
                                                               int32_t component_count,
                                                               ArtMethod* method,
@@ -173,10 +174,6 @@ ObjPtr<mirror::MethodType> ResolveMethodTypeFromCode(ArtMethod* referrer, dex::P
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
-// TODO: annotalysis disabled as monitor semantics are maintained in Java code.
-inline void UnlockJniSynchronizedMethod(jobject locked, Thread* self)
-    NO_THREAD_SAFETY_ANALYSIS REQUIRES(!Roles::uninterruptible_);
-
 void CheckReferenceResult(Handle<mirror::Object> o, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
@@ -211,6 +208,15 @@ CallerAndOuterMethod GetCalleeSaveMethodCallerAndOuterMethod(Thread* self, Calle
 
 ArtMethod* GetCalleeSaveOuterMethod(Thread* self, CalleeSaveType type)
     REQUIRES_SHARED(Locks::mutator_lock_);
+
+// Returns whether we need to do class initialization check before invoking the method.
+// The caller is responsible for performing that check.
+bool NeedsClinitCheckBeforeCall(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
+
+constexpr size_t kJniCookieSize = sizeof(uint32_t);
+
+inline HandleScope* GetGenericJniHandleScope(ArtMethod** managed_sp,
+                                             size_t num_handle_scope_references);
 
 }  // namespace art
 

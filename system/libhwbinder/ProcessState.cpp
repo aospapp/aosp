@@ -21,12 +21,11 @@
 #include <cutils/atomic.h>
 #include <hwbinder/BpHwBinder.h>
 #include <hwbinder/IPCThreadState.h>
-#include <hwbinder/binder_kernel.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
 #include <utils/threads.h>
 
-#include <private/binder/binder_module.h>
+#include "binder_kernel.h"
 #include <hwbinder/Static.h>
 
 #include <errno.h>
@@ -233,6 +232,11 @@ ssize_t ProcessState::getStrongRefCountForNodeByHandle(int32_t handle) {
     status_t result = ioctl(mDriverFD, BINDER_GET_NODE_INFO_FOR_REF, &info);
 
     if (result != OK) {
+        static bool logged = false;
+        if (!logged) {
+          ALOGW("Kernel does not support BINDER_GET_NODE_INFO_FOR_REF.");
+          logged = true;
+        }
         return -1;
     }
 
@@ -244,7 +248,8 @@ size_t ProcessState::getMmapSize() {
 }
 
 void ProcessState::setCallRestriction(CallRestriction restriction) {
-    LOG_ALWAYS_FATAL_IF(IPCThreadState::selfOrNull(), "Call restrictions must be set before the threadpool is started.");
+    LOG_ALWAYS_FATAL_IF(IPCThreadState::selfOrNull() != nullptr,
+        "Call restrictions must be set before the threadpool is started.");
 
     mCallRestriction = restriction;
 }
@@ -449,9 +454,10 @@ ProcessState::ProcessState(size_t mmap_size)
             mDriverFD = -1;
         }
     }
-    else {
-        ALOGE("Binder driver could not be opened.  Terminating.");
-    }
+
+#ifdef __ANDROID__
+    LOG_ALWAYS_FATAL_IF(mDriverFD < 0, "Binder driver could not be opened. Terminating.");
+#endif
 }
 
 ProcessState::~ProcessState()
@@ -465,5 +471,5 @@ ProcessState::~ProcessState()
     mDriverFD = -1;
 }
 
-}; // namespace hardware
-}; // namespace android
+} // namespace hardware
+} // namespace android

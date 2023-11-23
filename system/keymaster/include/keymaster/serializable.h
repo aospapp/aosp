@@ -21,8 +21,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <keymaster/new.h>
 #include <stddef.h>
-#include <keymaster/new>
 // #include <new>
 
 #include <keymaster/UniquePtr.h>

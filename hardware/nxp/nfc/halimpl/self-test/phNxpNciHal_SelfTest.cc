@@ -1187,7 +1187,7 @@ NFCSTATUS phNxpNciHal_TestMode_open(void) {
     NXPLOG_NCIHAL_D(
         "Invalid nfc device node name keeping the default device node "
         "/dev/pn54x");
-    strcpy(nfc_dev_node, "/dev/pn54x");
+    strlcpy(nfc_dev_node, "/dev/pn54x", (max_len * sizeof(char)));
   }
 
   gDrvCfg.nClientId = phDal4Nfc_msgget(0, 0600);

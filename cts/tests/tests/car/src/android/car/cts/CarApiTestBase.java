@@ -17,42 +17,61 @@
 package android.car.cts;
 
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import android.car.Car;
+import android.car.FuelType;
+import android.car.PortLocationType;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.Looper;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.compatibility.common.util.FeatureUtil;
+import com.android.compatibility.common.util.RequiredFeatureRule;
 
 import org.junit.After;
+import org.junit.ClassRule;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public abstract class CarApiTestBase {
+    @ClassRule
+    public static final RequiredFeatureRule sRequiredFeatureRule = new RequiredFeatureRule(
+            PackageManager.FEATURE_AUTOMOTIVE);
+
     protected static final long DEFAULT_WAIT_TIMEOUT_MS = 1000;
 
     private Car mCar;
 
+    // Enums in FuelType
+    final static List<Integer> EXPECTED_FUEL_TYPES =
+            Arrays.asList(FuelType.UNKNOWN, FuelType.UNLEADED, FuelType.LEADED, FuelType.DIESEL_1,
+                    FuelType.DIESEL_2, FuelType.BIODIESEL, FuelType.E85, FuelType.LPG, FuelType.CNG,
+                    FuelType.LNG, FuelType.ELECTRIC, FuelType.HYDROGEN, FuelType.OTHER);
+    // Enums in PortLocationType
+    final static List<Integer> EXPECTED_PORT_LOCATIONS =
+            Arrays.asList(PortLocationType.UNKNOWN, PortLocationType.FRONT_LEFT,
+                    PortLocationType.FRONT_RIGHT, PortLocationType.REAR_RIGHT,
+                    PortLocationType.REAR_LEFT, PortLocationType.FRONT, PortLocationType.REAR);
+
     private final DefaultServiceConnectionListener mConnectionListener =
             new DefaultServiceConnectionListener();
+
+    protected static final Context sContext = InstrumentationRegistry.getInstrumentation()
+            .getContext();
 
     protected void assertMainThread() {
         assertTrue(Looper.getMainLooper().isCurrentThread());
     }
 
     protected void setUp() throws Exception {
-        assumeTrue(FeatureUtil.isAutomotive());
-
-        Context context =
-                InstrumentationRegistry.getInstrumentation().getTargetContext();
-        mCar = Car.createCar(context, mConnectionListener, null);
+        mCar = Car.createCar(sContext, mConnectionListener, null);
         mCar.connect();
         mConnectionListener.waitForConnection(DEFAULT_WAIT_TIMEOUT_MS);
     }

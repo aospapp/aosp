@@ -631,6 +631,7 @@ public class VolumeShaperTest extends CtsAndroidTestCase {
         }
     } // testPlayerRamp
 
+    @FlakyTest
     @LargeTest
     public void testPlayerCornerCase() throws Exception {
         final String TEST_NAME = "testPlayerCornerCase";
@@ -681,6 +682,7 @@ public class VolumeShaperTest extends CtsAndroidTestCase {
         }
     } // testPlayerCornerCase
 
+    @FlakyTest
     @LargeTest
     public void testPlayerCornerCase2() throws Exception {
         final String TEST_NAME = "testPlayerCornerCase2";

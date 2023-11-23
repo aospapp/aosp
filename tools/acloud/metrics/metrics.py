@@ -14,19 +14,15 @@
 r"""Acloud metrics functions."""
 
 import logging
-import os
-import subprocess
 
 from acloud.internal import constants
-# pylint: disable=import-error
+_NO_METRICS = "--no-metrics"
 
-_METRICS_URL = 'http://asuite-218222.appspot.com/acloud/metrics'
-_VALID_DOMAINS = ["google.com", "android.com"]
-_COMMAND_GIT_CONFIG = ["git", "config", "--get", "user.email"]
 
 logger = logging.getLogger(__name__)
 
-# pylint: disable=broad-except
+
+# pylint: disable=broad-except, import-error
 def LogUsage(argv):
     """Log acloud start event.
 
@@ -42,16 +38,13 @@ def LogUsage(argv):
 
     Args:
         argv: A list of system arguments.
-    """
-    # TODO(b131867764): We could remove this metics tool after we apply clearcut.
-    try:
-        from asuite import asuite_metrics
-        asuite_metrics.log_event(_METRICS_URL, dummy_key_fallback=False,
-                                 ldap=_GetLdap())
-    except ImportError:
-        logger.debug("No metrics recorder available, not sending metrics.")
 
-    #Log start event via clearcut tool.
+    Returns:
+        True if start event is sent and need to pair with end event.
+    """
+    if _NO_METRICS in argv:
+        return False
+
     try:
         from asuite import atest_utils
         from asuite.metrics import metrics_utils
@@ -59,25 +52,12 @@ def LogUsage(argv):
         metrics_utils.send_start_event(tool_name=constants.TOOL_NAME,
                                        command_line=' '.join(argv),
                                        test_references=[argv[0]])
+        return True
     except Exception as e:
         logger.debug("Failed to send start event:%s", str(e))
 
+    return False
 
-#TODO(b131867764): We could remove this metics tool after we apply clearcut.
-def _GetLdap():
-    """Return string email username for valid domains only, None otherwise."""
-    try:
-        acloud_project = os.path.join(
-            os.environ[constants.ENV_ANDROID_BUILD_TOP], "tools", "acloud")
-        email = subprocess.check_output(_COMMAND_GIT_CONFIG,
-                                        cwd=acloud_project).strip()
-        ldap, domain = email.split("@", 2)
-        if domain in _VALID_DOMAINS:
-            return ldap
-    # pylint: disable=broad-except
-    except Exception as e:
-        logger.debug("error retrieving email: %s", e)
-    return None
 
 # pylint: disable=broad-except
 def LogExitEvent(exit_code, stacktrace="", logs=""):

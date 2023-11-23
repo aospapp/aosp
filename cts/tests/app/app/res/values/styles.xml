@@ -165,10 +165,6 @@
         <item name="themeTileMode">2</item>
     </style>
 
-    <style name="Theme_NoSwipeDismiss">
-        <item name="android:windowSwipeToDismiss">false</item>
-    </style>
-
     <style name="DialogTheme_Test" parent="@android:style/Theme.Material.Dialog">
         <item name="themeInteger">20</item>
     </style>

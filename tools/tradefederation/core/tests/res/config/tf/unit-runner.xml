@@ -17,12 +17,9 @@
     <option name="loop" value="false" />
     <option name="null-device" value="true" />
     <build_provider class="com.android.tradefed.build.StubBuildProvider" />
-    <!-- Use HostTest runner to have JUnit3 and JUnit4 Suite support -->
-    <test class="com.android.tradefed.testtype.HostTest" >
-        <option name="class" value="com.android.loganalysis.UnitTests" />
-        <option name="class" value="com.android.tradefed.UnitTests" />
-        <option name="class" value="com.android.tradefed.prodtests.UnitTests" />
-    </test>
+
+    <include name="tf/unit-runner-tests" />
+
     <logger class="com.android.tradefed.log.FileLogger" />
     <result_reporter class="com.android.tradefed.result.SubprocessResultsReporter">
         <option name="output-test-log" value="true" />

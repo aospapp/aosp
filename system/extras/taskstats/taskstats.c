@@ -234,6 +234,13 @@ void print_task_stats(const struct TaskStatistics* stats,
     printf("--------------------------\n");
     printf("%-25s%llu\n", "Voluntary switches:", s->nvcsw);
     printf("%-25s%llu\n", "Involuntary switches:", s->nivcsw);
+
+#if TASKSTATS_VERSION > 8
+    if (s->version > 8) {
+        printf("%-25s%llu\n", "Thrashing count:", s->thrashing_count);
+        printf("%-25s%llu\n", "Thrashing delay total:", s->thrashing_delay_total);
+    }
+#endif
 }
 
 void print_usage() {

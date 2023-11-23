@@ -20,6 +20,7 @@
 #include <cstring>
 #include <unistd.h>
 
+#include "common/bind.h"
 #include "os/log.h"
 #include "os/utils.h"
 
@@ -32,16 +33,15 @@
 namespace bluetooth {
 namespace os {
 
-RepeatingAlarm::RepeatingAlarm(Thread* thread)
-  : thread_(thread),
-    fd_(timerfd_create(ALARM_CLOCK, 0)) {
+RepeatingAlarm::RepeatingAlarm(Handler* handler) : handler_(handler), fd_(timerfd_create(ALARM_CLOCK, 0)) {
   ASSERT(fd_ != -1);
 
-  token_ = thread_->GetReactor()->Register(fd_, [this] { on_fire(); }, nullptr);
+  token_ = handler_->thread_->GetReactor()->Register(
+      fd_, common::Bind(&RepeatingAlarm::on_fire, common::Unretained(this)), common::Closure());
 }
 
 RepeatingAlarm::~RepeatingAlarm() {
-  thread_->GetReactor()->Unregister(token_);
+  handler_->thread_->GetReactor()->Unregister(token_);
 
   int close_status;
   RUN_NO_INTR(close_status = close(fd_));
@@ -74,7 +74,7 @@ void RepeatingAlarm::on_fire() {
   uint64_t times_invoked;
   auto bytes_read = read(fd_, &times_invoked, sizeof(uint64_t));
   lock.unlock();
-  task();
+  task.Run();
   ASSERT(bytes_read == static_cast<ssize_t>(sizeof(uint64_t)));
 }
 

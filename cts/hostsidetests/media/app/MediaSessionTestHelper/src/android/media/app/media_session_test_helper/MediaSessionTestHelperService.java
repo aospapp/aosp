@@ -21,16 +21,11 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
+import android.media.MediaSession2;
 import android.media.session.MediaSession;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.IBinder;
 import android.text.TextUtils;
 import android.util.Log;
-
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import android.media.cts.MediaSessionTestHelperConstants;
 
@@ -46,6 +41,7 @@ public class MediaSessionTestHelperService extends Service {
     private static final String NOTIFICATION_CHANNEL = TAG;
 
     private MediaSession mMediaSession;
+    private MediaSession2 mMediaSession2;
 
     @Override
     public void onCreate() {
@@ -85,8 +81,13 @@ public class MediaSessionTestHelperService extends Service {
                 mMediaSession.setActive(false);
             }
         }
-        if ((flag & MediaSessionTestHelperConstants.FLAG_RELEASE_MEDIA_SESSION) != 0) {
-            releaseMediaSession();
+        if ((flag & MediaSessionTestHelperConstants.FLAG_CREATE_MEDIA_SESSION2) != 0) {
+            if (mMediaSession2 == null) {
+                mMediaSession2 = new MediaSession2.Builder(this).setId(TAG).build();
+            }
+        }
+        if ((flag & MediaSessionTestHelperConstants.FLAG_RELEASE_ALL_MEDIA_SESSION) != 0) {
+            releaseAllMediaSession();
         }
         return START_STICKY;
     }
@@ -100,10 +101,10 @@ public class MediaSessionTestHelperService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        releaseMediaSession();
+        releaseAllMediaSession();
     }
 
-    private void releaseMediaSession() {
+    private void releaseAllMediaSession() {
         if (mMediaSession != null) {
             mMediaSession.release();
             mMediaSession = null;

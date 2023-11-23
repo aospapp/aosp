@@ -5069,6 +5069,7 @@ bool omx_video::omx_c2d_conv::open(unsigned int height,unsigned int width,
         if (c2dcc) {
             src_format = src;
             status = true;
+            mFlags = flags;
         } else
             DEBUG_PRINT_ERROR("mConvertOpen failed");
     }
@@ -5130,6 +5131,11 @@ bool omx_video::omx_c2d_conv::get_buffer_size(int port,unsigned int &buf_size)
         buf_size = bufferreq.size;
     }
     return ret;
+}
+bool omx_video::omx_c2d_conv::isUBWCChanged(unsigned int flags)
+{
+    return (mFlags & private_handle_t::PRIV_FLAGS_UBWC_ALIGNED) !=
+           (flags  & private_handle_t::PRIV_FLAGS_UBWC_ALIGNED);
 }
 
 bool omx_video::is_conv_needed(int hal_fmt, int hal_flags)
@@ -5212,7 +5218,8 @@ OMX_ERRORTYPE  omx_video::empty_this_buffer_opaque(OMX_IN OMX_HANDLETYPE hComp,
       updated correctly*/
 
     if (buffer->nFilledLen > 0 && handle) {
-        if (c2d_opened && handle->format != c2d_conv.get_src_format()) {
+        if (c2d_opened && (handle->format != c2d_conv.get_src_format() ||
+                           c2d_conv.isUBWCChanged(handle->flags))) {
             c2d_conv.close();
             c2d_opened = false;
         }

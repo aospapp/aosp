@@ -15,53 +15,76 @@
  */
 package android.uirendering.cts.util;
 
+import android.app.Instrumentation;
 import android.graphics.Bitmap;
-import android.os.Environment;
+import android.os.Bundle;
 import android.uirendering.cts.differencevisualizers.DifferenceVisualizer;
 import android.util.Log;
 
-import com.android.compatibility.common.util.BitmapUtils;
-
 import java.io.File;
+import java.io.FileOutputStream;
 
 /**
  * A utility class that will allow the user to save bitmaps to the sdcard on the device.
  */
 public final class BitmapDumper {
-    private final static String TAG = "BitmapDumper";
-    private final static String IDEAL_RENDERING_FILE_NAME = "idealCapture.png";
-    private final static String TESTED_RENDERING_FILE_NAME = "testedCapture.png";
-    private final static String VISUALIZER_RENDERING_FILE_NAME = "visualizer.png";
-    private final static String SINGULAR_FILE_NAME = "capture.png";
-    private final static String CAPTURE_SUB_DIRECTORY = Environment.getExternalStorageDirectory()
-            + "/UiRenderingCaptures/";
+    private static final String TAG = "BitmapDumper";
+    private static final String KEY_PREFIX = "uirendering_";
+    private static final String TYPE_IDEAL_RENDERING = "idealCapture";
+    private static final String TYPE_TESTED_RENDERING = "testedCapture";
+    private static final String TYPE_VISUALIZER_RENDERING = "visualizer";
+    private static final String TYPE_SINGULAR = "capture";
+
+    // Magic number for an in-progress status report
+    private static final int INST_STATUS_IN_PROGRESS = 2;
+    private static File sDumpDirectory;
+    private static Instrumentation sInstrumentation;
 
     private BitmapDumper() {}
 
-    /**
-     * Deletes the specific files for the given test in a given class.
-     */
-    public static void deleteFileInClassFolder(String className, String testName) {
-        File directory = new File(CAPTURE_SUB_DIRECTORY + className);
+    public static void initialize(Instrumentation instrumentation) {
+        sInstrumentation = instrumentation;
+        sDumpDirectory = instrumentation.getContext().getExternalCacheDir();
 
-        String[] children = directory.list();
-        if (children == null) {
-            return;
-        }
-        for (String file : children) {
-            if (file.startsWith(testName)) {
-                new File(directory, file).delete();
+        // Cleanup old tests
+        // These are removed on uninstall anyway but just in case...
+        File[] toRemove = sDumpDirectory.listFiles();
+        if (toRemove != null && toRemove.length > 0) {
+            for (File file : toRemove) {
+                deleteContentsAndDir(file);
             }
         }
     }
 
-    public static void createSubDirectory(String className) {
-        File saveDirectory = new File(CAPTURE_SUB_DIRECTORY + className);
-        if (saveDirectory.exists()) {
-            return;
+    private static boolean deleteContentsAndDir(File dir) {
+        if (deleteContents(dir)) {
+            return dir.delete();
+        } else {
+            return false;
         }
-        // Create the directory if it isn't already created.
-        saveDirectory.mkdirs();
+    }
+
+    private static boolean deleteContents(File dir) {
+        File[] files = dir.listFiles();
+        boolean success = true;
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    success &= deleteContents(file);
+                }
+                if (!file.delete()) {
+                    Log.w(TAG, "Failed to delete " + file);
+                    success = false;
+                }
+            }
+        }
+        return success;
+    }
+
+    private static File getFile(String className, String testName, String type) {
+        File testDirectory = new File(sDumpDirectory, className);
+        testDirectory.mkdirs();
+        return new File(testDirectory, testName + "_" + type + ".png");
     }
 
     /**
@@ -85,9 +108,18 @@ public final class BitmapDumper {
         visualizerBitmap.setPixels(visualizerArray, 0, width, 0, 0, width, height);
         Bitmap croppedBitmap = Bitmap.createBitmap(testedBitmap, 0, 0, width, height);
 
-        saveFile(className, testName, IDEAL_RENDERING_FILE_NAME, idealBitmap);
-        saveFile(className, testName, TESTED_RENDERING_FILE_NAME, croppedBitmap);
-        saveFile(className, testName, VISUALIZER_RENDERING_FILE_NAME, visualizerBitmap);
+        File idealFile = getFile(className, testName, TYPE_IDEAL_RENDERING);
+        File testedFile = getFile(className, testName, TYPE_TESTED_RENDERING);
+        File visualizerFile = getFile(className, testName, TYPE_VISUALIZER_RENDERING);
+        saveBitmap(idealBitmap, idealFile);
+        saveBitmap(croppedBitmap, testedFile);
+        saveBitmap(visualizerBitmap, visualizerFile);
+
+        Bundle report = new Bundle();
+        report.putString(KEY_PREFIX + TYPE_IDEAL_RENDERING, idealFile.getAbsolutePath());
+        report.putString(KEY_PREFIX + TYPE_TESTED_RENDERING, testedFile.getAbsolutePath());
+        report.putString(KEY_PREFIX + TYPE_VISUALIZER_RENDERING, visualizerFile.getAbsolutePath());
+        sInstrumentation.sendStatus(INST_STATUS_IN_PROGRESS, report);
     }
 
     public static void dumpBitmap(Bitmap bitmap, String testName, String className) {
@@ -95,11 +127,39 @@ public final class BitmapDumper {
             Log.d(TAG, "File not saved, bitmap was null for test : " + testName);
             return;
         }
-        saveFile(className, testName, SINGULAR_FILE_NAME, bitmap);
+        File capture = getFile(className, testName, TYPE_SINGULAR);
+        saveBitmap(bitmap, capture);
+        Bundle report = new Bundle();
+        report.putString(KEY_PREFIX + TYPE_SINGULAR, capture.getAbsolutePath());
+        sInstrumentation.sendStatus(INST_STATUS_IN_PROGRESS, report);
     }
 
-    private static void saveFile(String className, String testName, String fileName, Bitmap bitmap) {
-        BitmapUtils.saveBitmap(bitmap, CAPTURE_SUB_DIRECTORY + className,
-                testName + "_" + fileName);
+    private static void logIfBitmapSolidColor(String fileName, Bitmap bitmap) {
+        int firstColor = bitmap.getPixel(0, 0);
+        for (int x = 0; x < bitmap.getWidth(); x++) {
+            for (int y = 0; y < bitmap.getHeight(); y++) {
+                if (bitmap.getPixel(x, y) != firstColor) {
+                    return;
+                }
+            }
+        }
+
+        Log.w(TAG, String.format("%s entire bitmap color is %x", fileName, firstColor));
+    }
+
+    private static void saveBitmap(Bitmap bitmap, File file) {
+        if (bitmap == null) {
+            Log.d(TAG, "File not saved, bitmap was null");
+            return;
+        }
+
+        logIfBitmapSolidColor(file.getName(), bitmap);
+
+        try (FileOutputStream fileStream = new FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 0 /* ignored for PNG */, fileStream);
+            fileStream.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

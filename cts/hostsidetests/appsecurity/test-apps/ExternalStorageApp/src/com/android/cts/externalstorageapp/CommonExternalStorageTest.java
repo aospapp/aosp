@@ -103,7 +103,7 @@ public class CommonExternalStorageTest extends AndroidTestCase {
      * Verify we can write to our own package dirs.
      */
     public void testAllPackageDirsWritable() throws Exception {
-        final long testValue = 12345000;
+        final long testValue = 1234500000000L;
         final List<File> paths = getAllPackageSpecificPaths(getContext());
         for (File path : paths) {
             assertNotNull("Valid media must be inserted during CTS", path);
@@ -169,7 +169,22 @@ public class CommonExternalStorageTest extends AndroidTestCase {
 
     public static List<File> getAllPackageSpecificObbGiftPaths(Context context,
             String targetPackageName) {
-        final File[] files = context.getObbDirs();
+        final List<File> targetFiles = new ArrayList<>();
+        final File obbDir = context.getObbDir();
+        final File targetObbDir = new File(
+                obbDir.getAbsolutePath().replace(context.getPackageName(), targetPackageName));
+        targetFiles.add(new File(targetObbDir, targetPackageName + ".gift"));
+        return targetFiles;
+    }
+
+    /**
+     * Return a set of several package-specific external storage paths pointing
+     * at "gift" files designed to be exchanged with the target package in Q.
+     * These directories can't be used to exchange "gift" files in R.
+     */
+    public static List<File> getAllPackageSpecificNoGiftPaths(Context context,
+            String targetPackageName) {
+        final List<File> files = getPrimaryPackageSpecificPathsExceptMedia(context);
         final List<File> targetFiles = new ArrayList<>();
         for (File file : files) {
             final File targetFile = new File(
@@ -179,20 +194,12 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         return targetFiles;
     }
 
-    /**
-     * Return a set of several package-specific external storage paths pointing
-     * at "gift" files designed to be exchanged with the target package.
-     */
-    public static List<File> getAllPackageSpecificGiftPaths(Context context,
-            String targetPackageName) {
-        final List<File> files = getPrimaryPackageSpecificPaths(context);
-        final List<File> targetFiles = new ArrayList<>();
-        for (File file : files) {
-            final File targetFile = new File(
-                    file.getAbsolutePath().replace(context.getPackageName(), targetPackageName));
-            targetFiles.add(new File(targetFile, targetPackageName + ".gift"));
-        }
-        return targetFiles;
+    public static List<File> getPrimaryPackageSpecificPathsExceptMedia(Context context) {
+        final List<File> paths = new ArrayList<File>();
+        Collections.addAll(paths, context.getExternalCacheDir());
+        Collections.addAll(paths, context.getExternalFilesDir(null));
+        Collections.addAll(paths, context.getObbDir());
+        return paths;
     }
 
     public static List<File> getPrimaryPackageSpecificPaths(Context context) {
@@ -258,9 +265,7 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         Log.d(TAG, "Asserting read-only access to " + path);
 
         assertTrue("exists", path.exists());
-        assertTrue("read", path.canRead());
         assertTrue("execute", path.canExecute());
-        assertNotNull("list", path.list());
 
         try {
             final File probe = buildProbeFile(path);
@@ -270,6 +275,12 @@ public class CommonExternalStorageTest extends AndroidTestCase {
             fail("able to create probe!");
         } catch (IOException e) {
             // expected
+        }
+    }
+
+    public static void assertDirReadWriteAccess(File[] paths) {
+        for (File path : paths) {
+            assertDirReadWriteAccess(path);
         }
     }
 
@@ -294,9 +305,6 @@ public class CommonExternalStorageTest extends AndroidTestCase {
 
     public static void assertDirNoAccess(File path) {
         Log.d(TAG, "Asserting no access to " + path);
-
-        assertFalse("read", path.canRead());
-        assertNull("list", path.list());
 
         try {
             final File probe = buildProbeFile(path);
@@ -324,21 +332,6 @@ public class CommonExternalStorageTest extends AndroidTestCase {
             assertFalse(probe.exists());
             assertFalse(probe.delete());
             fail("able to create probe!");
-        } catch (IOException e) {
-            // expected
-        }
-    }
-
-    public static void assertFileReadOnlyAccess(File path) {
-        try {
-            new FileInputStream(path).close();
-        } catch (IOException e) {
-            fail("failed to read!");
-        }
-
-        try {
-            new FileOutputStream(path, true).close();
-            fail("able to write!");
         } catch (IOException e) {
             // expected
         }
